@@ -18,8 +18,9 @@ def core(lua):
 
 
 @pytest.fixture
-def frames(core):
-    """HogHeals + HogHeals_Frames loaded and logged in."""
-    core.load_addon("HogHeals_Frames")
-    core.player_login()
-    return core
+def frames(lua):
+    """HogHeals + HogHeals_Frames loaded (WoW order: all ADDON_LOADED, then one PLAYER_LOGIN)."""
+    lua.load_addon("HogHeals")
+    lua.load_addon("HogHeals_Frames")
+    lua.player_login()
+    return lua

@@ -3,7 +3,7 @@ HogHealsFrames = HogHealsFrames or {}
 local HHF = HogHealsFrames
 local HH = HogHeals
 
-local Frames = HH:RegisterModule("Frames", {})
+local Frames = {}
 HHF.module = Frames
 
 function Frames:OnInitialize()
@@ -45,3 +45,5 @@ end
 function Frames:LayoutFor(bucket)
   return self.db.layouts[bucket or self.bucket or "party"]
 end
+
+HH:RegisterModule("Frames", Frames)
