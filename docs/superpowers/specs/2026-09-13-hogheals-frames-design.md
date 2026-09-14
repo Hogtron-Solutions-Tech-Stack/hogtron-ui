@@ -6,11 +6,15 @@ Author: Sean Bilger + Claude (Fable 5.1)
 
 ## 0. Why
 
-World of Warcraft: Forever (Classic+, BlizzCon 2026) launches soon; Hardcore
-follows "later this Winter". Sean heals (Priest 60 on Era, Resto Shaman on
+World of Warcraft: Forever (Classic+, BlizzCon 2026): beta reportedly opens
+2026-09-17, launch reportedly 2026-11-04 (guild recruitment post, not a blue
+post — unconfirmed); Hardcore follows "later this Winter". Sean heals (Priest 60 on Era, Resto Shaman on
 Anniversary) and runs ~90 addons per client. Goal: a public CurseForge UI suite,
 healer-first, called **HogHeals**, that ships module by module so something is
 live at Forever launch instead of an unfinished ElvUI clone.
+
+Competitive research: `docs/superpowers/research/2026-09-13-healing-addon-research.md`
+(what VuhDo/HealBot/Cell/Grid/Clique/DandersFrames each do best; steal list).
 
 Positioning: NOT another Cell/VuhDo. Opinionated, small, modern-looking,
 mouseover-first with zero config required; customization is deep but optional.
@@ -113,7 +117,8 @@ HogHeals_Frames/
     RaidIcon.lua        raid target marker
     Name.lua            truncated name, colour by class or by reaction
   ClickCast.lua         per-class spell bindings → SecureActionButton attrs
-  TestMode.lua          /hh test → fake 5/10/20/40 units for layout work
+  TestMode.lua          /hh test → fake 5/10/20/40 units WITH simulated health
+                        changes, auras, dispels, range (Danders pattern)
   Options.lua           AceConfig table appended to core dialog
   Compat/
     Vanilla.lua         11508 shims
@@ -133,31 +138,45 @@ HogHeals_Frames/
   the combat-lockdown queue.
 - Anchor: single draggable anchor per layout, lock/unlock from `/hh`.
 
-### 4.4 Healing input
-Two lanes, both on by default:
+### 4.4 Healing input — hover-bind engine
+Research finding: the author himself heals with Clique **keyboard** hover-binds
+(`1`/`2` Greater Heal, `3` Flash Heal, `4` Renew, `F` PW:S, `Q` Dispel Magic,
+`Shift-1` Prayer of Healing). Blizzard's native click-casting cannot do this and
+it is the #1 forum complaint. So the input model is a hover-bind engine, not a
+mouse-button grid.
 
 1. **Native mouseover.** Frames are secure unit buttons (oUF gives this).
    Users' existing `[@mouseover]` macros and keybinds work with no setup.
-2. **Built-in click-cast.** `ClickCast.lua` writes `type1/spell1`,
-   `shift-type1/shift-spell1`, etc. onto every spawned frame. Binding grid:
-   Left/Right/Middle × none/Shift/Ctrl/Alt = 12 slots. Shipped default per class
-   (Priest: Left = Flash Heal, Right = Renew, Shift-Left = Greater Heal,
-   Ctrl-Left = Dispel Magic; Shaman: Left = Lesser Healing Wave, Right =
-   Healing Wave, Ctrl-Left = Cure Poison; Paladin and Druid get equivalent
-   tables). Defaults are a starting point, never enforced; users can clear all.
-   Attribute writes go through the combat-lockdown queue.
+2. **Hover-bind engine (`ClickCast.lua`).** Bind **any key or mouse button,
+   with any modifier**, to a spell, item, or macro. Implementation: a secure
+   `OnEnter`/`OnLeave` handler on every frame calls `SetBindingClick` /
+   `ClearOverrideBindings` for the keyboard slots (Clique's technique), while
+   mouse buttons use `SetAttribute("type-<button>")` attributes. No slot
+   limit. Bindings are per-class with optional per-profile override.
+   - Target fallback chain (DandersFrames pattern): **Mouseover → Focus →
+     Target → Player**, each step user-toggleable.
+   - Tooltip on hover lists the active bindings for that frame.
+   - Shipped defaults are Sean's real Clique layouts per class (Priest above;
+     Shaman `1` Healing Wave, `2` Lesser Healing Wave, `Q` Cure Poison;
+     Paladin `1` Holy Light, `2` Flash of Light, `Q` Cleanse/Purify; Druid `1`
+     Healing Touch, `2` Regrowth, `3` Rejuvenation, `Q` Remove Curse).
+     Defaults are a starting point, never enforced; users can clear all.
+   - Attribute and binding writes go through the combat-lockdown queue.
 
 Decision: no Clique dependency. If Clique is loaded, HogHeals frames register
 with Clique's frame registry so Clique users keep their bindings, and the
-built-in grid shows a notice that Clique is in control.
+built-in engine shows a notice that Clique is in control.
 
 ### 4.5 Indicators (MVP list — fixed, no additions before release)
 - Health bar: class colour (default) or deficit colour scale (green→red).
 - Health text: percent, deficit, or none.
 - Incoming heals overlay.
 - Power bar (thin, bottom), toggleable.
-- Dispel indicator: icon + border colour for debuffs the **player's class can
-  dispel** on the current client:
+- Dispel indicator for debuffs the **player's class can dispel** on the current
+  client. Display style is the user's choice — **icon, bar colour, or border**
+  (Cell is criticised for "icons for everything"; HealBot users triage by bar
+  colour). One additional "big priority debuff" slot (BigDebuffs pattern).
+  Class table:
   - Priest: Magic, Disease
   - Shaman: Poison, Disease
   - Paladin: Magic, Poison, Disease
@@ -165,6 +184,10 @@ built-in grid shows a notice that Clique is in control.
   - Mage: Curse
   - everyone else: none (indicator hidden)
 - Range fade (alpha 0.4 out of range).
+- **Health-threshold fade**: fade frames above N% health (default 90%) so
+  damaged players pop (DandersFrames pattern; off by default, one toggle).
+- Incoming heals split **mine / others / all**, plus overheal marker.
+- "Me + pet when solo" option (default-frames complaint).
 - Aggro border (red at threat status ≥ 2).
 - Dead / Ghost / Offline / AFK text state.
 - Raid target icon.
@@ -182,6 +205,11 @@ raid, WeakAura-style custom indicators.
 - Colours: every indicator colour, class-colour toggle.
 - Indicators: toggle each MVP indicator.
 - Click-cast: 12-slot grid with spell picker.
+- **Setup wizard** on first load: class → layout preset → binding preset →
+  done in under a minute (VuhDo/Danders pattern; kills the learning-curve
+  complaint). Re-runnable from `/hh wizard`.
+- Shipped presets: per-class defaults + an **Accessibility** preset (large
+  frames, mouse-only bindings, minimal indicators — HealBot's RA-user story).
 - Profiles: AceDBOptions (new / copy / delete / per-char), plus
   export/import string (LibDeflate + AceSerializer) so Sean can hand a
   profile to guildmates.
@@ -232,6 +260,13 @@ screenshot or the error text. Release notes state which rows were run.
 - Versioning: semver; `1.0.0` = first CurseForge release of Frames.
 
 ### 4.11 Landmines (known before we start)
+- **Forever addon-API stance is undecided.** Midnight (Retail 12.0, Jan 2026)
+  cut real-time combat data; VuhDo went "incompatible". Forever's base
+  (Classic-open vs Midnight-restricted) is in the Live Q&A question pool for
+  **2026-09-17** and the beta client will show it. Rule: hover-bind engine,
+  layouts, health colouring, profiles must NEVER depend on restricted data;
+  aura-based indicators (dispel filter, incoming heals) sit behind one
+  `Compat/` capability flag and degrade gracefully instead of erroring.
 - Forever TOC interface number and any API changes unknown until beta.
   Detect: beta client `.build.info` Version field. Fix: `Compat/Forever.lua`.
 - Cell already has `Cell_Vanilla.toc`, `_TBC.toc` — same multi-toc pattern;
@@ -253,6 +288,9 @@ screenshot or the error text. Release notes state which rows were run.
 - 2026-09-13 Foundation: Ace3 + oUF + LibHealComm, not a custom framework (Claude, approved).
 - 2026-09-13 Controller mode deferred to module 5 pending Forever beta (Sean: keyboard/mouse only).
 - 2026-09-13 Public repo + MIT (Claude default; Sean to confirm at spec review).
+- 2026-09-13 Input model = hover-bind engine (any key + modifier while hovering),
+  not a mouse-button grid — driven by Sean's own Clique config + forum research.
+- 2026-09-13 Steal list adopted from research doc; items 1–10 in 1.0, 11–14 deferred.
 
 ## 6. Out of scope for this spec
 Modules 2–5 (each gets its own spec). Retail support. Buff tracking.
