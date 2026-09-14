@@ -25,6 +25,6 @@ Elements\AoEHealing.lua
 Elements\HealPrediction.lua
 ClickCast.lua
 TestMode.lua
-Wizard.lua
-Options.lua
 Frames.lua
+Options.lua
+Wizard.lua
