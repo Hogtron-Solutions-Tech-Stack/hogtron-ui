@@ -116,6 +116,13 @@ HogHeals_Frames/
     Aggro.lua           threat border (UNIT_THREAT_SITUATION_UPDATE)
     RaidIcon.lua        raid target marker
     Name.lua            truncated name, colour by class or by reaction
+    AoEHealing.lua      highlight units inside my AoE heal (PoH = my party;
+                        Chain Heal = jump range from mouseover) — Cell pattern
+    MissingBuffs.lua    icon when unit lacks a buff I can cast (Fort/Spirit/
+                        Earth Shield/MotW); click-cast rebuff friendly
+    MyShield.lua        my PW:S / Earth Shield on unit + Weakened Soul timer
+    Thresholds.lua      tick marks on health bar at user % (35/50/…)
+    StatusIcons.lua     summon/res pending, ready-check state, leader/assist
   ClickCast.lua         per-class spell bindings → SecureActionButton attrs
   TestMode.lua          /hh test → fake 5/10/20/40 units WITH simulated health
                         changes, auras, dispels, range (Danders pattern)
@@ -192,8 +199,24 @@ built-in engine shows a notice that Clique is in control.
 - Dead / Ghost / Offline / AFK text state.
 - Raid target icon.
 - Name, truncated to N characters, configurable.
+- **AoE-heal highlight** (Cell `aoeHealing`): units inside my group-heal
+  scope light up — Priest Prayer of Healing = own party; Shaman Chain Heal =
+  units within jump range of the hovered target. Data source: group
+  membership + LibRangeCheck; no aura data needed.
+- **Missing-buff icon** (Cell `missingBuffs`): unit lacks a buff I can cast
+  (Priest Fort/Spirit/Shadow Prot; Shaman Earth Shield; Druid MotW/Thorns;
+  Paladin Blessings; Mage AI). Class table shipped, user-editable.
+- **My shield** (Cell `powerWordShield`/`shieldBar`): my PW:S or Earth Shield
+  active on unit, plus Weakened Soul remaining time.
+- **Health thresholds** (Cell `healthThresholds`): tick marks on the bar at
+  user-set percentages (defaults 35, 50).
+- **Status icons** (Cell `statusIcon`/`readyCheckIcon`/`leaderIcon`): summon
+  or resurrection pending, ready-check yes/no/waiting, leader/assist badge.
 
-Explicit non-goals for v1: buff tracking, custom aura lists, role icons
+Aura-dependent items in this list (dispel, missing-buff, my-shield, incoming
+heals) sit behind the `Compat/` capability flag from §4.11.
+
+Explicit non-goals for v1: general buff tracking, custom aura lists, role icons
 (Classic has none), leader/assist icons, spotlight/tank frames, pet frames in
 raid, WeakAura-style custom indicators.
 
@@ -291,6 +314,12 @@ screenshot or the error text. Release notes state which rows were run.
 - 2026-09-13 Input model = hover-bind engine (any key + modifier while hovering),
   not a mouse-button grid — driven by Sean's own Clique config + forum research.
 - 2026-09-13 Steal list adopted from research doc; items 1–10 in 1.0, 11–14 deferred.
+- 2026-09-13 Cell indicators added to Frames 1.0 (Sean): aoeHealing, missingBuffs,
+  my shield, healthThresholds, status/readyCheck/leader icons. Parked: raidDebuffs +
+  Request_Dispel → later `HogHeals_RaidDebuffs` data pack after beta. Deferred:
+  crowdControls, targetCounter (PvP), Utilities → QoL module.
+- 2026-09-13 Cell licence = all rights reserved / private-mod only → patterns
+  and feature lists only, zero code reuse (verified from LICENSE.txt on disk).
 
 ## 6. Out of scope for this spec
 Modules 2–5 (each gets its own spec). Retail support. Buff tracking.
