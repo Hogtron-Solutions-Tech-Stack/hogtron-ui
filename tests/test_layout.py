@@ -24,7 +24,7 @@ def test_raid_groups_wrap(frames):
     g3 = (pts[11]["x"], pts[11]["y"])
     assert g1 == (0, 0)
     assert g2 == (86, 0)              # 80 + 6 group spacing
-    assert g3 == (0, -(5 * 22 + 6))    # under group 1: 5 units * (20+2) + group spacing
+    assert g3 == (0, -(5 * 22 - 2 + 6))  # under group 1: bottom of 5th unit (-108) minus group spacing
 
 
 def test_header_attributes_down(frames):
