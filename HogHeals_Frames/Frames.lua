@@ -15,6 +15,7 @@ function Frames:OnEnable()
   HHF.UnitButton.FinalizeElements()
   if HHF.Compat and HHF.Compat.Init then HHF.Compat.Init() end
   if HHF.ClickCast and HHF.ClickCast.Init then HHF.ClickCast.Init() end
+  if HHF.RequestDispel and HHF.RequestDispel.Init then HHF.RequestDispel.Init() end
   HH:RunOutOfCombat(function()
     if HHF.Headers and HHF.Headers.Spawn then HHF.Headers.Spawn() end
     self:ApplyProfile(HH:CurrentBucket())

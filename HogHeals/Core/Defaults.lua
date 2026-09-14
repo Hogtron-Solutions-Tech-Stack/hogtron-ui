@@ -48,7 +48,7 @@ HH.defaults = {
         health = true, power = true, name = true, healPrediction = true,
         dispel = true, range = true, aggro = true, raidIcon = true, statusIcons = true,
         missingBuffs = true, myShield = true, thresholds = true, aoeHealing = true,
-        priorityDebuff = true,
+        priorityDebuff = true, requestGlow = true,
       },
       dispel = { style = "icon", priorityDebuffs = {} },  -- style: "icon" | "color" | "border"
       thresholds = { 35, 50 },

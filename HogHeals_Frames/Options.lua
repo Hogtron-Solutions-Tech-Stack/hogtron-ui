@@ -8,10 +8,10 @@ local INDICATOR_LABELS = {
   dispel = "Dispellable debuff (my class)", priorityDebuff = "Priority debuff slot", range = "Range fade",
   aggro = "Aggro border", raidIcon = "Raid target icon", statusIcons = "Status icons (ready/res/summon/leader)",
   missingBuffs = "Missing buff I can cast", myShield = "My shield + Weakened Soul", thresholds = "Health threshold ticks",
-  aoeHealing = "AoE-heal scope highlight",
+  aoeHealing = "AoE-heal scope highlight", requestGlow = "Dispel-request glow (/hh dispelme from others)",
 }
 local INDICATOR_ORDER = { "health", "power", "name", "healPrediction", "dispel", "priorityDebuff", "range", "aggro",
-  "raidIcon", "statusIcons", "missingBuffs", "myShield", "thresholds", "aoeHealing" }
+  "raidIcon", "statusIcons", "missingBuffs", "myShield", "thresholds", "aoeHealing", "requestGlow" }
 
 local function frames() return HH.db.profile.frames end
 local function layout() return HHF.module:LayoutFor() end

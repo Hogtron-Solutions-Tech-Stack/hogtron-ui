@@ -9,7 +9,8 @@ local function inRange(unit)
   local LRC = LibStub and LibStub("LibRangeCheck-3.0", true)
   if LRC and LRC.GetRange then
     local min, max = LRC:GetRange(unit)
-    if min ~= nil then return (max ~= nil and max <= 40) or (min <= 40 and max ~= nil) end
+    -- max == nil means "beyond the furthest checker" (out of range); otherwise max is the upper bound.
+    if min ~= nil then return max ~= nil and max <= 40 end
   end
   local r, checked = UnitInRange(unit)
   if checked then return r end

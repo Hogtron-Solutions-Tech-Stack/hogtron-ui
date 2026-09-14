@@ -119,6 +119,11 @@ function UnitButton.Setup(button)
   button.aoeGlow:SetColorTexture(0.13, 0.83, 0.88, 0.25)
   button.aoeGlow:Hide()
 
+  button.requestGlow = mkTexture(button, "OVERLAY", 6)
+  button.requestGlow:SetAllPoints(button)
+  button.requestGlow:SetColorTexture(0.13, 0.83, 0.88, 0.35)
+  button.requestGlow:Hide()
+
   button.thresholds = {}
 
   button:SetScript("OnAttributeChanged", UnitButton.OnAttributeChanged)

@@ -24,6 +24,7 @@ Elements\Thresholds.lua
 Elements\AoEHealing.lua
 Elements\HealPrediction.lua
 ClickCast.lua
+RequestDispel.lua
 TestMode.lua
 Frames.lua
 Options.lua
