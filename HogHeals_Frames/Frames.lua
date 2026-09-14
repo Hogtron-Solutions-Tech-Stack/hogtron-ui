@@ -12,6 +12,7 @@ end
 
 function Frames:OnEnable()
   self.db = HH.db.profile.frames
+  HHF.UnitButton.FinalizeElements()
   if HHF.Compat and HHF.Compat.Init then HHF.Compat.Init() end
   if HHF.ClickCast and HHF.ClickCast.Init then HHF.ClickCast.Init() end
   HH:RunOutOfCombat(function()

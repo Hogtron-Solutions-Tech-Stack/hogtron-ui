@@ -207,7 +207,11 @@ function UnitClass(u) if u == "player" then MockUnits.player.class = MockState.p
 local Region = {}
 Region.__index = function(t, k)
   if rawget(Region, k) then return rawget(Region, k) end
-  return function(self, ...) self._calls[k] = (self._calls[k] or 0) + 1; self._last[k] = { ... } end
+  -- Only method-like names (Uppercase first letter) get a recording no-op; plain fields read as nil.
+  if type(k) == "string" and k:match("^[A-Z]") then
+    return function(self, ...) self._calls[k] = (self._calls[k] or 0) + 1; self._last[k] = { ... } end
+  end
+  return nil
 end
 local regionCounter = 0
 local function newRegion(kind, name, parent)

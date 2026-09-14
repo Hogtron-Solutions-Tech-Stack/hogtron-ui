@@ -232,6 +232,38 @@ function UnitButton.OnLeave(button)
   if HHF.Elements.aoeHealing then HHF.Elements.aoeHealing.OnLeave(button) end
 end
 
+
+-- ---------------------------------------------------------------- alpha by reason + tickers
+--- Several elements want to fade a button (range, health-threshold). Final alpha = min of all reasons.
+function UnitButton.SetAlphaReason(button, reason, alpha)
+  button._alphas = button._alphas or {}
+  button._alphas[reason] = alpha
+  local final = 1
+  for _, a in pairs(button._alphas) do if a < final then final = a end end
+  button:SetAlpha(final)
+end
+
+local tickers = {}
+--- Elements with a numeric `Ticker` field are polled every that-many seconds on every live button.
+function UnitButton.StartTickers()
+  for _, t in pairs(tickers) do if t.Cancel then t:Cancel() end end
+  wipe(tickers)
+  for _, name in ipairs(HHF.ElementOrder) do
+    local el = HHF.Elements[name]
+    if el.Ticker and C_Timer and C_Timer.NewTicker then
+      tickers[name] = C_Timer.NewTicker(el.Ticker, function()
+        if not elementEnabled(name) then return end
+        for _, button in ipairs(buttons) do
+          if button.unit and button:IsShown() then
+            local ok, err = pcall(el.Update, button, button.unit)
+            if not ok then HH:LogError(name .. ": " .. tostring(err)) end
+          end
+        end
+      end)
+    end
+  end
+end
+
 -- Precompute EventSet for elements registered after this file loads.
 function UnitButton.FinalizeElements()
   for _, name in ipairs(HHF.ElementOrder) do
@@ -239,4 +271,5 @@ function UnitButton.FinalizeElements()
     el.EventSet = {}
     for _, ev in ipairs(el.Events or {}) do el.EventSet[ev] = true end
   end
+  UnitButton.StartTickers()
 end
