@@ -1,0 +1,19 @@
+## Interface: 20505,11508
+## Title: |cffF5EBDCHog|r|cff21D4E0Heals|r
+## Notes: Healer-first UI suite for WoW: Forever / Classic. Core module.
+## Author: HogTron Solutions (Sean Bilger)
+## Version: 0.1.0
+## SavedVariables: HogHealsDB
+## X-Category: UnitFrame
+## X-License: MIT
+## X-Website: https://github.com/sbilger/hogheals
+
+embeds.xml
+Media\palette.lua
+Core.lua
+Core\GroupSize.lua
+Core\Queue.lua
+Core\ClassData.lua
+Core\Defaults.lua
+Core\Migrate.lua
+Core\Options.lua

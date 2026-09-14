@@ -9,6 +9,15 @@ MockBindings = { clicks = {}, cleared = {} }
 MockLog = { attributes = {}, errors = {} }
 MockTimers = {}
 
+-- WoW's xpcall forwards varargs; vanilla Lua 5.1 does not. Ace3 depends on the WoW behaviour.
+do
+  local _xpcall, _unpack, _select = xpcall, unpack, select
+  function xpcall(f, h, ...)
+    local n, args = _select("#", ...), { ... }
+    return _xpcall(function() return f(_unpack(args, 1, n)) end, h)
+  end
+end
+
 -- ---------- constants ----------
 WOW_PROJECT_MAINLINE = 1
 WOW_PROJECT_CLASSIC = 2
@@ -328,3 +337,14 @@ function Minimap:GetZoom() return 0 end
 
 function UnitRace(u) return "Undead", "Scourge" end
 function UnitSex() return 2 end
+function GetCurrentRegion() return 1 end
+function GetNormalizedRealmName() return "Nightslayer" end
+function GetSpecialization() return nil end
+function GetActiveSpecGroup() return 1 end
+function UnitClassBase(u) return select(2, UnitClass(u)) end
+function GetNumTalentTabs() return 3 end
+function GetTalentTabInfo(i) return "Tab" .. i, "", 0 end
+function ChatEdit_GetActiveWindow() return nil end
+function ChatEdit_GetLastActiveWindow() return nil end
+function ChatFrame_AddMessageEventFilter() end
+ChatFontNormal = GameFontNormal
