@@ -149,7 +149,8 @@ function UnitHealth(u) local m = U(u) return m and m.health or 0 end
 function UnitHealthMax(u) local m = U(u) return m and (m.maxHealth or 100) or 0 end
 function UnitPower(u) local m = U(u) return m and (m.power or 100) or 0 end
 function UnitPowerMax(u) local m = U(u) return m and (m.maxPower or 100) or 0 end
-function UnitPowerType(u) local m = U(u) local t = (m and m.powerType) or "MANA"
+local CLASS_POWER = { WARRIOR = "RAGE", ROGUE = "ENERGY", DRUID = "MANA" }
+function UnitPowerType(u) local m = U(u) local t = (m and (m.powerType or CLASS_POWER[m.class])) or "MANA"
   local ids = { MANA = 0, RAGE = 1, ENERGY = 3, FOCUS = 2 } return ids[t] or 0, t end
 function UnitIsDead(u) local m = U(u) return m and m.dead or false end
 function UnitIsGhost(u) local m = U(u) return m and m.ghost or false end

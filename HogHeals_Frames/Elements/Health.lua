@@ -32,6 +32,10 @@ function E.Update(button, unit)
     local c = class and RAID_CLASS_COLORS[class]
     if c then button.health:SetStatusBarColor(c.r, c.g, c.b) else button.health:SetStatusBarColor(0.6, 0.6, 0.6) end
   end
+  -- dispel "color" style owns the bar colour while a dispellable debuff is up
+  if button.dispelColored and button.dispelColor then
+    button.health:SetStatusBarColor(button.dispelColor[1], button.dispelColor[2], button.dispelColor[3])
+  end
   button.health.bg:SetColorTexture(0.15, 0.15, 0.17, 0.8)
 
   -- state text beats numbers
