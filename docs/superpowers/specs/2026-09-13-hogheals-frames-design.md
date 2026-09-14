@@ -328,3 +328,15 @@ screenshot or the error text. Release notes state which rows were run.
 ## 6. Out of scope for this spec
 Modules 2–5 (each gets its own spec). Retail support. Buff tracking.
 Custom aura editor. Any HogTron marketing assets.
+
+## 7. Build-time deviations (2026-09-13 overnight, flagged for Sean)
+- **AoE-heal scope for Chain Heal** uses the hovered unit's *subgroup* as the proximity proxy: addons
+  cannot read unit-to-unit distance inside instances, so true jump-range highlighting is impossible.
+  Prayer of Healing / Tranquility scope (own party) is exact.
+- **Test mode** on the real client paints fake data directly (no unit API for fake units); under the
+  test harness it routes through the real elements. Both paths exist in `TestMode.lua`.
+- **Request_Dispel** (Cell item 6a) pulled forward into Frames 1.0 — API-safe, ~80 lines. See
+  `2026-09-13-addendum-items-6-8.md`.
+- **Pets**: `showPets` exists in the layout profile but no pet header is spawned in 1.0.
+- **Settings mockups** are generated from the live AceConfig table (`dev/render_mockups.py`) into
+  `docs/mockups/*.png`, so they cannot drift from the code.
