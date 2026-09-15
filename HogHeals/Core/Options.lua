@@ -68,6 +68,9 @@ function HH:SetLocked(locked)
   if Frames and HogHealsFrames and HogHealsFrames.Headers and HogHealsFrames.Headers.SetLocked then
     HogHealsFrames.Headers.SetLocked(self.db.profile.locked)
   end
+  for _, m in pairs(self.modules) do
+    if m.SetLocked then self:SafeCall(m, "SetLocked", self.db.profile.locked) end
+  end
   self:Print(self.db.profile.locked and "Frames locked." or "Frames unlocked — drag the anchor, then /hh lock.")
 end
 
