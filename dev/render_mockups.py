@@ -177,6 +177,38 @@ def frames_preview_html():
     return f"""<!doctype html><html><head><meta charset="utf-8"><style>{CSS}</style></head><body><div class="win"><div class="title"><b><span class="h">Hog</span><span class="t">Heals</span> &nbsp;<span style="color:var(--muted);font-weight:400">Frames preview — /hh test 20</span></b><span class="x">✕</span></div><div class="stage">{''.join(out)}</div><div class="foot"><span>Mockup: what the frames look like in game with defaults</span><span>hover-binds: 1/2 Greater Heal · 3 Flash Heal · 4 Renew · F PW:S · Q Dispel · Shift-1 PoH</span></div></div></body></html>"""
 
 
+def hud_strip_html():
+    strip = (
+        '<div class="tag">HUD strip 260px · centred, y −180 · castbar / mana+FSR / info line</div>'
+        '<div style="position:absolute;left:460px;top:250px;width:260px">'
+        '  <div style="position:relative;height:18px;background:#121217;border:1px solid #2a2a33">'
+        '    <div style="position:absolute;left:-22px;top:0;width:18px;height:18px;background:#3b6fb6;border:1px solid #888"></div>'
+        '    <div style="position:absolute;left:0;top:0;bottom:0;width:58%;background:#21D4E0"></div>'
+        '    <div style="position:absolute;right:0;top:0;bottom:0;width:10%;background:#d9363699"></div>'
+        '    <div style="position:absolute;left:58%;top:-3px;width:3px;height:24px;background:#fff;box-shadow:0 0 6px #fff"></div>'
+        '    <div style="position:absolute;left:5px;top:2px;font-size:11px;font-weight:600;text-shadow:0 0 3px #000">Greater Heal → Zugzug</div>'
+        '    <div style="position:absolute;right:5px;top:2px;font-size:11px;text-shadow:0 0 3px #000">1.1</div>'
+        '  </div>'
+        '  <div style="position:relative;height:12px;margin-top:2px;background:#121217;border:1px solid #2a2a33">'
+        '    <div style="position:absolute;left:0;top:0;bottom:0;width:72%;background:#2290f2"></div>'
+        '    <div style="position:absolute;left:0;top:0;bottom:0;width:38%;background:#21D4E059"></div>'
+        '    <div style="position:absolute;left:4px;top:-1px;font-size:9px;color:#F5EBDC">3.2</div>'
+        '    <div style="position:absolute;left:50%;top:0;font-size:9px;transform:translateX(-50%);text-shadow:0 0 3px #000">4 320 / 6 000</div>'
+        '  </div>'
+        '  <div style="position:relative;height:14px;margin-top:2px;font-size:11px">'
+        '    <span style="position:absolute;left:2px;color:#F5A623">OOM 1:42 · 2:15 · at 5:00: 31%</span>'
+        '    <span style="position:absolute;right:2px;color:#F5EBDC">GH r3 (1.4k) · FH r6 (1.1k)</span>'
+        '  </div>'
+        '</div>'
+        '<div class="legend"><b>HUD rows</b><br>▮ castbar: icon, name → target, remaining time<br>'
+        '<span style="color:#d93636">▮</span> latency segment (world ms) at the end<br>│ spark at the fill edge<br>'
+        '▮ mana bar with current / max text<br><span style="color:#21D4E0">▮</span> five-second-rule drain overlay + countdown<br>'
+        '│ regen tick spark every 2 s after the window<br><span style="color:#F5A623">OOM 1:42</span> time-to-OOM (amber &lt; 60 s, red &lt; 20 s) · fight timer · projected mana at target length<br>'
+        'GH r3 / FH r6 = lowest rank covering the hovered unit&#39;s missing health</div>'
+    )
+    return f"""<!doctype html><html><head><meta charset="utf-8"><style>{CSS}</style></head><body><div class="win"><div class="title"><b><span class="h">Hog</span><span class="t">Heals</span> &nbsp;<span style="color:var(--muted);font-weight:400">HUD strip preview</span></b><span class="x">✕</span></div><div class="stage">{strip}</div><div class="foot"><span>Mockup: the HUD under the character while healing</span><span>/hh unlock to drag · replaces Quartz + FiveSecondRule</span></div></div></body></html>"""
+
+
 def wizard_html():
     body = ('<div class="hdr">HogHeals setup — three quick choices</div>'
             '<div class="w full"><div class="desc">You can change everything later in /hh. Takes under a minute.</div></div>'
@@ -195,6 +227,7 @@ def main() -> int:
     l = AddonLoader().bootstrap()
     l.load_addon("HogHeals")
     l.load_addon("HogHeals_Frames")
+    l.load_addon("HogHeals_HUD")
     l.player_login()
     # give the mock a realistic bucket so "Editing layout for group size" reads sensibly
     l.execute('MockSetGroup(5, false); MockFire("GROUP_ROSTER_UPDATE")')
@@ -204,7 +237,7 @@ def main() -> int:
     ctx = l.lua.table()
     pages: list[tuple[str, str]] = []
     # General
-    tabs = ["General", "Frames"]
+    tabs = ["General", "Frames", "HUD"]
     general = lua_val(args["general"])
     pages.append(("01-general", page("General", tabs, "General", ["General"], "General", "".join(render_args(general["args"], ctx)))))
     frames_tab = lua_val(args["Frames"])
@@ -217,6 +250,16 @@ def main() -> int:
         pages.append((f"{i:02d}-frames-{key}", page(f"Frames › {side_labels[key]}", tabs, "Frames", [side_labels[k] for k in order], side_labels[key], body)))
     pages.append(("07-wizard", wizard_html()))
     pages.append(("08-frames-preview", frames_preview_html()))
+    hud_tab = lua_val(args.get("HUD"))
+    if hud_tab:
+        hsubs = lua_val(hud_tab["args"])
+        horder = ["layout", "castbar", "mana", "pacing", "advisor"]
+        hlabels = {"layout": "Layout", "castbar": "Castbar", "mana": "Mana & five-second rule", "pacing": "Mana pacing", "advisor": "Rank advisor"}
+        for i, key in enumerate(horder, start=9):
+            sub = lua_val(hsubs[key])
+            body = "".join(render_args(sub["args"], ctx))
+            pages.append((f"{i:02d}-hud-{key}", page(f"HUD › {hlabels[key]}", tabs, "HUD", [hlabels[k] for k in horder], hlabels[key], body)))
+        pages.append(("14-hud-strip", hud_strip_html()))
 
     from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
