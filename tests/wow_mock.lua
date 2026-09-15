@@ -76,7 +76,7 @@ end
 function GetTime() return MockState.time end
 function GetLocale() return MockState.locale end
 function GetBuildInfo() return "2.5.5", "60000", "Jan 1 2026", 20505 end
-function IsLoggedIn() return true end
+function IsLoggedIn() return MockState.loggedIn == true end
 function InCombatLockdown() return MockState.inCombat end
 function IsInRaid() return MockState.inRaid end
 function IsInGroup() return MockState.numGroup > 1 end
@@ -383,8 +383,8 @@ function GetShapeshiftFormInfo() return nil end
 function IsPlayerSpell() return true end
 function GetSpellCooldown() return 0, 0, 1 end
 function GetSpellCharges() return nil end
-function UnitCastingInfo(u) local m = MockUnits[u] return m and m.casting and unpack(m.casting) or nil end
-function UnitChannelInfo(u) local m = MockUnits[u] return m and m.channeling and unpack(m.channeling) or nil end
+function UnitCastingInfo(u) local m = MockUnits[u] if m and m.casting then return unpack(m.casting) end return nil end
+function UnitChannelInfo(u) local m = MockUnits[u] if m and m.channeling then return unpack(m.channeling) end return nil end
 function GetNetStats() return 0, 0, MockState.latencyHome or 50, MockState.latencyWorld or 250 end
 function GetSpellBookItemName(i, book) local s = MockState.spellbook and MockState.spellbook[i] if s then return s[1], s[2] end return nil end
 function GetSpellBookItemInfo(i) return "SPELL", i end
