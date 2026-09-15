@@ -45,9 +45,9 @@ only.
 
 | Client         | TOC suffix        | Interface | Status |
 |----------------|-------------------|-----------|--------|
-| Classic Era    | `_Vanilla.toc`    | 11508     | primary dev + test target today |
-| Anniversary/TBC| `_TBC.toc`        | 20505     | secondary test target today |
-| WoW: Forever   | `_Forever.toc`    | not yet published | file created with the Vanilla interface number; corrected the day the beta client exposes its number in `.build.info` |
+| Anniversary/TBC| multi-Interface toc | 20505   | **primary** test target (Sean's call 2026-09-13) |
+| Classic Era    | multi-Interface toc | 11508   | secondary |
+| WoW: Forever   | multi-Interface toc | not yet published | file created with the Vanilla interface number; corrected the day the beta client exposes its number in `.build.info` |
 
 Decision: until Forever beta is installed, the Vanilla client is the source of
 truth for API behaviour. Any Forever-only divergence is handled in a
@@ -90,9 +90,12 @@ frames, Show/Hide of secure headers) MUST go through this.
 ## 4. Module 1 — `HogHeals_Frames`
 
 ### 4.1 Libraries (module-local)
-- **oUF** (unit-frame framework; Classic-lineage build) — frames are oUF
-  spawns, so secure unit-button behaviour, event registration and element
-  updates are handled by a proven layer.
+- **No oUF** (amended 2026-09-13 at build time): upstream oUF master is
+  Retail-only (Interface 120100, no Classic flags) and ElvUI's Classic fork
+  is licence-tangled. Frames are built directly on Blizzard's
+  `SecureGroupHeaderTemplate` + our own `UnitButton` (the Cell/VuhDo/Danders
+  approach). Every element is a plain `Update(button, unit)` function, which
+  is what makes the unit-test harness possible.
 - **LibHealComm-4.0** — Classic Era has no native incoming-heal API.
   `UnitGetIncomingHeals` exists on TBC-lineage; the heal-prediction element
   reads LibHealComm on Vanilla and the native API elsewhere via `Compat/`.
@@ -103,6 +106,7 @@ frames, Show/Hide of secure headers) MUST go through this.
 ```
 HogHeals_Frames/
   Frames.lua            module entry, registers with core, spawns headers
+  UnitButton.lua        secure unit button factory: bars, text, indicators
   Layout.lua            pure functions: grid math, growth, anchors (unit-tested)
   Headers/
     Party.lua           oUF:SpawnHeader for party (self + 4 + pets)
@@ -131,9 +135,7 @@ HogHeals_Frames/
     Vanilla.lua         11508 shims
     TBC.lua             20505 shims
     Forever.lua         empty until beta
-  HogHeals_Frames_Vanilla.toc
-  HogHeals_Frames_TBC.toc
-  HogHeals_Frames_Forever.toc
+  HogHeals_Frames.toc   ## Interface: 20505,11508 (+Forever when known)
 ```
 
 ### 4.3 Layouts
@@ -318,9 +320,23 @@ screenshot or the error text. Release notes state which rows were run.
   my shield, healthThresholds, status/readyCheck/leader icons. Parked: raidDebuffs +
   Request_Dispel → later `HogHeals_RaidDebuffs` data pack after beta. Deferred:
   crowdControls, targetCounter (PvP), Utilities → QoL module.
+- 2026-09-13 Build-time: oUF dropped (Retail-only upstream) → own SecureGroupHeader
+  unit buttons; single multi-Interface toc; Anniversary primary target (Sean).
 - 2026-09-13 Cell licence = all rights reserved / private-mod only → patterns
   and feature lists only, zero code reuse (verified from LICENSE.txt on disk).
 
 ## 6. Out of scope for this spec
 Modules 2–5 (each gets its own spec). Retail support. Buff tracking.
 Custom aura editor. Any HogTron marketing assets.
+
+## 7. Build-time deviations (2026-09-13 overnight, flagged for Sean)
+- **AoE-heal scope for Chain Heal** uses the hovered unit's *subgroup* as the proximity proxy: addons
+  cannot read unit-to-unit distance inside instances, so true jump-range highlighting is impossible.
+  Prayer of Healing / Tranquility scope (own party) is exact.
+- **Test mode** on the real client paints fake data directly (no unit API for fake units); under the
+  test harness it routes through the real elements. Both paths exist in `TestMode.lua`.
+- **Request_Dispel** (Cell item 6a) pulled forward into Frames 1.0 — API-safe, ~80 lines. See
+  `2026-09-13-addendum-items-6-8.md`.
+- **Pets**: `showPets` exists in the layout profile but no pet header is spawned in 1.0.
+- **Settings mockups** are generated from the live AceConfig table (`dev/render_mockups.py`) into
+  `docs/mockups/*.png`, so they cannot drift from the code.

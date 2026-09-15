@@ -1,0 +1,15 @@
+package-as: HogHeals
+
+# Libraries are vendored in HogHeals/Libs (no externals) so local dev == packaged build.
+
+move-folders:
+  HogHeals/HogHeals_Frames: HogHeals_Frames
+
+ignore:
+  - tests
+  - docs
+  - dev
+  - .github
+  - .gitattributes
+  - requirements-dev.txt
+  - README.md
