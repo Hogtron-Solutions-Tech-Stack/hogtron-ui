@@ -58,7 +58,7 @@ HH.defaults = {
       fallback = { mouseover = true, focus = false, target = true, player = true },
     },
     hud = {
-      x = 0, y = -180, width = 260, followFrames = false,
+      x = 0, y = -180, width = 300, followFrames = false,
       castbarHeight = 18, manaHeight = 12, infoHeight = 14, rowSpacing = 2,
       showCastbar = true, showMana = true, showInfo = true,
       font = "Friz Quadrata TT", fontSize = 11, texture = "Blizzard",

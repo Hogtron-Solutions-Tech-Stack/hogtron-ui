@@ -179,8 +179,8 @@ def frames_preview_html():
 
 def hud_strip_html():
     strip = (
-        '<div class="tag">HUD strip 260px · centred, y −180 · castbar / mana+FSR / info line</div>'
-        '<div style="position:absolute;left:460px;top:250px;width:260px">'
+        '<div class="tag">HUD strip 300px · centred, y −180 · castbar / mana+FSR / info line</div>'
+        '<div style="position:absolute;left:460px;top:250px;width:300px">'
         '  <div style="position:relative;height:18px;background:#121217;border:1px solid #2a2a33">'
         '    <div style="position:absolute;left:-22px;top:0;width:18px;height:18px;background:#3b6fb6;border:1px solid #888"></div>'
         '    <div style="position:absolute;left:0;top:0;bottom:0;width:58%;background:#21D4E0"></div>'
