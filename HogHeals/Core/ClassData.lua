@@ -3,6 +3,9 @@ local ADDON, ns = ...
 local HH = HogHeals
 
 local function isClassicEra()
+  local _, _, _, toc = GetBuildInfo()
+  local major = math.floor((tonumber(toc) or 0) / 10000)
+  if major > 0 then return major == 1 end
   return WOW_PROJECT_ID == WOW_PROJECT_CLASSIC
 end
 
