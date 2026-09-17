@@ -328,7 +328,9 @@ function Region:CreateAnimationGroup() local g = newRegion("AnimationGroup", nil
   function g:CreateAnimation(kind) return newRegion(kind or "Animation", nil, g) end return g end
 function Region:GetEffectiveScale() return 1 end
 function Region:GetScale() return 1 end
-function Region:GetCenter() return 0, 0 end
+function Region:GetCenter() return self._cx or 0, self._cy or 0 end
+function Region:StartMoving() self._moving = true end
+function Region:StopMovingOrSizing() self._moving = false end
 function Region:GetLeft() return 0 end
 function Region:GetTop() return 0 end
 function Region:IsProtected() return self._protected or false end
