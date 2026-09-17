@@ -20,9 +20,15 @@ def errors(frames):
 
 def test_mock_secret_behaves_like_the_client(frames):
     frames.execute('MockSetSecrets(true)')
-    for expr in ('UnitHealth("player") + 1', 'UnitHealth("player") < 5', '#UnitName("player")', 'UnitName("player") .. "x"'):
+    # exactly what diag.secretProbe measured on the beta client
+    for expr in ('UnitHealth("player") + 1', 'UnitHealth("player") < 5', 'UnitHealth("player") / UnitHealthMax("player")', 'UnitPower("player") + 0'):
         with pytest.raises(Exception):
             frames.eval(expr)
+    assert frames.eval('("%d"):format(UnitHealth("player"))') == "100"
+    assert frames.eval('"x" .. UnitHealth("player")') == "x100"
+    assert frames.eval('tostring(UnitHealth("player"))') == "100"
+    assert frames.eval('issecretvalue(UnitHealthMax("player"))') is False
+    assert frames.eval('issecretvalue(UnitName("player"))') is False
     assert frames.eval('issecretvalue(UnitHealth("player"))') is True
     assert frames.eval('issecretvalue(5)') is False
 
@@ -32,6 +38,14 @@ def test_health_name_power_draw_with_secret_values(frames):
     assert errors(f) == []
     assert f.eval('HH_s.health._value') == 40 and f.eval('HH_s.health._max') == 100
     assert f.eval('HH_s.power._value') == 30 and f.eval('HH_s.power._max') == 60
+    assert f.eval('HH_s.name._text') == "Thrallsb"      # names are not secret on the beta: normal truncation
+
+
+def test_secret_name_is_clipped_by_the_widget_not_by_lua(frames):
+    # C_Secrets.ShouldUnitIdentityBeSecret exists, so names CAN go secret; then we may not measure them.
+    frames.execute('MockState.secretNames = true')
+    f = btn(frames)
+    assert errors(f) == []
     assert f.eval('HH_s.name._text') == "Thrallsbane"
 
 
@@ -64,6 +78,6 @@ def test_open_client_unchanged(frames):
 def test_secret_probe_recorded_for_remote_debugging(frames):
     frames.execute('MockSetSecrets(true); HogHeals:SnapshotClient()')
     p = frames.eval('HogHeals.db.global.diag.client.secretProbe')
-    assert p["secret.UnitHealth"] is True and p["secret.UnitName"] is True
-    assert p["op.hp+0"] is False and p["op.#name"] is False
+    assert p["secret.UnitHealth"] is True and p["secret.UnitHealthMax"] is False
+    assert p["op.hp+0"] is False and p["op.format%d"] is True
     assert "api.UnitHealthPercent" in p

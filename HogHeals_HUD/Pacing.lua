@@ -75,6 +75,7 @@ end
 
 function Pacing.Tick()
   local state = Pacing.state
+  if Pacing.blocked then return end
   if not state or not state.inCombat or not cfg().enabled then return end
   Pacing.Step(state, UnitPower("player", 0), GetTime())
   render()
@@ -92,6 +93,17 @@ local function clearLater()
 end
 
 function Pacing.OnEvent(_, event)
+  -- Burn rate, OOM ETA and projection are all arithmetic on the player's mana. On a secret-value client that
+  -- is impossible, so pacing stands down for the session instead of throwing from its ticker every second.
+  if HH.IsSecret(UnitPower("player", 0)) then
+    Pacing.blocked = true
+    Pacing.state = nil
+    if Pacing.ticker then Pacing.ticker:Cancel(); Pacing.ticker = nil end
+    local i = info()
+    if i then i.left:SetText("") end
+    return
+  end
+  Pacing.blocked = nil
   if event == "PLAYER_REGEN_DISABLED" then
     Pacing.state = Pacing.NewState(UnitPower("player", 0), GetTime())
     Pacing.state.inCombat = true

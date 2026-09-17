@@ -18,7 +18,8 @@ end
 
 --- A successful cast: if it cost mana, the five-second rule starts.
 function Mana.OnCast(state, mana, t)
-  if mana < state.lastMana then
+  -- Secret mana cannot be compared, so the cost is invisible: treat every successful cast as a spend.
+  if HH.IsSecret(mana) or HH.IsSecret(state.lastMana) or mana < state.lastMana then
     state.fsrEnd = t + FSR
     state.lastTick, state.nextTick = nil, nil
   end
@@ -28,6 +29,11 @@ end
 --- Observe a mana reading. Returns "tick" when a regen tick was detected outside the FSR window.
 function Mana.Observe(state, mana, t)
   local ev
+  if HH.IsSecret(mana) or HH.IsSecret(state.lastMana) then
+    -- No way to see a regen tick in a secret number; the FSR window still runs off cast events.
+    state.lastMana, state.t = mana, t
+    return nil
+  end
   if mana > state.lastMana then
     local inFsr = state.fsrEnd and t < state.fsrEnd
     if not inFsr then
@@ -54,12 +60,14 @@ function Mana.Update()
   if not r or not r.enabled then return end
   if not isMana() then r:Hide() return end
   local cur, max = UnitPower("player", 0), UnitPowerMax("player", 0)
-  if max <= 0 then max = 1 end
+  local secret = HH.IsSecret(cur) or HH.IsSecret(max)
+  if not secret and max <= 0 then max = 1 end
   r:SetMinMaxValues(0, max)
   r:SetValue(cur)
   r:SetStatusBarColor(0.13, 0.55, 0.95)
   local mode = cfg().textMode or "cur"
   if mode == "cur" then r.text:SetText(("%d / %d"):format(cur, max))
+  elseif mode == "percent" and secret then r.text:SetText(("%d / %d"):format(cur, max))  -- no division on secrets
   elseif mode == "percent" then r.text:SetText(("%d%%"):format(math.floor(cur / max * 100 + 0.5)))
   else r.text:SetText("") end
   r:Show()
