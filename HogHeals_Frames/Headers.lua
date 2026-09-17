@@ -103,6 +103,7 @@ end
 function Headers.Spawn()
   if Headers.party then return end
   anchorFrame()
+  Headers.WatchBlizzard()
   local p = newHeader("HogHealsPartyHeader")
   p:SetAttribute("showParty", true)
   p:SetAttribute("showPlayer", true)
@@ -218,6 +219,24 @@ end
 function Headers.HideBlizzard()
   if HH.db.profile.frames.hideBlizzard == false then return end
   HH:RunOutOfCombat(hideBlizzardNow)
+end
+
+-- Blizzard re-shows / re-parents its group frames on its own schedule (Edit Mode applying a layout after login,
+-- roster changes, zoning). Run the hide again on each of those; it is idempotent and out-of-combat only.
+local watcher
+function Headers.WatchBlizzard()
+  if watcher then return watcher end
+  watcher = CreateFrame("Frame")
+  for _, ev in ipairs({ "PLAYER_ENTERING_WORLD", "GROUP_ROSTER_UPDATE", "EDIT_MODE_LAYOUTS_UPDATED", "PLAYER_REGEN_ENABLED" }) do
+    pcall(watcher.RegisterEvent, watcher, ev)      -- pcall: this client throws on event names it does not know
+  end
+  watcher:SetScript("OnEvent", function(_, event)
+    Headers.HideBlizzard()
+    if event == "PLAYER_ENTERING_WORLD" and C_Timer and C_Timer.After then
+      C_Timer.After(2, Headers.HideBlizzard)       -- Edit Mode applies its layout a beat after this event
+    end
+  end)
+  return watcher
 end
 
 --- Apply a bucket layout; deferred until out of combat if needed.

@@ -49,3 +49,16 @@ def test_there_is_a_toggle_that_says_reload_is_needed_to_bring_them_back(frames)
     frames.execute('HH_found = nil; local function walk(t) for k, o in pairs(t.args or {}) do if k == "hideBlizzard" then HH_found = o end if o.type == "group" then walk(o) end end end walk(HogHeals.OptionsTable())')
     assert frames.eval('HH_found ~= nil and HH_found.type') == "toggle"
     assert "reload" in frames.eval('HH_found.desc').lower()
+
+
+def test_blizzard_frames_re_shown_by_the_client_are_hidden_again(frames):
+    frames.execute(SETUP)
+    frames.execute('MockSetGroup(3, false); HogHealsFrames.Headers.Apply("party")')
+    assert frames.eval('CompactPartyFrame:IsShown()') is False
+    # Edit Mode (or anything else) puts it back
+    frames.execute('CompactPartyFrame:SetParent(UIParent); CompactPartyFrame:Show()')
+    assert frames.eval('CompactPartyFrame:IsShown()') is True
+    frames.execute('MockFire("EDIT_MODE_LAYOUTS_UPDATED")')
+    assert frames.eval('CompactPartyFrame:IsShown()') is False
+    frames.execute('CompactPartyFrame:Show(); MockFire("PLAYER_ENTERING_WORLD")')
+    assert frames.eval('CompactPartyFrame:IsShown()') is False
