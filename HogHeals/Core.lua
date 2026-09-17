@@ -185,7 +185,47 @@ function HH:SnapshotClient()
   for name in (HH.GLOBALS_USED or ""):gmatch("[^,]+") do
     if _G[name] == nil then missing[#missing + 1] = name end
   end
+  -- Damage-meter feasibility (asked 2026-09-17). On restricted-API clients addons lose the combat log and are meant
+  -- to re-display Blizzard's own meter through C_DamageMeter. Record what THIS client really offers.
+  local meter = { api = probe("C_DamageMeter"), combatLogFn = probe("CombatLogGetCurrentEventInfo"), cCombatLog = probe("C_CombatLog"),
+    blizzFrame = probe("DamageMeter"), enumType = "", keys = "", calls = {} }
+  do
+    local ok = pcall(function()
+      local f = CreateFrame("Frame")
+      f:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+      f:UnregisterAllEvents()
+    end)
+    meter.canRegisterCLEU = ok and true or false
+    local names = {}
+    if type(C_DamageMeter) == "table" then
+      for k, v in pairs(C_DamageMeter) do
+        names[#names + 1] = tostring(k)
+        -- zero-argument getters only, under pcall: what comes back, and is it secret?
+        if type(v) == "function" and (tostring(k):match("^GetAvailable") or tostring(k):match("^Is")) then
+          local r = { pcall(v) }
+          local isv = type(issecretvalue) == "function" and issecretvalue or function() return false end
+          local first = r[2]
+          local desc = r[1] and (type(first) .. (isv(first) and ":secret" or "")) or ("ERR " .. tostring(first):sub(1, 80))
+          if r[1] and type(first) == "table" and not isv(first) then
+            local n, sample = 0, {}
+            for kk, vv in pairs(first) do
+              n = n + 1
+              if n <= 12 then sample[#sample + 1] = tostring(kk) .. "=" .. type(vv) .. (isv(vv) and ":secret" or "") end
+            end
+            desc = desc .. "[" .. n .. "] " .. table.concat(sample, " ")
+          end
+          meter.calls[tostring(k)] = desc
+        end
+      end
+    end
+    table.sort(names)
+    meter.keys = table.concat(names, ",")
+    local e, en = Enum and Enum.DamageMeterType, {}
+    if type(e) == "table" then for k, v in pairs(e) do en[#en + 1] = tostring(k) .. "=" .. tostring(v) end table.sort(en) end
+    meter.enumType = table.concat(en, ",")
+  end
   diag.client = {
+    meter = meter,
     missingGlobals = table.concat(missing, ","),
     secretProbe = sp,
     version = version, build = build, builddate = builddate, toc = toc, project = WOW_PROJECT_ID,

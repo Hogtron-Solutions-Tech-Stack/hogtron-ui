@@ -41,3 +41,26 @@ def test_probe_runs_again_on_first_combat(frames):
     frames.execute('MockSetSecrets(true); MockState.inCombat = true; MockFire("PLAYER_REGEN_DISABLED")')
     p = frames.eval('HogHeals.db.global.diag.combatProbe')
     assert p["inCombat"] is True and p["secret.UnitHealth"] is True
+
+
+def test_meter_probe_reports_absent_api_without_error(core):
+    core.execute('C_DamageMeter = nil; HogHeals:SnapshotClient()')
+    m = core.eval('HogHeals.db.global.diag.client.meter')
+    assert m["api"] == "nil" and m["keys"] == "" and m["canRegisterCLEU"] in (True, False)
+
+
+def test_meter_probe_lists_api_and_samples_zero_arg_getters(core):
+    core.execute("""C_DamageMeter = {
+      GetAvailableCombatSessions = function() return { { sessionID = 1, name = "Boar" } } end,
+      IsDamageMeterAvailable = function() return true end,
+      GetCombatSessionFromID = function(id) error("must not be called without args") end }
+    Enum = Enum or {}; Enum.DamageMeterType = { DamageDone = 0, HealingDone = 2 }
+    HogHeals:SnapshotClient()""")
+    m = core.eval('HogHeals.db.global.diag.client.meter')
+    assert m["api"] == "table"
+    assert m["keys"] == "GetAvailableCombatSessions,GetCombatSessionFromID,IsDamageMeterAvailable"
+    assert m["calls"]["GetAvailableCombatSessions"].startswith("table[1]")
+    assert m["calls"]["IsDamageMeterAvailable"] == "boolean"
+    assert "GetCombatSessionFromID" not in dict(m["calls"])
+    assert "HealingDone=2" in m["enumType"]
+    core.execute('C_DamageMeter = nil')
