@@ -92,3 +92,18 @@ def test_blizzard_frame_state_is_recorded_at_enable_and_combat(frames):
     assert frames.eval('HogHeals.db.global.diag.blizzFrames.atEnable ~= nil')
     frames.execute('MockFire("PLAYER_REGEN_DISABLED")')
     assert "CompactPartyFrame" in frames.eval('HogHeals.db.global.diag.blizzFrames.atCombat')
+
+
+def test_meter_probe_describes_session_shape_including_secrets(core):
+    core.execute("""MockSetSecrets(true)
+    C_DamageMeter = {
+      GetAvailableCombatSessions = function() return { { sessionID = 7, encounterName = "Boar" } } end,
+      GetCombatSessionFromType = function(ty) return { sessionID = 7, totalAmount = MockSecret(9000), sources = { { name = "Hog", amount = MockSecret(9000), classFilename = "SHAMAN" } } } end }
+    Enum = Enum or {}; Enum.DamageMeterType = { DamageDone = 0, HealingDone = 2 }
+    HogHeals:SnapshotClient()""")
+    m = core.eval('HogHeals.db.global.diag.client.meter')
+    s = m["session.DamageDone"]
+    assert "totalAmount=userdata:secret" in s and "sessionID=number" in s
+    assert "sources=table[1]{" in s and "amount=userdata:secret" in s and "classFilename=string" in s
+    assert m["availableSession[1]"].startswith("encounterName=string")
+    core.execute('C_DamageMeter = nil')
