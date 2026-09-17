@@ -46,3 +46,52 @@ def test_apicheck_slash_prints_flags(frames):
     frames.execute('MockLog.chat = {}; HogHeals:SlashCommand("apicheck")')
     chat = list(frames.eval('MockLog.chat').values())
     assert any("auraFilterAllowed=" in line for line in chat)
+
+
+# --- WoW: Forever beta (first seen 2026-09-17: .build.info 1.60.1.69893, product wow_classic_beta) ---
+# Its major version is 1, same as Classic Era, so "major == 1" alone would call it Era and skip the
+# restricted-API probe. Era is 1.13-1.15 (toc 113xx-115xx); Forever starts at 1.60 (toc 160xx).
+
+def forever(frames, project="WOW_PROJECT_CLASSIC"):
+    frames.execute(f'GetBuildInfo = function() return "1.60.1", "69893", "", 16001 end; WOW_PROJECT_ID = {project}; HogHealsFrames.Compat.Init()')
+    return frames.eval('HogHealsFrames.Compat')
+
+
+def test_forever_build_is_not_era(frames):
+    c = forever(frames)
+    assert c["isForever"] is True and c["isEra"] is False and c["isTBC"] is False
+
+
+def test_forever_probes_instead_of_assuming_open_api(frames):
+    frames.execute('C_UnitAuras = { AddPrivateAuraAnchor = function() end }; UnitGetIncomingHeals = nil')
+    c = forever(frames)
+    assert c["auraFilterAllowed"] is False and c["hasNativeIncoming"] is False
+    frames.execute('C_UnitAuras = nil; UnitGetIncomingHeals = function() return 0 end')
+    c = forever(frames)
+    assert c["auraFilterAllowed"] is True and c["hasNativeIncoming"] is True
+
+
+def test_forever_detected_under_unknown_project_id(frames):
+    assert forever(frames, "999")["isForever"] is True
+
+
+def test_era_still_era_after_patch_bump(frames):
+    frames.execute('GetBuildInfo = function() return "1.15.9", "69722", "", 11509 end; WOW_PROJECT_ID = WOW_PROJECT_CLASSIC; HogHealsFrames.Compat.Init()')
+    c = frames.eval('HogHealsFrames.Compat')
+    assert c["isEra"] is True and c["isForever"] is False and c["auraFilterAllowed"] is True
+
+
+def test_apicheck_reports_forever_flag(frames):
+    frames.execute('MockLog.chat = {}; HogHeals:SlashCommand("apicheck")')
+    assert any("isForever=" in line for line in frames.eval('MockLog.chat').values())
+
+
+def test_every_toc_lists_every_installed_client():
+    import pathlib, re
+    root = pathlib.Path(__file__).resolve().parent.parent
+    want = {"11508", "11509", "20505", "20506", "16001"}
+    tocs = sorted(root.glob("HogHeals*/HogHeals*.toc"))
+    assert len(tocs) == 3
+    for toc in tocs:
+        line = next(l for l in toc.read_text(encoding="utf-8").splitlines() if l.startswith("## Interface:"))
+        assert want <= set(re.findall(r"\d+", line)), toc.name
