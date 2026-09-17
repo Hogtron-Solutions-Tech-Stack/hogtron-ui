@@ -11,24 +11,45 @@ local NUM_GROUPS = 8
 Headers.party = nil
 Headers.raid = {}
 
--- Secure snippet run for every child the header creates. It configures the secure
--- attributes, then asks the header (insecure Lua) to build our regions on the button.
-local INITIAL_CONFIG = [[
-  local header = self:GetParent()
-  self:SetWidth(header:GetAttribute("hhWidth") or 100)
-  self:SetHeight(header:GetAttribute("hhHeight") or 30)
-  self:SetAttribute("*type1", "target")
-  self:SetAttribute("*type2", "togglemenu")
-  self:SetAttribute("toggleForVehicle", false)
-  header:CallMethod("HogHealsSetup", self:GetName())
-]]
+-- NO secure snippets here. An initialConfigFunction is compiled by Blizzard's RestrictedExecution.lua,
+-- and the WoW: Forever beta (1.60.1.69893) cannot compile any: "RestrictedExecution.lua:79: attempt to
+-- call a nil value" (loadstring_untainted == nil) on the header's first child, which kills the header.
+-- Instead: children are configured from plain Lua, which is legal out of combat, and every header
+-- pre-creates a full group of buttons so the header never has to create one during combat.
+local GROUP_SIZE = 5
 
-local function onChildCreated(header, name)
-  local button = _G[name]
+local function setupChild(button, cfg)
   if not button then return end
-  if button.RegisterForClicks then button:RegisterForClicks("AnyDown") end
-  HHF.UnitButton.Setup(button)
-  if HHF.ClickCast and HHF.ClickCast.ApplyTo then HHF.ClickCast.ApplyTo(button) end
+  if not button._hhSetup then
+    button:SetAttribute("*type1", "target")
+    button:SetAttribute("*type2", "togglemenu")
+    button:SetAttribute("toggleForVehicle", false)
+    if button.RegisterForClicks then button:RegisterForClicks("AnyDown") end
+    HHF.UnitButton.Setup(button)
+    if HHF.ClickCast and HHF.ClickCast.ApplyTo then HHF.ClickCast.ApplyTo(button) end
+  end
+  button:SetSize(cfg.width, cfg.height)
+  -- The header assigned "unit" before our OnAttributeChanged handler existed; replay it.
+  HHF.UnitButton.OnAttributeChanged(button, "unit", button:GetAttribute("unit"))
+end
+
+local function child(header, n)
+  return header:GetAttribute("child" .. n) or header[n]
+end
+
+--- Force a shown header to create GROUP_SIZE buttons now, then configure them. Out of combat only.
+local function ensureChildren(header, cfg)
+  if not child(header, GROUP_SIZE) then
+    header:SetAttribute("startingIndex", 1 - GROUP_SIZE)
+    header:SetAttribute("startingIndex", 1)
+  end
+  local n = 1
+  while child(header, n) do
+    setupChild(child(header, n), cfg)
+    n = n + 1
+  end
+  -- The header measured its children while they were still 0x0; make it lay out again now they are sized.
+  header:SetAttribute("startingIndex", 1)
 end
 
 local function anchorFrame()
@@ -47,8 +68,6 @@ end
 local function newHeader(name)
   local h = CreateFrame("Frame", name, UIParent, "SecureGroupHeaderTemplate")
   h:SetAttribute("template", "SecureUnitButtonTemplate")
-  h:SetAttribute("initialConfigFunction", INITIAL_CONFIG)
-  h.HogHealsSetup = onChildCreated
   h:Hide()
   return h
 end
@@ -104,7 +123,7 @@ local function applyNow(bucket)
     Headers.party:SetAttribute("showSolo", cfg.showSolo ~= false)
     Headers.party:ClearAllPoints()
     Headers.party:SetPoint("TOPLEFT", anchor, "TOPLEFT", 0, 0)
-    if isRaid then Headers.party:Hide() else Headers.party:Show() end
+    if isRaid then Headers.party:Hide() else Headers.party:Show(); ensureChildren(Headers.party, cfg) end
   end
   local shown = isRaid and (cfg.groupsShown or NUM_GROUPS) or 0
   for g = 1, NUM_GROUPS do
@@ -114,7 +133,7 @@ local function applyNow(bucket)
       local x, y = Layout.GroupOffset(cfg, g)
       r:ClearAllPoints()
       r:SetPoint("TOPLEFT", anchor, "TOPLEFT", x, y)
-      if g <= shown then r:Show() else r:Hide() end
+      if g <= shown then r:Show(); ensureChildren(r, cfg) else r:Hide() end
     end
   end
   for _, button in ipairs(HHF.UnitButton.All()) do
