@@ -134,6 +134,17 @@ local function configure(header, cfg)
   header:SetAttribute("columnSpacing", a.columnSpacing)
   header:SetAttribute("columnAnchorPoint", a.columnAnchorPoint)
   header:SetAttribute("sortMethod", "INDEX")
+  -- SecureGroupHeader never clears a child's existing points. When the growth direction changes (solo layout grows
+  -- LEFT, party layout grows DOWN) every button keeps the old anchor AND gets the new one: seen in game as a diagonal
+  -- staircase. Clear them ourselves AFTER the new attributes are in (clearing first is useless: the next attribute write
+  -- re-lays the children out with the old direction), then force one re-layout. Out of combat only, which
+  -- configure() already is (RunOutOfCombat).
+  local n = 1
+  while child(header, n) do
+    child(header, n):ClearAllPoints()
+    n = n + 1
+  end
+  header:SetAttribute("startingIndex", header:GetAttribute("startingIndex") or 1)
 end
 
 local function applyNow(bucket)

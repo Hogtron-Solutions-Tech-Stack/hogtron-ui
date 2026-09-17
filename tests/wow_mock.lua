@@ -275,8 +275,11 @@ function Region:GetWidth() return self._width end
 function Region:GetHeight() return self._height end
 function Region:GetSize() return self._width, self._height end
 function Region:SetPoint(p, a, b, c, d)
-  if type(a) == "number" then self._points[#self._points + 1] = { p, nil, p, a, b }
-  else self._points[#self._points + 1] = { p, a, b, c or 0, d or 0 } end
+  local entry
+  if type(a) == "number" then entry = { p, nil, p, a, b } else entry = { p, a, b, c or 0, d or 0 } end
+  -- like the client: setting a point that already exists REPLACES it; a different point name is ADDED
+  for i, e in ipairs(self._points) do if e[1] == p then self._points[i] = entry return end end
+  self._points[#self._points + 1] = entry
 end
 function Region:GetPoint(i) local p = self._points[i or 1] if p then return unpack(p) end end
 function Region:GetNumPoints() return #self._points end
@@ -379,6 +382,16 @@ function MockHeaderUpdate(h)
       if type(a.initialConfigFunction) == "string" and MockState.secureSnippetsBroken then
         error("RestrictedExecution.lua:79: attempt to call a nil value")
       end
+    end
+    -- Anchoring, faithful to the real header INCLUDING its quirk: it never clears a child's existing points, so
+    -- after the "point" attribute changes every child carries the old anchor as well as the new one.
+    local REL = { TOP = "BOTTOM", BOTTOM = "TOP", LEFT = "RIGHT", RIGHT = "LEFT" }
+    local point = a.point or "TOP"
+    if n == 1 then
+      child:SetPoint(point, h, point, 0, 0)
+      if a.columnAnchorPoint then child:SetPoint(a.columnAnchorPoint, h, a.columnAnchorPoint, 0, 0) end
+    else
+      child:SetPoint(point, h[n - 1], REL[point] or "BOTTOM", a.xOffset or 0, a.yOffset or 0)
     end
     local unit = units[start + n - 1]
     child._attrs.unit = unit
