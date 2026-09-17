@@ -45,7 +45,15 @@ function HH:LogError(msg)
   local diag = self.db and self.db.global and self.db.global.diag
   if diag then
     diag.errors = diag.errors or {}
-    diag.errors[#diag.errors + 1] = { msg = msg, session = diag.session, at = date and date("%Y-%m-%d %H:%M:%S") or "" }
+    local now = date and date("%Y-%m-%d %H:%M:%S") or ""
+    for _, e in ipairs(diag.errors) do
+      if e.msg == msg and e.session == diag.session then
+        e.count = (e.count or 1) + 1
+        e.last = now
+        return
+      end
+    end
+    diag.errors[#diag.errors + 1] = { msg = msg, session = diag.session, at = now, count = 1 }
     while #diag.errors > 50 do table.remove(diag.errors, 1) end
   end
   if not self._errorNoticeShown then

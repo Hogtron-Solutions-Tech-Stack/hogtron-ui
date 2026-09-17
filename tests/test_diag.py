@@ -27,3 +27,11 @@ def test_client_snapshot_written_at_enable(frames):
 
 def test_session_counter_increments_per_login(frames):
     assert frames.eval('HogHeals.db.global.diag.session') >= 1
+
+
+def test_repeating_error_is_counted_not_appended(frames):
+    # First beta run: one 0.5 s ticker error filled all 50 slots and evicted every other failure.
+    frames.execute('HogHeals.db.global.diag.errors = {}; for i = 1, 500 do HogHeals:LogError("same") end; HogHeals:LogError("other")')
+    errs = list(frames.eval('HogHeals.db.global.diag.errors').values())
+    assert [e["msg"] for e in errs] == ["same", "other"]
+    assert errs[0]["count"] == 500 and errs[1]["count"] == 1
