@@ -8,6 +8,7 @@
 ## X-License: MIT
 ## X-Website: https://github.com/sbilger/hogheals
 
+Core\ClientShims.lua
 embeds.xml
 Media\palette.lua
 Core.lua
