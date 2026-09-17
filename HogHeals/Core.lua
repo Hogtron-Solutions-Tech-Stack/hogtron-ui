@@ -168,6 +168,10 @@ function HH:SnapshotClient()
     sp["secret.UnitHealth"], sp["secret.UnitHealthMax"], sp["secret.UnitName"] = isv(hp) and true or false, isv(max) and true or false, isv(name) and true or false
     sp["secret.UnitPower"], sp["secret.UnitGetIncomingHeals"], sp["secret.UnitInRange"] = isv(pw) and true or false, isv(inc) and true or false, isv(rng) and true or false
     sp["inCombat"] = InCombatLockdown() and true or false
+    -- widget methods that resolve a secret for us (Range.lua depends on the first one)
+    for _, m in ipairs({ "SetAlphaFromBoolean", "SetShownFromBoolean", "SetVertexColorFromBoolean" }) do
+      sp["method." .. m] = type(UIParent[m])
+    end
     local ops = {
       ["hp+0"] = function() return hp + 0 end, ["hp/max"] = function() return hp / max end,
       ["hp<max"] = function() return hp < max end, ["hp==0"] = function() return hp == 0 end,

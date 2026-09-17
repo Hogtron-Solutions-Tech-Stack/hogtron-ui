@@ -261,6 +261,9 @@ function UnitButton.SetAlphaReason(button, reason, alpha)
   button._alphas[reason] = alpha
   local final = 1
   for _, a in pairs(button._alphas) do if a < final then final = a end end
+  -- While range is driven by a secret boolean (Range.lua) the widget owns the alpha; writing 1 here on every
+  -- health update would wipe the out-of-range dimming. Only step in when some other reason really dims.
+  if button._secretRange and final >= 1 then return end
   button:SetAlpha(final)
 end
 
