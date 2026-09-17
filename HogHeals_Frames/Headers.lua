@@ -178,6 +178,46 @@ local function applyNow(bucket)
   for _, button in ipairs(HHF.UnitButton.All()) do
     button:SetSize(cfg.width, cfg.height)
   end
+  Headers.HideBlizzard()
+end
+
+-- ---------------------------------------------------------------- Blizzard's own group frames
+-- Ours on = theirs off. Same method oUF uses: unregister events, hide, and reparent under a permanently hidden
+-- frame so that Blizzard code calling :Show() later has no visible effect. These frames are protected, so this
+-- only ever runs out of combat. It is one-way for the session: bringing them back needs a /reload with the option
+-- off (we then simply never touch them). The raid MANAGER (ready check, world markers) is deliberately left alone.
+local hiddenParent
+local function banish(f)
+  if type(f) ~= "table" or f == hiddenParent then return end
+  if f.UnregisterAllEvents then pcall(f.UnregisterAllEvents, f) end
+  if f.Hide then pcall(f.Hide, f) end
+  if f.SetParent then pcall(f.SetParent, f, hiddenParent) end
+end
+
+local function hideBlizzardNow()
+  if not hiddenParent then
+    hiddenParent = CreateFrame("Frame", "HogHealsHiddenParent", UIParent)
+    hiddenParent:Hide()
+  end
+  local party = _G.PartyFrame                                   -- modern clients: pooled member frames
+  if type(party) == "table" then
+    local pool = party.PartyMemberFramePool
+    if type(pool) == "table" and pool.EnumerateActive then
+      for member in pool:EnumerateActive() do banish(member) end
+    end
+    banish(party)
+  end
+  for i = 1, 4 do banish(_G["PartyMemberFrame" .. i]) end          -- classic clients
+  banish(_G.CompactPartyFrame)                                     -- raid-style party frames (titled "Party")
+  banish(_G.CompactRaidFrameContainer)
+  Headers.blizzardHidden = true
+end
+
+--- Hide Blizzard's party / raid-style frames if the option is on. Safe to call often; frames Blizzard creates
+-- lazily (CompactPartyFrame appears on first group join) are caught by the next call.
+function Headers.HideBlizzard()
+  if HH.db.profile.frames.hideBlizzard == false then return end
+  HH:RunOutOfCombat(hideBlizzardNow)
 end
 
 --- Apply a bucket layout; deferred until out of combat if needed.

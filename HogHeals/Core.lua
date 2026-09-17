@@ -144,7 +144,7 @@ function HH:SnapshotClient()
   for _, path in ipairs({
     "loadstring_untainted", "C_UnitAuras.AddPrivateAuraAnchor", "C_UnitAuras.GetAuraDataByIndex", "UnitAura",
     "UnitGetIncomingHeals", "C_Secrets", "issecretvalue", "C_RestrictedActions", "SecureHandlerWrapScript",
-    "C_GamePad", "PlayerCastingBarFrame", "CastingBarFrame", "C_AddOns.GetAddOnMetadata", "C_Spell.GetSpellInfo", "GetSpellInfo", "C_EditMode", "Settings.OpenToCategory",
+    "C_GamePad", "PlayerCastingBarFrame", "CastingBarFrame", "PartyFrame", "PartyMemberFrame1", "CompactPartyFrame", "CompactRaidFrameContainer", "CompactRaidFrameManager", "C_AddOns.GetAddOnMetadata", "C_Spell.GetSpellInfo", "GetSpellInfo", "C_EditMode", "Settings.OpenToCategory",
   }) do probes[path] = probe(path) end
   local compat
   local C = HogHealsFrames and HogHealsFrames.Compat

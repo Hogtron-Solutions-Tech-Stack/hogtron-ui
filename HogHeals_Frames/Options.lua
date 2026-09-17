@@ -55,6 +55,12 @@ local function layoutGroup()
         get = function() return layout().showSolo ~= false end, set = function(_, v) layout().showSolo = v; relayout() end,
       },
       scale = L("scale", "Scale", 0.5, 2, 0.05, 9),
+      hideBlizzard = {
+        type = "toggle", name = "Hide Blizzard party / raid frames", order = 9.5,
+        desc = "While HogHeals frames are on, Blizzard's own party and raid-style frames are hidden. Turning this OFF needs a /reload to bring them back.",
+        get = function() return HH.db.profile.frames.hideBlizzard ~= false end,
+        set = function(_, v) HH.db.profile.frames.hideBlizzard = v and true or false; if v then HHF.Headers.HideBlizzard() else HH:Print("Blizzard frames come back after /reload.") end end,
+      },
       lock = { type = "execute", name = function() return HH.db.profile.locked and "Unlock (drag anchor)" or "Lock" end, order = 10,
         func = function() HH:SetLocked(not HH.db.profile.locked) end },
       test = { type = "execute", name = "Test mode (10 units)", order = 11, func = function() HHF.TestMode.Start(10) end },
