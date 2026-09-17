@@ -296,12 +296,72 @@ function Region:CanChangeProtectedState() return not MockState.inCombat end
 function Region:Fire(event, ...) local f = self._scripts.OnEvent if f and self._events[event] then f(self, event, ...) end end
 function Region:Click(button) local f = self._scripts.OnClick if f then f(self, button or "LeftButton", false) end end
 
+-- SecureGroupHeader emulation: children are created when a SHOWN header updates, exactly one per
+-- displayed index, named <header>UnitButton<N>, exposed as attribute "child<N>" and header[N].
+-- MockState.secureSnippetsBroken reproduces the WoW: Forever beta (1.60.1.69893, 2026-09-17) where
+-- Blizzard's RestrictedExecution.lua calls a nil loadstring_untainted: ANY initialConfigFunction
+-- snippet throws "attempt to call a nil value" the moment the header creates a child.
+local function mockHeaderUnits(h)
+  local a = h._attrs
+  if MockState.inRaid then
+    if not a.showRaid then return {} end
+    local g = tonumber(a.groupFilter) or 1
+    local out = {}
+    for i = (g - 1) * 5 + 1, math.min(g * 5, MockState.numGroup) do out[#out + 1] = "raid" .. i end
+    return out
+  end
+  if MockState.numGroup > 1 then
+    if not a.showParty then return {} end
+    local out = {}
+    if a.showPlayer then out[1] = "player" end
+    for i = 1, MockState.numGroup - 1 do out[#out + 1] = "party" .. i end
+    return out
+  end
+  if a.showSolo and a.showPlayer then return { "player" } end
+  return {}
+end
+function MockHeaderUpdate(h)
+  if not h._shown then return end
+  local a = h._attrs
+  local units = mockHeaderUnits(h)
+  local start = a.startingIndex or 1
+  local shown = #units - (start - 1)
+  if a.unitsPerColumn and a.maxColumns then shown = math.min(shown, a.unitsPerColumn * a.maxColumns) end
+  for n = 1, math.max(shown, 0) do
+    local child = h[n]
+    if not child then
+      if InCombatLockdown() then error("mock: header tried to create a child in combat") end
+      child = CreateFrame("Button", h._name .. "UnitButton" .. n, h, a.template)
+      h[n] = child
+      h._attrs["child" .. n] = child
+      if type(a.initialConfigFunction) == "string" and MockState.secureSnippetsBroken then
+        error("RestrictedExecution.lua:79: attempt to call a nil value")
+      end
+    end
+    local unit = units[start + n - 1]
+    child._attrs.unit = unit
+    local f = child._scripts.OnAttributeChanged
+    if f then f(child, "unit", unit) end
+    child._shown = unit ~= nil
+  end
+end
+function MockMakeGroupHeader(h)
+  h._shown = true
+  function h:Show() self._shown = true; MockHeaderUpdate(self) end
+  function h:SetAttribute(k, v)
+    self._attrs[k] = v
+    MockLog.attributes[#MockLog.attributes + 1] = { frame = self._name, key = k, value = v }
+    MockHeaderUpdate(self)
+  end
+end
+
 MockFrames = {}
 function CreateFrame(kind, name, parent, template)
   local f = newRegion(kind or "Frame", name, parent)
   f._template = template
   f._protected = template ~= nil and (template:find("Secure") ~= nil)
   MockFrames[#MockFrames + 1] = f
+  if template == "SecureGroupHeaderTemplate" then MockMakeGroupHeader(f) end
   return f
 end
 function MockFire(event, ...) for _, f in ipairs(MockFrames) do f:Fire(event, ...) end end

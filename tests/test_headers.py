@@ -49,3 +49,45 @@ def test_bucket_change_reapplies(frames):
     frames.execute('MockSetGroup(18, true); MockFire("GROUP_ROSTER_UPDATE")')
     assert frames.eval('HogHealsRaidHeader3:IsShown()') is True
     assert frames.eval('HogHealsRaidHeader5:IsShown()') is False
+
+
+# --- Header children (first in-game run, Forever beta 2026-09-17) ---
+# RestrictedExecution.lua:79 "attempt to call a nil value" (loadstring_untainted == nil): the client
+# cannot compile ANY secure snippet, so an initialConfigFunction kills the header on its first child.
+# Children are configured from plain Lua out of combat and pre-created so none is ever born in combat.
+
+def test_no_secure_snippet_on_any_header(frames):
+    names = ["HogHealsPartyHeader"] + [f"HogHealsRaidHeader{g}" for g in range(1, 9)]
+    for n in names:
+        assert frames.eval(f'{n}:GetAttribute("initialConfigFunction")') is None, n
+
+
+def test_children_built_when_client_cannot_compile_snippets(frames):
+    frames.execute('MockState.secureSnippetsBroken = true; wipe(HogHeals.errors); HogHealsFrames.Headers.Apply("solo")')
+    assert frames.eval('#HogHeals.errors') == 0
+    b = 'HogHealsPartyHeaderUnitButton1'
+    assert frames.eval(f'{b} ~= nil and {b}.health ~= nil and {b}.name ~= nil')
+    assert frames.eval(f'{b}:GetAttribute("*type1")') == "target"
+    assert frames.eval(f'{b}:GetAttribute("*type2")') == "togglemenu"
+    assert frames.eval(f'{b}.unit') == "player"
+    w = frames.eval('HogHeals.db.profile.frames.layouts.solo.width')
+    assert frames.eval(f'{b}:GetWidth()') == w and w > 0
+
+
+def test_party_children_precreated_so_none_is_born_in_combat(frames):
+    frames.execute('HogHealsFrames.Headers.Apply("solo")')
+    for n in range(1, 6):
+        assert frames.eval(f'HogHealsPartyHeaderUnitButton{n} ~= nil and HogHealsPartyHeaderUnitButton{n}.health ~= nil'), n
+    assert frames.eval('HogHealsPartyHeader:GetAttribute("startingIndex")') == 1
+    # four people join mid-pull: header must only re-use buttons (mock errors on in-combat creation)
+    frames.execute('MockState.inCombat = true; MockSetGroup(5, false); MockHeaderUpdate(HogHealsPartyHeader)')
+    assert frames.eval('HogHealsPartyHeaderUnitButton5.unit') == "party4"
+    assert frames.eval('HogHealsPartyHeaderUnitButton5:IsShown()') is True
+
+
+def test_raid_group_children_precreated(frames):
+    frames.execute('MockSetGroup(12, true); HogHealsFrames.Headers.Apply("raid20")')
+    for g in (1, 2, 3, 4):
+        assert frames.eval(f'HogHealsRaidHeader{g}UnitButton5 ~= nil and HogHealsRaidHeader{g}UnitButton5.health ~= nil'), g
+    assert frames.eval('HogHealsRaidHeader3UnitButton2.unit') == "raid12"
+    assert frames.eval('HogHealsRaidHeader3UnitButton3.unit') is None
