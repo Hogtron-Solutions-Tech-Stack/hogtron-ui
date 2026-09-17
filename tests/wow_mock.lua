@@ -140,16 +140,34 @@ C_IncomingSummon = { HasIncomingSummon = function(u) local m = MockUnits[u] retu
                      IncomingSummonStatus = function(u) local m = MockUnits[u] return (m and m.incomingSummon) and 1 or 0 end }
 Enum = { SummonStatus = { None = 0, Pending = 1, Accepted = 2, Declined = 3 }, PowerType = { Mana = 0, Rage = 1, Energy = 3 } }
 
+-- ---------- secret values (WoW: Forever beta / Midnight restricted API) ----------
+-- With MockState.secrets = true the unit getters return opaque userdata. Like the real client it throws on
+-- arithmetic, ordering, length, concat and indexing; widgets (SetValue/SetMinMaxValues/SetText) accept it.
+-- issecretvalue only exists while secrets are on, exactly like a client without the restricted API.
+local secretReal = setmetatable({}, { __mode = "k" })
+function MockSecret(v)
+  if v == nil then return nil end
+  local u = newproxy(true)
+  secretReal[u] = v
+  return u
+end
+function MockUnwrap(v) if type(v) == "userdata" and secretReal[v] ~= nil then return secretReal[v] end return v end
+local function S(v) if MockState.secrets then return MockSecret(v) end return v end
+function MockSetSecrets(on)
+  MockState.secrets = on and true or false
+  if on then issecretvalue = function(v) return type(v) == "userdata" and secretReal[v] ~= nil end else issecretvalue = nil end
+end
+
 -- ---------- unit API ----------
 local function U(u) return MockUnits[u] end
 function UnitExists(u) return U(u) ~= nil end
 function UnitIsUnit(a, b) return a == b or (U(a) and U(b) and U(a).guid ~= nil and U(a).guid == U(b).guid) end
-function UnitName(u) local m = U(u) return m and (m.name or u) or nil end
+function UnitName(u) local m = U(u) return S(m and (m.name or u) or nil) end
 function UnitClass(u) local m = U(u) if not m then return nil end return m.class:sub(1, 1) .. m.class:sub(2):lower(), m.class end
-function UnitHealth(u) local m = U(u) return m and m.health or 0 end
-function UnitHealthMax(u) local m = U(u) return m and (m.maxHealth or 100) or 0 end
-function UnitPower(u) local m = U(u) return m and (m.power or 100) or 0 end
-function UnitPowerMax(u) local m = U(u) return m and (m.maxPower or 100) or 0 end
+function UnitHealth(u) local m = U(u) return S(m and m.health or 0) end
+function UnitHealthMax(u) local m = U(u) return S(m and (m.maxHealth or 100) or 0) end
+function UnitPower(u) local m = U(u) return S(m and (m.power or 100) or 0) end
+function UnitPowerMax(u) local m = U(u) return S(m and (m.maxPower or 100) or 0) end
 local CLASS_POWER = { WARRIOR = "RAGE", ROGUE = "ENERGY", DRUID = "MANA" }
 function UnitPowerType(u) local m = U(u) local t = (m and (m.powerType or CLASS_POWER[m.class])) or "MANA"
   local ids = { MANA = 0, RAGE = 1, ENERGY = 3, FOCUS = 2 } return ids[t] or 0, t end
@@ -173,7 +191,7 @@ function UnitIsCharmed(u) local m = U(u) return m and m.charmed or false end
 function UnitPlayerControlled() return true end
 function UnitLevel(u) local m = U(u) return m and (m.level or 60) or 0 end
 function UnitGetIncomingHeals(u, src) local m = U(u) if not m then return 0 end
-  if src == "player" then return m.incomingMine or 0 end return (m.incomingMine or 0) + (m.incomingOthers or 0) end
+  if src == "player" then return S(m.incomingMine or 0) end return S((m.incomingMine or 0) + (m.incomingOthers or 0)) end
 function UnitGetTotalAbsorbs(u) local m = U(u) return m and m.absorbs or 0 end
 function UnitAura(u, i, filter)
   local m = U(u) if not m or not m.auras then return nil end
@@ -261,7 +279,7 @@ function Region:IsEventRegistered(e) return self._events[e] == true end
 function Region:SetScript(h, f) self._scripts[h] = f end
 function Region:GetScript(h) return self._scripts[h] end
 function Region:HookScript(h, f) local o = self._scripts[h] self._scripts[h] = function(...) if o then o(...) end f(...) end end
-function Region:SetText(t) self._text = t == nil and "" or tostring(t) end
+function Region:SetText(t) t = MockUnwrap(t); self._text = t == nil and "" or tostring(t) end
 function Region:GetText() return self._text end
 function Region:GetStringWidth() return #self._text * 6 end
 function Region:SetTextColor(r, g, b, a) self._color = { r, g, b, a } end
@@ -274,9 +292,9 @@ function Region:SetStatusBarTexture(t) self._texture = t end
 function Region:GetStatusBarTexture() return self end
 function Region:SetStatusBarColor(r, g, b, a) self._color = { r, g, b, a } end
 function Region:GetStatusBarColor() return unpack(self._color) end
-function Region:SetMinMaxValues(a, b) self._min, self._max = a, b end
+function Region:SetMinMaxValues(a, b) self._min, self._max = MockUnwrap(a), MockUnwrap(b) end
 function Region:GetMinMaxValues() return self._min, self._max end
-function Region:SetValue(v) self._value = v end
+function Region:SetValue(v) self._value = MockUnwrap(v) end
 function Region:GetValue() return self._value end
 function Region:SetID(i) self._id = i end
 function Region:GetID() return self._id end
@@ -367,6 +385,7 @@ end
 function MockFire(event, ...) for _, f in ipairs(MockFrames) do f:Fire(event, ...) end end
 function MockReset()
   wipe(MockUnits); wipe(MockBindings.clicks); wipe(MockBindings.cleared); wipe(MockLog.attributes); wipe(MockLog.errors); wipe(MockTimers)
+  MockSetSecrets(false)
   MockState.inCombat = false; MockState.numGroup = 1; MockState.inRaid = false; MockState.time = 0; MockState.cliqueLoaded = false
   MockUnits.player = { name = "Hognificent", class = MockState.playerClass, health = 100, maxHealth = 100, guid = "Player-0" }
 end

@@ -35,3 +35,9 @@ def test_repeating_error_is_counted_not_appended(frames):
     errs = list(frames.eval('HogHeals.db.global.diag.errors').values())
     assert [e["msg"] for e in errs] == ["same", "other"]
     assert errs[0]["count"] == 500 and errs[1]["count"] == 1
+
+
+def test_probe_runs_again_on_first_combat(frames):
+    frames.execute('MockSetSecrets(true); MockState.inCombat = true; MockFire("PLAYER_REGEN_DISABLED")')
+    p = frames.eval('HogHeals.db.global.diag.combatProbe')
+    assert p["inCombat"] is True and p["secret.UnitHealth"] is True
