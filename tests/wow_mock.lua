@@ -423,6 +423,7 @@ function MockSetGroup(n, isRaid)
   if isRaid then MockUnits["raid" .. n] = MockUnits["raid" .. n] or { name = "Hognificent", class = MockState.playerClass, health = 100, maxHealth = 100, guid = "Player-0" } end
 end
 UIParent = CreateFrame("Frame", "UIParent")
+UISpecialFrames = {}
 WorldFrame = CreateFrame("Frame", "WorldFrame")
 GameTooltip = CreateFrame("GameTooltip", "GameTooltip")
 function GameTooltip:SetOwner() end
