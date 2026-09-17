@@ -31,7 +31,7 @@ def test_missing_buff_spells(core):
 
 def test_shield_spells_gated_by_project(core):
     assert list(core.eval('HogHeals.ShieldSpells("PRIEST")').values()) == ["Power Word: Shield"]
-    core.execute('WOW_PROJECT_ID = WOW_PROJECT_BURNING_CRUSADE_CLASSIC')
+    core.execute('GetBuildInfo = function() return "2.5.5", "1", "", 20505 end')
     assert list(core.eval('HogHeals.ShieldSpells("SHAMAN")').values()) == ["Earth Shield"]
-    core.execute('WOW_PROJECT_ID = WOW_PROJECT_CLASSIC')
+    core.execute('GetBuildInfo = function() return "1.15.8", "1", "", 11508 end')
     assert list(core.eval('HogHeals.ShieldSpells("SHAMAN")').values()) == []

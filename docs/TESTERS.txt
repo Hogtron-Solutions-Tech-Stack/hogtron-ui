@@ -1,0 +1,95 @@
+HogHeals — tester notes (v0.1.0 test build, September 2026)
+============================================================
+
+Thanks for testing. Quick version of what this is, how to install it, what to try, and how to
+tell us what broke. Ten minutes of your time is plenty.
+
+WHAT IT IS
+----------
+HogHeals is a healer-first UI addon for WoW Classic (Anniversary/TBC and Era today, WoW: Forever
+when the beta opens). Two parts:
+
+  HogHeals_Frames  — party and raid frames built for healing.
+                     • Hover a frame and press a key (1/2/3/4/F/Q by default) to heal that person.
+                       Works with keyboard keys, not just mouse buttons.
+                     • Shows only the debuffs YOUR class can dispel (icon, bar colour, or border).
+                     • Missing buffs you can cast, your own PW:S / Earth Shield, aggro, range,
+                       ready-check / res / summon icons, incoming heals, health-threshold ticks.
+                     • Layout switches automatically: solo / party / 10 / 20 / 40.
+                     • /hh dispelme sends a "dispel me please" glow to healers running the addon.
+
+  HogHeals_HUD     — a strip under your character: castbar (with latency tail), mana bar with
+                     the five-second rule drain + regen tick spark, time-to-OOM during fights,
+                     and a rank advisor that suggests the lowest heal rank that covers the
+                     hovered person's missing health.
+
+IMPORTANT HONESTY NOTE
+----------------------
+This build has NOT been run inside the game yet. It passed 145 automated tests against a
+simulated client, which proves the logic, not the pixels. It may throw a Lua error on the very
+first /reload. That's exactly what we need to hear about — an error message from you is a good
+result, not a failure.
+
+INSTALL (2 minutes)
+-------------------
+1. Unzip HogHeals-0.1.0-test.zip. You get three folders:
+       HogHeals
+       HogHeals_Frames
+       HogHeals_HUD
+2. Copy all three into your AddOns folder:
+       Anniversary:  C:\Program Files (x86)\World of Warcraft\_anniversary_\Interface\AddOns\
+       Classic Era:  C:\Program Files (x86)\World of Warcraft\_classic_era_\Interface\AddOns\
+   (Retail is not supported.)
+3. Start the game (or /reload if already in). At the character select screen, AddOns → make
+   sure all three are ticked and "Load out of date AddOns" is ON if it's offered.
+4. Type this once so errors show instead of being hidden:
+       /console scriptErrors 1
+
+Clique users: HogHeals detects Clique and lets it control your click bindings — your existing
+setup keeps working. Cell / VuhDo / HealBot users: disable them while testing so frames don't
+overlap; re-enable after.
+
+WHAT TO TRY (in order)
+----------------------
+ 1. Log in. Did anything red pop up? Screenshot it. A setup wizard should appear after ~3 s;
+    click through it (defaults are fine).
+ 2. /hh test 10        → ten fake frames appear. Then /hh test off.
+ 3. /hh unlock         → drag the anchors (frames + HUD) where you like → /hh lock.
+ 4. Join a party. Frames should show your group. Hover a frame and press 3 (Flash Heal for
+    priests; other classes have their own defaults) — does it cast on THAT person?
+ 5. Cast any heal: castbar shows "Spell → Target" with a red tail at the end (your latency).
+ 6. Watch the mana bar after a cast: a 5-second cyan drain, then a spark every 2 seconds.
+ 7. Pull something. The line under the mana bar should show "OOM m:ss · fight timer".
+ 8. Hover a hurt party member: bottom-right shows e.g. "GH r3 (1.4k) · FH r6 (1.1k)".
+ 9. /hh                → options window. Poke around; anything that errors, screenshot.
+10. /hh errors         → if it says anything other than "No errors logged", copy the text.
+
+Bonus if you have time: a 5-man dungeon. Do the frames update in combat without "action blocked"
+messages? Does the dispel icon appear when someone is sheeped / poisoned / diseased?
+
+USEFUL COMMANDS
+---------------
+  /hh              options              /hh test 20 | off   fake frames
+  /hh lock|unlock  move things          /hh wizard          re-run setup
+  /hh errors       show caught errors   /hh apicheck        client capability flags
+  /hh dispelme     ask for a dispel     /hh rankmacros      print rank macros for your heals
+  /hh macro Flash Heal                  prints a mouseover → target → self macro
+
+HOW TO REPORT (the more of this the better)
+-------------------------------------------
+Send Sean a message with:
+  • Which client (Anniversary / Era) and your class + level.
+  • What you did, what you expected, what actually happened.
+  • The exact error text (from the red box or /hh errors) — a screenshot is perfect.
+  • A screenshot of the frames + HUD if it's a "looks wrong" thing.
+  • One thing you'd change and one thing you liked. Even "the font is ugly" helps.
+
+Feature ideas are welcome too. The point of this round is: does it load, does it heal, does
+it feel right. Polish comes after.
+
+REMOVING IT
+-----------
+Delete the three folders from AddOns. Saved settings live in WTF\...\SavedVariables\HogHealsDB.lua
+if you want a clean slate.
+
+Thanks again — Sean / HogTron Solutions

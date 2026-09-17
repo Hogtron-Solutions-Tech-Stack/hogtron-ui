@@ -1,0 +1,38 @@
+<!doctype html><html><head><meta charset="utf-8"><title>HUD › Castbar</title><style>
+:root{--ink:#121217;--panel:#1b1b22;--panel2:#22222b;--line:#34343f;--cream:#F5EBDC;--cyan:#21D4E0;--muted:#9a9aa8;--amber:#F5A623;--red:#d93636;--green:#3fbf5a}
+*{box-sizing:border-box}body{margin:0;background:#0b0b0e;font:13px/1.4 "Segoe UI",Arial,sans-serif;color:var(--cream)}
+.win{width:1180px;margin:24px auto;background:var(--panel);border:1px solid var(--line);border-radius:6px;box-shadow:0 12px 40px #000c;overflow:hidden}
+.title{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:linear-gradient(#26262f,#1b1b22);border-bottom:1px solid var(--line)}
+.title b{font-size:16px;letter-spacing:.5px}.title b .h{color:var(--cream)}.title b .t{color:var(--cyan)}
+.title .x{color:var(--muted)}.tabs{display:flex;gap:2px;padding:8px 12px 0;background:var(--panel);border-bottom:1px solid var(--line)}
+.tab{padding:7px 16px;border:1px solid var(--line);border-bottom:none;border-radius:5px 5px 0 0;background:#191920;color:var(--muted)}
+.tab.on{background:var(--panel2);color:var(--cyan);border-color:var(--cyan);font-weight:600}
+.body{display:flex;min-height:600px}.side{width:190px;background:#17171d;border-right:1px solid var(--line);padding:10px 0}
+.side div{padding:8px 16px;color:var(--muted)}.side div.on{color:var(--cream);background:#22222b;border-left:3px solid var(--cyan)}
+.main{flex:1;padding:16px 22px;display:grid;grid-template-columns:1fr 1fr;gap:10px 28px;align-content:start;background:var(--panel2)}
+.full{grid-column:1/3}.w{display:flex;flex-direction:column;gap:4px}.w label{color:var(--muted);font-size:12px}
+.w .desc{color:var(--cream);opacity:.85;white-space:pre-wrap}.hdr{grid-column:1/3;margin-top:8px;padding-bottom:4px;border-bottom:1px solid var(--line);color:var(--cyan);font-weight:600;letter-spacing:.3px}
+.toggle{display:flex;align-items:center;gap:10px}.box{width:18px;height:18px;border:1px solid #666;border-radius:3px;background:#111}.box.on{background:var(--cyan);border-color:var(--cyan);box-shadow:inset 0 0 0 3px #111}
+.range{display:flex;align-items:center;gap:10px}.track{flex:1;height:6px;background:#111;border:1px solid #444;border-radius:3px;position:relative}.knob{position:absolute;top:-6px;width:14px;height:16px;background:#c9c0b0;border-radius:3px;border:1px solid #777}
+.val{min-width:44px;text-align:right;color:var(--cream)}.select,.input{background:#111;border:1px solid #555;border-radius:3px;padding:6px 8px;color:var(--cream)}
+.select:after{content:" \25BE";color:var(--muted);float:right}.btn{background:linear-gradient(#3a3a46,#2a2a34);border:1px solid #666;border-radius:3px;padding:7px 12px;text-align:center;color:var(--cream)}
+.btn.primary{border-color:var(--cyan);color:var(--cyan)}.color{width:26px;height:18px;border:1px solid #777;border-radius:3px}
+.multi{min-height:64px}.note{color:var(--muted);font-size:12px}
+.foot{padding:8px 16px;border-top:1px solid var(--line);color:var(--muted);font-size:12px;display:flex;justify-content:space-between}
+/* frames preview */
+.stage{position:relative;height:640px;background:radial-gradient(ellipse at 50% 30%,#1a2430,#0a0c10 70%)}
+.unit{position:absolute;background:#121217;border:1px solid #2a2a33;overflow:hidden}
+.unit .hp{position:absolute;left:1px;top:1px;bottom:4px;background:#8a8a8a}.unit .hpbg{position:absolute;inset:1px 1px 4px 1px;background:#26262d}
+.unit .mp{position:absolute;left:1px;right:1px;bottom:1px;height:3px;background:#2290f2}
+.unit .nm{position:absolute;top:3px;left:0;right:0;text-align:center;font-size:11px;font-weight:600;text-shadow:0 0 3px #000,0 0 3px #000}
+.unit .ht{position:absolute;bottom:5px;left:0;right:0;text-align:center;font-size:10px;text-shadow:0 0 3px #000}
+.unit .pred{position:absolute;top:1px;bottom:4px;background:#3fbf5a80}.unit .aggro{position:absolute;inset:0;border:2px solid var(--red)}
+.unit .dis{position:absolute;left:50%;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:3px;background:#2a7de1;border:1px solid #fff}
+.unit .mb{position:absolute;right:2px;top:2px;width:9px;height:9px;background:#e8d27a;border-radius:2px}.unit .sh{position:absolute;right:2px;bottom:5px;width:9px;height:9px;background:#fff;border-radius:50%}
+.unit .st{position:absolute;left:2px;top:2px;width:10px;height:10px;background:#f2c94c;border-radius:50%}.unit .tick{position:absolute;top:1px;bottom:4px;width:1px;background:#F5EBDC99}
+.unit .glow{position:absolute;inset:0;background:#21D4E040;border:1px solid #21D4E0}.legend{position:absolute;right:18px;top:16px;background:#121217dd;border:1px solid var(--line);border-radius:6px;padding:10px 14px;font-size:12px;color:var(--muted);line-height:1.7}
+.legend b{color:var(--cream)}.tag{position:absolute;left:18px;top:16px;font-size:12px;color:var(--muted)}
+</style></head>
+<body><div class="win"><div class="title"><b><span class="h">Hog</span><span class="t">Heals</span> &nbsp;<span style="color:var(--muted);font-weight:400">HUD › Castbar</span></b><span class="x">✕</span></div>
+<div class="tabs"><div class="tab ">General</div><div class="tab ">Frames</div><div class="tab on">HUD</div></div><div class="body"><div class="side"><div class="">Layout</div><div class="on">Castbar</div><div class="">Mana &amp; five-second rule</div><div class="">Mana pacing</div><div class="">Rank advisor</div></div><div class="main"><div class="w"><div class="toggle"><span class="box on"></span><span>Spell icon</span></div></div><div class="w"><div class="toggle"><span class="box on"></span><span>Show target name after spell</span></div></div><div class="w"><div class="toggle"><span class="box on"></span><span>Latency segment</span></div></div><div class="w"><div class="toggle"><span class="box "></span><span>GCD sliver under the bar</span></div></div><div class="w"><div class="toggle"><span class="box on"></span><span>Hide Blizzard&#x27;s casting bar</span></div></div><div class="w"><label>Time decimals</label><div class="range"><div class="track"><div class="knob" style="left:calc(50.0% - 7px)"></div></div><span class="val">1</span></div></div><div class="w"><label>Cast colour</label><div class="color" style="background:#3fbf5a"></div></div><div class="w"><label>Channel colour</label><div class="color" style="background:#3fbf5a"></div></div><div class="w"><label>Uninterruptible colour</label><div class="color" style="background:#3fbf5a"></div></div><div class="w"><label>Failed / interrupted colour</label><div class="color" style="background:#3fbf5a"></div></div></div></div>
+<div class="foot"><span>/hh  ·  HogHeals 0.1.0  ·  mockup rendered from the live options table</span><span>Esc closes · changes apply live</span></div></div></body></html>

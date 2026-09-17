@@ -42,6 +42,7 @@ DEAD = "Dead"; PLAYER_OFFLINE = "Offline"; AFK = "AFK"; UNKNOWN = "Unknown"
 NUM_RAID_GROUPS = 8; MAX_RAID_MEMBERS = 40; MEMBERS_PER_RAID_GROUP = 5
 
 -- ---------- string/table helpers ----------
+floor, ceil, max, min, abs, sqrt, mod = math.floor, math.ceil, math.max, math.min, math.abs, math.sqrt, math.fmod
 strmatch = string.match; strfind = string.find; strsub = string.sub; strlen = string.len
 strlower = string.lower; strupper = string.upper; strrep = string.rep; strbyte = string.byte; strchar = string.char
 format = string.format; gsub = string.gsub; gmatch = string.gmatch
@@ -75,7 +76,7 @@ end
 function GetTime() return MockState.time end
 function GetLocale() return MockState.locale end
 function GetBuildInfo() return "2.5.5", "60000", "Jan 1 2026", 20505 end
-function IsLoggedIn() return true end
+function IsLoggedIn() return MockState.loggedIn == true end
 function InCombatLockdown() return MockState.inCombat end
 function IsInRaid() return MockState.inRaid end
 function IsInGroup() return MockState.numGroup > 1 end
@@ -353,3 +354,77 @@ function ChatEdit_GetActiveWindow() return nil end
 function ChatEdit_GetLastActiveWindow() return nil end
 function ChatFrame_AddMessageEventFilter() end
 ChatFontNormal = GameFontNormal
+
+-- WoW ships a `bit` library (LuaJIT-style). PUC Lua 5.1 has none; provide a small pure-Lua one.
+bit = bit or {}
+local function tobits(n) n = math.floor(n) if n < 0 then n = n + 4294967296 end return n % 4294967296 end
+function bit.band(a, b) a, b = tobits(a), tobits(b) local r, p = 0, 1
+  while a > 0 and b > 0 do if a % 2 == 1 and b % 2 == 1 then r = r + p end a, b, p = math.floor(a / 2), math.floor(b / 2), p * 2 end return r end
+function bit.bor(a, b) a, b = tobits(a), tobits(b) local r, p = 0, 1
+  while a > 0 or b > 0 do if a % 2 == 1 or b % 2 == 1 then r = r + p end a, b, p = math.floor(a / 2), math.floor(b / 2), p * 2 end return r end
+function bit.bxor(a, b) a, b = tobits(a), tobits(b) local r, p = 0, 1
+  while a > 0 or b > 0 do if (a % 2) ~= (b % 2) then r = r + p end a, b, p = math.floor(a / 2), math.floor(b / 2), p * 2 end return r end
+function bit.bnot(a) return 4294967295 - tobits(a) end
+function bit.lshift(a, n) return (tobits(a) * 2 ^ n) % 4294967296 end
+function bit.rshift(a, n) return math.floor(tobits(a) / 2 ^ n) end
+function CombatLogGetCurrentEventInfo() return 0, "SPELL_HEAL", false, "Player-0", "Hognificent", 0, 0, "Player-1", "Zugzug", 0, 0 end
+function UnitIsVisible() return true end
+function UnitIsDeadOrGhost_() return false end
+function GetSpellBonusHealing() return 0 end
+function GetSpellBonusDamage() return 0 end
+function GetSpellCritChance() return 0 end
+function UnitInVehicle() return false end
+function GetInventoryItemLink() return nil end
+function GetItemInfo() return nil end
+function GetItemGem() return nil end
+function GetInventorySlotInfo() return 1 end
+function GetShapeshiftForm() return 0 end
+function GetShapeshiftFormInfo() return nil end
+function IsPlayerSpell() return true end
+function GetSpellCooldown() return 0, 0, 1 end
+function GetSpellCharges() return nil end
+function UnitCastingInfo(u) local m = MockUnits[u] if m and m.casting then return unpack(m.casting) end return nil end
+function UnitChannelInfo(u) local m = MockUnits[u] if m and m.channeling then return unpack(m.channeling) end return nil end
+function GetNetStats() return 0, 0, MockState.latencyHome or 50, MockState.latencyWorld or 250 end
+function GetSpellBookItemName(i, book) local s = MockState.spellbook and MockState.spellbook[i] if s then return s[1], s[2] end return nil end
+function GetSpellBookItemInfo(i) return "SPELL", i end
+BOOKTYPE_SPELL = "spell"
+function GetNumSpellTabs() return 1 end
+function GetSpellTabInfo() return "General", "", 0, (MockState.spellbook and #MockState.spellbook or 0) end
+function UnitIsFeignDeath() return false end
+function UnitPlayerOrPetInParty() return true end
+function UnitPlayerOrPetInRaid() return true end
+function GetNumPartyMembers() return math.max(0, MockState.numGroup - 1) end
+function GetNumRaidMembers() return MockState.inRaid and MockState.numGroup or 0 end
+function GetPlayerInfoByGUID() return nil end
+function GetGlyphSocketInfo() return false end
+function GetPrimaryTalentTree() return nil end
+function UnitGetIncomingHeals_() end
+MAX_PARTY_MEMBERS = 4
+COMBATLOG_OBJECT_AFFILIATION_MINE = 1
+function Ambiguate(name) return (name:match("^([^%-]+)")) or name end
+function CastingInfo() return UnitCastingInfo("player") end
+function ChannelInfo() return UnitChannelInfo("player") end
+function GetNumTalents() return 0 end
+function GetZonePVPInfo() return nil end
+function IsEquippedItem() return false end
+function IsInInstance() return false, "none" end
+function SpellIsTargeting() return false end
+function UnitCanAssist() return true end
+function UnitCanCooperate() return true end
+function UnitIsEnemy() return false end
+AuraUtil = AuraUtil or {}
+function AuraUtil.FindAuraByName(name, unit, filter)
+  local i = 1
+  while true do local n, icon, count, dtype, dur, exp, src, _, _, id = UnitAura(unit, i, filter)
+    if not n then return nil end
+    if n == name then return n, icon, count, dtype, dur, exp, src, false, false, id end
+    i = i + 1 end
+end
+function AuraUtil.ForEachAura(unit, filter, max, fn)
+  local i = 1
+  while true do local r = { UnitAura(unit, i, filter) } if not r[1] then return end if fn(unpack(r)) then return end i = i + 1 end
+end
+C_UnitAuras = C_UnitAuras or nil
+function GetSpellSubtext() return nil end
+function UnitIsPVP() return false end
