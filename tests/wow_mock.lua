@@ -254,6 +254,8 @@ local function newRegion(kind, name, parent)
   if parent and parent._children then parent._children[#parent._children + 1] = r end
   return r
 end
+function Region:SetFrameLevel(n) self._frameLevel = n end
+function Region:GetFrameLevel() return self._frameLevel or ((self._parent and self._parent.GetFrameLevel and self._parent:GetFrameLevel() or 0) + 1) end
 function Region:GetName() return self._name end
 function Region:GetParent() return self._parent end
 function Region:SetParent(p) self._parent = p end

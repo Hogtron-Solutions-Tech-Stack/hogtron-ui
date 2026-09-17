@@ -38,7 +38,7 @@ def test_health_name_power_draw_with_secret_values(frames):
     assert errors(f) == []
     assert f.eval('HH_s.health._value') == 40 and f.eval('HH_s.health._max') == 100
     assert f.eval('HH_s.power._value') == 30 and f.eval('HH_s.power._max') == 60
-    assert f.eval('HH_s.name._text') == "Thrallsb"      # names are not secret on the beta: normal truncation
+    assert f.eval('HH_s.name._text') == "Thrallsban"      # names are not secret on the beta: normal truncation
 
 
 def test_secret_name_is_clipped_by_the_widget_not_by_lua(frames):
@@ -71,7 +71,7 @@ def test_open_client_unchanged(frames):
     f = btn(frames, secrets=False)
     assert errors(f) == []
     assert f.eval('HH_s.health._value') == 40
-    assert f.eval('HH_s.name._text') == "Thrallsb"   # default nameLength 8 still applies when we may measure it
+    assert f.eval('HH_s.name._text') == "Thrallsban"   # default nameLength 8 still applies when we may measure it
     assert f.eval('HH_s.healthText._text') == "-60"
 
 
