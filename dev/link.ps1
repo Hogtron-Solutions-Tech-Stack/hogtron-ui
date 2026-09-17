@@ -4,20 +4,21 @@
 .EXAMPLE
   .\dev\link.ps1 -Client anniversary          # link into _anniversary_
   .\dev\link.ps1 -Client all                  # anniversary + era
+  .\dev\link.ps1 -Client beta                 # WoW: Forever beta (_classic_beta_); not part of "all"
   .\dev\link.ps1 -Client anniversary -Remove  # unlink
 .NOTES
   Junctions need no admin, but writing under "Program Files (x86)" may prompt UAC once.
   Remove = delete two junctions; the repo is untouched.
 #>
 param(
-  [ValidateSet("anniversary", "era", "retail", "all")] [string] $Client = "anniversary",
+  [ValidateSet("anniversary", "era", "retail", "beta", "all")] [string] $Client = "anniversary",
   [switch] $Remove,
   [string] $WowRoot = "C:\Program Files (x86)\World of Warcraft"
 )
 
 $repo = Split-Path -Parent $PSScriptRoot
 $addons = @("HogHeals", "HogHeals_Frames", "HogHeals_HUD")
-$map = @{ anniversary = "_anniversary_"; era = "_classic_era_"; retail = "_retail_" }
+$map = @{ anniversary = "_anniversary_"; era = "_classic_era_"; retail = "_retail_"; beta = "_classic_beta_" }
 $targets = if ($Client -eq "all") { @("anniversary", "era") } else { @($Client) }
 
 foreach ($t in $targets) {

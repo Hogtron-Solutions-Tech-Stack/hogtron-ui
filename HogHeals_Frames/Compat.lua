@@ -4,6 +4,7 @@ HogHealsFrames = HogHealsFrames or {}
 local HHF = HogHealsFrames
 
 local Compat = {}
+local FOREVER_MIN_TOC = 16000
 HHF.Compat = Compat
 
 function Compat.Init()
@@ -14,7 +15,12 @@ function Compat.Init()
   local _, _, _, toc = GetBuildInfo()
   local major = math.floor((tonumber(toc) or 0) / 10000)
   Compat.build = toc
-  Compat.isEra = (major == 1) or (major == 0 and id == WOW_PROJECT_CLASSIC)
+  -- WoW: Forever ships as 1.60.x (beta 2026-09-17: 1.60.1.69893, toc 160xx). Same major as Classic
+  -- Era (1.13-1.15, toc 113xx-115xx), so split on the minor or Forever gets Era's "aura API is open"
+  -- assumption without ever being probed.
+  local n = tonumber(toc) or 0
+  Compat.isForever = (n >= FOREVER_MIN_TOC and n < 20000)
+  Compat.isEra = (major == 1 and not Compat.isForever) or (major == 0 and id == WOW_PROJECT_CLASSIC)
   Compat.isTBC = (major == 2) or (major == 0 and id == WOW_PROJECT_BURNING_CRUSADE_CLASSIC)
   local knownClassicLineage = Compat.isTBC or major == 3 or major == 4 or major == 5
     or id == WOW_PROJECT_WRATH_CLASSIC or id == WOW_PROJECT_CATACLYSM_CLASSIC or id == WOW_PROJECT_MISTS_CLASSIC
@@ -28,7 +34,7 @@ function Compat.Init()
     Compat.hasEarthShield = true
     Compat.auraFilterAllowed = true
   else
-    -- Unknown client (Forever until we learn its id): probe conservatively.
+    -- Forever, or any client we do not recognise: probe, never assume.
     Compat.hasNativeIncoming = type(UnitGetIncomingHeals) == "function"
     Compat.hasEarthShield = true
     -- Midnight-style restricted clients expose the private-aura API; treat its presence as "aura filtering restricted".
@@ -40,7 +46,7 @@ function Compat.Init()
 end
 
 function Compat.Describe()
-  local keys = { "build", "projectId", "isEra", "isTBC", "hasNativeIncoming", "hasEarthShield", "auraFilterAllowed", "hasGamepad", "hasLibHealComm" }
+  local keys = { "build", "projectId", "isEra", "isTBC", "isForever", "hasNativeIncoming", "hasEarthShield", "auraFilterAllowed", "hasGamepad", "hasLibHealComm" }
   local out = {}
   for _, k in ipairs(keys) do out[#out + 1] = k .. "=" .. tostring(Compat[k]) end
   return out

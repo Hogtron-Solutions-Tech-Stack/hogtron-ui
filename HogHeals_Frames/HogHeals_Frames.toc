@@ -1,4 +1,4 @@
-## Interface: 20505,11508
+## Interface: 20505,20506,11508,11509,16001
 ## Title: |cffF5EBDCHog|r|cff21D4E0Heals|r Frames
 ## Notes: Party + raid healer frames with a hover-bind engine.
 ## Author: HogTron Solutions (Sean Bilger)
