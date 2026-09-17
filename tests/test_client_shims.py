@@ -14,11 +14,12 @@ def test_falls_back_to_grey_when_the_shader_is_unsupported(core):
     assert core.eval('HH_tex2.r') == 0.5
 
 
-def test_shim_loads_before_the_libraries():
+def test_shim_lives_in_a_file_that_reload_rereads():
+    # A brand-new toc entry can need a full client restart; the tester is behind a login queue.
     import pathlib
-    toc = (pathlib.Path(__file__).resolve().parent.parent / "HogHeals" / "HogHeals.toc").read_text(encoding="utf-8")
-    files = [l for l in toc.splitlines() if l and not l.startswith("#")]
-    assert files[0] == r"Core\ClientShims.lua" and files[1] == "embeds.xml"
+    root = pathlib.Path(__file__).resolve().parent.parent / "HogHeals"
+    assert "function SetDesaturation(" in (root / "Core.lua").read_text(encoding="utf-8")
+    assert "ClientShims" not in (root / "HogHeals.toc").read_text(encoding="utf-8")
 
 
 def test_snapshot_lists_globals_this_client_lacks(core):
