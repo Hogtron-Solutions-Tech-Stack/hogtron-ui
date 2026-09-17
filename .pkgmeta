@@ -4,6 +4,7 @@ package-as: HogHeals
 
 move-folders:
   HogHeals/HogHeals_Frames: HogHeals_Frames
+  HogHeals/HogHeals_HUD: HogHeals_HUD
 
 ignore:
   - tests

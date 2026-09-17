@@ -52,7 +52,8 @@ class AddonLoader:
         return self
 
     def player_login(self) -> None:
-        self.lua.execute('MockFire("PLAYER_LOGIN"); MockFire("PLAYER_ENTERING_WORLD", true, false)')
+        # WoW: IsLoggedIn() is false during startup ADDON_LOADED; addons enable on PLAYER_LOGIN.
+        self.lua.execute('MockState.loggedIn = true; MockFire("PLAYER_LOGIN"); MockFire("PLAYER_ENTERING_WORLD", true, false)')
 
     def eval(self, code: str):
         return self.lua.eval(code)
