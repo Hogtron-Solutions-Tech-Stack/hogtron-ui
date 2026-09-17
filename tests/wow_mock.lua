@@ -271,15 +271,23 @@ function Region:ClearAllPoints() self._points = {} end
 function Region:SetAllPoints(t) self._points = { { "ALL", t } } end
 function Region:SetAttribute(k, v) self._attrs[k] = v; MockLog.attributes[#MockLog.attributes + 1] = { frame = self._name, key = k, value = v } end
 function Region:GetAttribute(k) return self._attrs[k] end
-function Region:RegisterEvent(e) self._events[e] = true end
-function Region:RegisterUnitEvent(e) self._events[e] = true end
+-- Forever beta: registering an event the client does not know THROWS (seen: UNIT_HEALTH_FREQUENT).
+MockUnknownEvents = {}
+local function checkEvent(self, e)
+  if MockUnknownEvents[e] then error((self._name or "?") .. ':RegisterUnitEvent(): Attempt to register unknown event "' .. e .. '"') end
+end
+function Region:RegisterEvent(e) checkEvent(self, e); self._events[e] = true end
+function Region:RegisterUnitEvent(e) checkEvent(self, e); self._events[e] = true end
 function Region:UnregisterEvent(e) self._events[e] = nil end
 function Region:UnregisterAllEvents() self._events = {} end
 function Region:IsEventRegistered(e) return self._events[e] == true end
 function Region:SetScript(h, f) self._scripts[h] = f end
 function Region:GetScript(h) return self._scripts[h] end
 function Region:HookScript(h, f) local o = self._scripts[h] self._scripts[h] = function(...) if o then o(...) end f(...) end end
-function Region:SetText(t) t = MockUnwrap(t); self._text = t == nil and "" or tostring(t) end
+function Region:SetText(t)
+  if self._kind == "FontString" and not self._font and MockState.strictFonts then error("FontString:SetText(): Font not set") end
+  t = MockUnwrap(t); self._text = t == nil and "" or tostring(t)
+end
 function Region:GetText() return self._text end
 function Region:GetStringWidth() return #self._text * 6 end
 function Region:SetTextColor(r, g, b, a) self._color = { r, g, b, a } end
@@ -301,7 +309,8 @@ function Region:GetID() return self._id end
 function Region:GetChildren() return unpack(self._children) end
 function Region:GetRegions() return unpack(self._children) end
 function Region:CreateTexture(name, layer) local r = newRegion("Texture", name, self) r._layer = layer return r end
-function Region:CreateFontString(name, layer) local r = newRegion("FontString", name, self) return r end
+-- Forever beta: FontString:SetText() on a font string with no font THROWS "Font not set".
+function Region:CreateFontString(name, layer, template) local r = newRegion("FontString", name, self); r._font = template; return r end
 function Region:CreateAnimationGroup() local g = newRegion("AnimationGroup", nil, self)
   function g:CreateAnimation(kind) return newRegion(kind or "Animation", nil, g) end return g end
 function Region:GetEffectiveScale() return 1 end
@@ -386,6 +395,7 @@ function MockFire(event, ...) for _, f in ipairs(MockFrames) do f:Fire(event, ..
 function MockReset()
   wipe(MockUnits); wipe(MockBindings.clicks); wipe(MockBindings.cleared); wipe(MockLog.attributes); wipe(MockLog.errors); wipe(MockTimers)
   MockSetSecrets(false)
+  wipe(MockUnknownEvents); MockState.strictFonts = false
   MockState.inCombat = false; MockState.numGroup = 1; MockState.inRaid = false; MockState.time = 0; MockState.cliqueLoaded = false
   MockUnits.player = { name = "Hognificent", class = MockState.playerClass, health = 100, maxHealth = 100, guid = "Player-0" }
 end

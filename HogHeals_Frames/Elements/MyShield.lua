@@ -7,7 +7,7 @@ local E = { Events = { "UNIT_AURA" }, Ticker = 1 }
 local function findAura(unit, filter, names, mineOnly)
   local i = 1
   while true do
-    local name, icon, count, _, _, expires, source = UnitAura(unit, i, filter)
+    local name, icon, count, _, _, expires, source = HHF.Compat.UnitAura(unit, i, filter)
     if not name then return nil end
     if names[name] and (not mineOnly or source == "player") then
       return { name = name, icon = icon, count = count, expires = expires or 0 }

@@ -8,7 +8,7 @@ local function buffNames(unit)
   local set = {}
   local i = 1
   while true do
-    local name = UnitAura(unit, i, "HELPFUL")
+    local name = HHF.Compat.UnitAura(unit, i, "HELPFUL")
     if not name then break end
     set[name] = true
     i = i + 1

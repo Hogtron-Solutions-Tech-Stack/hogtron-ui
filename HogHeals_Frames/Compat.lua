@@ -5,6 +5,7 @@ local HHF = HogHealsFrames
 
 local Compat = {}
 local FOREVER_MIN_TOC = 16000
+Compat.unknownEvents = {}   -- event names this client refused; filled by UnitButton, reported by Describe
 HHF.Compat = Compat
 
 function Compat.Init()
@@ -48,6 +49,8 @@ function Compat.Init()
   Compat.blocked = {}
   if Compat.secretValues then
     Compat.blocked.healPrediction = "needs arithmetic on incoming-heal amounts, which are secret on this client"
+    local why = "aura names / dispel types are secret on this client; needs a rebuild on Blizzard's filtered aura API"
+    Compat.blocked.dispel, Compat.blocked.missingBuffs, Compat.blocked.myShield = why, why, why
   end
   Compat.hasGamepad = type(C_GamePad) == "table"
   Compat.hasLibHealComm = LibStub and LibStub("LibHealComm-4.0", true) ~= nil or false
@@ -58,6 +61,10 @@ function Compat.Describe()
   local keys = { "build", "projectId", "isEra", "isTBC", "isForever", "hasNativeIncoming", "hasEarthShield", "auraFilterAllowed", "secretValues", "hasGamepad", "hasLibHealComm" }
   local out = {}
   for _, k in ipairs(keys) do out[#out + 1] = k .. "=" .. tostring(Compat[k]) end
+  local ev = {}
+  for name in pairs(Compat.unknownEvents) do ev[#ev + 1] = name end
+  table.sort(ev)
+  out[#out + 1] = "unknownEvents=" .. table.concat(ev, ",")
   return out
 end
 
@@ -66,6 +73,17 @@ HogHeals:RegisterSlash("apicheck", function()
   HogHeals:Print("API capability check (screenshot this on beta):")
   for _, line in ipairs(Compat.Describe()) do HogHeals:Print("  " .. line) end
 end, "print client API capability flags")
+
+--- UnitAura(unit, index, filter) for every client: the global was removed from modern clients.
+-- Returns name, icon, count, dispelType, duration, expires, source.
+function Compat.UnitAura(unit, index, filter)
+  if type(UnitAura) == "function" then return UnitAura(unit, index, filter) end
+  local get = C_UnitAuras and C_UnitAuras.GetAuraDataByIndex
+  if not get then return nil end
+  local a = get(unit, index, filter)
+  if not a then return nil end
+  return a.name, a.icon, a.applications, a.dispelName, a.duration or 0, a.expirationTime, a.sourceUnit
+end
 
 --- True when v is a secret value (always false on clients without the restricted API).
 function Compat.IsSecret(v)
