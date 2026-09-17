@@ -114,6 +114,15 @@ function HH:OnEnable()
   if self.InitGroupSize then self:InitGroupSize() end
   if self.InitQueue then self:InitQueue() end
   for _, m in pairs(self.modules) do self:SafeCall(m, "OnEnable") end
+  -- The client tells us when tainted code (ours) touched something protected or Blizzard-only, and WHICH function.
+  -- Without this the only evidence is a popup the player has to describe.
+  for _, ev in ipairs({ "ADDON_ACTION_FORBIDDEN", "ADDON_ACTION_BLOCKED" }) do
+    pcall(self.RegisterEvent, self, ev, function(event, addon, func)
+      if type(addon) == "string" and addon:find("^HogHeals") then
+        self:LogError(("%s: %s called %s%s"):format(event, addon, tostring(func), InCombatLockdown() and " (in combat)" or ""))
+      end
+    end)
+  end
   self:SafeCall(self, "SnapshotClient")
   -- Values may only turn secret once combat starts: probe again on the first pull of the session.
   self:RegisterEvent("PLAYER_REGEN_DISABLED", function()
@@ -190,12 +199,10 @@ function HH:SnapshotClient()
   local meter = { api = probe("C_DamageMeter"), combatLogFn = probe("CombatLogGetCurrentEventInfo"), cCombatLog = probe("C_CombatLog"),
     blizzFrame = probe("DamageMeter"), enumType = "", keys = "", calls = {} }
   do
-    local ok = pcall(function()
-      local f = CreateFrame("Frame")
-      f:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-      f:UnregisterAllEvents()
-    end)
-    meter.canRegisterCLEU = ok and true or false
+    -- Do NOT test-register COMBAT_LOG_EVENT_UNFILTERED here. On a restricted client that is a FORBIDDEN action:
+    -- pcall does not contain it, the player gets "HogHeals has been blocked from an action only available to the
+    -- Blizzard UI" with a Disable button (happened 2026-09-17, first build of this probe). Whether the combat log
+    -- is open is inferred instead: CombatLogGetCurrentEventInfo present = classic-style access.
     local names = {}
     if type(C_DamageMeter) == "table" then
       for k, v in pairs(C_DamageMeter) do
