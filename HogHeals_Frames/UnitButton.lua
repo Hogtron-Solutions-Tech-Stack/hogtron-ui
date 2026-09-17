@@ -34,6 +34,32 @@ end
 UnitButton.ElementEnabled = elementEnabled
 
 -- ---------------------------------------------------------------- regions
+--- A real border: four thin edge textures with one Show/Hide/SetColorTexture/SetShown surface. Before this,
+-- "borders" were one texture with SetAllPoints at 80% alpha, i.e. a fill that painted the whole frame pink in game.
+local Border = {}
+Border.__index = Border
+function Border:Show() for _, e in ipairs(self.edges) do e:Show() end self.shown = true end
+function Border:Hide() for _, e in ipairs(self.edges) do e:Hide() end self.shown = false end
+function Border:SetShown(b) if b then self:Show() else self:Hide() end end
+function Border:IsShown() return self.shown == true end
+function Border:SetColorTexture(r, g, b, a) for _, e in ipairs(self.edges) do e:SetColorTexture(r, g, b, a) end end
+function Border:GetParent() return self.parent end
+local function mkBorder(parent, layer, sub, thickness)
+  local t = thickness or 2
+  local b = setmetatable({ parent = parent, edges = {}, shown = false }, Border)
+  local spec = { { "TOPLEFT", "TOPRIGHT", nil, t }, { "BOTTOMLEFT", "BOTTOMRIGHT", nil, t }, { "TOPLEFT", "BOTTOMLEFT", t, nil }, { "TOPRIGHT", "BOTTOMRIGHT", t, nil } }
+  for i, sp in ipairs(spec) do
+    local e = parent:CreateTexture(nil, layer or "OVERLAY", nil, sub)
+    e:SetPoint(sp[1], parent, sp[1], 0, 0)
+    e:SetPoint(sp[2], parent, sp[2], 0, 0)
+    if sp[3] then e:SetWidth(sp[3]) end
+    if sp[4] then e:SetHeight(sp[4]) end
+    e:Hide()
+    b.edges[i] = e
+  end
+  return b
+end
+
 local function mkTexture(parent, layer, sub)
   local t = parent:CreateTexture(nil, layer or "ARTWORK", nil, sub)
   return t
@@ -82,9 +108,7 @@ function UnitButton.Setup(button)
   button.healthText = button.overlay:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   button.healthText:SetPoint("BOTTOM", button, "BOTTOM", 0, 4)
 
-  button.dispelBorder = mkTexture(button.overlay, "OVERLAY", 1)
-  button.dispelBorder:SetAllPoints(button)
-  button.dispelBorder:Hide()
+  button.dispelBorder = mkBorder(button.overlay, "OVERLAY", 1, 2)
   button.dispelIcon = mkTexture(button.overlay, "OVERLAY", 3)
   button.dispelIcon:SetSize(14, 14)
   button.dispelIcon:SetPoint("CENTER", button, "CENTER", 0, 0)
@@ -94,10 +118,8 @@ function UnitButton.Setup(button)
   button.priorityIcon:SetPoint("CENTER", button, "CENTER", 0, 0)
   button.priorityIcon:Hide()
 
-  button.aggroBorder = mkTexture(button.overlay, "OVERLAY", 2)
-  button.aggroBorder:SetAllPoints(button)
-  button.aggroBorder:SetColorTexture(0.85, 0.2, 0.2, 0.8)
-  button.aggroBorder:Hide()
+  button.aggroBorder = mkBorder(button.overlay, "OVERLAY", 2, 2)
+  button.aggroBorder:SetColorTexture(0.85, 0.2, 0.2, 0.9)
 
   button.raidIcon = mkTexture(button.overlay, "OVERLAY", 5)
   button.raidIcon:SetSize(12, 12)
