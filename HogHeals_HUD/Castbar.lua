@@ -159,17 +159,23 @@ function Castbar.OnEvent(_, event, unit)
   end
 end
 
---- Hide (or restore) Blizzard's own casting bar.
+--- Ours on -> Blizzard's off. Ours off (row disabled, or "hide" unticked) -> Blizzard's comes back.
+-- The frame is CastingBarFrame on classic-engine clients and PlayerCastingBarFrame on modern-engine ones
+-- (WoW: Forever included); looking for the old name only meant this silently did nothing there.
 function Castbar.ApplyBlizzard()
-  local f = _G.CastingBarFrame
+  local f = _G.PlayerCastingBarFrame or _G.CastingBarFrame
   if not f then return end
-  if cfg().hideBlizzard then
+  local hud = HH.db.profile.hud
+  local wantHidden = cfg().hideBlizzard and hud.showCastbar ~= false
+  if wantHidden then
     f:UnregisterAllEvents()
     f:Hide()
     Castbar.blizzHidden = true
   elseif Castbar.blizzHidden then
     for _, ev in ipairs(BLIZZ_EVENTS) do
-      if ev:sub(1, 5) == "UNIT_" and f.RegisterUnitEvent then f:RegisterUnitEvent(ev, "player") else f:RegisterEvent(ev) end
+      -- pcall: some clients throw on event names they do not know
+      if ev:sub(1, 5) == "UNIT_" and f.RegisterUnitEvent then pcall(f.RegisterUnitEvent, f, ev, "player")
+      else pcall(f.RegisterEvent, f, ev) end
     end
     Castbar.blizzHidden = false
   end
