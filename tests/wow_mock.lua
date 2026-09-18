@@ -265,6 +265,7 @@ function Region:SetFrameLevel(n) self._frameLevel = n end
 function Region:GetFrameLevel() return self._frameLevel or ((self._parent and self._parent.GetFrameLevel and self._parent:GetFrameLevel() or 0) + 1) end
 -- Region:SetAlphaFromBoolean(secretBool, alphaTrue, alphaFalse): the client resolves the secret itself.
 function Region:SetAlphaFromBoolean(b, whenTrue, whenFalse) if MockUnwrap(b) then self._alpha = whenTrue else self._alpha = whenFalse end end
+function Region:IsMouseOver() return self._mouseOver == true end
 function Region:GetName() return self._name end
 function Region:GetParent() return self._parent end
 function Region:SetParent(p) self._parent = p end

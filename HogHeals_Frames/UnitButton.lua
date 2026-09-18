@@ -159,7 +159,13 @@ function UnitButton.Setup(button)
 
   button:SetScript("OnAttributeChanged", UnitButton.OnAttributeChanged)
   button:SetScript("OnEvent", UnitButton.OnEvent)
-  button:SetScript("OnShow", function(self) UnitButton.UpdateAll(self) end)
+  button:SetScript("OnShow", function(self)
+    UnitButton.UpdateAll(self)
+    -- Blizzard's header hides and re-shows every button on each layout pass (e.g. the one queued for the end of
+    -- combat). A hide under the cursor fires OnLeave, which clears the hover keys; OnEnter does not fire again until
+    -- the mouse moves. Seen in game: "hover-healing stops working when I get out of combat". Re-enter ourselves.
+    if self.IsMouseOver and self:IsMouseOver() and not InCombatLockdown() then UnitButton.OnEnter(self) end
+  end)
   button:SetScript("OnEnter", UnitButton.OnEnter)
   button:SetScript("OnLeave", UnitButton.OnLeave)
 
