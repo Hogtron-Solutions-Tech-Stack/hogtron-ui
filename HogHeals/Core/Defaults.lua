@@ -70,6 +70,8 @@ HH.defaults = {
     meter = {
       enabled = true, hideBlizzard = true, mode = "DamageDone", segment = "Current",
       width = 300, barHeight = 22, maxBars = 10, backgroundAlpha = 0.85, refresh = 1, fontSize = 12,
+      fixedHeight = true,             -- Details-style: the panel always shows maxBars slots, even empty
+      border = true, classIcons = true,
       point = "CENTER", x = 420, y = -220,
     },
     hud = {
