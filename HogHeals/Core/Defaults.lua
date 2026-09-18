@@ -27,8 +27,8 @@ HH.defaults = {
       hideBlizzard = true,           -- our group frames on = Blizzard's party / raid-style frames off
       layouts = {
         -- Square-ish cells (Grid / Cell proportions): name on top, deficit below, thin power strip.
-        solo   = layout(90, 60, 2, "DOWN", 1, 1),
-        party  = layout(90, 60, 2, "DOWN", 1, 1),
+        solo   = layout(90, 60, 2, "CENTER", 1, 1),   -- me dead centre; the row widens both ways as people join
+        party  = layout(90, 60, 2, "CENTER", 1, 1),
         raid10 = layout(80, 52, 2, "DOWN", 2, 2),
         raid20 = layout(72, 46, 2, "DOWN", 4, 4),
         raid40 = layout(62, 40, 1, "DOWN", 8, 8),

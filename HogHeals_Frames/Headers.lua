@@ -162,7 +162,15 @@ local function applyNow(bucket)
     configure(Headers.party, cfg)
     Headers.party:SetAttribute("showSolo", cfg.showSolo ~= false)
     Headers.party:ClearAllPoints()
-    Headers.party:SetPoint("TOPLEFT", anchor, "TOPLEFT", 0, 0)
+    if cfg.growth == "CENTER" then
+      -- Centred row: the header's LEFT sits half the row's width left of the anchor's centre, so one player is
+      -- dead centre and the row widens both ways as people join. Re-anchored on every roster change.
+      local n = Headers.PartyCount()
+      local rowW = n * (cfg.width or 0) + math.max(0, n - 1) * (cfg.spacing or 0)
+      Headers.party:SetPoint("LEFT", anchor, "CENTER", -rowW / 2, 0)
+    else
+      Headers.party:SetPoint("TOPLEFT", anchor, "TOPLEFT", 0, 0)
+    end
     if isRaid then Headers.party:Hide() else Headers.party:Show(); ensureChildren(Headers.party, cfg) end
   end
   local shown = isRaid and (cfg.groupsShown or NUM_GROUPS) or 0
@@ -180,6 +188,16 @@ local function applyNow(bucket)
     button:SetSize(cfg.width, cfg.height)
   end
   Headers.HideBlizzard()
+end
+
+--- Units the party header currently shows (player + party members, at least 1).
+function Headers.PartyCount()
+  local n = 1
+  if type(GetNumGroupMembers) == "function" then
+    local ok, v = pcall(GetNumGroupMembers)
+    if ok and type(v) == "number" and v > 1 then n = v end
+  end
+  return math.min(n, GROUP_SIZE)
 end
 
 -- ---------------------------------------------------------------- Blizzard's own group frames
@@ -232,6 +250,10 @@ function Headers.WatchBlizzard()
   end
   watcher:SetScript("OnEvent", function(_, event)
     Headers.HideBlizzard()
+    if event == "GROUP_ROSTER_UPDATE" and HHF.module and HHF.module.bucket then
+      local cfg = HH.db.profile.frames.layouts[HHF.module.bucket]
+      if cfg and cfg.growth == "CENTER" then Headers.Apply(HHF.module.bucket) end   -- re-centre on the new count
+    end
     if event == "PLAYER_ENTERING_WORLD" and C_Timer and C_Timer.After then
       C_Timer.After(2, Headers.HideBlizzard)       -- Edit Mode applies its layout a beat after this event
     end

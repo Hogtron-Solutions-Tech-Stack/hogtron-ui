@@ -7,7 +7,7 @@ HHF.Layout = Layout
 local UNITS_PER_GROUP = 5
 Layout.UNITS_PER_GROUP = UNITS_PER_GROUP
 
-local DIR = { DOWN = { 0, -1 }, UP = { 0, 1 }, RIGHT = { 1, 0 }, LEFT = { -1, 0 } }
+local DIR = { DOWN = { 0, -1 }, UP = { 0, 1 }, RIGHT = { 1, 0 }, LEFT = { -1, 0 }, CENTER = { 1, 0 } }   -- CENTER: a RIGHT row, re-anchored on its middle by Headers
 
 --- Compute {x=,y=} offsets (from the layout anchor) for n units.
 --- Units 1..5 = group 1, 6..10 = group 2, ... Groups lay out along cfg.groupGrowth,
@@ -52,7 +52,7 @@ function Layout.HeaderAttributes(cfg)
     a.point, a.xOffset, a.yOffset, a.columnAnchorPoint = "TOP", 0, -spacing, "LEFT"
   elseif growth == "UP" then
     a.point, a.xOffset, a.yOffset, a.columnAnchorPoint = "BOTTOM", 0, spacing, "LEFT"
-  elseif growth == "RIGHT" then
+  elseif growth == "RIGHT" or growth == "CENTER" then
     a.point, a.xOffset, a.yOffset, a.columnAnchorPoint = "LEFT", spacing, 0, "TOP"
   else
     a.point, a.xOffset, a.yOffset, a.columnAnchorPoint = "RIGHT", -spacing, 0, "TOP"
