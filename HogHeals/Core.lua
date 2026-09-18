@@ -124,12 +124,22 @@ function HH:OnEnable()
     end)
   end
   self:SafeCall(self, "SnapshotClient")
+  -- Blizzard frame state over time: at enable, 10 s after entering the world (Edit Mode has applied its layout by
+  -- then), and at first combat. If something re-shows the frames we hid, this says when.
+  self.db.global.diag.blizzFrames = { atEnable = self:BlizzardFrameState() }
+  self:RegisterEvent("PLAYER_ENTERING_WORLD", function()
+    if C_Timer and C_Timer.After then
+      C_Timer.After(10, function() self.db.global.diag.blizzFrames.after10s = self:BlizzardFrameState() end)
+    end
+  end)
   -- Values may only turn secret once combat starts: probe again on the first pull of the session.
   self:RegisterEvent("PLAYER_REGEN_DISABLED", function()
     self:UnregisterEvent("PLAYER_REGEN_DISABLED")
     if self:SafeCall(self, "SnapshotClient") then
       local d = self.db.global.diag
       d.combatProbe = d.client and d.client.secretProbe
+      d.blizzFrames = d.blizzFrames or {}
+      d.blizzFrames.atCombat = self:BlizzardFrameState()
     end
   end)
 end
@@ -144,6 +154,28 @@ local function probe(path)
 end
 
 HH.GLOBALS_USED = "Ambiguate,CastingInfo,ClearCursor,ClearOverrideBindings,CreateFont,GetActiveSeason,GetAddOnMetadata,GetCurrentRegion,GetCurrentRegionName,GetCursorInfo,GetCursorPosition,GetFramerate,GetInventoryItemLink,GetInventorySlotInfo,GetLocale,GetMacroInfo,GetMinimapShape,GetNetStats,GetNumGroupMembers,GetNumSpellTabs,GetNumTalentTabs,GetNumTalents,GetRaidRosterInfo,GetRaidTargetIndex,GetReadyCheckStatus,GetRealmName,GetSpellBonusHealing,GetSpellBookItemInfo,GetSpellBookItemName,GetSpellCooldown,GetSpellCritChance,GetSpellInfo,GetSpellTabInfo,GetTalentInfo,GetZonePVPInfo,HasActiveSeason,IsAddOnLoaded,IsAltKeyDown,IsControlKeyDown,IsEquippedItem,IsInGroup,IsInInstance,IsInRaid,IsShiftKeyDown,IsSpellBookItemInRange,IsSpellInRange,PlaySound,RegisterAddonMessagePrefix,SendAddonMessage,SetDesaturation,SetOverrideBindingClick,SpellIsTargeting,UnitAura,UnitBuff,UnitDebuff,UnitCanAssist,UnitCanAttack,UnitCastingInfo,UnitChannelInfo,UnitFactionGroup,UnitGUID,UnitGetIncomingHeals,UnitHasIncomingResurrection,UnitHasVehicleUI,UnitInParty,UnitInRaid,UnitInRange,UnitIsAFK,UnitIsCharmed,UnitIsConnected,UnitIsGroupAssistant,UnitIsGroupLeader,UnitIsVisible,UnitLevel,UnitPlayerControlled,UnitPowerType,UnitRace,UnitThreatSituation,InterfaceOptions_AddCategory,InterfaceOptionsFrame_OpenToCategory,UIDropDownMenu_Initialize,ToggleDropDownMenu,EasyMenu,GetMouseFocus,GetMouseFoci,C_Timer,hooksecurefunc,securecallfunction"
+
+--- One line per Blizzard group frame: shown? visible (parents included)? who is the parent? Answers "we hid it,
+-- why is it still there" without a screenshot.
+function HH:BlizzardFrameState()
+  local out = {}
+  for _, name in ipairs({ "PartyFrame", "CompactPartyFrame", "CompactRaidFrameContainer", "CompactRaidFrameManager", "PlayerCastingBarFrame" }) do
+    local f = _G[name]
+    if type(f) == "table" then
+      local parent = f.GetParent and f:GetParent()
+      local pname = parent and ((parent.GetName and parent:GetName()) or "(unnamed)") or "nil"
+      out[#out + 1] = ("%s shown=%s visible=%s parent=%s"):format(name, tostring(f.IsShown and f:IsShown()), tostring(f.IsVisible and f:IsVisible()), pname)
+      if name == "PartyFrame" and type(f.PartyMemberFramePool) == "table" and f.PartyMemberFramePool.EnumerateActive then
+        local n, vis = 0, 0
+        for m in f.PartyMemberFramePool:EnumerateActive() do n = n + 1; if m.IsVisible and m:IsVisible() then vis = vis + 1 end end
+        out[#out + 1] = ("PartyFrame members active=%d visible=%d"):format(n, vis)
+      end
+    else
+      out[#out + 1] = name .. " = " .. type(f)
+    end
+  end
+  return table.concat(out, " ; ")
+end
 
 --- Write what this client IS into SavedVariables (read off disk after a /reload; see docs/TESTING-BETA.md).
 function HH:SnapshotClient()

@@ -82,3 +82,13 @@ def test_blocked_and_forbidden_actions_are_logged_with_the_function_name(core):
     assert any("ADDON_ACTION_FORBIDDEN: HogHeals called Frame:RegisterEvent()" in m for m in msgs)
     assert any("HogHeals_Frames called CompactPartyFrame:SetParent()" in m for m in msgs)
     assert not any("SomeOtherAddon" in m for m in msgs)
+
+
+def test_blizzard_frame_state_is_recorded_at_enable_and_combat(frames):
+    frames.execute('CompactPartyFrame = CreateFrame("Frame", "CompactPartyFrame", UIParent)')
+    line = frames.eval('HogHeals:BlizzardFrameState()')
+    assert "CompactPartyFrame shown=true" in line and "parent=UIParent" in line
+    assert "PartyFrame = nil" in line
+    assert frames.eval('HogHeals.db.global.diag.blizzFrames.atEnable ~= nil')
+    frames.execute('MockFire("PLAYER_REGEN_DISABLED")')
+    assert "CompactPartyFrame" in frames.eval('HogHeals.db.global.diag.blizzFrames.atCombat')
