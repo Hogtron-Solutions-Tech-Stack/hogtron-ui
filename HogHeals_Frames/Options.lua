@@ -36,7 +36,17 @@ local function layoutGroup()
   return {
     type = "group", name = "Layout", order = 1,
     args = {
-      note = { type = "description", order = 0, name = function() return "Editing layout for group size: " .. tostring(HHF.module.bucket or "solo") .. " (switches automatically)." end },
+      note = { type = "description", order = 0, name = function()
+        local _, which = HHF.module.ResolveLayout(HHF.module.bucket or "solo")
+        local label = (which == "party" and HH.db.profile.frames.soloSharesParty ~= false) and "solo & party" or tostring(which)
+        return "Editing layout for group size: " .. label .. " (switches automatically)."
+      end },
+      soloSharesParty = {
+        type = "toggle", name = "Solo uses the party layout", order = 0.5, width = "full",
+        desc = "One size, direction and position whether you are alone or in a group. Untick to give solo its own layout.",
+        get = function() return frames().soloSharesParty ~= false end,
+        set = function(_, v) frames().soloSharesParty = v and true or false; relayout() end,
+      },
       width = L("width", "Frame width", 40, 300, 1, 1),
       height = L("height", "Frame height", 12, 80, 1, 2),
       spacing = L("spacing", "Spacing", 0, 20, 1, 3),

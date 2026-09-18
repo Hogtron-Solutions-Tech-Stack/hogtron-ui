@@ -44,8 +44,18 @@ function Frames:Refresh()
   end
 end
 
+--- The layout table a bucket edits and renders. With soloSharesParty (default) the solo bucket uses the party
+-- layout, so being alone and being in a group never changes size, direction or position ("when I join a party it
+-- makes my frames a different size"). showSolo is read from the solo table separately.
+function Frames.ResolveLayout(bucket)
+  local db = HH.db.profile.frames
+  bucket = bucket or (HHF.module and HHF.module.bucket) or "party"
+  if bucket == "solo" and db.soloSharesParty ~= false then return db.layouts.party, "party" end
+  return db.layouts[bucket] or db.layouts.party, bucket
+end
+
 function Frames:LayoutFor(bucket)
-  return self.db.layouts[bucket or self.bucket or "party"]
+  return (Frames.ResolveLayout(bucket or self.bucket or "party"))
 end
 
 HH:RegisterModule("Frames", Frames)
