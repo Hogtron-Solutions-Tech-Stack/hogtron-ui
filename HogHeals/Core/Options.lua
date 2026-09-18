@@ -50,7 +50,14 @@ function HH.OptionsTable()
   return t
 end
 
+--- /hh opens our own window (Core/Panel.lua). The Ace dialog stays reachable as /hh ace: it is the fallback if
+-- the panel is not loaded (a brand-new file needs a full client restart, /reload alone will not pick it up).
 function HH:OpenOptions()
+  if self.Panel and self.Panel.Toggle then self.Panel.Toggle() return end
+  self:OpenAceOptions()
+end
+
+function HH:OpenAceOptions()
   local AceConfig = LibStub("AceConfig-3.0", true)
   local Dialog = LibStub("AceConfigDialog-3.0", true)
   if not AceConfig or not Dialog then self:Print("AceConfig not available.") return end
@@ -94,6 +101,7 @@ function HH:InitMinimap()
   icon:Register("HogHeals", obj, self.db.profile.minimap)
 end
 
+HH:RegisterSlash("ace", function() HH:OpenAceOptions() end, "open the old Ace options window (fallback)")
 HH:RegisterSlash("lock", function() HH:SetLocked(true) end, "lock the frames")
 HH:RegisterSlash("unlock", function() HH:SetLocked(false) end, "unlock to drag the anchor")
 HH:RegisterSlash("config", function() HH:OpenOptions() end, "open options")

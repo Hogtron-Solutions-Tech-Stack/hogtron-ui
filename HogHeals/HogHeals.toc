@@ -17,3 +17,4 @@ Core\ClassData.lua
 Core\Defaults.lua
 Core\Migrate.lua
 Core\Options.lua
+Core\Panel.lua

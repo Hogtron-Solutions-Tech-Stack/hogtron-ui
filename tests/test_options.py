@@ -42,7 +42,9 @@ def test_slash_commands_dispatch(frames):
     assert frames.eval('HogHealsAnchor:IsShown()') is True
     frames.execute('HogHeals:SlashCommand("lock")')
     assert frames.eval('HogHeals.db.profile.locked') is True
-    frames.execute('HogHeals:SlashCommand("")')
+    frames.execute('HogHeals:SlashCommand("")')                       # bare /hh = our own panel now
+    assert frames.eval('HogHealsPanel:IsShown()') is True
+    frames.execute('HogHeals:SlashCommand("ace")')                    # the Ace dialog stays as a fallback
     assert frames.eval('MockLibs.dialog.opened[#MockLibs.dialog.opened]') == "HogHeals"
 
 
