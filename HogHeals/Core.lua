@@ -285,10 +285,15 @@ function HH:SnapshotClient()
       return table.concat(keys, " ")
     end
     if type(C_DamageMeter) == "table" and type(C_DamageMeter.GetCombatSessionFromType) == "function" and Enum and Enum.DamageMeterType then
+      local st, stKeys = Enum.DamageMeterSessionType, {}
+      if type(st) == "table" then for k, v in pairs(st) do stKeys[#stKeys + 1] = tostring(k) .. "=" .. tostring(v) end table.sort(stKeys) end
+      meter.enumSessionType = table.concat(stKeys, ",")
+      local sessionType = (type(st) == "table" and (st.Current or st.Overall or st.Latest)) or 0
       for _, tname in ipairs({ "DamageDone", "HealingDone" }) do
         local ty = Enum.DamageMeterType[tname]
         if ty ~= nil then
-          local ok, r = pcall(C_DamageMeter.GetCombatSessionFromType, ty)
+          -- measured 2026-09-17: usage is GetCombatSessionFromType(sessionType, type)
+          local ok, r = pcall(C_DamageMeter.GetCombatSessionFromType, sessionType, ty)
           meter["session." .. tname] = ok and (type(r) == "table" and describe(r, 0) or (type(r) .. (isv(r) and ":secret" or ""))) or ("ERR " .. tostring(r):sub(1, 120))
         end
       end

@@ -160,6 +160,46 @@ local function text(parent, template, c, justify)
   return fs
 end
 
+local function applyFont(fs, size)
+  local font, _, flags = fs:GetFont()
+  if font and fs.SetFont then fs:SetFont(font, size, flags or "OUTLINE") end
+end
+
+--- Class token for a meter row. The session may carry it under several names or as a class ID; when it carries
+-- nothing usable, look the player up in the group by name (names are not secret on this client).
+local function classToken(src)
+  local c = src.class
+  if type(c) == "number" and type(GetClassInfo) == "function" then
+    local ok, _, file = pcall(GetClassInfo, c)
+    if ok and file then return file end
+  end
+  if type(c) == "string" and c ~= "" then
+    local up = c:upper():gsub(" ", "")
+    if RAID_CLASS_COLORS and RAID_CLASS_COLORS[up] then return up end
+  end
+  local name = src.name
+  if type(name) ~= "string" then return nil end
+  local short = name:match("^([^%-]+)") or name
+  local function try(unit)
+    if UnitExists and UnitExists(unit) then
+      local n = UnitName(unit)
+      if n == name or n == short then
+        local _, file = UnitClass(unit)
+        return file
+      end
+    end
+  end
+  local r = try("player")
+  if r then return r end
+  local n = type(GetNumGroupMembers) == "function" and GetNumGroupMembers() or 0
+  local prefix = (IsInRaid and IsInRaid()) and "raid" or "party"
+  for i = 1, math.max(n, 4) do
+    r = try(prefix .. i)
+    if r then return r end
+  end
+  return nil
+end
+
 local function classColor(class)
   local c = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
   if c then return c.r, c.g, c.b end
@@ -187,6 +227,8 @@ local function newRow(i)
   row.name:SetPoint("LEFT", row.overlay, "LEFT", 4, 0)
   row.value = text(row.overlay, "GameFontHighlightSmall", CREAM, "RIGHT")
   row.value:SetPoint("RIGHT", row.overlay, "RIGHT", -4, 0)
+  applyFont(row.name, d.fontSize or 12)
+  applyFont(row.value, d.fontSize or 12)
   row:Hide()
   return row
 end
@@ -253,6 +295,8 @@ local function layout(count)
   f.body:SetHeight(n * (h + 1))
   f:SetSize(d.width or 240, 20 + 2 + n * (h + 1) + 2)
   for i, row in ipairs(Meter.rows) do
+    applyFont(row.name, d.fontSize or 12)
+    applyFont(row.value, d.fontSize or 12)
     row:SetHeight(h)
     row:ClearAllPoints()
     row:SetPoint("TOPLEFT", f.body, "TOPLEFT", 0, -(i - 1) * (h + 1))
@@ -300,7 +344,7 @@ function Meter.Update()
     local per = fmtPer(src.per)
     local amount = fmtAmount(src.amount)
     row.value:SetText(per and (amount .. "  (" .. per .. ")") or amount)
-    row.bar:SetStatusBarColor(classColor(src.class))
+    row.bar:SetStatusBarColor(classColor(classToken(src)))
     if src.amount ~= nil and top ~= nil then
       row.bar:SetMinMaxValues(0, top)
       row.bar:SetValue(src.amount)

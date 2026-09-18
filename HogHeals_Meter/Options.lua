@@ -39,6 +39,7 @@ function Options.Build()
         get = function() return m().segment end, set = function(_, v) HHM.Meter.SetSegment(v) end },
       width = range("width", "Width", 5, 140, 500, 10),
       barHeight = range("barHeight", "Bar height", 6, 12, 30, 1),
+      fontSize = range("fontSize", "Font size", 6.5, 8, 20, 1),
       maxBars = range("maxBars", "Max rows", 7, 1, 40, 1),
       backgroundAlpha = range("backgroundAlpha", "Background opacity", 8, 0, 1, 0.05),
       refresh = range("refresh", "Refresh (seconds)", 9, 0.5, 5, 0.5),
