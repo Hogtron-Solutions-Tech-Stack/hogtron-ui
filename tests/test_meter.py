@@ -69,7 +69,7 @@ def test_class_colour_falls_back_to_the_group_roster_when_the_session_has_no_cla
     meter.execute("""
       MockSetGroup(3, false)
       MockUnits.party1 = { name = "lol Fried", class = "WARLOCK", health = 1, maxHealth = 1, guid = "P1" }
-      MockUnits.player.name = "Hog Tistic"
+      MockUnits.player.name = "Hog Tistic"; MockUnits.player.class = "SHAMAN"
       HH_sources = { { name = "Hog Tistic", totalAmount = MockSecret(10) }, { name = "lol Fried", totalAmount = MockSecret(5) }, { name = "Stranger", totalAmount = MockSecret(1) } }
       HogHealsMeter.Meter.Update()
     """)
