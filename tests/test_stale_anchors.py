@@ -8,7 +8,7 @@ def points(frames, n):
 
 def test_changing_growth_direction_leaves_one_anchor_per_button(frames):
     frames.execute('HogHeals.db.profile.frames.layouts.solo.growth = "LEFT"; HogHealsFrames.Headers.Apply("solo")')
-    frames.execute('MockSetGroup(5, false); HogHealsFrames.Headers.Apply("party")')
+    frames.execute('HogHeals.db.profile.frames.layouts.party.growth = "DOWN"; MockSetGroup(5, false); HogHealsFrames.Headers.Apply("party")')
     for n in range(2, 6):
         pts = points(frames, n)
         assert len(pts) == 1, (n, pts)

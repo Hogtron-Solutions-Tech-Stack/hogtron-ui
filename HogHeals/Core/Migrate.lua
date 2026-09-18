@@ -27,6 +27,17 @@ Migrate.steps = {
         end
       end
     end },
+  { version = 3, run = function(db)
+      -- Solo/party rows are now centred on the anchor (tester request 2026-09-17). One-time flip of the saved
+      -- direction so it applies to both group sizes at once; raid layouts are left alone.
+      for _, profile in pairs(db.profiles or { db.profile }) do
+        local layouts = profile.frames and profile.frames.layouts
+        for _, bucket in ipairs({ "solo", "party" }) do
+          local l = layouts and layouts[bucket]
+          if l and rawget(l, "growth") ~= nil then l.growth = "CENTER" end
+        end
+      end
+    end },
 }
 
 function Migrate.Run(db)

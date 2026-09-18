@@ -41,7 +41,7 @@ local function layoutGroup()
       height = L("height", "Frame height", 12, 80, 1, 2),
       spacing = L("spacing", "Spacing", 0, 20, 1, 3),
       growth = {
-        type = "select", name = "Units grow", order = 4, values = { DOWN = "Down", UP = "Up", RIGHT = "Right", LEFT = "Left" },
+        type = "select", name = "Units grow", order = 4, values = { DOWN = "Down", UP = "Up", RIGHT = "Right", LEFT = "Left", CENTER = "Centred (grow outward)" },
         get = function() return layout().growth end, set = function(_, v) layout().growth = v; relayout() end,
       },
       groupGrowth = {

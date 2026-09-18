@@ -44,4 +44,4 @@ def test_migration_2_reshapes_old_wide_layouts_but_keeps_deliberate_ones(frames)
     dw = frames.eval('HogHeals.defaults.profile.frames.layouts.party.width')
     assert frames.eval('HogHeals.db.profile.frames.layouts.party.width') == dw
     assert frames.eval('HogHeals.db.profile.frames.layouts.raid10.width') == 70
-    assert frames.eval('HogHeals.db.global.schema') == 2
+    assert frames.eval('HogHeals.db.global.schema') == 3
