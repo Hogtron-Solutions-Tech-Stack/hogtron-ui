@@ -99,6 +99,7 @@ function ClickCast.Init()
   local class = playerClass()
   local saved = db and db.bindings and db.bindings[class]
   ClickCast.bindings = saved or ClickCast.Defaults(class)
+  ClickCast.ApplyGlobal()
 end
 
 --- Replace current bindings and persist for this class.
@@ -110,6 +111,7 @@ function ClickCast.SetBindings(list)
     db.bindings[playerClass()] = ClickCast.bindings
   end
   for _, b in ipairs(HHF.UnitButton.All()) do ClickCast.Apply(b) end
+  ClickCast.ApplyGlobal()
 end
 
 --- Write mouse + keyboard attributes onto a button (queued out of combat).
@@ -130,6 +132,16 @@ ClickCast.ApplyTo = function(button) return ClickCast.Apply(button) end
 
 function ClickCast.OnEnter(button)
   if ClickCast.controlledBy == "Clique" then return end
+  if ClickCast.Mode() == "global" then return end            -- keys are already bound; nothing to do on hover
+  -- SetOverrideBindingClick is protected: in combat the client blocks it (popup with a Disable button). Fail quiet;
+  -- combat-safe mode exists for exactly this.
+  if InCombatLockdown() then
+    if not ClickCast.warnedCombat then
+      ClickCast.warnedCombat = true
+      HH:Print("Hover keys can't be set during combat on this client. Turn on combat-safe bindings in /hh > Frames > Bindings.")
+    end
+    return
+  end
   local name = button:GetName()
   if not name then return end
   local bindings = button._hhBindings or ClickCast.bindings
@@ -147,8 +159,73 @@ end
 
 function ClickCast.OnLeave(button)
   if ClickCast.controlledBy == "Clique" then return end
+  if ClickCast.Mode() == "global" or InCombatLockdown() then return end
   ClearOverrideBindings(button)
   if GameTooltip and GameTooltip.Hide then GameTooltip:Hide() end
+end
+
+-- ---------------------------------------------------------------- combat-safe ("global") mode
+-- Keys are bound ONCE, out of combat, to hidden SecureActionButtons that run a /cast with the fallback chain
+-- ([@mouseover,help,nodead] first). Hovering a unit frame makes that unit the mouseover, so the heal lands on it;
+-- with nothing hovered it falls through to target, then self. Fully secure, no snippets, works in combat.
+-- Cost: the key is taken everywhere, not only over frames; keys that already have a binding are skipped unless
+-- frames.bindingForce is on.
+function ClickCast.Mode()
+  local db = HH.db and HH.db.profile.frames
+  return db and db.bindingMode or "hover"
+end
+
+local owner
+local function globalButton(i)
+  local name = "HogHealsKey" .. i
+  local b = _G[name]
+  if not b then
+    b = CreateFrame("Button", name, UIParent, "SecureActionButtonTemplate")
+    if b.RegisterForClicks then b:RegisterForClicks("AnyDown", "AnyUp") end
+    b:Hide()
+  end
+  return b
+end
+
+local function applyGlobalNow()
+  local db = HH.db.profile.frames
+  if ClickCast.globalApplied then ClearOverrideBindings(owner) end
+  ClickCast.globalApplied = false
+  if ClickCast.Mode() ~= "global" or ClickCast.controlledBy == "Clique" then return end
+  owner = owner or CreateFrame("Frame", "HogHealsBindOwner", UIParent)
+  ClickCast.globalApplied = true
+  local skipped = {}
+  local n = 0
+  for _, b in ipairs(ClickCast.bindings or {}) do
+    if not isMouse(b.key) then
+      local key = keyString(b)
+      local taken = type(GetBindingAction) == "function" and (GetBindingAction(key) or "") ~= ""
+      if taken and not db.bindingForce then
+        skipped[#skipped + 1] = key
+      else
+        n = n + 1
+        local btn = globalButton(n)
+        if b.type == "spell" then
+          btn:SetAttribute("type", "macro")
+          btn:SetAttribute("macrotext", ClickCast.Macro(b.value, db.fallback))
+        else
+          btn:SetAttribute("type", b.type)
+          local va = VALUE_ATTR[b.type]
+          if va then btn:SetAttribute(va, b.value) end
+        end
+        SetOverrideBindingClick(owner, true, key, btn:GetName())
+      end
+    end
+  end
+  if #skipped > 0 and table.concat(skipped, ",") ~= ClickCast.lastSkipped then
+    ClickCast.lastSkipped = table.concat(skipped, ",")
+    HH:Print("Combat-safe bindings: skipped " .. table.concat(skipped, ", ") .. " (already bound to something). Tick 'take over bound keys' in /hh > Frames > Bindings to use them anyway.")
+  end
+end
+
+--- (Re)apply global bindings; queued until out of combat (binding functions are protected in combat).
+function ClickCast.ApplyGlobal()
+  HH:RunOutOfCombat(applyGlobalNow)
 end
 
 --- Human list for the options panel / tooltip.
