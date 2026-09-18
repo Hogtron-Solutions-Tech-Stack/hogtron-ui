@@ -150,7 +150,8 @@ end
 
 local function applyNow(bucket)
   local frames = HH.db.profile.frames
-  local cfg = frames.layouts[bucket] or frames.layouts.party
+  local cfg = HHF.module and HHF.module.ResolveLayout and HHF.module.ResolveLayout(bucket) or frames.layouts[bucket] or frames.layouts.party
+  local soloCfg = frames.layouts.solo or cfg
   local anchor = anchorFrame()
   anchor:ClearAllPoints()
   anchor:SetPoint(cfg.anchor.point or "CENTER", UIParent, cfg.anchor.point or "CENTER", cfg.anchor.x or 0, cfg.anchor.y or 0)
@@ -160,7 +161,7 @@ local function applyNow(bucket)
   local isRaid = bucket ~= "solo" and bucket ~= "party"
   if Headers.party then
     configure(Headers.party, cfg)
-    Headers.party:SetAttribute("showSolo", cfg.showSolo ~= false)
+    Headers.party:SetAttribute("showSolo", soloCfg.showSolo ~= false)
     Headers.party:ClearAllPoints()
     if cfg.growth == "CENTER" then
       -- Centred row: the header's LEFT sits half the row's width left of the anchor's centre, so one player is

@@ -80,7 +80,7 @@ function TestMode.Start(n)
   TestMode.active = true
   TestMode.count = n
   local bucket = HH.BucketForSize(n, n > 5)
-  local cfg = HH.db.profile.frames.layouts[bucket]
+  local cfg = HHF.module and HHF.module.ResolveLayout and HHF.module.ResolveLayout(bucket) or HH.db.profile.frames.layouts[bucket]
   local pts = HHF.Layout.Compute(cfg, n)
   local anchor = HHF.Headers and HHF.Headers.anchor or UIParent
   for i = 1, n do

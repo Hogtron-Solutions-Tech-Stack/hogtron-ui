@@ -25,6 +25,7 @@ HH.defaults = {
     wizardDone = false,
     frames = {
       hideBlizzard = true,           -- our group frames on = Blizzard's party / raid-style frames off
+      soloSharesParty = true,        -- one layout for solo and party (size, growth, anchor); showSolo stays solo's own
       layouts = {
         -- Square-ish cells (Grid / Cell proportions): name on top, deficit below, thin power strip.
         solo   = layout(90, 60, 2, "CENTER", 1, 1),   -- me dead centre; the row widens both ways as people join

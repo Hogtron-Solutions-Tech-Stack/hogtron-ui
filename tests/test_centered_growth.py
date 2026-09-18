@@ -22,7 +22,7 @@ def test_center_growth_widens_symmetrically_as_people_join(frames):
 
 
 def test_other_growths_unchanged(frames):
-    frames.execute('HogHeals.db.profile.frames.layouts.solo.growth = "DOWN"; HogHealsFrames.Headers.Apply("solo")')
+    frames.execute('HogHeals.db.profile.frames.layouts.party.growth = "DOWN"; HogHealsFrames.Headers.Apply("solo")')   # solo shares party
     p = party_point(frames)
     assert p[0] == "TOPLEFT" and p[2] == "TOPLEFT"
 

@@ -23,7 +23,9 @@ def test_set_writes_db_and_refreshes(frames):
     assert frames.eval('HogHeals.db.profile.frames.appearance.healthMode') == "deficit"
     assert frames.eval('HH_refreshed') >= 1
     frames.execute('local o = HogHeals.OptionsTable().args.Frames.args.layout.args.width; o.set({}, 150)')
-    assert frames.eval('HogHeals.db.profile.frames.layouts[HogHealsFrames.module.bucket or "solo"].width') == 150
+    # while solo the shared solo&party layout is edited (soloSharesParty default), i.e. layouts.party
+    assert frames.eval('HogHealsFrames.module:LayoutFor().width') == 150
+    assert frames.eval('HogHeals.db.profile.frames.layouts.party.width') == 150
 
 
 def test_indicator_toggle_option_exists_per_indicator(frames):
