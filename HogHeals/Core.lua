@@ -335,7 +335,59 @@ function HH:SnapshotClient()
       aura.shouldAurasBeSecretNow = ok and tostring(r) or ("ERR " .. tostring(r):sub(1, 80))
     end
   end
+  -- Nameplate / quest feasibility (asked 2026-09-17): quest icon on enemy nameplates, nameplate customisation,
+  -- minimap quest blips. Read-only: table key lists + a few cvars. No frames touched.
+  local np = {}
+  do
+    local function keysOf(tname)
+      local t = _G[tname]
+      if type(t) ~= "table" then return type(t) end
+      local k = {}
+      for name in pairs(t) do k[#k + 1] = tostring(name) end
+      table.sort(k)
+      return table.concat(k, ",")
+    end
+    np.C_NamePlate = keysOf("C_NamePlate")
+    np.C_TooltipInfo = keysOf("C_TooltipInfo")
+    np.C_QuestLog_count = (type(C_QuestLog) == "table") and (function() local n = 0 for _ in pairs(C_QuestLog) do n = n + 1 end return n end)() or "nil"
+    np.C_QuestLog_sample = (type(C_QuestLog) == "table") and table.concat((function()
+      local k = {}
+      for name in pairs(C_QuestLog) do if tostring(name):match("Objective") or tostring(name):match("Quests") then k[#k + 1] = tostring(name) end end
+      table.sort(k) return k end)(), ",") or "nil"
+    np.C_Minimap = keysOf("C_Minimap")
+    np.C_Map_HasQuestPOI = probe("C_QuestLog.GetQuestsOnMap") .. "/" .. probe("C_Map.GetMapInfo")
+    np.NamePlateDriverFrame = probe("NamePlateDriverFrame")
+    np.ShouldUnitHealthMaxBeSecret = probe("C_Secrets.ShouldUnitHealthMaxBeSecret")
+    for _, cv in ipairs({ "nameplateShowEnemies", "nameplateShowFriends", "nameplateShowAll", "nameplateShowQuestObjectives", "minimapShowQuestBlobs", "questPOI" }) do
+      local ok, v = pcall(GetCVar, cv)
+      np["cvar." .. cv] = ok and tostring(v) or ("ERR " .. tostring(v):sub(1, 60))
+    end
+    -- what a nameplate looks like right now, if any is on screen
+    if type(C_NamePlate) == "table" and type(C_NamePlate.GetNamePlates) == "function" then
+      local ok, plates = pcall(C_NamePlate.GetNamePlates)
+      if ok and type(plates) == "table" then
+        np.platesOnScreen = #plates
+        local pl = plates[1]
+        if type(pl) == "table" then
+          local parts = {}
+          for k, v in pairs(pl) do parts[#parts + 1] = tostring(k) .. "=" .. type(v) end
+          table.sort(parts)
+          np.plate1 = table.concat(parts, " ")
+          local uf = pl.UnitFrame
+          if type(uf) == "table" then
+            local u = {}
+            for k, v in pairs(uf) do if type(v) == "table" then u[#u + 1] = tostring(k) end end
+            table.sort(u)
+            np.plate1UnitFrameChildren = table.concat(u, ",")
+          end
+        end
+      else
+        np.platesOnScreen = "ERR " .. tostring(plates):sub(1, 60)
+      end
+    end
+  end
   diag.client = {
+    nameplates = np,
     aura = aura,
     meter = meter,
     missingGlobals = table.concat(missing, ","),
