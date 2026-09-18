@@ -153,19 +153,42 @@ function HH:WriteBackup(reason)
 end
 
 function HH:OnInitialize()
-  if type(rawget(_G, "HogHealsDB")) ~= "table" and not addonLoaded(ADDON) then
-    -- AceAddon initialises every queued addon on ANY ADDON_LOADED. A load-on-demand Blizzard addon can fire it
-    -- between our files running and our SavedVariables being read; building AceDB now would start EMPTY and
-    -- overwrite the profile at logout. Wait for our own event instead (OnEnable is the fallback).
-    self._initDeferredBy = tostring(self.baseName)
+  local sv = rawget(_G, "HogHealsDB")
+  if type(sv) == "table" then return self:RealInitialize("direct") end
+  -- No SavedVariables at this event. Two known ways that happens, one rule: do not build an empty DB yet.
+  --  (a) AceAddon fired us from ANOTHER addon's ADDON_LOADED before ours (client says we are not loaded yet).
+  --  (b) The client fired OUR event without the table (Forever beta, 2026-09-18: every load since 23:55, while
+  --      the same client writes the file fine at logout). Whether the table shows up later is what diag.init
+  --      and /hh svinfo now record.
+  -- Wait for our own ADDON_LOADED (a), then for PLAYER_LOGIN via OnEnable (b). Whatever is there then is used,
+  -- else the backup, else fresh. Every module reads HH.db lazily, nothing needs the DB before OnEnable.
+  self._initDeferredBy = tostring(self.baseName)
+  self._svAtEvent = { event = tostring(self.baseName), rawget = type(sv), index = type(_G.HogHealsDB),
+    loaded = addonLoaded(ADDON), gMeta = getmetatable(_G) ~= nil }
+  if not addonLoaded(ADDON) then
     local f = CreateFrame("Frame")
     f:RegisterEvent("ADDON_LOADED")
     f:SetScript("OnEvent", function(_, _, name)
-      if name == ADDON then f:UnregisterAllEvents(); HH:RealInitialize("deferred:ADDON_LOADED") end
+      if name == ADDON then
+        f:UnregisterAllEvents()
+        local now = type(rawget(_G, "HogHealsDB"))
+        HH._svAtEvent.ownEvent = now
+        if now == "table" then HH:RealInitialize("deferred:ADDON_LOADED") end
+      end
     end)
-    return
   end
-  self:RealInitialize("direct")
+end
+
+--- Is the SavedVariables global still the table AceDB holds? Called 5 s and 30 s after login. A "SWAPPED" here
+-- means the client assigned HogHealsDB AFTER we built the DB (late/async load): everything the session saves
+-- would then be written from the wrong table.
+function HH:CheckSVSwap(tag)
+  local e = self._initEntry
+  if not e or not self.db then return end
+  local cur = rawget(_G, "HogHealsDB")
+  local same = rawequal(cur, rawget(self.db, "sv"))
+  e["sv@" .. tag] = type(cur) .. (same and ":same" or ":SWAPPED")
+  if not same then self:LogError("HogHealsDB global replaced under AceDB at " .. tag) end
 end
 
 --- The real DB init. `how` records which path got us here (direct / deferred / enable fallback).
@@ -197,9 +220,11 @@ function HH:RealInitialize(how)
     backup = type(backup), backupAt = type(backup) == "table" and tostring(backup.at) or nil,
     loaded = addonLoaded(ADDON), loggedIn = (type(IsLoggedIn) == "function" and IsLoggedIn()) and true or false,
     baseName = tostring(self.baseName), deferredBy = self._initDeferredBy, trace = table.concat(loadTrace, ","),
+    svAtEvent = self._svAtEvent, late = (self._svAtEvent ~= nil and svPresent == "table") or false,
     stack = type(debugstack) == "function" and debugstack(2, 6, 0) or "",
   }
   while #g.diag.init > 8 do table.remove(g.diag.init, 1) end
+  self._initEntry = g.diag.init[#g.diag.init]
   for _, e in ipairs(self.errors) do  -- anything caught before the DB existed
     g.diag.errors[#g.diag.errors + 1] = { msg = e.msg, session = g.diag.session, at = "pre-db" }
   end
@@ -211,18 +236,29 @@ function HH:RealInitialize(how)
   self:RegisterChatCommand("hh", "SlashCommand")
   self:RegisterChatCommand("hogheals", "SlashCommand")
   self:RegisterSlash("svinfo", function()
-    local init = g.diag.init
-    local e = init[#init]
-    self:Print(("session %d via %s | file: %s, profiles=%s | restored from backup: %s | backup on disk: %s (%s)"):format(
+    local e = self._initEntry
+    self:Print(("session %d via %s | SV at init: %s, profiles=%s | restored from backup: %s | backup: %s (%s)"):format(
       g.diag.session, e.how, e.svPresent, tostring(e.hadProfiles), tostring(e.restored), e.backup, tostring(e.backupAt)))
-    self:Print("AceAddon fired us from: " .. e.baseName .. (e.deferredBy and (" (deferred by " .. e.deferredBy .. ")") or ""))
-    self:Print("load trace: " .. (e.trace ~= "" and e.trace or "(empty)"))
+    local a = e.svAtEvent
+    if a then
+      self:Print(("at ADDON_LOADED(%s): rawget=%s index=%s loaded=%s ownEvent=%s -> arrived late: %s"):format(
+        tostring(a.event), tostring(a.rawget), tostring(a.index), tostring(a.loaded), tostring(a.ownEvent), tostring(e.late)))
+    else
+      self:Print("SV was present at ADDON_LOADED(" .. e.baseName .. ")")
+    end
+    self:Print(("after login: 5s=%s 30s=%s"):format(tostring(e["sv@5s"]), tostring(e["sv@30s"])))
+    local live = table.concat(loadTrace, ",")
+    self:Print("load trace: " .. (live ~= "" and live or "(empty)"))
   end, "why the profile is what it is (SavedVariables forensics)")
 end
 
 function HH:OnEnable()
   if not self.db then self:RealInitialize("enable:" .. tostring(self._initDeferredBy)) end
   self._enabled = true
+  if C_Timer and C_Timer.After then
+    C_Timer.After(5, function() self:CheckSVSwap("5s") end)
+    C_Timer.After(30, function() self:CheckSVSwap("30s") end)
+  end
   -- Own frame, created after every library's, so AceDB has already stripped defaults when this runs. Fires on
   -- /reload and on logout: the backup on disk is never older than the main file.
   local logoutFrame = CreateFrame("Frame")

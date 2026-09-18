@@ -121,3 +121,33 @@ def test_svinfo_slash_prints_without_error():
     lua = boot(); lua.execute(SEED); lua.load_addon("HogHeals"); lua.player_login()
     lua.execute('HogHeals:SlashCommand("svinfo")')
     assert lua.eval("#HogHeals.errors") == 0
+
+
+def test_sv_missing_at_own_event_waits_for_login_and_records_late_arrival():
+    # Forever beta 2026-09-18: the client fires ADDON_LOADED("HogHeals") with HogHealsDB == nil on every load,
+    # yet writes the file fine at logout. Building a fresh DB at that moment is what overwrote the profile.
+    lua = boot(); lua.load_addon("HogHeals")            # marked loaded, own event fired, no SV
+    assert lua.eval("HogHeals.db") is None
+    lua.execute(SEED)                                   # table shows up later
+    lua.player_login()
+    assert lua.eval("HogHeals.db.global.diag.session") == 6
+    assert lua.eval("HogHeals.db.profile.frames.appearance.fontSize") == 18
+    e = last_init(lua)
+    assert e["how"].startswith("enable") and e["late"] is True
+    assert e["svAtEvent"]["rawget"] == "nil" and e["svAtEvent"]["loaded"] is True and e["svAtEvent"]["event"] == "HogHeals"
+
+
+def test_sv_never_arrives_gives_fresh_db_at_login():
+    lua = boot(); lua.load_addon("HogHeals"); lua.player_login()
+    assert lua.eval("HogHeals.db.global.diag.session") == 1
+    e = last_init(lua)
+    assert e["late"] is False and e["svPresent"] == "nil"
+
+
+def test_swap_check_flags_a_replaced_global():
+    lua = boot(); lua.execute(SEED); lua.load_addon("HogHeals"); lua.player_login()
+    lua.execute('HogHeals:CheckSVSwap("t0")')
+    assert last_init(lua)["sv@t0"] == "table:same"
+    lua.execute('HogHealsDB = { global = {}, profiles = {} }; HogHeals:CheckSVSwap("t1")')
+    assert last_init(lua)["sv@t1"] == "table:SWAPPED"
+    assert any("replaced under AceDB" in str(e["msg"]) for e in lua.eval("HogHeals.errors").values())
