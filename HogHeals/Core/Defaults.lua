@@ -24,6 +24,7 @@ HH.defaults = {
     minimap = { hide = true },
     wizardDone = false,
     frames = {
+      hideBlizzard = true,           -- our group frames on = Blizzard's party / raid-style frames off
       layouts = {
         -- Square-ish cells (Grid / Cell proportions): name on top, deficit below, thin power strip.
         solo   = layout(90, 60, 2, "DOWN", 1, 1),
