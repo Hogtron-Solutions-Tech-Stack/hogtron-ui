@@ -263,6 +263,44 @@ function HH:SnapshotClient()
     end
     table.sort(names)
     meter.keys = table.concat(names, ",")
+    -- Shape of one session: GetCombatSessionFromType(type) is a read-only one-argument getter. Record the field
+    -- names and types of the result, which are secret, and the first element of any nested list. This is what the
+    -- meter UI will be written against, so it has to come from the client, not from memory of retail.
+    local isv = type(issecretvalue) == "function" and issecretvalue or function() return false end
+    local function describe(t, depth)
+      local keys, n = {}, 0
+      for k, v in pairs(t) do
+        n = n + 1
+        if n <= 24 then
+          local d = tostring(k) .. "=" .. type(v) .. (isv(v) and ":secret" or "")
+          if type(v) == "table" and not isv(v) and depth < 2 then
+            local first = v[1]
+            if first ~= nil then d = d .. "[" .. #v .. "]{" .. describe(type(first) == "table" and first or { value = first }, depth + 1) .. "}"
+            else d = d .. "{" .. describe(v, depth + 1) .. "}" end
+          end
+          keys[#keys + 1] = d
+        end
+      end
+      table.sort(keys)
+      return table.concat(keys, " ")
+    end
+    if type(C_DamageMeter) == "table" and type(C_DamageMeter.GetCombatSessionFromType) == "function" and Enum and Enum.DamageMeterType then
+      for _, tname in ipairs({ "DamageDone", "HealingDone" }) do
+        local ty = Enum.DamageMeterType[tname]
+        if ty ~= nil then
+          local ok, r = pcall(C_DamageMeter.GetCombatSessionFromType, ty)
+          meter["session." .. tname] = ok and (type(r) == "table" and describe(r, 0) or (type(r) .. (isv(r) and ":secret" or ""))) or ("ERR " .. tostring(r):sub(1, 120))
+        end
+      end
+      local ok, r = pcall(C_DamageMeter.GetAvailableCombatSessions)
+      if ok and type(r) == "table" and type(r[1]) == "table" then meter["availableSession[1]"] = describe(r[1], 0) end
+    end
+    if type(DamageMeter) == "table" then
+      local fn = {}
+      for k, v in pairs(DamageMeter) do if type(v) == "function" then fn[#fn + 1] = tostring(k) end end
+      table.sort(fn)
+      meter.blizzFrameFns = table.concat(fn, ",")
+    end
     local e, en = Enum and Enum.DamageMeterType, {}
     if type(e) == "table" then for k, v in pairs(e) do en[#en + 1] = tostring(k) .. "=" .. tostring(v) end table.sort(en) end
     meter.enumType = table.concat(en, ",")

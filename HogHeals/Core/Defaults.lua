@@ -59,6 +59,11 @@ HH.defaults = {
       bindings = {},                                          -- per-class hover-binds, filled by ClickCast.Defaults
       fallback = { mouseover = true, focus = false, target = true, player = true },
     },
+    meter = {
+      enabled = true, hideBlizzard = true, mode = "DamageDone", segment = "Current",
+      width = 240, barHeight = 18, maxBars = 10, backgroundAlpha = 0.85, refresh = 1,
+      point = "CENTER", x = 420, y = -220,
+    },
     hud = {
       x = 0, y = -180, width = 300, followFrames = false,
       castbarHeight = 18, manaHeight = 12, infoHeight = 14, rowSpacing = 2,

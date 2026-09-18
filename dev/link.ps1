@@ -17,7 +17,7 @@ param(
 )
 
 $repo = Split-Path -Parent $PSScriptRoot
-$addons = @("HogHeals", "HogHeals_Frames", "HogHeals_HUD")
+$addons = @("HogHeals", "HogHeals_Frames", "HogHeals_HUD", "HogHeals_Meter")
 $map = @{ anniversary = "_anniversary_"; era = "_classic_era_"; retail = "_retail_"; beta = "_classic_beta_" }
 $targets = if ($Client -eq "all") { @("anniversary", "era") } else { @($Client) }
 
