@@ -12,8 +12,8 @@ function HH:RunOutOfCombat(fn, ...)
     queue[#queue + 1] = { fn = fn, n = n, ... }
     return false
   end
-  local ok, err = pcall(fn, ...)
-  if not ok then self:LogError(err) end
+  local ok, err = xpcall(fn, HH.Trace, ...)
+  if not ok then self:LogError(tostring(err)) end
   return true
 end
 

@@ -24,11 +24,17 @@ function HH:RegisterModule(name, tbl)
   return tbl
 end
 
+--- xpcall handler: keep the stack, a bare pcall message is useless from a tester's machine.
+function HH.Trace(err)
+  local stack = type(debugstack) == "function" and debugstack(2, 12, 0) or ""
+  return tostring(err) .. (stack ~= "" and (string.char(10) .. stack) or "")
+end
+
 --- Call obj[method](obj, ...) capturing any error into HH.errors instead of breaking the caller.
 function HH:SafeCall(obj, method, ...)
   local fn = type(obj) == "table" and obj[method] or nil
   if type(fn) ~= "function" then return true end
-  local ok, err = pcall(fn, obj, ...)
+  local ok, err = xpcall(fn, HH.Trace, obj, ...)
   if not ok then self:LogError(tostring(err)) end
   return ok, err
 end
@@ -36,6 +42,20 @@ end
 function HH:LogError(msg)
   self.errors[#self.errors + 1] = { time = GetTime and GetTime() or 0, msg = msg }
   if #self.errors > 200 then table.remove(self.errors, 1) end
+  local diag = self.db and self.db.global and self.db.global.diag
+  if diag then
+    diag.errors = diag.errors or {}
+    local now = date and date("%Y-%m-%d %H:%M:%S") or ""
+    for _, e in ipairs(diag.errors) do
+      if e.msg == msg and e.session == diag.session then
+        e.count = (e.count or 1) + 1
+        e.last = now
+        return
+      end
+    end
+    diag.errors[#diag.errors + 1] = { msg = msg, session = diag.session, at = now, count = 1 }
+    while #diag.errors > 50 do table.remove(diag.errors, 1) end
+  end
   if not self._errorNoticeShown then
     self._errorNoticeShown = true
     self:Print("An error was caught and logged. Type /hh errors to see it.")
@@ -46,6 +66,13 @@ function HH:OnInitialize()
   local defaults = self.defaults or { profile = {}, global = {} }
   self.db = LibStub("AceDB-3.0"):New("HogHealsDB", defaults, true)
   if self.Migrate then self.Migrate.Run(self.db) end
+  local g = self.db.global
+  g.diag = g.diag or {}
+  g.diag.errors = g.diag.errors or {}
+  g.diag.session = (g.diag.session or 0) + 1
+  for _, e in ipairs(self.errors) do  -- anything caught before the DB existed
+    g.diag.errors[#g.diag.errors + 1] = { msg = e.msg, session = g.diag.session, at = "pre-db" }
+  end
   self.db.RegisterCallback(self, "OnProfileChanged", "OnProfileChanged")
   self.db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")
   self.db.RegisterCallback(self, "OnProfileReset", "OnProfileChanged")
@@ -59,6 +86,35 @@ function HH:OnEnable()
   if self.InitGroupSize then self:InitGroupSize() end
   if self.InitQueue then self:InitQueue() end
   for _, m in pairs(self.modules) do self:SafeCall(m, "OnEnable") end
+  self:SafeCall(self, "SnapshotClient")
+end
+
+local function probe(path)
+  local v = _G
+  for part in path:gmatch("[^%.]+") do
+    if type(v) ~= "table" then return "nil" end
+    v = v[part]
+  end
+  return type(v)
+end
+
+--- Write what this client IS into SavedVariables (read off disk after a /reload; see docs/TESTING-BETA.md).
+function HH:SnapshotClient()
+  local diag = self.db.global.diag
+  local version, build, builddate, toc = GetBuildInfo()
+  local probes = {}
+  for _, path in ipairs({
+    "loadstring_untainted", "C_UnitAuras.AddPrivateAuraAnchor", "C_UnitAuras.GetAuraDataByIndex", "UnitAura",
+    "UnitGetIncomingHeals", "C_Secrets", "issecretvalue", "C_RestrictedActions", "SecureHandlerWrapScript",
+    "C_GamePad", "C_AddOns.GetAddOnMetadata", "C_Spell.GetSpellInfo", "GetSpellInfo", "C_EditMode", "Settings.OpenToCategory",
+  }) do probes[path] = probe(path) end
+  local compat
+  local C = HogHealsFrames and HogHealsFrames.Compat
+  if C and C.Init and C.Describe then C.Init(); compat = C.Describe() end
+  diag.client = {
+    version = version, build = build, builddate = builddate, toc = toc, project = WOW_PROJECT_ID,
+    addon = self.version, at = date and date("%Y-%m-%d %H:%M:%S") or "", probes = probes, compat = compat,
+  }
 end
 
 function HH:OnProfileChanged()
