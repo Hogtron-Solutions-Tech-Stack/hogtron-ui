@@ -205,7 +205,9 @@ function UnitButton.ApplyAppearance(button)
   button.shieldText:SetFont(font, (ap.fontSize or 11) - 2, ap.fontOutline or "OUTLINE")
   button.bg:SetColorTexture(0.07, 0.07, 0.09, ap.backgroundAlpha or 0.6)
   local layout = HHF.module and HHF.module.LayoutFor and HHF.module:LayoutFor()
-  if layout then button:SetSize(layout.width, layout.height) end
+  -- Secure buttons may not be resized in combat (diag log: 25x ADDON_ACTION_BLOCKED SetSize). The layout pass
+  -- queued for the end of combat sizes them anyway, so simply skip here.
+  if layout and not InCombatLockdown() then button:SetSize(layout.width, layout.height) end
 end
 
 -- ---------------------------------------------------------------- unit binding / events
