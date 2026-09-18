@@ -21,6 +21,21 @@ if type(SetDesaturation) ~= "function" then
 end
 
 
+-- Load-order trace: every ADDON_LOADED / PLAYER_LOGIN this frame sees, with whether HogHealsDB was a table at
+-- that moment. Copied into diag.init by the DB init below. Exists because the profile came up EMPTY twice
+-- (2026-09-17 23:55, 2026-09-18 00:21, Forever beta) on a valid on-disk file and nothing on disk said why.
+local loadTrace = {}
+local traceFrame = CreateFrame("Frame")
+traceFrame:RegisterEvent("ADDON_LOADED")
+traceFrame:RegisterEvent("PLAYER_LOGIN")
+traceFrame:SetScript("OnEvent", function(_, event, name)
+  if #loadTrace < 40 then
+    loadTrace[#loadTrace + 1] = (event == "ADDON_LOADED" and ("ADDON_LOADED:" .. tostring(name)) or event)
+      .. (type(rawget(_G, "HogHealsDB")) == "table" and "+sv" or "-sv")
+  end
+  if event == "PLAYER_LOGIN" then traceFrame:UnregisterAllEvents() end
+end)
+
 local AceAddon = LibStub("AceAddon-3.0")
 HogHeals = AceAddon:NewAddon("HogHeals", "AceConsole-3.0", "AceEvent-3.0", "AceTimer-3.0")
 local HH = HogHeals
@@ -90,7 +105,82 @@ function HH:LogError(msg)
   end
 end
 
+local function addonLoaded(name)
+  local f = (type(C_AddOns) == "table" and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded
+  if type(f) ~= "function" then return true end   -- no way to ask: never hold the init hostage
+  local ok, r = pcall(f, name)
+  return (ok and r) and true or false
+end
+
+--- Plain-data deep copy: strings, numbers, booleans, tables. Functions, userdata and secret values are dropped,
+-- so nothing in the copy can upset the SavedVariables writer.
+local function copyPlain(t, depth)
+  depth = depth or 0
+  if depth > 12 then return nil end
+  local out = {}
+  for k, v in pairs(t) do
+    local tv = type(v)
+    if tv == "table" then out[k] = copyPlain(v, depth + 1)
+    elseif tv == "string" or tv == "number" or tv == "boolean" then out[k] = v end
+  end
+  return out
+end
+
+local function hasProfiles(t)
+  return type(t) == "table" and type(t.profiles) == "table" and next(t.profiles) ~= nil
+end
+
+--- Diag-free copy of the profiles into a second SavedVariable (HogHealsDBBackup). Refreshed at init and at logout.
+-- If HogHealsDB ever comes up empty again, RealInitialize re-seeds from this one and says so in diag.init. Defaults
+-- are stripped for the copy the same way AceDB strips them at logout, so a restore pins nothing.
+function HH:WriteBackup(reason)
+  local db = self.db
+  local raw = db and rawget(db, "sv")
+  if type(raw) ~= "table" or type(raw.profiles) ~= "table" then return end
+  local defaults = rawget(db, "defaults")
+  if defaults then db:RegisterDefaults(nil) end
+  local ok, err = pcall(function()
+    HogHealsDBBackup = {
+      at = date and date("%Y-%m-%d %H:%M:%S") or "", reason = reason or "", addon = self.version,
+      session = raw.global and raw.global.diag and raw.global.diag.session,
+      schema = raw.global and raw.global.schema,
+      profileKeys = copyPlain(raw.profileKeys or {}),
+      profiles = copyPlain(raw.profiles),
+    }
+  end)
+  if defaults then db:RegisterDefaults(defaults) end
+  if not ok then self:LogError("backup: " .. tostring(err)) end
+end
+
 function HH:OnInitialize()
+  if type(rawget(_G, "HogHealsDB")) ~= "table" and not addonLoaded(ADDON) then
+    -- AceAddon initialises every queued addon on ANY ADDON_LOADED. A load-on-demand Blizzard addon can fire it
+    -- between our files running and our SavedVariables being read; building AceDB now would start EMPTY and
+    -- overwrite the profile at logout. Wait for our own event instead (OnEnable is the fallback).
+    self._initDeferredBy = tostring(self.baseName)
+    local f = CreateFrame("Frame")
+    f:RegisterEvent("ADDON_LOADED")
+    f:SetScript("OnEvent", function(_, _, name)
+      if name == ADDON then f:UnregisterAllEvents(); HH:RealInitialize("deferred:ADDON_LOADED") end
+    end)
+    return
+  end
+  self:RealInitialize("direct")
+end
+
+--- The real DB init. `how` records which path got us here (direct / deferred / enable fallback).
+function HH:RealInitialize(how)
+  if self.db then return end
+  local sv, backup = rawget(_G, "HogHealsDB"), rawget(_G, "HogHealsDBBackup")
+  local svPresent, hadProfiles, restored = type(sv), hasProfiles(sv), false
+  if not hadProfiles and hasProfiles(backup) then
+    HogHealsDB = {
+      profileKeys = copyPlain(backup.profileKeys or {}),
+      global = { schema = backup.schema },
+      profiles = copyPlain(backup.profiles),
+    }
+    restored = true
+  end
   local defaults = self.defaults or { profile = {}, global = {} }
   self.db = LibStub("AceDB-3.0"):New("HogHealsDB", defaults, true)
   if self.Migrate then self.Migrate.Run(self.db) end
@@ -98,19 +188,46 @@ function HH:OnInitialize()
   g.diag = g.diag or {}
   g.diag.errors = g.diag.errors or {}
   g.diag.session = (g.diag.session or 0) + 1
+  -- What this init saw. Read off disk after the next wipe: svPresent/hadProfiles say whether the client handed us
+  -- the file, baseName/trace say which event AceAddon fired us from, restored says the backup did its job.
+  g.diag.init = g.diag.init or {}
+  g.diag.init[#g.diag.init + 1] = {
+    at = date and date("%Y-%m-%d %H:%M:%S") or "", session = g.diag.session, how = how or "direct",
+    svPresent = svPresent, hadProfiles = hadProfiles, restored = restored,
+    backup = type(backup), backupAt = type(backup) == "table" and tostring(backup.at) or nil,
+    loaded = addonLoaded(ADDON), loggedIn = (type(IsLoggedIn) == "function" and IsLoggedIn()) and true or false,
+    baseName = tostring(self.baseName), deferredBy = self._initDeferredBy, trace = table.concat(loadTrace, ","),
+    stack = type(debugstack) == "function" and debugstack(2, 6, 0) or "",
+  }
+  while #g.diag.init > 8 do table.remove(g.diag.init, 1) end
   for _, e in ipairs(self.errors) do  -- anything caught before the DB existed
     g.diag.errors[#g.diag.errors + 1] = { msg = e.msg, session = g.diag.session, at = "pre-db" }
   end
+  self:WriteBackup(restored and "init-restored" or "init")
   self.db.RegisterCallback(self, "OnProfileChanged", "OnProfileChanged")
   self.db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")
   self.db.RegisterCallback(self, "OnProfileReset", "OnProfileChanged")
   for _, m in pairs(self.modules) do self:SafeCall(m, "OnInitialize") end
   self:RegisterChatCommand("hh", "SlashCommand")
   self:RegisterChatCommand("hogheals", "SlashCommand")
+  self:RegisterSlash("svinfo", function()
+    local init = g.diag.init
+    local e = init[#init]
+    self:Print(("session %d via %s | file: %s, profiles=%s | restored from backup: %s | backup on disk: %s (%s)"):format(
+      g.diag.session, e.how, e.svPresent, tostring(e.hadProfiles), tostring(e.restored), e.backup, tostring(e.backupAt)))
+    self:Print("AceAddon fired us from: " .. e.baseName .. (e.deferredBy and (" (deferred by " .. e.deferredBy .. ")") or ""))
+    self:Print("load trace: " .. (e.trace ~= "" and e.trace or "(empty)"))
+  end, "why the profile is what it is (SavedVariables forensics)")
 end
 
 function HH:OnEnable()
+  if not self.db then self:RealInitialize("enable:" .. tostring(self._initDeferredBy)) end
   self._enabled = true
+  -- Own frame, created after every library's, so AceDB has already stripped defaults when this runs. Fires on
+  -- /reload and on logout: the backup on disk is never older than the main file.
+  local logoutFrame = CreateFrame("Frame")
+  logoutFrame:RegisterEvent("PLAYER_LOGOUT")
+  logoutFrame:SetScript("OnEvent", function() HH:WriteBackup("logout") end)
   if self.InitGroupSize then self:InitGroupSize() end
   if self.InitQueue then self:InitQueue() end
   for _, m in pairs(self.modules) do self:SafeCall(m, "OnEnable") end

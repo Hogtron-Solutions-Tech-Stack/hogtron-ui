@@ -82,7 +82,7 @@ function IsInRaid() return MockState.inRaid end
 function IsInGroup() return MockState.numGroup > 1 end
 function GetNumGroupMembers() return MockState.numGroup end
 function GetNumSubgroupMembers() return math.max(0, math.min(4, MockState.numGroup - 1)) end
-function IsAddOnLoaded(n) return n == "Clique" and MockState.cliqueLoaded end
+function IsAddOnLoaded(n) if n == "Clique" then return MockState.cliqueLoaded end return MockState.loadedAddons ~= nil and MockState.loadedAddons[n] == true end
 C_AddOns = { IsAddOnLoaded = IsAddOnLoaded, GetAddOnMetadata = function(_, k) return k == "Version" and "0.1.0-test" or nil end,
              GetNumAddOns = function() return 0 end }
 function GetAddOnMetadata(_, k) return C_AddOns.GetAddOnMetadata(_, k) end

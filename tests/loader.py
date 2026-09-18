@@ -38,7 +38,9 @@ class AddonLoader:
         self.run_file(TESTS / "lib_stubs.lua", "Mock")
         return self
 
-    def load_addon(self, folder: str) -> "AddonLoader":
+    def load_addon(self, folder: str, fire: bool = True) -> "AddonLoader":
+        """Execute the addon's files. fire=True then mirrors the client: mark it loaded, fire ADDON_LOADED.
+        fire=False leaves it half-loaded so a test can fire other events in between (early-init scenarios)."""
         toc = ROOT / folder / f"{folder}.toc"
         if not toc.exists():
             raise FileNotFoundError(toc)
@@ -48,8 +50,25 @@ class AddonLoader:
             if not line or line.startswith("#"):
                 continue
             self._load_path(toc.parent / line.replace("\\", "/"), folder)
-        self.lua.execute(f'if MockFire then MockFire("ADDON_LOADED", "{folder}") end')
+        if fire:
+            self.mark_loaded(folder)
+            self.fire("ADDON_LOADED", folder)
         return self
+
+    def mark_loaded(self, folder: str) -> None:
+        """IsAddOnLoaded(folder) -> true from here on (the client sets this before ADDON_LOADED fires)."""
+        self.lua.execute(f'MockState.loadedAddons = MockState.loadedAddons or {{}}; MockState.loadedAddons["{folder}"] = true')
+
+    def fire(self, event: str, *args) -> None:
+        """MockFire(event, ...) with Python strings / numbers / booleans as Lua literals."""
+        def lit(a):
+            if isinstance(a, bool):
+                return "true" if a else "false"
+            if isinstance(a, (int, float)):
+                return str(a)
+            return '"' + str(a).replace("\\", "\\\\").replace('"', '\\"') + '"'
+        tail = "".join(", " + lit(a) for a in args)
+        self.lua.execute(f'MockFire("{event}"{tail})')
 
     def player_login(self) -> None:
         # WoW: IsLoggedIn() is false during startup ADDON_LOADED; addons enable on PLAYER_LOGIN.
