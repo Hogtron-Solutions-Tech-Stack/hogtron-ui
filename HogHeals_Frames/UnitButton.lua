@@ -65,6 +65,21 @@ local function mkTexture(parent, layer, sub)
   return t
 end
 
+--- Anchor a font string inside the button: vertical TOP | CENTER | BOTTOM, horizontal LEFT | CENTER | RIGHT.
+-- (Tester: "change where the text is within the frame: centre it, top, bottom, whatever.")
+local VPOINT = { TOP = "TOP", CENTER = "", BOTTOM = "BOTTOM" }
+local HPOINT = { LEFT = "LEFT", CENTER = "", RIGHT = "RIGHT" }
+function UnitButton.PlaceText(fs, button, vpos, halign, inset)
+  if not fs then return end
+  local v, h = VPOINT[vpos] or "TOP", HPOINT[halign] or ""
+  local point = (v .. h ~= "") and (v .. h) or "CENTER"
+  local dx = (h == "LEFT" and inset) or (h == "RIGHT" and -inset) or 0
+  local dy = (v == "TOP" and -inset) or (v == "BOTTOM" and inset) or 0
+  fs:ClearAllPoints()
+  fs:SetPoint(point, button, point, dx, dy)
+  if fs.SetJustifyH then fs:SetJustifyH(halign == "LEFT" and "LEFT" or halign == "RIGHT" and "RIGHT" or "CENTER") end
+end
+
 --- Build all regions on a (secure) button. Idempotent.
 function UnitButton.Setup(button)
   if not button or button._hhSetup then return button end
@@ -204,6 +219,8 @@ function UnitButton.ApplyAppearance(button)
   button.healthText:SetFont(font, (ap.fontSize or 11) - 1, ap.fontOutline or "OUTLINE")
   button.shieldText:SetFont(font, (ap.fontSize or 11) - 2, ap.fontOutline or "OUTLINE")
   button.bg:SetColorTexture(0.07, 0.07, 0.09, ap.backgroundAlpha or 0.6)
+  UnitButton.PlaceText(button.name, button, ap.namePosition or "TOP", ap.nameAlign or "CENTER", 3)
+  UnitButton.PlaceText(button.healthText, button, ap.healthTextPosition or "BOTTOM", ap.healthTextAlign or "CENTER", 4)
   local layout = HHF.module and HHF.module.LayoutFor and HHF.module:LayoutFor()
   -- Secure buttons may not be resized in combat (diag log: 25x ADDON_ACTION_BLOCKED SetSize). The layout pass
   -- queued for the end of combat sizes them anyway, so simply skip here.

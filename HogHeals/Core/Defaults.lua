@@ -44,6 +44,10 @@ HH.defaults = {
         powerHeight = 3,
         powerHealerOnly = true,
         nameLength = 10,
+        namePosition = "TOP",        -- TOP | CENTER | BOTTOM   (vertical)
+        nameAlign = "CENTER",        -- LEFT | CENTER | RIGHT   (horizontal)
+        healthTextPosition = "BOTTOM",
+        healthTextAlign = "CENTER",
         outOfRangeAlpha = 0.4,
         deficitGradient = true,
       },
