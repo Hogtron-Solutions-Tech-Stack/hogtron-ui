@@ -60,6 +60,34 @@ local function anchorFrame()
   a:SetMovable(true)
   a:SetClampedToScreen(true)
   a:EnableMouse(false)
+  -- The handle you grab after /hh unlock. It used to be an empty frame: nothing to see, no drag scripts, and the
+  -- position was never saved.
+  a:SetFrameStrata("HIGH")
+  a.bg = a:CreateTexture(nil, "BACKGROUND")
+  a.bg:SetAllPoints(a)
+  a.bg:SetColorTexture(0.13, 0.83, 0.88, 0.45)
+  a.label = a:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  a.label:SetPoint("BOTTOM", a, "TOP", 0, 4)
+  a.label:SetText("HogHeals frames: drag me, then /hh lock")
+  a:RegisterForDrag("LeftButton")
+  a:SetScript("OnDragStart", function(self)
+    if InCombatLockdown() then HH:Print("Can't move the frames in combat.") return end
+    self:StartMoving()
+  end)
+  a:SetScript("OnDragStop", function(self)
+    self:StopMovingOrSizing()
+    -- Store as an offset from screen centre (what applyNow re-applies). One position for every group size:
+    -- dragging while solo and having the party layout jump elsewhere would be a nasty surprise.
+    local ax, ay = self:GetCenter()
+    local ux, uy = UIParent:GetCenter()
+    if not ax or not ux then return end
+    local x, y = math.floor(ax - ux + 0.5), math.floor(ay - uy + 0.5)
+    for _, l in pairs(HH.db.profile.frames.layouts) do
+      l.anchor = l.anchor or {}
+      l.anchor.point, l.anchor.x, l.anchor.y = "CENTER", x, y
+    end
+    if HHF.module and HHF.module.ApplyProfile then HHF.module:ApplyProfile(HHF.module.bucket) end
+  end)
   a:Hide()
   Headers.anchor = a
   return a
@@ -151,3 +179,10 @@ function Headers.SetLocked(locked)
   a:EnableMouse(not locked)
   if locked then a:Hide() else a:Show() end
 end
+
+HH:RegisterSlash("solo", function()
+  local l = HH.db.profile.frames.layouts.solo
+  l.showSolo = not (l.showSolo ~= false)
+  HH:Print(l.showSolo and "Frames shown when solo." or "Frames hidden when solo (they come back in a group).")
+  if HHF.module and HHF.module.ApplyProfile then HHF.module:ApplyProfile(HHF.module.bucket) else Headers.Apply("solo") end
+end, "show / hide the frames while you are not in a group")
