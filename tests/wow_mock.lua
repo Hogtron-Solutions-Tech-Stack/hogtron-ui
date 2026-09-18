@@ -149,7 +149,18 @@ function MockSecret(v)
   if v == nil then return nil end
   local u = newproxy(true)
   secretReal[u] = v
+  -- Measured on the Forever beta (diag.secretProbe): tostring / string.format / concat on a secret WORK
+  -- (they yield a secret string the widgets accept); arithmetic, comparison, == and boolean tests throw.
+  getmetatable(u).__concat = function(a, b) return tostring(MockUnwrap(a)) .. tostring(MockUnwrap(b)) end
+  getmetatable(u).__tostring = function(self) return tostring(secretReal[self]) end
   return u
+end
+local realFormat = string.format
+function string.format(fmt, ...)
+  local n = select("#", ...)
+  local args = { ... }
+  for i = 1, n do args[i] = MockUnwrap(args[i]) end
+  return realFormat(fmt, unpack(args, 1, n))
 end
 function MockUnwrap(v) if type(v) == "userdata" and secretReal[v] ~= nil then return secretReal[v] end return v end
 local function S(v) if MockState.secrets then return MockSecret(v) end return v end
@@ -162,12 +173,12 @@ end
 local function U(u) return MockUnits[u] end
 function UnitExists(u) return U(u) ~= nil end
 function UnitIsUnit(a, b) return a == b or (U(a) and U(b) and U(a).guid ~= nil and U(a).guid == U(b).guid) end
-function UnitName(u) local m = U(u) return S(m and (m.name or u) or nil) end
+function UnitName(u) local m = U(u) local n = m and (m.name or u) or nil if MockState.secretNames then return MockSecret(n) end return n end
 function UnitClass(u) local m = U(u) if not m then return nil end return m.class:sub(1, 1) .. m.class:sub(2):lower(), m.class end
 function UnitHealth(u) local m = U(u) return S(m and m.health or 0) end
-function UnitHealthMax(u) local m = U(u) return S(m and (m.maxHealth or 100) or 0) end
+function UnitHealthMax(u) local m = U(u) return m and (m.maxHealth or 100) or 0 end
 function UnitPower(u) local m = U(u) return S(m and (m.power or 100) or 0) end
-function UnitPowerMax(u) local m = U(u) return S(m and (m.maxPower or 100) or 0) end
+function UnitPowerMax(u) local m = U(u) return m and (m.maxPower or 100) or 0 end
 local CLASS_POWER = { WARRIOR = "RAGE", ROGUE = "ENERGY", DRUID = "MANA" }
 function UnitPowerType(u) local m = U(u) local t = (m and (m.powerType or CLASS_POWER[m.class])) or "MANA"
   local ids = { MANA = 0, RAGE = 1, ENERGY = 3, FOCUS = 2 } return ids[t] or 0, t end
@@ -395,7 +406,7 @@ function MockFire(event, ...) for _, f in ipairs(MockFrames) do f:Fire(event, ..
 function MockReset()
   wipe(MockUnits); wipe(MockBindings.clicks); wipe(MockBindings.cleared); wipe(MockLog.attributes); wipe(MockLog.errors); wipe(MockTimers)
   MockSetSecrets(false)
-  wipe(MockUnknownEvents); MockState.strictFonts = false
+  wipe(MockUnknownEvents); MockState.strictFonts = false; MockState.secretNames = false
   MockState.inCombat = false; MockState.numGroup = 1; MockState.inRaid = false; MockState.time = 0; MockState.cliqueLoaded = false
   MockUnits.player = { name = "Hognificent", class = MockState.playerClass, health = 100, maxHealth = 100, guid = "Player-0" }
 end

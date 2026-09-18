@@ -38,8 +38,16 @@ end
 function RankAdvisor.Scan()
   local known = {}
   local i = 1
+  -- The global was removed from modern clients (Forever beta: nil call at this line).
+  local getName = GetSpellBookItemName
+  local book = BOOKTYPE_SPELL or "spell"
+  if type(getName) ~= "function" and C_SpellBook and C_SpellBook.GetSpellBookItemName then
+    getName = C_SpellBook.GetSpellBookItemName
+    book = Enum and Enum.SpellBookSpellBank and Enum.SpellBookSpellBank.Player or 0
+  end
+  if type(getName) ~= "function" then RankAdvisor.known = known return known end
   while true do
-    local name, sub = GetSpellBookItemName(i, BOOKTYPE_SPELL or "spell")
+    local name, sub = getName(i, book)
     if not name then break end
     if data(name) then
       local rank = RankAdvisor.ParseRank(sub) or 1
@@ -109,6 +117,8 @@ end
 --- Build the advice string for a unit, or "" when nothing to advise.
 function RankAdvisor.Advice(unit)
   if not cfg().enabled or not unit or not UnitExists(unit) then return "" end
+  -- Picking a rank means comparing heal size with missing health; impossible when health is secret.
+  if HH.IsSecret(UnitHealth(unit)) or HH.IsSecret(UnitHealthMax(unit)) then return "" end
   local missing = (UnitHealthMax(unit) or 0) - (UnitHealth(unit) or 0)
   if missing <= 0 or UnitIsDeadOrGhost(unit) then return "" end
   local bonus = GetSpellBonusHealing and GetSpellBonusHealing() or 0

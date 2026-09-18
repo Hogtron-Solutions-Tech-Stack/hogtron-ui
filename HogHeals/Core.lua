@@ -24,6 +24,14 @@ function HH:RegisterModule(name, tbl)
   return tbl
 end
 
+--- True when v is a secret value (restricted-API clients: WoW: Forever beta, Midnight). Widgets accept
+-- secrets and tostring/format/concat work; arithmetic, comparison and boolean tests throw.
+function HH.IsSecret(v)
+  local f = issecretvalue
+  if type(f) ~= "function" then return false end
+  return f(v) and true or false
+end
+
 --- xpcall handler: keep the stack, a bare pcall message is useless from a tester's machine.
 function HH.Trace(err)
   local stack = type(debugstack) == "function" and debugstack(2, 12, 0) or ""
