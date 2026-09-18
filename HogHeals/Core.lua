@@ -310,7 +310,33 @@ function HH:SnapshotClient()
     if type(e) == "table" then for k, v in pairs(e) do en[#en + 1] = tostring(k) .. "=" .. tostring(v) end table.sort(en) end
     meter.enumType = table.concat(en, ",")
   end
+  -- Aura data secrecy (for rebuilding the Cell-style "dispellable by me" icon). Read-only: first HELPFUL aura on
+  -- the player and the first HARMFUL|RAID (= dispellable by my class, Blizzard's own filter) aura on the player.
+  local aura = { api = probe("C_UnitAuras.GetAuraDataByIndex"), unitAuras = probe("C_UnitAuras.GetUnitAuras"),
+    shouldBeSecret = probe("C_Secrets.ShouldAurasBeSecret") }
+  do
+    local get = type(C_UnitAuras) == "table" and C_UnitAuras.GetAuraDataByIndex
+    local isv = type(issecretvalue) == "function" and issecretvalue or function() return false end
+    if type(get) == "function" then
+      for _, filter in ipairs({ "HELPFUL", "HARMFUL", "HARMFUL|RAID" }) do
+        local ok, a = pcall(get, "player", 1, filter)
+        if not ok then aura[filter] = "ERR " .. tostring(a):sub(1, 100)
+        elseif type(a) ~= "table" then aura[filter] = "none (" .. type(a) .. ")"
+        else
+          local keys = {}
+          for k, v in pairs(a) do keys[#keys + 1] = tostring(k) .. "=" .. type(v) .. (isv(v) and ":secret" or "") end
+          table.sort(keys)
+          aura[filter] = table.concat(keys, " ")
+        end
+      end
+    end
+    if type(C_Secrets) == "table" and type(C_Secrets.ShouldAurasBeSecret) == "function" then
+      local ok, r = pcall(C_Secrets.ShouldAurasBeSecret)
+      aura.shouldAurasBeSecretNow = ok and tostring(r) or ("ERR " .. tostring(r):sub(1, 80))
+    end
+  end
   diag.client = {
+    aura = aura,
     meter = meter,
     missingGlobals = table.concat(missing, ","),
     secretProbe = sp,
