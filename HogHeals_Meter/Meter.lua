@@ -223,6 +223,10 @@ local function newRow(i)
   row.overlay = CreateFrame("Frame", nil, row)
   row.overlay:SetAllPoints(row)
   row.overlay:SetFrameLevel(row.bar:GetFrameLevel() + 2)
+  row.icon = row.overlay:CreateTexture(nil, "ARTWORK")
+  row.icon:SetPoint("LEFT", row.overlay, "LEFT", 2, 0)
+  row.icon:SetSize((d.barHeight or 18) - 4, (d.barHeight or 18) - 4)
+  row.icon:Hide()
   row.name = text(row.overlay, "GameFontHighlightSmall", CREAM, "LEFT")
   row.name:SetPoint("LEFT", row.overlay, "LEFT", 4, 0)
   row.value = text(row.overlay, "GameFontHighlightSmall", CREAM, "RIGHT")
@@ -245,6 +249,17 @@ local function build()
   f:SetFrameStrata("MEDIUM")
   f.bg = solid(f, "BACKGROUND", INK, d.backgroundAlpha or 0.85)
   f.bg:SetAllPoints(f)
+  -- 1 px outline (Details-style panel). Four edge textures; no BackdropTemplate (differs between client generations).
+  f.edges = {}
+  local spec = { { "TOPLEFT", "TOPRIGHT", nil, 1 }, { "BOTTOMLEFT", "BOTTOMRIGHT", nil, 1 }, { "TOPLEFT", "BOTTOMLEFT", 1, nil }, { "TOPRIGHT", "BOTTOMRIGHT", 1, nil } }
+  for i, sp in ipairs(spec) do
+    local e = solid(f, "BORDER", LINE)
+    e:SetPoint(sp[1], f, sp[1], 0, 0)
+    e:SetPoint(sp[2], f, sp[2], 0, 0)
+    if sp[3] then e:SetWidth(sp[3]) end
+    if sp[4] then e:SetHeight(sp[4]) end
+    f.edges[i] = e
+  end
 
   local header = CreateFrame("Button", nil, f)
   header:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0)
@@ -291,12 +306,19 @@ end
 local function layout(count)
   local f, d = Meter.frame, cfg()
   local h = d.barHeight or 18
-  local n = math.max(count, 1)
+  -- Details-style panel: a fixed number of slots whether or not anyone is on the meter (tester: "a full background
+  -- outline, not only when people are in my party").
+  local n = (d.fixedHeight ~= false) and (d.maxBars or 10) or math.max(count, 1)
   f.body:SetHeight(n * (h + 1))
   f:SetSize(d.width or 240, 20 + 2 + n * (h + 1) + 2)
+  for _, e in ipairs(f.edges or {}) do if d.border ~= false then e:Show() else e:Hide() end end
+  local iconSize = h - 4
   for i, row in ipairs(Meter.rows) do
     applyFont(row.name, d.fontSize or 12)
     applyFont(row.value, d.fontSize or 12)
+    row.icon:SetSize(iconSize, iconSize)
+    row.name:ClearAllPoints()
+    row.name:SetPoint("LEFT", row.overlay, "LEFT", (d.classIcons ~= false) and (iconSize + 6) or 4, 0)
     row:SetHeight(h)
     row:ClearAllPoints()
     row:SetPoint("TOPLEFT", f.body, "TOPLEFT", 0, -(i - 1) * (h + 1))
@@ -305,9 +327,11 @@ local function layout(count)
 end
 
 -- ------------------------------------------------------------------------------------------------ update
-local function setTitle()
+local function setTitle(sessionName)
   local d = cfg()
-  Meter.frame.title:SetText(("%s  ·  %s"):format(modeInfo(d.mode).label, d.segment == "Overall" and "Overall" or "Current"))
+  local seg = d.segment == "Overall" and "Overall" or "Current"
+  if sessionName and sessionName ~= "" then seg = seg .. ": " .. tostring(sessionName) end
+  Meter.frame.title:SetText(("%s  ·  %s"):format(modeInfo(d.mode).label, seg))
 end
 
 --- Pull the current session and repaint. Never throws: shape problems are logged once per shape.
@@ -334,6 +358,7 @@ function Meter.Update()
     return
   end
   f.empty:Hide()
+  setTitle(data.encounter)
   local top = data.sources[1].amount
   local shown = 0
   for i, src in ipairs(data.sources) do
@@ -344,7 +369,16 @@ function Meter.Update()
     local per = fmtPer(src.per)
     local amount = fmtAmount(src.amount)
     row.value:SetText(per and (amount .. "  (" .. per .. ")") or amount)
-    row.bar:SetStatusBarColor(classColor(classToken(src)))
+    local class = classToken(src)
+    row.bar:SetStatusBarColor(classColor(class))
+    local coords = class and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[class]
+    if d.classIcons ~= false and coords then
+      row.icon:SetTexture("Interface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES")
+      row.icon:SetTexCoord(unpack(coords))
+      row.icon:Show()
+    else
+      row.icon:Hide()
+    end
     if src.amount ~= nil and top ~= nil then
       row.bar:SetMinMaxValues(0, top)
       row.bar:SetValue(src.amount)

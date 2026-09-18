@@ -153,3 +153,29 @@ def test_slash_toggles_window(meter):
     shown1 = meter.eval('HogHealsMeterFrame:IsShown()')
     meter.execute('HogHeals:SlashCommand("meter")')
     assert meter.eval('HogHealsMeterFrame:IsShown()') != shown1
+
+
+def test_panel_keeps_its_full_height_with_one_or_no_rows(meter):
+    meter.execute('HogHealsMeter.Meter.Update()')
+    h_with_rows = meter.eval('HogHealsMeter.Meter.frame:GetHeight()')
+    meter.execute('HH_sources = {}; HogHealsMeter.Meter.Update()')
+    assert meter.eval('HogHealsMeter.Meter.frame:GetHeight()') == h_with_rows
+    d = 'HogHeals.db.profile.meter'
+    assert h_with_rows == 20 + 2 + meter.eval(f'{d}.maxBars') * (meter.eval(f'{d}.barHeight') + 1) + 2
+    assert meter.eval('#HogHealsMeter.Meter.frame.edges') == 4 and meter.eval('HogHealsMeter.Meter.frame.edges[1]:IsShown()') is True
+
+
+def test_shrink_to_fit_when_fixed_height_is_off(meter):
+    meter.execute('HogHeals.db.profile.meter.fixedHeight = false; HogHeals.db.profile.meter.border = false; HogHealsMeter.Meter.Update()')
+    d = 'HogHeals.db.profile.meter'
+    assert meter.eval('HogHealsMeter.Meter.frame:GetHeight()') == 20 + 2 + 3 * (meter.eval(f'{d}.barHeight') + 1) + 2
+    assert meter.eval('HogHealsMeter.Meter.frame.edges[1]:IsShown()') is False
+
+
+def test_rows_carry_class_icons_and_title_carries_the_session_name(meter):
+    meter.execute('CLASS_ICON_TCOORDS = { SHAMAN = { 0.25, 0.49, 0.25, 0.49 } }; HogHealsMeter.Meter.Update()')
+    r1 = 'HogHealsMeter.Meter.rows[1]'
+    assert meter.eval(f'{r1}.icon:IsShown()') is True
+    assert "CHARACTERCREATE-CLASSES" in meter.eval(f'{r1}.icon._texture')
+    assert "Clattering Scorpid" in meter.eval('HogHealsMeter.Meter.frame.title._text')
+    assert meter.eval('HogHealsMeter.Meter.rows[2].icon:IsShown()') is False        # warlock has no coords in this mock
