@@ -41,3 +41,44 @@ def test_probe_runs_again_on_first_combat(frames):
     frames.execute('MockSetSecrets(true); MockState.inCombat = true; MockFire("PLAYER_REGEN_DISABLED")')
     p = frames.eval('HogHeals.db.global.diag.combatProbe')
     assert p["inCombat"] is True and p["secret.UnitHealth"] is True
+
+
+def test_meter_probe_reports_absent_api_without_error(core):
+    core.execute('C_DamageMeter = nil; HogHeals:SnapshotClient()')
+    m = core.eval('HogHeals.db.global.diag.client.meter')
+    assert m["api"] == "nil" and m["keys"] == ""
+
+
+def test_meter_probe_lists_api_and_samples_zero_arg_getters(core):
+    core.execute("""C_DamageMeter = {
+      GetAvailableCombatSessions = function() return { { sessionID = 1, name = "Boar" } } end,
+      IsDamageMeterAvailable = function() return true end,
+      GetCombatSessionFromID = function(id) error("must not be called without args") end }
+    Enum = Enum or {}; Enum.DamageMeterType = { DamageDone = 0, HealingDone = 2 }
+    HogHeals:SnapshotClient()""")
+    m = core.eval('HogHeals.db.global.diag.client.meter')
+    assert m["api"] == "table"
+    assert m["keys"] == "GetAvailableCombatSessions,GetCombatSessionFromID,IsDamageMeterAvailable"
+    assert m["calls"]["GetAvailableCombatSessions"].startswith("table[1]")
+    assert m["calls"]["IsDamageMeterAvailable"] == "boolean"
+    assert "GetCombatSessionFromID" not in dict(m["calls"])
+    assert "HealingDone=2" in m["enumType"]
+    core.execute('C_DamageMeter = nil')
+
+
+def test_probe_never_registers_the_combat_log_event():
+    # Forbidden on restricted clients; pcall does not contain it; the player gets a "Disable HogHeals?" popup.
+    import pathlib, re
+    src = (pathlib.Path(__file__).resolve().parent.parent / "HogHeals" / "Core.lua").read_text(encoding="utf-8")
+    code = " ".join(line.split("--", 1)[0] for line in src.splitlines())   # drop Lua comments
+    assert "COMBAT_LOG_EVENT_UNFILTERED" not in code
+
+
+def test_blocked_and_forbidden_actions_are_logged_with_the_function_name(core):
+    core.execute('HogHeals.db.global.diag.errors = {}; MockFire("ADDON_ACTION_FORBIDDEN", "HogHeals", "Frame:RegisterEvent()")')
+    core.execute('MockFire("ADDON_ACTION_BLOCKED", "HogHeals_Frames", "CompactPartyFrame:SetParent()")')
+    core.execute('MockFire("ADDON_ACTION_BLOCKED", "SomeOtherAddon", "X()")')
+    msgs = [e["msg"] for e in core.eval('HogHeals.db.global.diag.errors').values()]
+    assert any("ADDON_ACTION_FORBIDDEN: HogHeals called Frame:RegisterEvent()" in m for m in msgs)
+    assert any("HogHeals_Frames called CompactPartyFrame:SetParent()" in m for m in msgs)
+    assert not any("SomeOtherAddon" in m for m in msgs)
