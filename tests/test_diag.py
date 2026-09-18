@@ -107,3 +107,13 @@ def test_meter_probe_describes_session_shape_including_secrets(core):
     assert "sources=table[1]{" in s and "amount=userdata:secret" in s and "classFilename=string" in s
     assert m["availableSession[1]"].startswith("encounterName=string")
     core.execute('C_DamageMeter = nil')
+
+
+def test_aura_probe_describes_fields_and_secrecy(core):
+    core.execute("""MockSetSecrets(true)
+    C_UnitAuras = { GetAuraDataByIndex = function(u, i, f) if f == "HARMFUL|RAID" then return { name = MockSecret("Curse"), icon = 136, dispelName = MockSecret("Curse"), auraInstanceID = 5 } end end }
+    HogHeals:SnapshotClient()""")
+    a = core.eval('HogHeals.db.global.diag.client.aura')
+    assert a["HARMFUL|RAID"] == "auraInstanceID=number dispelName=userdata:secret icon=number name=userdata:secret"
+    assert a["HELPFUL"].startswith("none")
+    core.execute('C_UnitAuras = nil')
