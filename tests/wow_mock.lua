@@ -108,6 +108,7 @@ function SetOverrideBindingClick(owner, priority, key, name, button)
   MockBindings.clicks[#MockBindings.clicks + 1] = { owner = owner, key = key, name = name, button = button, priority = priority } return true
 end
 function ClearOverrideBindings(owner) MockBindings.cleared[#MockBindings.cleared + 1] = owner end
+function GetBindingAction(key) return MockBindings.actions and MockBindings.actions[key] or "" end
 function GetBindingKey() return nil end
 function GetCVar() return "0" end
 function SetCVar() end

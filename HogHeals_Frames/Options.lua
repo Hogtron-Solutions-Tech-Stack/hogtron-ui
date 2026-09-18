@@ -188,6 +188,15 @@ local function bindingsGroup()
     fbPlayer = { type = "toggle", name = "Self", order = 24, get = function() return frames().fallback.player end, set = function(_, v) frames().fallback.player = v end },
     tooltip = { type = "toggle", name = "Show bindings in tooltip on hover", order = 30,
       get = function() return frames().showBindingTooltip end, set = function(_, v) frames().showBindingTooltip = v end },
+    combatHead = { type = "header", name = "Combat-safe bindings", order = 40 },
+    combatInfo = { type = "description", order = 41, name = "Hover mode sets keys when your mouse enters a frame; restricted clients (WoW: Forever) block that during combat. Combat-safe mode binds each key once, out of combat, and casts on the hovered frame, then target, then you. The key is then taken everywhere, not only over frames." },
+    bindingMode = { type = "select", name = "Mode", order = 42, values = { hover = "Hover (keys only over frames)", global = "Combat-safe (keys always on)" },
+      get = function() return frames().bindingMode or "hover" end,
+      set = function(_, v) frames().bindingMode = v; HHF.ClickCast.ApplyGlobal() end },
+    bindingForce = { type = "toggle", name = "Take over keys that already have a binding", order = 43,
+      desc = "Combat-safe mode skips keys bound to something else (e.g. action bar slots) and tells you which. Tick to use them anyway.",
+      get = function() return frames().bindingForce == true end,
+      set = function(_, v) frames().bindingForce = v and true or false; HHF.ClickCast.ApplyGlobal() end },
   }
   return { type = "group", name = "Bindings", order = 4, args = args }
 end

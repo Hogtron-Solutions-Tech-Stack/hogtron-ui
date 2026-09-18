@@ -58,6 +58,9 @@ HH.defaults = {
       healPrediction = { show = "all", overheal = true },    -- "mine" | "others" | "all"
       bindings = {},                                          -- per-class hover-binds, filled by ClickCast.Defaults
       fallback = { mouseover = true, focus = false, target = true, player = true },
+      bindingMode = "hover",          -- "hover": keys bound while the mouse is over a frame (blocked in combat on
+                                      -- restricted clients) | "global": keys bound once, cast on mouseover/target/self
+      bindingForce = false,           -- global mode: also take keys that already have a binding
     },
     meter = {
       enabled = true, hideBlizzard = true, mode = "DamageDone", segment = "Current",
