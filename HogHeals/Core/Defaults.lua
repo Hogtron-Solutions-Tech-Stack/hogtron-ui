@@ -25,29 +25,30 @@ HH.defaults = {
     wizardDone = false,
     frames = {
       layouts = {
-        solo   = layout(120, 32, 2, "DOWN", 1, 1),
-        party  = layout(120, 32, 2, "DOWN", 1, 1),
-        raid10 = layout(90, 28, 2, "DOWN", 2, 2),
-        raid20 = layout(80, 26, 2, "DOWN", 4, 4),
-        raid40 = layout(70, 22, 1, "DOWN", 8, 8),
+        -- Square-ish cells (Grid / Cell proportions): name on top, deficit below, thin power strip.
+        solo   = layout(90, 60, 2, "DOWN", 1, 1),
+        party  = layout(90, 60, 2, "DOWN", 1, 1),
+        raid10 = layout(80, 52, 2, "DOWN", 2, 2),
+        raid20 = layout(72, 46, 2, "DOWN", 4, 4),
+        raid40 = layout(62, 40, 1, "DOWN", 8, 8),
       },
       appearance = {
         font = "Friz Quadrata TT", fontSize = 11, fontOutline = "OUTLINE",
-        texture = "Blizzard",
+        texture = "Solid",           -- flat; the glossy Blizzard bar read as "what is this"
         healthMode = "class",        -- "class" | "deficit" | "custom"
         healthText = "deficit",      -- "percent" | "deficit" | "none"
         healthColor = { 0.25, 0.80, 0.35 },
         backgroundAlpha = 0.6,
         powerHeight = 3,
         powerHealerOnly = true,
-        nameLength = 8,
+        nameLength = 10,
         outOfRangeAlpha = 0.4,
         deficitGradient = true,
       },
       indicators = {
         health = true, power = true, name = true, healPrediction = true,
         dispel = true, range = true, aggro = true, raidIcon = true, statusIcons = true,
-        missingBuffs = true, myShield = true, thresholds = true, aoeHealing = true,
+        missingBuffs = true, myShield = true, thresholds = false, aoeHealing = true,
         priorityDebuff = true, requestGlow = true,
       },
       dispel = { style = "icon", priorityDebuffs = {} },  -- style: "icon" | "color" | "border"
@@ -61,7 +62,7 @@ HH.defaults = {
       x = 0, y = -180, width = 300, followFrames = false,
       castbarHeight = 18, manaHeight = 12, infoHeight = 14, rowSpacing = 2,
       showCastbar = true, showMana = true, showInfo = true,
-      font = "Friz Quadrata TT", fontSize = 11, texture = "Blizzard",
+      font = "Friz Quadrata TT", fontSize = 11, texture = "Solid",
       castbar = {
         icon = true, showTarget = true, latency = true, gcd = false, hideBlizzard = true, precision = 1,
         castColor = { 0.13, 0.83, 0.88 }, channelColor = { 0.25, 0.80, 0.35 }, uninterruptibleColor = { 0.6, 0.6, 0.6 },

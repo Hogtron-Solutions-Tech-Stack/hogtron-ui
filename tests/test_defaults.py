@@ -29,8 +29,8 @@ def test_thresholds_and_health_fade(core):
 
 
 def test_migration_sets_schema_and_is_idempotent(core):
-    assert core.eval('HogHeals.db.global.schema') == 1
+    assert core.eval('HogHeals.db.global.schema') == 2
     core.execute('HogHeals.Migrate.Run(HogHeals.db); HogHeals.Migrate.Run(HogHeals.db)')
-    assert core.eval('HogHeals.db.global.schema') == 1
+    assert core.eval('HogHeals.db.global.schema') == 2
     core.execute('HogHeals.db.global.schema = nil; HogHeals.Migrate.Run(HogHeals.db)')
-    assert core.eval('HogHeals.db.global.schema') == 1
+    assert core.eval('HogHeals.db.global.schema') == 2
