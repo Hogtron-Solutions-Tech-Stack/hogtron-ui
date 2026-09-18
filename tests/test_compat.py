@@ -27,11 +27,11 @@ def test_unknown_project_is_conservative(frames):
     assert c["auraFilterAllowed"] is False
 
 
-def test_degrade_disables_aura_indicators(frames):
-    frames.execute('HogHealsFrames.Compat.auraFilterAllowed = false; HogHealsFrames.Compat.Degrade(HogHeals.db.profile.frames)')
-    ind = frames.eval('HogHeals.db.profile.frames.indicators')
-    assert ind["dispel"] is False and ind["missingBuffs"] is False and ind["myShield"] is False and ind["healPrediction"] is False
-    assert ind["health"] is True and ind["range"] is True
+def test_blocked_is_runtime_only_and_empty_on_open_clients(frames):
+    # Replaces Compat.Degrade: it rewrote the saved profile and, worse, nothing ever called it.
+    frames.execute('HogHealsFrames.Compat.Init()')
+    assert frames.eval('HogHealsFrames.Compat.Blocked("healPrediction")') is None
+    assert frames.eval('HogHealsFrames.Compat.Degrade') is None
 
 
 def test_anniversary_tbc_detected_even_under_classic_project_id(frames):

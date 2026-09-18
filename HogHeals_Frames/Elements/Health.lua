@@ -15,15 +15,21 @@ function E.Update(button, unit)
   local d = HH.db.profile.frames
   local ap = d.appearance
   local hp, max = UnitHealth(unit), UnitHealthMax(unit)
-  if max <= 0 then max = 1 end
-  local pct = hp / max
+  -- Secret values: the bar still fills (widgets accept secrets) but we may not divide or compare, so
+  -- anything driven by a percentage (deficit colour, numbers, threshold fade) is skipped: pct == nil.
+  local secret = HHF.Compat.IsSecret(hp) or HHF.Compat.IsSecret(max)
+  local pct
+  if not secret then
+    if max <= 0 then max = 1 end
+    pct = hp / max
+  end
   button.health:SetMinMaxValues(0, max)
   button.health:SetValue(hp)
 
   -- colour
   local _, class = UnitClass(unit)
   local mode = ap.healthMode or "class"
-  if mode == "deficit" then
+  if mode == "deficit" and pct then
     button.health:SetStatusBarColor(deficitColor(pct))
   elseif mode == "custom" then
     local c = ap.healthColor or { 0.25, 0.8, 0.35 }
@@ -45,7 +51,7 @@ function E.Update(button, unit)
   elseif UnitIsDead(unit) then text = DEAD or "Dead"
   elseif UnitIsAFK(unit) then text = AFK or "AFK"
   else
-    local tm = ap.healthText or "deficit"
+    local tm = pct and (ap.healthText or "deficit") or "none"
     if tm == "percent" then text = ("%d%%"):format(math.floor(pct * 100 + 0.5))
     elseif tm == "deficit" then
       local def = max - hp
@@ -60,7 +66,7 @@ function E.Update(button, unit)
   -- health-threshold fade (Danders pattern)
   local hf = d.healthFade
   local alpha = 1
-  if hf and hf.enabled and not button.healthDead and pct * 100 > (hf.above or 90) then alpha = hf.alpha or 0.5 end
+  if pct and hf and hf.enabled and not button.healthDead and pct * 100 > (hf.above or 90) then alpha = hf.alpha or 0.5 end
   HHF.UnitButton.SetAlphaReason(button, "healthFade", alpha)
 end
 

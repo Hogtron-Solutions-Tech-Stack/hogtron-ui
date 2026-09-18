@@ -26,6 +26,7 @@ local function elementEnabled(name)
   local d = db()
   local element = HHF.Elements[name]
   if element and element.Enabled and not element.Enabled() then return false end
+  if HHF.Compat and HHF.Compat.Blocked and HHF.Compat.Blocked(name) then return false end
   local ind = d and d.indicators
   if ind and ind[name] == false then return false end
   return true

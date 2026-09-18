@@ -87,6 +87,14 @@ function HH:OnEnable()
   if self.InitQueue then self:InitQueue() end
   for _, m in pairs(self.modules) do self:SafeCall(m, "OnEnable") end
   self:SafeCall(self, "SnapshotClient")
+  -- Values may only turn secret once combat starts: probe again on the first pull of the session.
+  self:RegisterEvent("PLAYER_REGEN_DISABLED", function()
+    self:UnregisterEvent("PLAYER_REGEN_DISABLED")
+    if self:SafeCall(self, "SnapshotClient") then
+      local d = self.db.global.diag
+      d.combatProbe = d.client and d.client.secretProbe
+    end
+  end)
 end
 
 local function probe(path)
@@ -111,7 +119,38 @@ function HH:SnapshotClient()
   local compat
   local C = HogHealsFrames and HogHealsFrames.Compat
   if C and C.Init and C.Describe then C.Init(); compat = C.Describe() end
+  local sp = {}
+  do
+    local isv = type(issecretvalue) == "function" and issecretvalue or function() return false end
+    local hp, max, name = UnitHealth("player"), UnitHealthMax("player"), UnitName("player")
+    local pw = UnitPower("player")
+    local inc = type(UnitGetIncomingHeals) == "function" and UnitGetIncomingHeals("player") or nil
+    local rng = UnitInRange and UnitInRange("player")
+    sp["secret.UnitHealth"], sp["secret.UnitHealthMax"], sp["secret.UnitName"] = isv(hp) and true or false, isv(max) and true or false, isv(name) and true or false
+    sp["secret.UnitPower"], sp["secret.UnitGetIncomingHeals"], sp["secret.UnitInRange"] = isv(pw) and true or false, isv(inc) and true or false, isv(rng) and true or false
+    sp["inCombat"] = InCombatLockdown() and true or false
+    local ops = {
+      ["hp+0"] = function() return hp + 0 end, ["hp/max"] = function() return hp / max end,
+      ["hp<max"] = function() return hp < max end, ["hp==0"] = function() return hp == 0 end,
+      ["tostring(hp)"] = function() return tostring(hp) end, ["format%d"] = function() return ("%d"):format(hp) end,
+      ["concat hp"] = function() return "x" .. hp end, ["#name"] = function() return #name end,
+      ["name:sub"] = function() return name:sub(1, 3) end, ["concat name"] = function() return name .. "x" end,
+      ["format%s name"] = function() return ("%s"):format(name) end, ["if rng"] = function() if rng then return 1 end return 0 end,
+      ["pw+0"] = function() return pw + 0 end,
+    }
+    for k, f in pairs(ops) do sp["op." .. k] = pcall(f) and true or false end
+    for _, path in ipairs({ "UnitHealthPercent", "UnitHealthMissing", "UnitPowerPercent", "UnitPowerMissing", "C_CurveUtil",
+      "CreateUnitHealPredictionCalculator", "AbbreviateNumbers", "AbbreviateLargeNumbers", "C_StringUtil", "canaccessvalue",
+      "canaccesssecrets", "scrubsecretvalues", "hasanysecretvalues", "secretwrap", "C_UnitAuras.GetUnitAuras",
+      "C_UnitAuras.IsAuraFilteredOutByInstanceID", "UnitCastingDuration", "C_DurationUtil" }) do sp["api." .. path] = probe(path) end
+    for _, tname in ipairs({ "C_Secrets", "C_RestrictedActions", "C_CurveUtil", "C_StringUtil" }) do
+      local t, keys = _G[tname], {}
+      if type(t) == "table" then for k in pairs(t) do keys[#keys + 1] = tostring(k) end table.sort(keys) end
+      sp["keys." .. tname] = table.concat(keys, ",")
+    end
+  end
   diag.client = {
+    secretProbe = sp,
     version = version, build = build, builddate = builddate, toc = toc, project = WOW_PROJECT_ID,
     addon = self.version, at = date and date("%Y-%m-%d %H:%M:%S") or "", probes = probes, compat = compat,
   }

@@ -40,13 +40,22 @@ function Compat.Init()
     -- Midnight-style restricted clients expose the private-aura API; treat its presence as "aura filtering restricted".
     Compat.auraFilterAllowed = not (type(C_UnitAuras) == "table" and type(C_UnitAuras.AddPrivateAuraAnchor) == "function")
   end
+  -- Secret values (seen on Forever beta 1.60.1): unit health / power / names / incoming heals come back
+  -- opaque. Widgets accept them; arithmetic, comparison, # and concat throw. Elements that cannot work
+  -- without maths are blocked at runtime. The saved profile is never touched, so the same profile is whole
+  -- again on an open client.
+  Compat.secretValues = type(issecretvalue) == "function"
+  Compat.blocked = {}
+  if Compat.secretValues then
+    Compat.blocked.healPrediction = "needs arithmetic on incoming-heal amounts, which are secret on this client"
+  end
   Compat.hasGamepad = type(C_GamePad) == "table"
   Compat.hasLibHealComm = LibStub and LibStub("LibHealComm-4.0", true) ~= nil or false
   return Compat
 end
 
 function Compat.Describe()
-  local keys = { "build", "projectId", "isEra", "isTBC", "isForever", "hasNativeIncoming", "hasEarthShield", "auraFilterAllowed", "hasGamepad", "hasLibHealComm" }
+  local keys = { "build", "projectId", "isEra", "isTBC", "isForever", "hasNativeIncoming", "hasEarthShield", "auraFilterAllowed", "secretValues", "hasGamepad", "hasLibHealComm" }
   local out = {}
   for _, k in ipairs(keys) do out[#out + 1] = k .. "=" .. tostring(Compat[k]) end
   return out
@@ -58,15 +67,14 @@ HogHeals:RegisterSlash("apicheck", function()
   for _, line in ipairs(Compat.Describe()) do HogHeals:Print("  " .. line) end
 end, "print client API capability flags")
 
---- Turn off indicators that need data this client refuses to give.
-function Compat.Degrade(frames)
-  if Compat.auraFilterAllowed then return frames end
-  local ind = frames.indicators
-  ind.dispel = false
-  ind.missingBuffs = false
-  ind.myShield = false
-  ind.healPrediction = false
-  ind.priorityDebuff = false
-  frames.degraded = true
-  return frames
+--- True when v is a secret value (always false on clients without the restricted API).
+function Compat.IsSecret(v)
+  local f = issecretvalue
+  if type(f) ~= "function" then return false end
+  return f(v) and true or false
+end
+
+--- Reason string when this client cannot support an element, else nil. Runtime only, never saved.
+function Compat.Blocked(name)
+  return Compat.blocked and Compat.blocked[name] or nil
 end

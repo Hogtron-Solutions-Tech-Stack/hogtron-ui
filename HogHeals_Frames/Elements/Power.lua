@@ -16,7 +16,7 @@ function E.Update(button, unit)
     return
   end
   local cur, max = UnitPower(unit), UnitPowerMax(unit)
-  if max <= 0 then max = 1 end
+  if not HHF.Compat.IsSecret(max) and max <= 0 then max = 1 end
   button.power:SetMinMaxValues(0, max)
   button.power:SetValue(cur)
   local c = POWER_COLORS[ptype] or POWER_COLORS.MANA
