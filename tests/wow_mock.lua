@@ -187,7 +187,13 @@ function UnitIsGhost(u) local m = U(u) return m and m.ghost or false end
 function UnitIsDeadOrGhost(u) return UnitIsDead(u) or UnitIsGhost(u) end
 function UnitIsConnected(u) local m = U(u) if not m then return false end if m.connected == nil then return true end return m.connected end
 function UnitIsAFK(u) local m = U(u) return m and m.afk or false end
-function UnitInRange(u) local m = U(u) if not m then return false, false end if m.inRange == nil then return true, true end return m.inRange, true end
+function UnitInRange(u)
+  local m = U(u)
+  local r, checked
+  if not m then r, checked = false, false elseif m.inRange == nil then r, checked = true, true else r, checked = m.inRange, true end
+  if MockState.secretRange then return MockSecret(r), MockSecret(checked) end   -- measured: secret.UnitInRange = true
+  return r, checked
+end
 function UnitThreatSituation(u) local m = U(u) return m and m.threat or 0 end
 function GetRaidTargetIndex(u) local m = U(u) return m and m.raidIcon or nil end
 function UnitIsPlayer(u) local m = U(u) return m and (m.isPlayer ~= false) end
@@ -256,6 +262,8 @@ local function newRegion(kind, name, parent)
 end
 function Region:SetFrameLevel(n) self._frameLevel = n end
 function Region:GetFrameLevel() return self._frameLevel or ((self._parent and self._parent.GetFrameLevel and self._parent:GetFrameLevel() or 0) + 1) end
+-- Region:SetAlphaFromBoolean(secretBool, alphaTrue, alphaFalse): the client resolves the secret itself.
+function Region:SetAlphaFromBoolean(b, whenTrue, whenFalse) if MockUnwrap(b) then self._alpha = whenTrue else self._alpha = whenFalse end end
 function Region:GetName() return self._name end
 function Region:GetParent() return self._parent end
 function Region:SetParent(p) self._parent = p end
@@ -423,7 +431,7 @@ function MockFire(event, ...) for _, f in ipairs(MockFrames) do f:Fire(event, ..
 function MockReset()
   wipe(MockUnits); wipe(MockBindings.clicks); wipe(MockBindings.cleared); wipe(MockLog.attributes); wipe(MockLog.errors); wipe(MockTimers)
   MockSetSecrets(false)
-  wipe(MockUnknownEvents); MockState.strictFonts = false; MockState.secretNames = false
+  wipe(MockUnknownEvents); MockState.strictFonts = false; MockState.secretNames = false; MockState.secretRange = false
   MockState.inCombat = false; MockState.numGroup = 1; MockState.inRaid = false; MockState.time = 0; MockState.cliqueLoaded = false
   MockUnits.player = { name = "Hognificent", class = MockState.playerClass, health = 100, maxHealth = 100, guid = "Player-0" }
 end
