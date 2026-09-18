@@ -69,9 +69,9 @@ function UnitButton.Setup(button)
   button.power:SetHeight(3)
   button.power:SetMinMaxValues(0, 1)
 
-  button.name = button:CreateFontString(nil, "OVERLAY")
+  button.name = button:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   button.name:SetPoint("TOP", button, "TOP", 0, -3)
-  button.healthText = button:CreateFontString(nil, "OVERLAY")
+  button.healthText = button:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   button.healthText:SetPoint("BOTTOM", button, "BOTTOM", 0, 4)
 
   button.dispelBorder = mkTexture(button, "OVERLAY", 1)
@@ -111,7 +111,7 @@ function UnitButton.Setup(button)
   button.shieldIcon:SetSize(10, 10)
   button.shieldIcon:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -1, 4)
   button.shieldIcon:Hide()
-  button.shieldText = button:CreateFontString(nil, "OVERLAY")
+  button.shieldText = button:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   button.shieldText:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -12, 4)
   button.shieldText:Hide()
 
@@ -185,8 +185,15 @@ function UnitButton.OnAttributeChanged(button, key, value)
     for _, ev in ipairs(el.Events or {}) do
       if not seen[ev] then
         seen[ev] = true
-        if ev:sub(1, 5) == "UNIT_" and button.RegisterUnitEvent then button:RegisterUnitEvent(ev, value)
-        else button:RegisterEvent(ev) end
+        -- Some clients THROW on an event they do not know (Forever beta: UNIT_HEALTH_FREQUENT). One bad name
+        -- must not abort setup: before this guard it skipped every later event and the first paint.
+        local unknown = HHF.Compat.unknownEvents
+        if not unknown[ev] then
+          local ok
+          if ev:sub(1, 5) == "UNIT_" and button.RegisterUnitEvent then ok = pcall(button.RegisterUnitEvent, button, ev, value)
+          else ok = pcall(button.RegisterEvent, button, ev) end
+          if not ok then unknown[ev] = true end
+        end
       end
     end
   end

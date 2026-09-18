@@ -14,7 +14,7 @@ local function scanHarmful(unit, priorityNames)
   local firstDispel, priority
   local i = 1
   while true do
-    local name, icon, count, dtype = UnitAura(unit, i, "HARMFUL")
+    local name, icon, count, dtype = HHF.Compat.UnitAura(unit, i, "HARMFUL")
     if not name then break end
     if not firstDispel and dtype and HH.CanDispel(class, dtype) then
       firstDispel = { name = name, icon = icon, type = dtype, count = count }
