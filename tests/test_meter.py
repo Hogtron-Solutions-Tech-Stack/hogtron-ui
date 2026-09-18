@@ -61,6 +61,31 @@ def test_rows_render_from_secret_amounts_without_any_maths(meter):
     assert meter.eval('HogHealsMeter.Meter.rows[2].bar._value') == 44 and meter.eval('HogHealsMeter.Meter.rows[2].bar._max') == 7439
     assert "7.4k" in meter.eval(f'{r1}.value._text') and "48" in meter.eval(f'{r1}.value._text')
     assert meter.eval(f'{r1}.bar._color[3]') == pytest.approx(0.87, abs=0.01)   # shaman blue
+    assert meter.eval('HogHeals.defaults.profile.meter.width') >= 300 and meter.eval('HogHeals.defaults.profile.meter.barHeight') >= 22
+
+
+def test_class_colour_falls_back_to_the_group_roster_when_the_session_has_no_class(meter):
+    # measured on the beta: names are not secret; the per-player class field name is still unknown
+    meter.execute("""
+      MockSetGroup(3, false)
+      MockUnits.party1 = { name = "lol Fried", class = "WARLOCK", health = 1, maxHealth = 1, guid = "P1" }
+      MockUnits.player.name = "Hog Tistic"
+      HH_sources = { { name = "Hog Tistic", totalAmount = MockSecret(10) }, { name = "lol Fried", totalAmount = MockSecret(5) }, { name = "Stranger", totalAmount = MockSecret(1) } }
+      HogHealsMeter.Meter.Update()
+    """)
+    r = 'HogHealsMeter.Meter.rows'
+    assert meter.eval(f'{r}[1].bar._color[3]') == pytest.approx(0.87, abs=0.01)     # player: shaman
+    assert meter.eval(f'{r}[2].bar._color[1]') == pytest.approx(0.53, abs=0.02)     # party1: warlock
+    assert meter.eval(f'{r}[3].bar._color[1]') == pytest.approx(0.55, abs=0.02)     # unknown: grey
+
+
+def test_class_id_is_accepted(meter):
+    meter.execute("""
+      GetClassInfo = function(id) if id == 7 then return "Shaman", "SHAMAN" end end
+      HH_sources = { { name = "Someone", class = 7, totalAmount = MockSecret(10) } }
+      HogHealsMeter.Meter.Update()
+    """)
+    assert meter.eval('HogHealsMeter.Meter.rows[1].bar._color[3]') == pytest.approx(0.87, abs=0.01)
     assert meter.eval('HogHealsMeter.Meter.rows[4]') is None or meter.eval('HogHealsMeter.Meter.rows[4]:IsShown()') is False
 
 
