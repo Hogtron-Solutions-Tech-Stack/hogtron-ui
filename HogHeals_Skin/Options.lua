@@ -67,6 +67,12 @@ function Options.Build()
           set = function(_, v) root().tooltips.fontSize = v > 0 and v or nil; apply() end },
         anchorCursor = toggle(sub("tooltips"), "anchorCursor", "Anchor tooltips to the cursor", 4),
       } },
+      extras = { type = "group", name = "Buffs & XP bar", order = 4.5, args = {
+        about = { type = "description", order = 0, name = "Your buff / debuff icons (top right) flattened with the HogUI outline, and the experience / reputation bar made flat." },
+        buffs = toggle(sub("extras"), "buffs", "Skin my buff and debuff icons", 1),
+        durationSize = range(sub("extras"), "durationSize", "Duration / count text size", 2, 7, 16, 1),
+        xpBar = toggle(sub("extras"), "xpBar", "Flat experience / reputation bar", 3),
+      } },
       infobar = { type = "group", name = "Info bar", order = 5, args = {
         about = { type = "description", order = 0, name = "A slim strip of live readouts: gold, durability, bag space, fps, latency, clock, coordinates, friends, guild, experience. Click a readout to open its frame. Drag it when frames are unlocked (/hh unlock)." },
         enabled = toggle(sub("infoBar"), "enabled", "Show the info bar", 1, infobar),
