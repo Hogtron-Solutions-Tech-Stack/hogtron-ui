@@ -363,7 +363,11 @@ function Plates.FriendlyLook(uf)
   for _, e in ipairs(hh.edges or {}) do if nameOnly then e:Hide() end end
   if nameOnly and hh.questFrame then hh.questFrame:Hide() end
   -- name-only plates carry the name in a bigger font (Sean: "match my own font above my head")
-  if uf.name then setFont(uf.name, nameOnly and (d.friendlyNameSize or 14) or (d.fontSize or 10)) end
+  if uf.name then
+    setFont(uf.name, nameOnly and (d.friendlyNameSize or 14) or (d.fontSize or 10))
+    -- width 0 = "as wide as the text": the bigger font had "Benjamin Neta..." cut at Blizzard's width (2026-09-23)
+    if nameOnly then call(uf.name.SetWidth, uf.name, 0) if uf.name.SetWordWrap then call(uf.name.SetWordWrap, uf.name, false) end end
+  end
   -- keep the bar hidden when Blizzard shows it on plate reuse
   if hh.bar and not hh.barHideHooked and type(hooksecurefunc) == "function" then
     hh.barHideHooked = true
@@ -523,6 +527,9 @@ function Plates.ApplyCVars()
       nameplateMinAlpha = "1", nameplateMaxAlpha = "1", nameplateLargerScale = "1" }) do pcall(SetCVar, k, v) end
     pcall(SetCVar, "nameplateSelectedScale", tostring(d.targetScale or 1))
   end
+  -- How far plates reach. Past this the small blue names over far players are drawn by the engine itself (the
+  -- "unit names" setting) and no addon can colour or size them (Sean 2026-09-23). The client clamps the value.
+  if d.maxDistance then pcall(SetCVar, "nameplateMaxDistance", tostring(d.maxDistance)) end
 end
 
 function Module:OnEnable()
@@ -557,13 +564,21 @@ function Plates.Diagnose()
   out[#out + 1] = ("events seen: ADDED=%d REMOVED=%d TARGET=%d QUEST_LOG=%d"):format(seen.NAME_PLATE_UNIT_ADDED or 0, seen.NAME_PLATE_UNIT_REMOVED or 0, seen.PLAYER_TARGET_CHANGED or 0, seen.QUEST_LOG_UPDATE or 0)
   local cvar = function(n) local ok, v = pcall(GetCVar, n) return ok and tostring(v) or "?" end
   out[#out + 1] = ("cvars: nameplateShowEnemies=%s nameplateShowAll=%s nameplateShowFriends=%s"):format(cvar("nameplateShowEnemies"), cvar("nameplateShowAll"), cvar("nameplateShowFriends"))
+  out[#out + 1] = ("distance: nameplateMaxDistance=%s (names further out are the engine's unit names: UnitNameFriendlyPlayerName=%s, not plates) scale min/max=%s/%s"):format(
+    cvar("nameplateMaxDistance"), cvar("UnitNameFriendlyPlayerName"), cvar("nameplateMinScale"), cvar("nameplateMaxScale"))
   local plates = type(C_NamePlate) == "table" and call(C_NamePlate.GetNamePlates) or nil
   out[#out + 1] = ("on screen now (GetNamePlates): %s"):format(type(plates) == "table" and #plates or tostring(plates))
   for i, plate in ipairs(type(plates) == "table" and plates or {}) do
     if i > 5 then break end
     local unit = plate.unitToken or plate.namePlateUnitToken or (type(plate.UnitFrame) == "table" and (plate.UnitFrame.unit or plate.UnitFrame.displayedUnit))
     local uf, why = Plates.FrameFor(unit)
-    out[#out + 1] = ("  #%d unit=%s name=%s -> %s"):format(i, tostring(unit), tostring(unit and call(UnitName, unit)), uf and ("ok, skinned=" .. tostring(uf.hh ~= nil)) or tostring(why))
+    local nm = uf and rawget(uf, "name")
+    local nameInfo = ""
+    if type(nm) == "table" then
+      local _, _, _, _, size = call(nm.GetFont, nm)
+      nameInfo = (" name w=%s pts=%s font=%s"):format(tostring(call(nm.GetWidth, nm)), tostring(call(nm.GetNumPoints, nm)), tostring(size))
+    end
+    out[#out + 1] = ("  #%d unit=%s name=%s -> %s%s"):format(i, tostring(unit), tostring(unit and call(UnitName, unit)), uf and ("ok, skinned=" .. tostring(uf.hh ~= nil) .. " nameOnly=" .. tostring(uf.hh and uf.hh.nameOnly)) or tostring(why), nameInfo)
   end
   local sk = {}
   for k, v in pairs(Plates.skips or {}) do sk[#sk + 1] = k .. " x" .. v end

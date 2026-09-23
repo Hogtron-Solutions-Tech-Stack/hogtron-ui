@@ -44,6 +44,8 @@ function Options.Build()
         friendlyNameSize = range(p, "friendlyNameSize", "Friendly name text size", 7.6, 8, 24, 1),
         uniformScale = toggle(p, "uniformScale", "Same plate size at every distance (no shrink / fade)", 7.8),
         targetScale = range(p, "targetScale", "Target plate scale", 7.9, 0.8, 1.5, 0.05),
+        maxDistance = { type = "range", name = "Plate distance (yards) - beyond it the game draws its own small names", order = 7.95, min = 20, max = 100, step = 5,
+          get = function() return p().maxDistance or 60 end, set = function(_, v) p().maxDistance = v; HogHealsPlates.Plates.ApplyCVars() end },
         showLevel = { type = "toggle", name = "Level badge next to the bar", order = 7.7,
           get = function() return p().showLevel == true end, set = function(_, v) p().showLevel = v and true or false; refresh() end },
         nameClass = { type = "select", name = "Player names in class colour", order = 8,

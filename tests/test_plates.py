@@ -366,3 +366,17 @@ def test_uniform_plate_scale_cvars(plates):
     assert plates.eval('CV.nameplateSelectedScale') == "1.15"
     plates.execute('wipe(CV); HogHeals.db.profile.plates.uniformScale = false; HogHealsPlates.Plates.ApplyCVars()')
     assert plates.eval('CV.nameplateMinScale') is None                              # off: the client's own rules
+
+
+def test_plate_distance_cvar_and_untruncated_friendly_names(plates):
+    plates.execute('CV = {}; function SetCVar(k, v) CV[k] = v end; HogHealsPlates.Plates.ApplyCVars()')
+    assert plates.eval('CV.nameplateMaxDistance') == "60"
+    plates.execute('HogHeals.db.profile.plates.maxDistance = 40; HogHealsPlates.Plates.ApplyCVars()')
+    assert plates.eval('CV.nameplateMaxDistance') == "40"
+    # name-only plate: the name string is as wide as its text (in game "Benjamin Neta..." at Blizzard's width)
+    plates.execute('function UnitIsFriend(a, b) return MockUnits[b] and MockUnits[b].friendly == true end')
+    uf = add(plates, "nameplate16", '{ name = "Benjamin Netanyahu", class = "PALADIN", health = 1, maxHealth = 1, isPlayer = true, friendly = true, guid = "P-16" }')
+    assert plates.eval(f'{uf}.hh.nameOnly') is True
+    plates.execute(f'{uf}.name:SetWidth(90); HogHealsPlates.Plates.FriendlyLook({uf})')
+    assert plates.eval(f'{uf}.name._width') == 0
+    assert errors(plates) == []
