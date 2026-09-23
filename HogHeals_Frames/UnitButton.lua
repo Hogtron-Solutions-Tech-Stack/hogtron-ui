@@ -89,6 +89,10 @@ function UnitButton.Setup(button)
   button.bg:SetColorTexture(0.07, 0.07, 0.09, 0.6)
 
   button.health = CreateFrame("StatusBar", nil, button)
+  -- Texture FIRST: the incoming-heal overlays below anchor to the fill texture. Anchoring to it before the bar had
+  -- one left the bar at 0x0 in game (2026-09-22, /hh framediag: "bar 0.00x0.00 (button 151.00x80.00) points=2"),
+  -- an empty grey frame; a bar built texture-first (/hh healthfix) filled at once.
+  button.health:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
   button.health:SetPoint("TOPLEFT", button, "TOPLEFT", 1, -1)
   button.health:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -1, 1)
   button.health:SetMinMaxValues(0, 1)

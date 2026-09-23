@@ -28,7 +28,7 @@ end
 function E.OnEnter(button)
   local unit = button.unit
   if not unit then return end
-  local _, class = UnitClass("player")
+  local class = HHF.Compat.ClassOf("player")
   local aoe = HH.AOE_HEAL[class]
   if not aoe then return end
   active = true

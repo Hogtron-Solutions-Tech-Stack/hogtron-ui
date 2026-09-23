@@ -85,7 +85,7 @@ function ClickCast.Defaults(class)
   return D[class] or {}
 end
 
-local function playerClass() local _, c = UnitClass("player") return c end
+local function playerClass() return HHF.Compat.ClassOf("player") end
 
 function ClickCast.Init()
   local cliqueLoaded = (C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded("Clique"))

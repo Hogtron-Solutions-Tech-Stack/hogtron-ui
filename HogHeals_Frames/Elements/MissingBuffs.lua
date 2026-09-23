@@ -18,7 +18,7 @@ local function buffNames(unit)
 end
 
 function E.Update(button, unit)
-  local _, class = UnitClass("player")
+  local class = HHF.Compat.ClassOf("player")
   local list = HH.MissingBuffSpells(class)
   if #list == 0 or UnitIsDeadOrGhost(unit) or not UnitIsConnected(unit) then
     button.missingBuff.spell = nil
