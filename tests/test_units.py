@@ -106,15 +106,18 @@ def test_target_auras_debuffs_first_with_dispel_colour_and_cooldown(units):
       MockState.time = 80
       MockFire("PLAYER_TARGET_CHANGED")
     ''')
-    assert units.eval('#HogUITarget.auras.debuffs') == 2 and units.eval('HogUITarget.auras.buffs[1]:IsShown()') is True
+    assert units.eval('#HogUITarget.auras.debuffs') == 2 and units.eval('#HogUITarget.auras.buffs') == 0   # buffs off by default
     d1 = 'HogUITarget.auras.debuffs[1]'
     assert units.eval(f'{d1}.edge._color[3]') == pytest.approx(1.0)              # Magic blue outline
     assert units.eval(f'{d1}.count._text') == "2"
     assert units.eval(f'{d1}.cd._last.SetCooldown[1]') == 70 and units.eval(f'{d1}.cd._last.SetCooldown[2]') == 30
     assert units.eval('HogUITarget.auras.debuffs[2].edge._color[2]') == pytest.approx(0.6)   # Poison green
-    # layout: debuff row under the frame, buff row under it
+    # layout: debuff row under the frame; buffs appear under it only when switched on
     assert units.eval(f'{d1}._points[1][1]') == "TOPLEFT" and units.eval(f'{d1}._points[1][3]') == "BOTTOMLEFT"
+    units.execute('HogHeals.db.profile.units.target.buffs = true; HogHealsUnits.Units.Refresh()')
+    assert units.eval('HogUITarget.auras.buffs[1]:IsShown()') is True
     assert units.eval('HogUITarget.auras.buffs[1]._points[1][5]') < units.eval(f'{d1}._points[1][5]')
+    assert units.eval(f'{d1}.cd._last.SetHideCountdownNumbers[1]') is True
     units.execute('MockUnits.target.auras = {}; MockFire("UNIT_AURA", "target")')
     assert units.eval(f'{d1}:IsShown()') is False
     assert errors(units) == []
@@ -262,3 +265,10 @@ def test_a_failing_piece_is_named_in_chat_and_does_not_block_the_others(units):
     assert "unit frame name/level (target): " in chat and "boom" in chat
     assert units.eval('HogUITarget.healthText._text') == "30 / 60"         # health still updated
     assert units.eval('HogUITarget.status._text') == ""                    # status piece still ran
+
+
+def test_player_pet_and_tot_frames_never_get_aura_rows(units):
+    units.execute('MockUnits.player.auras = { { name = "Fortitude" }, { name = "Weakened Soul", type = "Magic" } }; MockFire("UNIT_AURA", "player")')
+    assert units.eval('HogUIPlayer.auras') is None
+    units.execute('MockUnits.pet = { name = "Kongorg", class = "WARRIOR", health = 1, maxHealth = 1, guid = "Pet-1", auras = { { name = "X", type = "Poison" } } }; MockFire("UNIT_PET", "player")')
+    assert units.eval('HogUIPet.auras') is None
