@@ -218,7 +218,7 @@ def test_small_frames_use_one_row_layout(units):
     assert units.eval('HogUITargetOfTarget.level:IsShown()') is False
     assert units.eval('HogUITargetOfTarget.powerText:IsShown()') is False
     assert units.eval('HogUIPlayer.name._points[1][1]') == "TOPLEFT" and units.eval('HogUIPlayer.powerText:IsShown()') is True
-    assert units.eval('#HogUIPlayer.name._points') == 1 and units.eval('HogUIPlayer.name._width') == 240 - 46
+    assert units.eval('#HogUIPlayer.name._points') == 1 and units.eval('HogUIPlayer.name._width') == 240 - 6 - 5 - 5 - units.eval('HogUIPlayer.level:GetStringWidth()')
     assert units.eval('HogUIPlayer.name:IsShown()') is True and units.eval('HogUIPlayer.level:IsShown()') is True
     units.execute('HogHeals.db.profile.units.targettarget.height = 40; HogHealsUnits.Units.Refresh()')
     assert units.eval('HogUITargetOfTarget.compact') is False
@@ -272,3 +272,30 @@ def test_player_pet_and_tot_frames_never_get_aura_rows(units):
     assert units.eval('HogUIPlayer.auras') is None
     units.execute('MockUnits.pet = { name = "Kongorg", class = "WARRIOR", health = 1, maxHealth = 1, guid = "Pet-1", auras = { { name = "X", type = "Poison" } } }; MockFire("UNIT_PET", "player")')
     assert units.eval('HogUIPet.auras') is None
+
+
+def test_name_takes_every_pixel_the_row_leaves(units):
+    # compact frame: name shares its one row with the health text, nothing else
+    units.execute('MockUnits.target = { name = "Bat", class = "WARRIOR", health = 5, maxHealth = 5, power = 0, maxPower = 0, guid = "C-9" }')
+    units.execute('MockUnits.targettarget = { name = "Hordecore Pwn", class = "PALADIN", health = 343, maxHealth = 343, power = 10, maxPower = 10, guid = "P-2" }')
+    units.execute('MockFire("PLAYER_TARGET_CHANGED")')
+    tot_w = units.eval('HogHeals.db.profile.units.targettarget.width')
+    ht_w = units.eval('HogUITargetOfTarget.healthText:GetStringWidth()')
+    assert ht_w > 0
+    assert units.eval('HogUITargetOfTarget.name._width') == tot_w - ht_w - 8 - 6
+    assert units.eval('HogUITargetOfTarget.name._width') >= 12 * 6                 # a 12-char player name at the mock's 6 px/char
+    # full frame: name shares the top row with the level only; level off => the whole row
+    lvl_w = units.eval('HogUITarget.level:GetStringWidth()')
+    assert units.eval('HogUITarget.name._width') == 240 - lvl_w - 5 - 5 - 6
+    units.execute('HogHeals.db.profile.units.target.showLevel = false; HogHealsUnits.Units.Refresh()')
+    assert units.eval('HogUITarget.name._width') == 240 - 5 - 6
+    # health text change re-fits the compact name
+    units.execute('HogHeals.db.profile.units.healthText = "none"; MockFire("UNIT_HEALTH", "targettarget")')
+    assert units.eval('HogUITargetOfTarget.name._width') == tot_w - 8 - 6
+    assert errors(units) == []
+
+
+def test_power_text_with_a_secret_current_value_never_compares_it(units):
+    units.execute('MockSetSecrets(true); MockFire("UNIT_POWER_UPDATE", "player")')
+    assert errors(units) == []
+    assert units.eval('HogUIPlayer.powerText._text') != ""

@@ -153,7 +153,7 @@ function Units.PowerText(unit, mode)
   if p == nil then return "" end
   local m = num(max)
   if m and m <= 0 then return "" end
-  if tostring(max) == "0" or tostring(p) == "0" and tostring(max) == "0" then return "" end
+  -- no tostring(p) == "0" here: tostring of a secret is a secret string and comparing it throws (in game 2026-09-23)
   if mode == "current" then return abbreviate(p) end
   return abbreviate(p) .. " / " .. abbreviate(max)
 end
@@ -359,6 +359,24 @@ function Units.LayoutText(f)
     f.status:Show()
   end
   f.name:Show()
+  Units.FitName(f)
+end
+
+--- The name gets every pixel the other strings on its row leave: full frames share the top row with the level,
+-- compact frames share their one row with the health text. Never truncates a name the level / health text
+-- would not have covered (in game 2026-09-23 "Hordecore Pwn" lost its tail on the 140 px frames at 55 %).
+Units.NAME_PAD = 6
+function Units.FitName(f)
+  if not (f.name and f.name.SetWidth) then return end
+  local d = ucfg(f.unit)
+  local w = d.width or 240
+  local taken
+  if f.compact then
+    taken = (f.healthText:IsShown() and (f.healthText:GetStringWidth() or 0) or 0) + 4 + 4
+  else
+    taken = ((d.showLevel ~= false) and ((f.level:GetStringWidth() or 0) + 5) or 0) + 5
+  end
+  f.name:SetWidth(math.max(20, w - taken - Units.NAME_PAD))
 end
 
 -- ------------------------------------------------------------------------------------------------ updates
@@ -372,6 +390,7 @@ function Units.UpdateHealth(f)
   f.health:SetValue(hp or 0)
   f.health:SetStatusBarColor(Units.HealthColor(unit))
   f.healthText:SetText(Units.HealthText(unit, cfg().healthText or "current-percent"))
+  if f.compact then Units.FitName(f) end
 end
 
 function Units.UpdatePower(f)
@@ -399,6 +418,7 @@ function Units.UpdateInfo(f)
   else
     f.level:SetText("")
   end
+  Units.FitName(f)
   -- raid target icon
   local idx = num(call(GetRaidTargetIndex, unit))
   if idx and idx > 0 and type(SetRaidTargetIconTexture) == "function" then
