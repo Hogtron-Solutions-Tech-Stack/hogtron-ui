@@ -145,6 +145,7 @@ function Skin.Apply()
   if #hidden > 0 or not Skin.hiddenOverlays then Skin.hiddenOverlays = hidden end
   call(Minimap.SetMaskTexture, Minimap, "Interface\\Buttons\\WHITE8X8")
   _G.GetMinimapShape = function() return "SQUARE" end
+  Skin.rings = Skin.HideBlobRings()
   local s = Skin.TargetSize()
   if d.fill ~= false and type(MinimapCluster) == "table" then
     -- 2026-09-22 in game: the map sat at 180 px inside a much bigger Edit Mode box. Fill the box instead, under our
@@ -171,6 +172,19 @@ function Skin.Apply()
   Skin.HookCluster()
   Skin.missing = missing
   return missing
+end
+
+-- The hatched circle over a square map (2026-09-22, "what is the ring"): the ENGINE's quest-area edge ring, drawn at
+-- the rim of the round minimap view whenever you stand inside a quest area. Not a texture region (diag listed every
+-- region: all already hidden), so it is switched off through the Minimap's own blob-ring settings, the same calls
+-- square-minimap UIs (ElvUI) make. Returns the setters this client has, for diag.
+function Skin.HideBlobRings()
+  local found = {}
+  for _, m in ipairs({ "SetQuestBlobRingScalar", "SetQuestBlobRingAlpha", "SetArchBlobRingScalar", "SetArchBlobRingAlpha",
+    "SetTaskBlobRingScalar", "SetTaskBlobRingAlpha" }) do
+    if type(Minimap[m]) == "function" and pcall(Minimap[m], Minimap, 0) then found[#found + 1] = m end
+  end
+  return found
 end
 
 Skin.TOP_OFFSET = 24   -- room above our header for the clock / mail / tracking row the client keeps there
@@ -215,6 +229,7 @@ function Skin.DockButtons()
       local b = rawget(_G, n)
       if type(b) == "table" and b.ClearAllPoints then
         HH:RunOutOfCombat(function()
+          b.hhDocking = true
           local bw = (b.GetWidth and b:GetWidth()) or 32
           local scale = (HEADER_H - 2) / math.max(bw, 1)
           call(b.SetScale, b, scale)
@@ -222,8 +237,20 @@ function Skin.DockButtons()
           if slot.side == "LEFT" then call(b.SetPoint, b, "LEFT", f.header, "LEFT", 2 / scale, 0)
           else call(b.SetPoint, b, "RIGHT", f.header, "RIGHT", -2 / scale, 0) end
           call(b.SetFrameLevel, b, f.header:GetFrameLevel() + 3)
+          b.hhDocking = false
         end)
         Skin.docked[#Skin.docked + 1] = n
+        -- 2026-09-22 in game: the day/night button was docked, then the client's layout put it back on the map
+        if not b.hhDockHooked and type(hooksecurefunc) == "function" and b.SetPoint then
+          b.hhDockHooked = true
+          pcall(hooksecurefunc, b, "SetPoint", function(self)
+            if self.hhDocking or cfg().enabled == false or cfg().dockButtons == false then return end
+            if InCombatLockdown and InCombatLockdown() then return end
+            self.hhDocking = true
+            Skin.DockButtons()
+            self.hhDocking = false
+          end)
+        end
         break
       end
     end
@@ -284,7 +311,7 @@ function Skin.Probe()
   end
   return { names = table.concat(names, ","), mask = (Minimap and Minimap.SetMaskTexture) and "fn" or "nil",
     regions = table.concat(regions, " ; "), hidden = table.concat(Skin.hiddenOverlays or {}, " ; "),
-    docked = table.concat(Skin.docked or {}, ","),
+    docked = table.concat(Skin.docked or {}, ","), rings = table.concat(Skin.rings or {}, ","),
     cluster = (type(MinimapCluster) == "table" and MinimapCluster.GetWidth) and (math.floor(MinimapCluster:GetWidth()) .. "x" .. math.floor(MinimapCluster:GetHeight())) or "nil",
     size = Minimap and (tostring(Minimap:GetWidth()) .. "x" .. tostring(Minimap:GetHeight())) or "nil" }
 end

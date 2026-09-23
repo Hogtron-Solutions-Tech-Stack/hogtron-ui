@@ -135,3 +135,25 @@ def test_buttons_on_the_map_are_docked_into_the_header(lua):
     lua.execute('HogHeals:SlashCommand("questdiag")')
     m = lua.eval('HogHeals.db.global.diag.quests.map')
     assert "GameTimeFrame" in m["docked"] and "Ring" in m["hidden"] and m["cluster"] == "300x340"
+
+
+def test_engine_quest_ring_switched_off(lua):
+    lua.execute("""
+      RINGSET = {}
+      function Minimap:SetQuestBlobRingScalar(v) RINGSET.qs = v end
+      function Minimap:SetQuestBlobRingAlpha(v) RINGSET.qa = v end
+      function Minimap:SetArchBlobRingScalar(v) RINGSET.as = v end
+    """)
+    boot(lua, MODERN)
+    assert lua.eval('RINGSET.qs') == 0 and lua.eval('RINGSET.qa') == 0 and lua.eval('RINGSET.as') == 0
+    lua.execute('HogHeals:SlashCommand("questdiag")')
+    assert "SetQuestBlobRingScalar" in lua.eval('HogHeals.db.global.diag.quests.map.rings')
+    assert errors(lua) == []
+
+
+def test_docked_button_stays_docked_when_the_client_moves_it_back(lua):
+    lua.execute(CLUSTER)
+    boot(lua, MODERN)
+    lua.execute('GameTimeFrame:ClearAllPoints(); GameTimeFrame:SetPoint("TOPRIGHT", Minimap, "TOPRIGHT", 0, 0)')
+    assert lua.eval('GameTimeFrame._points[1][2] == HogHealsMinimapFrame.header')
+    assert errors(lua) == []
