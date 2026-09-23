@@ -161,15 +161,21 @@ function Plates.ColorName(uf)
   local class = Plates.ClassOf(unit)
   local c = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
   if not c then return nil end
+  -- Blizzard paints nameplate names with SetVertexColor (CompactUnitFrame), not SetTextColor: set and hook both
   hh.nameLock = true
   call(uf.name.SetTextColor, uf.name, c.r, c.g, c.b)
+  call(uf.name.SetVertexColor, uf.name, c.r, c.g, c.b)
   hh.nameLock = false
   hh.nameClass = class
   if not hh.nameHooked and type(hooksecurefunc) == "function" then
     hh.nameHooked = true
-    pcall(hooksecurefunc, uf.name, "SetTextColor", function()
-      if not hh.nameLock and hh.unit and hh.nameClass then Plates.ColorName(uf) end
-    end)
+    for _, m in ipairs({ "SetTextColor", "SetVertexColor" }) do
+      if type(uf.name[m]) == "function" then
+        pcall(hooksecurefunc, uf.name, m, function()
+          if not hh.nameLock and hh.unit and hh.nameClass then Plates.ColorName(uf) end
+        end)
+      end
+    end
   end
   return class
 end
@@ -408,6 +414,7 @@ function Plates.Scan()
 end
 
 function Plates.Refresh()
+  Plates.ApplyCVars()
   HHP.QuestMobs.Invalidate()
   Plates.ForEach(Plates.Update)
 end
@@ -448,7 +455,17 @@ end
 local Module = {}
 HHP.module = Module
 
+--- Blizzard's own class-colour switches for nameplates (they colour name-only friendly plates natively).
+function Plates.ApplyCVars()
+  local d = cfg()
+  if type(SetCVar) ~= "function" then return end
+  local on = (d.nameClass or "friendly") ~= "none"
+  pcall(SetCVar, "ShowClassColorInFriendlyNameplate", on and "1" or "0")
+  pcall(SetCVar, "ShowClassColorInNameplate", (d.classColors ~= false) and "1" or "0")
+end
+
 function Module:OnEnable()
+  Plates.ApplyCVars()
   local ev = CreateFrame("Frame")
   Module.unknown = {}
   for _, e in ipairs(EVENTS) do

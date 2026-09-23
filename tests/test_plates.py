@@ -310,3 +310,11 @@ def test_friendly_player_name_in_class_colour_and_kept_after_blizzard_repaints(p
     npc = add(plates, "nameplate12", '{ name = "Guard", class = "WARRIOR", health = 1, maxHealth = 1, isPlayer = false, friendly = true, guid = "C-12" }')
     assert plates.eval(f'{npc}.hh.nameClass') is None
     assert errors(plates) == []
+
+
+def test_name_colour_survives_blizzard_vertex_repaint_and_cvars_set(plates):
+    plates.execute('function UnitIsFriend(a, b) return true end; CV = {}; function SetCVar(k, v) CV[k] = v end; HogHealsPlates.Plates.ApplyCVars()')
+    uf = add(plates, "nameplate13", '{ name = "Bob", class = "DRUID", health = 1, maxHealth = 1, isPlayer = true, guid = "P-13" }')
+    plates.execute(f'{uf}.name:SetVertexColor(1, 1, 1)')                              # how Blizzard repaints plate names
+    assert plates.eval(f'{uf}.name._color[1]') == pytest.approx(1.0) and plates.eval(f'{uf}.name._color[2]') == pytest.approx(0.49, abs=0.02)  # druid orange
+    assert plates.eval('CV.ShowClassColorInFriendlyNameplate') == "1" and plates.eval('CV.ShowClassColorInNameplate') == "1"
