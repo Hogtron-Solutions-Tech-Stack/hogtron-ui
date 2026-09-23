@@ -12,4 +12,5 @@ Micro.lua
 Bags.lua
 Tooltip.lua
 InfoBar.lua
+Extras.lua
 Options.lua

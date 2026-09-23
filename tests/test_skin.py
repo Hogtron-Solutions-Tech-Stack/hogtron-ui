@@ -201,3 +201,32 @@ def test_skindiag_and_options_walk(skin):
       walk(HogHeals.OptionsTable().args.Skin)
     ''')
     assert errors(skin) == []
+
+
+def test_player_buffs_and_xp_bar_flattened(lua):
+    lua.execute(CLIENT + """
+      for i = 1, 2 do
+        local b = CreateFrame("Button", "BuffButton" .. i, UIParent)
+        b.Icon = b:CreateTexture("BuffButton" .. i .. "Icon")
+        b.Duration = b:CreateFontString("BuffButton" .. i .. "Duration", "OVERLAY", "GameFontNormal")
+      end
+      local d = CreateFrame("Button", "DebuffButton1", UIParent)
+      d.Icon = d:CreateTexture()
+      d.Border = d:CreateTexture(); d.Border:SetVertexColor(0.2, 0.6, 1.0)
+      MainMenuExpBar = CreateFrame("StatusBar", "MainMenuExpBar", UIParent)
+      MainMenuXPBarTexture0 = UIParent:CreateTexture("MainMenuXPBarTexture0"); MainMenuXPBarTexture0:SetTexture("xp-art")
+      function BuffFrame_Update() end
+    """)
+    lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
+    assert lua.eval('BuffButton1.hhSkinned') is True and lua.eval('BuffButton2.hhSkinned') is True
+    assert lua.eval('BuffButton1.Duration._last.SetFont[2]') == 10
+    assert lua.eval('DebuffButton1.hh.edges[1]._color[3]') == pytest.approx(1.0)      # follows the type colour
+    assert lua.eval('MainMenuExpBar._texture').endswith("WHITE8X8")
+    assert lua.eval('MainMenuXPBarTexture0._alpha') == 0
+    # a buff button that appears later is picked up through Blizzard's update hook
+    lua.execute("""
+      local b = CreateFrame("Button", "BuffButton3", UIParent); b.Icon = b:CreateTexture()
+      BuffFrame_Update()
+    """)
+    assert lua.eval('BuffButton3.hhSkinned') is True
+    assert [e["msg"] for e in lua.eval('HogHeals.errors').values()] == []
