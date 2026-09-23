@@ -152,18 +152,27 @@ function MockSecret(v)
   secretReal[u] = v
   -- Measured on the Forever beta (diag.secretProbe): tostring / string.format / concat on a secret WORK
   -- (they yield a secret string the widgets accept); arithmetic, comparison, == and boolean tests throw.
-  getmetatable(u).__concat = function(a, b) return tostring(MockUnwrap(a)) .. tostring(MockUnwrap(b)) end
+  getmetatable(u).__concat = function(a, b) return MockSecret(tostring(MockUnwrap(a)) .. tostring(MockUnwrap(b))) end
   getmetatable(u).__tostring = function(self) return tostring(secretReal[self]) end
   return u
 end
 local realFormat = string.format
 function string.format(fmt, ...)
   local n = select("#", ...)
-  local args = { ... }
-  for i = 1, n do args[i] = MockUnwrap(args[i]) end
-  return realFormat(fmt, unpack(args, 1, n))
+  local args, secret = { ... }, false
+  for i = 1, n do if type(args[i]) == "userdata" and secretReal[args[i]] ~= nil then secret = true end args[i] = MockUnwrap(args[i]) end
+  local out = realFormat(fmt, unpack(args, 1, n))
+  if secret and MockState.secrets then return MockSecret(out) end   -- a secret string: widgets take it, code must not
+  return out
 end
 function MockUnwrap(v) if type(v) == "userdata" and secretReal[v] ~= nil then return secretReal[v] end return v end
+-- tostring(secret) on the client is a secret STRING (comparing it throws: Units.lua:156, 2026-09-23). Lua will not let
+-- __tostring return anything but a string, so the global is wrapped instead; widgets unwrap through MockUnwrap.
+local realTostring = tostring
+function tostring(v)
+  if MockState.secrets and type(v) == "userdata" and secretReal[v] ~= nil then return MockSecret(realTostring(secretReal[v])) end
+  return realTostring(v)
+end
 local function S(v) if MockState.secrets then return MockSecret(v) end return v end
 function MockSetSecrets(on)
   MockState.secrets = on and true or false
@@ -312,10 +321,12 @@ function Region:GetScript(h) return self._scripts[h] end
 function Region:HookScript(h, f) local o = self._scripts[h] self._scripts[h] = function(...) if o then o(...) end f(...) end end
 function Region:SetText(t)
   if self._kind == "FontString" and not self._font and MockState.strictFonts then error("FontString:SetText(): Font not set") end
+  -- a secret text stays secret inside the widget: its measured width comes back secret too (in game 2026-09-23)
+  self._secretText = MockState.secrets and type(t) == "userdata" and secretReal[t] ~= nil or false
   t = MockUnwrap(t); self._text = t == nil and "" or tostring(t)
 end
 function Region:GetText() return self._text end
-function Region:GetStringWidth() return #self._text * 6 end
+function Region:GetStringWidth() local w = #self._text * 6 if self._secretText then return MockSecret(w) end return w end
 function Region:SetTextColor(r, g, b, a) self._color = { r, g, b, a } end
 function Region:SetVertexColor(r, g, b, a) self._color = { r, g, b, a } end
 function Region:SetColorTexture(r, g, b, a) self._color = { r, g, b, a } end
