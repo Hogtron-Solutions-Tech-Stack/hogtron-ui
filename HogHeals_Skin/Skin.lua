@@ -196,7 +196,8 @@ function Module:OnEnable()
   if Skin.cfg().enabled == false then return end
   Skin.ApplyAll("enable")
   local ev = CreateFrame("Frame")
-  for _, e in ipairs({ "PLAYER_ENTERING_WORLD", "BAG_UPDATE", "BAG_UPDATE_DELAYED", "ACTIONBAR_PAGE_CHANGED", "UPDATE_BINDINGS", "PLAYER_REGEN_ENABLED", "MERCHANT_SHOW", "ADDON_LOADED" }) do
+  for _, e in ipairs({ "PLAYER_ENTERING_WORLD", "BAG_UPDATE", "BAG_UPDATE_DELAYED", "ACTIONBAR_PAGE_CHANGED", "UPDATE_BINDINGS", "PLAYER_REGEN_ENABLED", "MERCHANT_SHOW", "ADDON_LOADED",
+    "GOSSIP_SHOW", "QUEST_GREETING", "QUEST_DETAIL", "QUEST_PROGRESS", "QUEST_COMPLETE", "ITEM_TEXT_READY", "MAIL_SHOW", "QUEST_LOG_UPDATE" }) do
     pcall(ev.RegisterEvent, ev, e)
   end
   ev:SetScript("OnEvent", function(_, e, arg1)
