@@ -53,3 +53,17 @@ def test_secret_incoming_heals_hide_the_overlay_instead_of_erroring(frames):
     frames.execute('wipe(HogHeals.errors); MockState.inCombat = true; HogHealsFrames.UnitButton.OnEvent(B, "UNIT_HEALTH", "party1")')
     assert frames.eval('#HogHeals.errors') == 0
     assert frames.eval('B.healPred:IsShown()') is False
+
+
+def test_frame_snapshot_taken_three_seconds_into_combat_and_on_slash(frames):
+    frames.execute('MockSetSecrets(true); MockSetGroup(2, false); MockUnits.party1 = { name = "Zugzug", class = "MAGE", health = 50, maxHealth = 100, guid = "Player-7" }')
+    make(frames, "party1")
+    frames.execute('MockState.inCombat = true; MockFire("PLAYER_REGEN_DISABLED"); MockAdvance(3)')
+    snap = frames.eval('HogHeals.db.global.diag.frameSnapshots[1]')
+    assert snap["reason"] == "combat+3s" and snap["classOfLoaded"] == "true"
+    bs = {x["unit"]: x for x in snap["buttons"].values()}
+    assert bs["party1"]["UnitHealth"] == "SECRET" and bs["party1"]["ClassOf"] == "MAGE"
+    assert "player" in bs                                        # the player's own frame is recorded too
+    frames.execute('wipe(HogHeals.errors); HogHeals:SlashCommand("framediag")')
+    assert frames.eval('HogHeals.db.global.diag.frameSnapshots[1].reason') == "slash"
+    assert frames.eval('#HogHeals.errors') == 0
