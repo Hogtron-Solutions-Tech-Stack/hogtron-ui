@@ -10,7 +10,7 @@ TargetFrameToT = CreateFrame("Button", "TargetFrameToT", TargetFrame)
 PetFrame = CreateFrame("Button", "PetFrame", UIParent)
 TargetFrameSpellBar = CreateFrame("StatusBar", "TargetFrameSpellBar", TargetFrame)
 TargetFrameSpellBar.Border = TargetFrameSpellBar:CreateTexture()
-AbbreviateNumbers = function(v) v = MockUnwrap(v) if v >= 1000 then return ("%.1fk"):format(v / 1000) end return tostring(v) end
+AbbreviateNumbers = function(v) local secret = issecretvalue and issecretvalue(v) v = MockUnwrap(v) local r = v >= 1000 and ("%.1fk"):format(v / 1000) or tostring(v) if secret then return MockSecret(r) end return r end   -- measured: a secret in, a secret string out
 '''
 
 
@@ -299,3 +299,14 @@ def test_power_text_with_a_secret_current_value_never_compares_it(units):
     units.execute('MockSetSecrets(true); MockFire("UNIT_POWER_UPDATE", "player")')
     assert errors(units) == []
     assert units.eval('HogUIPlayer.powerText._text') != ""
+
+
+def test_fit_name_with_a_hidden_health_text_width_estimates_instead_of_computing(units):
+    units.execute('MockUnits.target = { name = "Bat", class = "WARRIOR", health = 5, maxHealth = 5, power = 0, maxPower = 0, guid = "C-9" }')
+    units.execute('MockUnits.targettarget = { name = "Hordecore Pwn", class = "PALADIN", health = 343, maxHealth = 343, power = 10, maxPower = 10, guid = "P-2" }')
+    units.execute('MockSetSecrets(true); MockFire("PLAYER_TARGET_CHANGED"); MockFire("UNIT_HEALTH", "targettarget"); MockFire("UNIT_HEALTH", "pet")')
+    assert units.eval('issecretvalue(HogUITargetOfTarget.healthText:GetStringWidth())') is True     # the mock models the client
+    assert errors(units) == []
+    size = units.eval('HogHeals.db.profile.units.fontSize')
+    tot_w = units.eval('HogHeals.db.profile.units.targettarget.width')
+    assert units.eval('HogUITargetOfTarget.name._width') == max(20, tot_w - (11 * size * 0.6) - 8 - 6)

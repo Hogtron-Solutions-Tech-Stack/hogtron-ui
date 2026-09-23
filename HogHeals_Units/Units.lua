@@ -366,15 +366,31 @@ end
 -- compact frames share their one row with the health text. Never truncates a name the level / health text
 -- would not have covered (in game 2026-09-23 "Hordecore Pwn" lost its tail on the 140 px frames at 55 %).
 Units.NAME_PAD = 6
+-- Characters the health text takes per mode, for the estimate when the string's width is hidden.
+Units.HEALTH_CHARS = { percent = 4, current = 5, ["current-max"] = 11, ["current-percent"] = 10, none = 0 }
+
+--- Width of a font string as a plain number, or an estimate of `chars` characters at the frame's font size.
+-- GetStringWidth() of a string whose text came from a SECRET is itself a secret number (in game 2026-09-23,
+-- pet frame: "attempt to perform arithmetic on a secret number value") - it is rendered, never computed with.
+local function stringWidth(fs, f, chars)
+  if not fs:IsShown() then return 0 end
+  local w = num(call(fs.GetStringWidth, fs))
+  if w then return w end
+  local d = ucfg(f.unit)
+  local size = d.fontSize or cfg().fontSize or 12
+  return chars * size * 0.6
+end
+
 function Units.FitName(f)
   if not (f.name and f.name.SetWidth) then return end
   local d = ucfg(f.unit)
   local w = d.width or 240
   local taken
   if f.compact then
-    taken = (f.healthText:IsShown() and (f.healthText:GetStringWidth() or 0) or 0) + 4 + 4
+    local mode = cfg().healthText or "current-percent"
+    taken = stringWidth(f.healthText, f, Units.HEALTH_CHARS[mode] or 11) + 4 + 4
   else
-    taken = ((d.showLevel ~= false) and ((f.level:GetStringWidth() or 0) + 5) or 0) + 5
+    taken = ((d.showLevel ~= false) and (stringWidth(f.level, f, 4) + 5) or 0) + 5
   end
   f.name:SetWidth(math.max(20, w - taken - Units.NAME_PAD))
 end

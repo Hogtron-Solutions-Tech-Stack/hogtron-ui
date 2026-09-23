@@ -24,9 +24,12 @@ def test_mock_secret_behaves_like_the_client(frames):
     for expr in ('UnitHealth("player") + 1', 'UnitHealth("player") < 5', 'UnitHealth("player") / UnitHealthMax("player")', 'UnitPower("player") + 0'):
         with pytest.raises(Exception):
             frames.eval(expr)
-    assert frames.eval('("%d"):format(UnitHealth("player"))') == "100"
-    assert frames.eval('"x" .. UnitHealth("player")') == "x100"
-    assert frames.eval('tostring(UnitHealth("player"))') == "100"
+    # format / concat / tostring do not throw - but what comes back is a SECRET STRING (rendered fine, compared = throw)
+    assert frames.eval('MockUnwrap(("%d"):format(UnitHealth("player")))') == "100"
+    assert frames.eval('MockUnwrap("x" .. UnitHealth("player"))') == "x100"
+    assert frames.eval('MockUnwrap(tostring(UnitHealth("player")))') == "100"
+    for expr in ('("%d"):format(UnitHealth("player"))', '"x" .. UnitHealth("player")', 'tostring(UnitHealth("player"))'):
+        assert frames.eval('issecretvalue(' + expr + ')') is True
     assert frames.eval('issecretvalue(UnitHealthMax("player"))') is False
     assert frames.eval('issecretvalue(UnitName("player"))') is False
     assert frames.eval('issecretvalue(UnitHealth("player"))') is True
