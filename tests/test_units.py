@@ -9,6 +9,8 @@ TargetFrame = CreateFrame("Button", "TargetFrame", UIParent)
 TargetFrameToT = CreateFrame("Button", "TargetFrameToT", TargetFrame)
 PetFrame = CreateFrame("Button", "PetFrame", UIParent)
 TargetFrameSpellBar = CreateFrame("StatusBar", "TargetFrameSpellBar", TargetFrame)
+TargetFrame.UpdateAuras = function(self) self.aurasUpdated = true end          -- a TargetFrame mixin method the bar's OnShow calls on its parent
+TargetFrame.spellbarAnchor = "x"
 TargetFrameSpellBar.Border = TargetFrameSpellBar:CreateTexture()
 AbbreviateNumbers = function(v) local secret = issecretvalue and issecretvalue(v) v = MockUnwrap(v) local r = v >= 1000 and ("%.1fk"):format(v / 1000) or tostring(v) if secret then return MockSecret(r) end return r end   -- measured: a secret in, a secret string out
 '''
@@ -310,3 +312,12 @@ def test_fit_name_with_a_hidden_health_text_width_estimates_instead_of_computing
     size = units.eval('HogHeals.db.profile.units.fontSize')
     tot_w = units.eval('HogHeals.db.profile.units.targettarget.width')
     assert units.eval('HogUITargetOfTarget.name._width') == max(20, tot_w - (11 * size * 0.6) - 8 - 6)
+
+
+def test_adopted_castbar_parent_answers_blizzards_method_calls(units):
+    # in game 2026-09-23: TargetFrame.lua:824 OnShow -> parentFrame:<mixin method>() on our frame -> nil call
+    assert units.eval('TargetFrameSpellBar:GetParent() == HogUITarget') is True
+    units.execute('local p = TargetFrameSpellBar:GetParent(); p:UpdateAuras()')   # would have thrown before
+    assert units.eval('HogUITarget.aurasUpdated') is None                        # a stub, not Blizzard's real method
+    assert units.eval('type(HogUITarget.SetPoint)') == "function"                # real widget methods untouched
+    assert errors(units) == []
