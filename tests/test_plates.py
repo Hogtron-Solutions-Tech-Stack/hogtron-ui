@@ -293,3 +293,20 @@ def test_plate_cast_bar_flattened_once(plates):
     plates.execute('HogHealsPlates.Plates.ApplyLook(NP.nameplate8.UnitFrame)')
     assert plates.eval(f'#{uf}.hh.castEdges') == 4                       # not re-skinned
     assert errors(plates) == []
+
+
+def test_friendly_player_name_in_class_colour_and_kept_after_blizzard_repaints(plates):
+    plates.execute('function UnitIsFriend(a, b) return MockUnits[b] and MockUnits[b].friendly == true end')
+    uf = add(plates, "nameplate10", '{ name = "Anthony", class = "PALADIN", health = 1, maxHealth = 1, isPlayer = true, friendly = true, guid = "P-10" }')
+    assert plates.eval(f'{uf}.name._color[1]') == pytest.approx(0.96, abs=0.02)      # paladin pink
+    plates.execute(f'{uf}.name:SetTextColor(1, 1, 1)')                                 # Blizzard repaint
+    assert plates.eval(f'{uf}.name._color[2]') == pytest.approx(0.55, abs=0.02)
+    # hostile player: untouched by default, coloured with "all"
+    hostile = add(plates, "nameplate11", '{ name = "Zug", class = "MAGE", health = 1, maxHealth = 1, isPlayer = true, friendly = false, guid = "P-11" }')
+    assert plates.eval(f'{hostile}.hh.nameClass') is None
+    plates.execute('HogHeals.db.profile.plates.nameClass = "all"; HogHealsPlates.Plates.Refresh()')
+    assert plates.eval(f'{hostile}.name._color[3]') == pytest.approx(0.94, abs=0.02)
+    # NPCs never
+    npc = add(plates, "nameplate12", '{ name = "Guard", class = "WARRIOR", health = 1, maxHealth = 1, isPlayer = false, friendly = true, guid = "C-12" }')
+    assert plates.eval(f'{npc}.hh.nameClass') is None
+    assert errors(plates) == []

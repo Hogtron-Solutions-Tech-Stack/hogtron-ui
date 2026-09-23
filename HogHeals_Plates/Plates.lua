@@ -129,6 +129,51 @@ function Plates.Skin(uf)
 end
 
 -- ------------------------------------------------------------------------------------------------ pieces
+-- Class tokens remembered by GUID / name: identity can be hidden in combat on this client.
+Plates.classByGUID, Plates.classByName = {}, {}
+function Plates.ClassOf(unit)
+  local _, class = call(UnitClass, unit)
+  if isSecret(class) or type(class) ~= "string" then class = nil end
+  local guid, name = call(UnitGUID, unit), call(UnitName, unit)
+  if isSecret(guid) or type(guid) ~= "string" then guid = nil end
+  if isSecret(name) or type(name) ~= "string" then name = nil end
+  if class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class] then
+    if guid then Plates.classByGUID[guid] = class end
+    if name then Plates.classByName[name] = class end
+    return class
+  end
+  return (guid and Plates.classByGUID[guid]) or (name and Plates.classByName[name]) or nil
+end
+
+--- Player name on the plate in class colour (Sean 2026-09-23: "make friendly name tags the colour of their class").
+-- Friendly players by default (their plates are name-only), hostile players too when nameClass = "all". Blizzard
+-- repaints the name on its own updates; a SetTextColor hook puts the class colour back.
+function Plates.ColorName(uf)
+  local hh, d = uf.hh, cfg()
+  if not hh or not hh.unit or not uf.name or not uf.name.SetTextColor then return nil end
+  local mode = d.nameClass or "friendly"
+  if mode == "none" then return nil end
+  local unit = hh.unit
+  if not bool(call(UnitIsPlayer, unit)) then return nil end
+  local friendly = bool(call(UnitIsFriend, "player", unit))
+  if friendly == nil then local r = num(call(UnitReaction, unit, "player")) friendly = r ~= nil and r >= 5 end
+  if mode == "friendly" and not friendly then return nil end
+  local class = Plates.ClassOf(unit)
+  local c = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+  if not c then return nil end
+  hh.nameLock = true
+  call(uf.name.SetTextColor, uf.name, c.r, c.g, c.b)
+  hh.nameLock = false
+  hh.nameClass = class
+  if not hh.nameHooked and type(hooksecurefunc) == "function" then
+    hh.nameHooked = true
+    pcall(hooksecurefunc, uf.name, "SetTextColor", function()
+      if not hh.nameLock and hh.unit and hh.nameClass then Plates.ColorName(uf) end
+    end)
+  end
+  return class
+end
+
 function Plates.ColorFor(unit)
   local d = cfg()
   if d.classColors ~= false and bool(call(UnitIsPlayer, unit)) then
@@ -294,6 +339,7 @@ end
 function Plates.Update(uf)
   Plates.ApplyLook(uf)
   Plates.Color(uf)
+  Plates.ColorName(uf)
   Plates.UpdateHealth(uf)
   Plates.UpdateQuest(uf)
   Plates.UpdateHighlight(uf)
@@ -340,7 +386,7 @@ function Plates.Removed(unit)
   local uf = Plates.active[unit]
   Plates.active[unit] = nil
   if uf and uf.hh then
-    uf.hh.unit, uf.hh.questInfo = nil, nil
+    uf.hh.unit, uf.hh.questInfo, uf.hh.nameClass = nil, nil, nil
     uf.hh.questFrame:Hide()
     uf:SetAlpha(1)
   end
