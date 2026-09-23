@@ -273,7 +273,7 @@ function Units.Build(unit)
 
   f:RegisterForDrag("LeftButton")
   f:SetScript("OnDragStart", function(self)
-    if HH.db.profile.locked or cfg().locked then return end
+    if HH.db.profile.locked then return end   -- one switch for everything: /hh unlock
     if InCombatLockdown and InCombatLockdown() then return end
     self:StartMoving()
   end)
@@ -589,7 +589,33 @@ end
 
 function Module:OnProfileChanged() Units.Refresh() end
 
-function Module:SetLocked(locked) end   -- drag reads HH.db.profile.locked live
+--- /hh unlock: every frame force-shown with a "drag: <unit>" label, unit watch paused (a target frame with no
+-- target would otherwise be invisible and undraggable); /hh lock restores the watch and hides the labels.
+function Module:SetLocked(locked)
+  Units.ForEach(function(f)
+    if not f.dragHint then
+      f.dragHint = f.overlay:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+      f.dragHint:SetPoint("CENTER", f, "CENTER", 0, 0)
+      f.dragHint:SetTextColor(CYAN[1], CYAN[2], CYAN[3])
+      f.dragHint:SetText("drag: " .. (Units.LABEL[f.unit] or f.unit):lower())
+      setFont(f.dragHint, 12)
+      f.dragHint:Hide()
+    end
+    HH:RunOutOfCombat(function()
+      if locked then
+        f.dragHint:Hide()
+        if f.unit ~= "player" and ucfg(f.unit).enabled ~= false then
+          call(RegisterUnitWatch, f)
+          if not (call(UnitExists, f.unit)) then f:Hide() end
+        end
+      else
+        f.dragHint:Show()
+        if f.unit ~= "player" then call(UnregisterUnitWatch, f) end
+        if ucfg(f.unit).enabled ~= false then f:Show() end
+      end
+    end)
+  end)
+end
 
 function Units.Refresh()
   if cfg().enabled == false then Units.ForEach(function(f) f:Hide() end) return end
@@ -606,8 +632,8 @@ HH:RegisterModule("Units", Module)
 
 HH:RegisterSlash("units", function(arg)
   arg = (arg or ""):lower()
-  if arg == "lock" then cfg().locked = true HH:Print("Unit frames locked.")
-  elseif arg == "unlock" then cfg().locked = false HH.db.profile.locked = false HH:Print("Unit frames unlocked: drag them, then /hh units lock.")
+  if arg == "lock" then HH:SetLocked(true)
+  elseif arg == "unlock" then HH:SetLocked(false)
   elseif arg == "reset" then
     for _, unit in ipairs(Units.order) do
       local d, def = ucfg(unit), HH.defaults.profile.units[unit]

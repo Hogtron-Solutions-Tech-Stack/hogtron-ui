@@ -155,7 +155,7 @@ def test_hide_blizzard_off_leaves_them_alone(lua):
 def test_drag_only_when_unlocked_and_saves_position(units):
     units.execute('HogUIPlayer:GetScript("OnDragStart")(HogUIPlayer)')
     assert units.eval('HogUIPlayer._moving') is not True
-    units.execute('HogHeals:SlashCommand("units unlock"); HogUIPlayer:GetScript("OnDragStart")(HogUIPlayer)')
+    units.execute('HogHeals:SlashCommand("unlock"); HogUIPlayer:GetScript("OnDragStart")(HogUIPlayer)')
     assert units.eval('HogUIPlayer._moving') is True
     units.execute('HogUIPlayer:StopMovingOrSizing(); HogUIPlayer:ClearAllPoints(); HogUIPlayer:SetPoint("CENTER", UIParent, "CENTER", 11, -22); HogUIPlayer:GetScript("OnDragStop")(HogUIPlayer)')
     assert units.eval('HogHeals.db.profile.units.player.point') == "CENTER"
@@ -223,3 +223,17 @@ def test_no_power_text_for_a_unit_without_power(units):
     assert units.eval('HogUITarget.powerText._text') == ""
     units.execute('MockSetSecrets(true); MockFire("UNIT_POWER_UPDATE", "target")')
     assert units.eval('HogUITarget.powerText._text') == ""
+
+
+def test_unlock_shows_every_frame_with_a_drag_label_and_lock_restores_the_watch(units):
+    units.execute('HogUITarget:Hide(); HogHeals:SlashCommand("unlock")')
+    assert units.eval('HogUITarget:IsShown()') is True
+    assert units.eval('HogUITarget.dragHint._text') == "drag: target" and units.eval('HogUITarget.dragHint:IsShown()') is True
+    assert units.eval('MockUnitWatch[HogUITarget]') is None                  # watch paused while moving
+    units.execute('HogUITarget:GetScript("OnDragStart")(HogUITarget)')
+    assert units.eval('HogUITarget._moving') is True
+    units.execute('HogUITarget:StopMovingOrSizing(); HogHeals:SlashCommand("lock")')
+    assert units.eval('MockUnitWatch[HogUITarget] == true')
+    assert units.eval('HogUITarget.dragHint:IsShown()') is False
+    assert units.eval('HogUITarget:IsShown()') is False                     # no target: hidden again
+    assert errors(units) == []

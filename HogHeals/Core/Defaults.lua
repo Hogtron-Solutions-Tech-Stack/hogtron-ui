@@ -24,7 +24,7 @@ HH.defaults = {
     minimap = { hide = true },
     wizardDone = false,
     units = {
-      enabled = true, hideBlizzard = true, locked = true, tooltips = true,
+      enabled = true, hideBlizzard = true, tooltips = true,
       classColors = true, reactionColors = true, healthColor = { 0.25, 0.80, 0.35 },
       healthText = "current-percent", powerText = "current-max",   -- percent | current | current-max | current-percent | none
       texture = "Solid", font = "Friz Quadrata TT", fontSize = 12, backgroundAlpha = 0.6,

@@ -74,7 +74,7 @@ function Options.Build()
         about = { type = "description", order = 0, name = "Player, target, target-of-target, pet and focus frames in the HogUI look. Left-click targets, right-click opens the menu. Unlock (/hh units unlock) to drag them, then lock. Blizzard's frames are hidden while these are on; turning them off needs a /reload to bring Blizzard's back." },
         enabled = toggle(g, "enabled", "HogUI unit frames", 1),
         hideBlizzard = toggle(g, "hideBlizzard", "Hide Blizzard's unit frames", 2),
-        locked = toggle(g, "locked", "Lock positions", 3),
+        locked = { type = "description", order = 3, name = "Move: /hh unlock, drag the frames (hidden ones appear with a 'drag' label), then /hh lock." },
         classColors = toggle(g, "classColors", "Class colours on players", 4),
         reactionColors = toggle(g, "reactionColors", "Hostile / neutral / friendly colours on NPCs", 5),
         healthColor = colour(g, "healthColor", "Fallback health colour", 6),
