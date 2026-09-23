@@ -81,7 +81,7 @@ HH.defaults = {
         width = 260, maxHeight = 420, fontSize = 13, scale = 1, backgroundAlpha = 0.6,
         point = "TOPRIGHT", x = -80, y = -260,
       },
-      minimap = { enabled = false, edge = true, watchedOnly = false, size = 16 },   -- off: Forever draws its own
+      minimap = { enabled = true, edge = true, watchedOnly = false, size = 16 },   -- Forever draws areas only, not points
       map = { enabled = true, size = 180, zoneText = true, wheelZoom = true, hideDecor = true },
     },
     chat = {
