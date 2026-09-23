@@ -310,13 +310,38 @@ def test_vendor_classic_item_api_path(lua):
     assert "sold 1 junk for ~40c" in "\n".join(lua.eval('MockLog.chat').values())
 
 
-def test_parchment_windows_are_left_alone_by_default(lua):
+def test_parchment_windows_recoloured_and_stripped_deep_but_buttons_and_icons_kept(lua):
     lua.execute(CLIENT + """
-      GossipFrame = CreateFrame("Frame", "GossipFrame", UIParent); GossipFrame:CreateTexture("GossipFrameBg"):SetTexture("parchment")
-      MerchantFrame = CreateFrame("Frame", "MerchantFrame", UIParent)
+      QuestFont = CreateFont("QuestFont"); QuestTitleFont = CreateFont("QuestTitleFont")
+      GossipFrame = CreateFrame("Frame", "GossipFrame", UIParent)
+      GossipFrame:CreateTexture("GossipFrameBg"):SetTexture("parchment-outer")
+      local panel = CreateFrame("Frame", "GossipFrameGreetingPanel", GossipFrame)
+      local scroll = CreateFrame("ScrollFrame", "GossipGreetingScrollFrame", panel)
+      scroll:CreateTexture("GossipGreetingScrollFrameTop"):SetTexture("parchment-inner")
+      local btn = CreateFrame("Button", "GossipTitleButton1", scroll)
+      btn:CreateTexture("GossipTitleButton1Art"):SetTexture("button-art")
+      btn:CreateTexture("GossipTitleButton1Icon"):SetTexture("quest-icon")
+      local bar = CreateFrame("Slider", "GossipGreetingScrollFrameScrollBar", scroll)
+      bar:CreateTexture("GossipGreetingScrollFrameScrollBarThumb"):SetTexture("thumb")
       function ShowUIPanel(f) f:Show() end
     """)
     lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
-    lua.execute('ShowUIPanel(GossipFrame); ShowUIPanel(MerchantFrame)')
-    assert lua.eval('GossipFrame.hhPanel') is None and lua.eval('GossipFrameBg._texture') == "parchment"
-    assert lua.eval('MerchantFrame.hhPanel ~= nil')
+    lua.execute('ShowUIPanel(GossipFrame)')
+    assert lua.eval('GossipFrame.hhPanel ~= nil')
+    assert lua.eval('GossipFrameBg._alpha') == 0 and lua.eval('GossipGreetingScrollFrameTop._alpha') == 0
+    assert lua.eval('GossipTitleButton1Art._texture') == "button-art"          # buttons untouched
+    assert lua.eval('GossipTitleButton1Icon._texture') == "quest-icon"
+    assert lua.eval('GossipGreetingScrollFrameScrollBarThumb._texture') == "thumb" # scroll bar untouched
+    assert lua.eval('QuestFont._color[1]') == pytest.approx(0.96)                 # cream body text
+    assert lua.eval('QuestTitleFont._color[2]') == pytest.approx(0.65)            # amber titles
+    assert [e["msg"] for e in lua.eval('HogHeals.errors').values()] == []
+
+
+def test_world_map_still_skipped_by_default(lua):
+    lua.execute(CLIENT + """
+      WorldMapFrame = CreateFrame("Frame", "WorldMapFrame", UIParent); WorldMapFrame:CreateTexture("WorldMapFrameBg"):SetTexture("map-art")
+      function ShowUIPanel(f) f:Show() end
+    """)
+    lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
+    lua.execute('ShowUIPanel(WorldMapFrame)')
+    assert lua.eval('WorldMapFrame.hhPanel') is None and lua.eval('WorldMapFrameBg._texture') == "map-art"
