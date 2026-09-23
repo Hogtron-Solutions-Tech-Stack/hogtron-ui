@@ -292,3 +292,29 @@ def test_quest_on_another_map_gets_its_next_waypoint_here(modern):
     assert modern.eval('HogHealsQuests.Pins.Update()') == 3
     n = [i for i in range(1, 4) if modern.eval(f'HogHealsQuests.Pins.pool[{i}].quest.id') == 50][0]
     assert modern.eval(f'HogHealsQuests.Pins.pool[{n}].waypoint') == "Next step: Travel to Silverpine Forest"
+
+
+def test_blizzard_tracker_loading_after_us_is_still_hidden_and_stays_hidden(lua):
+    boot(lua, MODERN)
+    lua.execute("""
+      ObjectiveTrackerFrame = CreateFrame("Frame", "ObjectiveTrackerFrame", UIParent)
+      MockFire("ADDON_LOADED", "Blizzard_ObjectiveTracker")
+    """)
+    assert lua.eval('ObjectiveTrackerFrame:GetParent() == HogHealsHiddenParent')
+    assert lua.eval('ObjectiveTrackerFrame:IsShown()') is False
+    lua.execute('ObjectiveTrackerFrame:SetParent(UIParent); ObjectiveTrackerFrame:Show()')   # Blizzard puts it back
+    assert lua.eval('ObjectiveTrackerFrame:GetParent() == HogHealsHiddenParent')
+    assert lua.eval('ObjectiveTrackerFrame:IsShown()') is False
+    assert errors(lua) == []
+
+
+def test_tracker_drags_without_unlock_unless_locked(modern):
+    assert modern.eval('HogHeals.db.profile.locked') is True          # HogHeals frames locked (default)
+    modern.execute('HogHealsQuestTracker.header:GetScript("OnDragStart")()')
+    assert modern.eval('HogHealsQuestTracker._moving') is True
+    modern.execute("""
+      HogHealsQuestTracker:StopMovingOrSizing()
+      HogHeals.db.profile.quests.tracker.lockPosition = true
+      HogHealsQuestTracker.header:GetScript("OnDragStart")()
+    """)
+    assert modern.eval('HogHealsQuestTracker._moving') is False
