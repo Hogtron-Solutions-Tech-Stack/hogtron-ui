@@ -338,10 +338,13 @@ function Units.LayoutText(f)
   f.name:ClearAllPoints()
   f.level:ClearAllPoints()
   f.healthText:ClearAllPoints()
+  -- Every string is anchored to the health bar only, never to another string: in game 2026-09-23 the name and
+  -- level both vanished once the name's right edge hung off the (empty / hidden) level string.
+  local w = d.width or 240
   if compact then
     f.healthText:SetPoint("RIGHT", f.health, "RIGHT", -4, 0)
     f.name:SetPoint("LEFT", f.health, "LEFT", 4, 0)
-    f.name:SetPoint("RIGHT", f.healthText, "LEFT", -4, 0)
+    f.name:SetWidth(math.max(20, w * 0.55))
     f.level:SetPoint("TOPRIGHT", f.health, "TOPRIGHT", -4, -2)
     f.level:Hide()
     f.powerText:Hide()
@@ -349,12 +352,13 @@ function Units.LayoutText(f)
   else
     f.level:SetPoint("TOPRIGHT", f.health, "TOPRIGHT", -5, -3)
     f.name:SetPoint("TOPLEFT", f.health, "TOPLEFT", 5, -3)
-    f.name:SetPoint("RIGHT", f.level, "LEFT", -4, 0)
+    f.name:SetWidth(math.max(20, w - (d.showLevel ~= false and 46 or 12)))
     f.healthText:SetPoint("BOTTOMRIGHT", f.health, "BOTTOMRIGHT", -5, 3)
-    if d.showLevel ~= false then f.level:Show() end
+    if d.showLevel ~= false then f.level:Show() else f.level:Hide() end
     f.powerText:Show()
     f.status:Show()
   end
+  f.name:Show()
 end
 
 -- ------------------------------------------------------------------------------------------------ updates

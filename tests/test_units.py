@@ -52,7 +52,7 @@ def test_player_bars_and_class_colour(units):
     cls = units.eval('MockState.playerClass')
     r = units.eval(f'RAID_CLASS_COLORS["{cls}"].r')
     assert units.eval('HogUIPlayer.health._color[1]') == pytest.approx(r)
-    assert units.eval('HogUIPlayer.healthText._text') == "75  75%"
+    assert units.eval('HogUIPlayer.healthText._text') == "75 / 100"                 # default: current / max
     assert units.eval('HogUIPlayer.powerText._text') == "40 / 80"
     assert units.eval('HogUIPlayer.power._color[3]') == pytest.approx(1.0)   # mana blue
 
@@ -79,9 +79,9 @@ def test_secret_values_never_error(units):
     units.execute('MockSetSecrets(true); MockUnits.target = { name = "Boar", class = "WARRIOR", health = 42, maxHealth = 80, power = 10, maxPower = 100, guid = "C-2" }')
     units.execute('MockFire("PLAYER_TARGET_CHANGED"); MockFire("UNIT_HEALTH", "target"); MockFire("UNIT_POWER_UPDATE", "player"); MockFire("UNIT_LEVEL", "target")')
     assert units.eval('HogUITarget.health._value') == 42                      # widget takes the secret
-    assert units.eval('HogUITarget.healthText._text') == "42"                 # no percent: cannot divide a secret
+    assert units.eval('HogUITarget.healthText._text') == "42 / 80"            # secret current, plain max
     assert units.eval('HogUIPlayer.powerText._text').startswith("100")
-    units.execute('CurveConstants = { ScaleTo100 = 1 }; function UnitHealthPercent(u, p, c) return MockSecret(52.5) end; MockFire("UNIT_HEALTH", "target")')
+    units.execute('HogHeals.db.profile.units.healthText = "current-percent"; CurveConstants = { ScaleTo100 = 1 }; function UnitHealthPercent(u, p, c) return MockSecret(52.5) end; MockFire("UNIT_HEALTH", "target")')
     assert units.eval('HogUITarget.healthText._text') == "42  52%"
     assert errors(units) == []
 
@@ -210,10 +210,13 @@ def test_disabling_a_frame_stops_its_unit_watch(units):
 def test_small_frames_use_one_row_layout(units):
     assert units.eval('HogUITargetOfTarget.compact') is True and units.eval('HogUIPlayer.compact') is False
     assert units.eval('HogUITargetOfTarget.name._points[1][1]') == "LEFT"
+    assert units.eval('#HogUITargetOfTarget.name._points') == 1                     # never hung off another string
     assert units.eval('HogUITargetOfTarget.healthText._points[1][1]') == "RIGHT"
     assert units.eval('HogUITargetOfTarget.level:IsShown()') is False
     assert units.eval('HogUITargetOfTarget.powerText:IsShown()') is False
     assert units.eval('HogUIPlayer.name._points[1][1]') == "TOPLEFT" and units.eval('HogUIPlayer.powerText:IsShown()') is True
+    assert units.eval('#HogUIPlayer.name._points') == 1 and units.eval('HogUIPlayer.name._width') == 240 - 46
+    assert units.eval('HogUIPlayer.name:IsShown()') is True and units.eval('HogUIPlayer.level:IsShown()') is True
     units.execute('HogHeals.db.profile.units.targettarget.height = 40; HogHealsUnits.Units.Refresh()')
     assert units.eval('HogUITargetOfTarget.compact') is False
 
