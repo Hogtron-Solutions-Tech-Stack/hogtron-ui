@@ -358,3 +358,11 @@ def test_level_badge_hidden_by_default_kept_hidden_and_friendly_name_bigger(plat
     assert plates.eval('NP.nameplate17.UnitFrame.name._last.SetFont[2]') == 14      # bigger friendly name
     assert plates.eval(f'{uf}.name._last.SetFont[2]') == 10                          # hostile keeps the small font
     assert errors(plates) == []
+
+
+def test_uniform_plate_scale_cvars(plates):
+    plates.execute('CV = {}; function SetCVar(k, v) CV[k] = v end; HogHeals.db.profile.plates.targetScale = 1.15; HogHealsPlates.Plates.ApplyCVars()')
+    assert plates.eval('CV.nameplateMinScale') == "1" and plates.eval('CV.nameplateMinAlpha') == "1"
+    assert plates.eval('CV.nameplateSelectedScale') == "1.15"
+    plates.execute('wipe(CV); HogHeals.db.profile.plates.uniformScale = false; HogHealsPlates.Plates.ApplyCVars()')
+    assert plates.eval('CV.nameplateMinScale') is None                              # off: the client's own rules
