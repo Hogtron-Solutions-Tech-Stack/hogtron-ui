@@ -556,3 +556,17 @@ end
 C_UnitAuras = C_UnitAuras or nil
 function GetSpellSubtext() return nil end
 function UnitIsPVP() return false end
+
+-- ---------- unit frame extras (HogHeals_Units) ----------
+MockUnitWatch = {}
+function RegisterUnitWatch(f) MockUnitWatch[f] = true end
+function UnregisterUnitWatch(f) MockUnitWatch[f] = nil end
+function UnitReaction(u) local m = MockUnits[u] return m and m.reaction or 5 end
+function UnitIsTapDenied(u) local m = MockUnits[u] return m and m.tapped or false end
+function UnitClassification(u) local m = MockUnits[u] return m and m.classification or "normal" end
+function IsResting() return MockState.resting == true end
+function UnitAffectingCombat(u) return MockState.inCombat end
+PowerBarColor = { MANA = { r = 0, g = 0.55, b = 1 }, RAGE = { r = 1, g = 0.1, b = 0.1 }, ENERGY = { r = 1, g = 1, b = 0 }, FOCUS = { r = 1, g = 0.5, b = 0.25 } }
+function SetRaidTargetIconTexture(tex, idx) tex._raidIcon = idx end
+function GameTooltip:SetUnitAura() end
+function GetQuestDifficultyColor(level) return { r = 1, g = 0.82, b = 0 } end

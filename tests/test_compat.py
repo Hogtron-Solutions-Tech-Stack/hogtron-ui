@@ -91,7 +91,7 @@ def test_every_toc_lists_every_installed_client():
     root = pathlib.Path(__file__).resolve().parent.parent
     want = {"11508", "11509", "20505", "20506", "16001"}
     tocs = sorted(root.glob("HogHeals*/HogHeals*.toc"))
-    assert len(tocs) == 7
+    assert len(tocs) == 8
     for toc in tocs:
         line = next(l for l in toc.read_text(encoding="utf-8").splitlines() if l.startswith("## Interface:"))
         assert want <= set(re.findall(r"\d+", line)), toc.name
