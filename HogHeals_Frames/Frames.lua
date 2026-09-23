@@ -96,6 +96,15 @@ function Frames.Snapshot(reason)
         barTextureAlpha = tex and describe(tex.GetAlpha and tex:GetAlpha()) or "nil",
         secretRange = describe(b._secretRange), alphaReasons = table.concat(alphas, ","),
         healthMode = describe(HH.db.profile.frames.appearance.healthMode),
+        -- geometry: /hh healthtest showed hidden values draw fine on a FRESH bar, so the real bar's state is suspect
+        barSize = describe(h:GetWidth()) .. "x" .. describe(h:GetHeight()),
+        buttonSize = describe(b:GetWidth()) .. "x" .. describe(b:GetHeight()),
+        barPoints = describe(h.GetNumPoints and h:GetNumPoints()),
+        fillSize = tex and (describe(tex.GetWidth and tex:GetWidth()) .. "x" .. describe(tex.GetHeight and tex:GetHeight())) or "nil",
+        fillShown = tex and describe(tex.IsShown and tex:IsShown()) or "nil",
+        bgShown = describe(h.bg and h.bg:IsShown()),
+        healPredShown = describe(b.healPred and b.healPred:IsShown()),
+        barLevel = describe(h:GetFrameLevel()) .. "/" .. describe(b:GetFrameLevel()),
       }
     end
   end
@@ -170,6 +179,50 @@ function Frames.HealthTest()
   return made
 end
 
+--- Replace every button's health StatusBar with a fresh one built exactly like /hh healthtest bar A (which filled),
+-- then re-run the elements. Trial cure: if the frame fills after this, the old bar's state was the fault.
+function Frames.RebuildHealthBars()
+  local n = 0
+  for _, b in ipairs(HHF.UnitButton.All()) do
+    local old = b.health
+    if old then
+      local fresh = CreateFrame("StatusBar", nil, b)
+      fresh:SetPoint("TOPLEFT", b, "TOPLEFT", 1, -1)
+      fresh:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -1, 1)
+      fresh:SetFrameLevel(old:GetFrameLevel())
+      fresh:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
+      fresh:SetMinMaxValues(0, 1)
+      fresh:SetValue(1)
+      fresh.bg = fresh:CreateTexture(nil, "BACKGROUND")
+      fresh.bg:SetAllPoints(fresh)
+      fresh.bg:SetColorTexture(0.15, 0.15, 0.17, 0.8)
+      -- incoming-heal overlays hang off the bar's fill texture: move them to the new one
+      for _, k in ipairs({ "healPred", "healPredOthers" }) do
+        local t = b[k]
+        if t and t.SetParent then
+          t:SetParent(fresh)
+          t:ClearAllPoints()
+          t:SetPoint("TOPLEFT", fresh:GetStatusBarTexture(), "TOPRIGHT", 0, 0)
+          t:SetPoint("BOTTOMLEFT", fresh:GetStatusBarTexture(), "BOTTOMRIGHT", 0, 0)
+          t:Hide()
+        end
+      end
+      old:Hide()
+      old:ClearAllPoints()
+      b.health = fresh
+      n = n + 1
+      if b.unit then HHF.UnitButton.UpdateAll(b) end
+    end
+  end
+  return n
+end
+
+HH:RegisterSlash("healthfix", function()
+  local ok, n = pcall(Frames.RebuildHealthBars)
+  if ok then HH:Print(("healthfix: rebuilt %d health bar(s). Is your frame filled now?"):format(n))
+  else HH:Print("healthfix failed: " .. tostring(n)) end
+end, "trial: rebuild the unit frames' health bars from scratch")
+
 HH:RegisterSlash("healthtest", function()
   local ok, err = pcall(Frames.HealthTest)
   if not ok then HH:Print("healthtest failed: " .. tostring(err)) end
@@ -181,6 +234,7 @@ HH:RegisterSlash("framediag", function()
   HH:Print(("frames: combat=%s classOf=%s, %d button(s) (saved to diag.frameSnapshots)"):format(s.inCombat, s.classOfLoaded, #s.buttons))
   for _, b in ipairs(s.buttons) do
     HH:Print(("  %s colour=%s value=%s/%s alpha=%s texAlpha=%s class=%s dead=%s"):format(b.unit, b.color, b.value, b.max, b.buttonAlpha, b.barTextureAlpha, b.ClassOf, b.healthDead))
+    HH:Print(("    bar %s (button %s) points=%s fill %s shown=%s bg=%s level=%s"):format(b.barSize, b.buttonSize, b.barPoints, b.fillSize, b.fillShown, b.bgShown, b.barLevel))
   end
 end, "record what the unit frames look like right now (colour, fill, alpha)")
 

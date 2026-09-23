@@ -76,3 +76,16 @@ def test_healthtest_draws_five_bars_and_cleans_up(frames):
     assert "5 bars" in chat and "ERR" not in chat and "failed" not in chat
     frames.execute('MockAdvance(16)')
     assert frames.eval('#HogHeals.errors') == 0
+
+
+def test_healthfix_rebuilds_bars_and_they_take_the_value(frames):
+    frames.execute('MockSetSecrets(true); MockSetGroup(2, false); MockUnits.party1 = { name = "Zugzug", class = "MAGE", health = 50, maxHealth = 100, guid = "Player-7" }')
+    make(frames, "party1")
+    frames.execute('OLD = B.health; wipe(HogHeals.errors); HogHeals:SlashCommand("healthfix")')
+    assert frames.eval('B.health ~= OLD') and frames.eval('OLD:IsShown()') is False
+    assert frames.eval('B.health._value') == 50 and frames.eval('B.health._max') == 100
+    assert frames.eval('B.health._color[3]') == pytest.approx(0.94, abs=0.02)
+    assert frames.eval('B.healPred:GetParent() == B.health')
+    frames.execute('HogHeals:SlashCommand("framediag")')
+    assert "x" in frames.eval('HogHeals.db.global.diag.frameSnapshots[1].buttons[1].barSize')
+    assert frames.eval('#HogHeals.errors') == 0
