@@ -19,6 +19,7 @@ local Plates = { active = {}, samples = {} }
 HHP.Plates = Plates
 
 local FLAT = "Interface\\Buttons\\WHITE8X8"
+local QUEST_ART = "Interface\\AddOns\\HogHeals\\Media\\quest_open"
 local LINE = { 0.05, 0.05, 0.06 }
 
 local function cfg() return HH.db.profile.plates end
@@ -86,23 +87,26 @@ function Plates.Skin(uf)
   hh.health = hh.overlay:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   hh.health:SetPoint("CENTER", anchor, "CENTER", 0, 0)
   -- Quest badge on the LEFT of the bar: the right side belongs to Blizzard's level badge (in-game 2026-09-22 our
-  -- icon sat on top of it). Drawn from flat textures + a font glyph, never a game texture path: the GossipFrame
-  -- icon did not render on the Forever client at all.
+  -- icon sat on top of it). Art = HogHeals/Media/quest_open.tga (dev/icons/build_icons.py). If the client refuses
+  -- the file (SetTexture returns false), fall back to a drawn amber square + "!" glyph: the GossipFrame icon we used
+  -- first never rendered on Forever, so a missing texture must never mean a missing marker.
   hh.questFrame = CreateFrame("Frame", nil, uf)
   hh.questFrame:SetFrameLevel(hh.overlay:GetFrameLevel() + 1)
-  hh.questFrame:SetSize(14, 14)
+  hh.questFrame:SetSize(16, 16)
   hh.questFrame:SetPoint("RIGHT", anchor, "LEFT", -4, 0)
+  hh.quest = hh.questFrame:CreateTexture(nil, "ARTWORK")
+  hh.quest:SetAllPoints(hh.questFrame)
+  local okArt = hh.quest:SetTexture(QUEST_ART)
+  hh.questDrawn = (okArt == false)
   hh.questEdge = hh.questFrame:CreateTexture(nil, "BACKGROUND")
   hh.questEdge:SetPoint("TOPLEFT", hh.questFrame, "TOPLEFT", -1, 1)
   hh.questEdge:SetPoint("BOTTOMRIGHT", hh.questFrame, "BOTTOMRIGHT", 1, -1)
   hh.questEdge:SetColorTexture(0.05, 0.05, 0.06, 1)
-  hh.quest = hh.questFrame:CreateTexture(nil, "ARTWORK")
-  hh.quest:SetAllPoints(hh.questFrame)
-  hh.quest:SetColorTexture(0.95, 0.65, 0.15, 1)
   hh.questGlyph = hh.questFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   hh.questGlyph:SetPoint("CENTER", hh.questFrame, "CENTER", 0, 0)
   hh.questGlyph:SetText("!")
   hh.questGlyph:SetTextColor(0.07, 0.07, 0.09)
+  if hh.questDrawn then hh.quest:SetColorTexture(0.95, 0.65, 0.15, 1) else hh.questEdge:Hide() hh.questGlyph:Hide() end
   hh.progress = hh.questFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   hh.progress:SetPoint("RIGHT", hh.questFrame, "LEFT", -3, 0)
   hh.progress:SetJustifyH("RIGHT")
@@ -194,11 +198,13 @@ function Plates.UpdateQuest(uf)
   local info = (q.icon or q.highlight or q.tint) and HHP.QuestMobs.Check(hh.unit) or nil
   hh.questInfo = info
   if info and q.icon then
-    local s = q.iconSize or 14
+    local s = q.iconSize or 16
     local c = q.color or { 0.95, 0.65, 0.15 }
     hh.questFrame:SetSize(s, s)
-    hh.quest:SetColorTexture(c[1], c[2], c[3], 1)
-    if hh.questGlyph.SetFont then call(hh.questGlyph.SetFont, hh.questGlyph, fontPath(), math.max(8, s - 2), "") end
+    if hh.questDrawn then
+      hh.quest:SetColorTexture(c[1], c[2], c[3], 1)
+      if hh.questGlyph.SetFont then call(hh.questGlyph.SetFont, hh.questGlyph, fontPath(), math.max(8, s - 2), "") end
+    end
     hh.progress:SetText((q.progress and info.progress) or "")
     hh.progress:SetTextColor(c[1], c[2], c[3])
     setFont(hh.progress, math.max(7, (d.fontSize or 10) - 1))
