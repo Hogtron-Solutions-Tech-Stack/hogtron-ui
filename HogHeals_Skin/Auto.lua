@@ -26,7 +26,9 @@ local function itemInfo(bag, slot)
   end
   local f = rawget(_G, "GetContainerItemInfo")
   if type(f) == "function" then
-    local _, count, _, quality, _, _, link, _, noValue = call(f, bag, slot)
+    -- nine returns on classic clients; Skin.call would drop everything after the fourth
+    local ok, _, count, _, quality, _, _, link, _, noValue = pcall(f, bag, slot)
+    if not ok then return nil end
     return num(quality), num(count) or 1, link, noValue
   end
 end
