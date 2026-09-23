@@ -39,6 +39,7 @@ function Options.Build()
         healthText = { type = "select", name = "Health text", order = 5, values = { percent = "Percent", value = "Value", none = "None" },
           get = function() return p().healthText or "percent" end, set = function(_, v) p().healthText = v; refresh() end },
         fontSize = range(p, "fontSize", "Font size", 6, 7, 18, 1),
+        castbar = toggle(p, "castbar", "Flatten the cast bar under the plate", 7),
       } },
       highlight = { type = "group", name = "Highlight", order = 2, args = {
         about = { type = "description", order = 0, name = "Outline colour by priority: a mob on YOU (red) beats your target (cyan) beats a quest mob (amber)." },

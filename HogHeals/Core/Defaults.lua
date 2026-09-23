@@ -77,7 +77,7 @@ HH.defaults = {
     quests = {
       tracker = {
         enabled = true, hideBlizzard = true, mode = "watched",   -- "watched" (all when none) | "zone" | "all"
-        showLevels = true, hideCompleted = false, collapsed = false, lockPosition = false,
+        showLevels = true, hideCompleted = false, collapsed = false, lockPosition = false, autoTrack = true,
         width = 260, maxHeight = 420, fontSize = 13, scale = 1, backgroundAlpha = 0.6,
         point = "TOPRIGHT", x = -80, y = -260,
       },
@@ -86,12 +86,12 @@ HH.defaults = {
     },
     chat = {
       enabled = true, backgroundAlpha = 0.6, fontSize = nil, outline = false,   -- fontSize nil = keep Blizzard's size
-      shortChannels = true, classNames = true, fade = true, hideButtons = true, hideMenuButtons = false,
+      shortChannels = true, classNames = true, fade = true, hideButtons = true, hideMenuButtons = false, urlCopy = true,
     },
     plates = {
       enabled = true,                 -- restyle Blizzard's nameplates (flat bar, outline, health text)
       font = "Friz Quadrata TT", fontSize = 10, healthText = "percent",   -- "percent" | "value" | "none"
-      border = true, classColors = true, reactionColors = true,
+      border = true, classColors = true, reactionColors = true, castbar = true,
       target = { highlight = true, color = { 0.13, 0.83, 0.88 }, fadeOthers = true, otherAlpha = 0.6 },
       aggro = { warn = true, color = { 0.85, 0.20, 0.20 } },   -- healer pulled threat: red outline
       quest = { icon = true, highlight = true, progress = true, tint = false, iconSize = 16, color = { 0.95, 0.65, 0.15 } },

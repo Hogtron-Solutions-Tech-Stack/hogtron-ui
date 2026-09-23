@@ -253,6 +253,42 @@ function Plates.ApplyLook(uf)
     hh.bg:Show()
   end
   if uf.name then setFont(uf.name, d.fontSize or 10) end
+  Plates.SkinCastbar(uf)
+end
+
+--- Blizzard's cast bar on the plate (a StatusBar under the health bar), flattened once: our texture, dark backing,
+-- 1 px outline, name font. Found under several names across client generations; missing = nothing to do.
+function Plates.SkinCastbar(uf)
+  local hh, d = uf.hh, cfg()
+  if not hh or hh.castSkinned or d.castbar == false then return nil end
+  local cb = rawget(uf, "castBar") or rawget(uf, "CastBar")
+  local container = rawget(uf, "CastBarsContainer")
+  if not cb and type(container) == "table" then cb = rawget(container, "castBar") or rawget(container, "CastBar") end
+  if type(cb) ~= "table" or not cb.SetStatusBarTexture then return nil end
+  hh.castSkinned, hh.castBar = true, cb
+  call(cb.SetStatusBarTexture, cb, FLAT)
+  for _, k in ipairs({ "Border", "Background", "TextBorder", "Flash" }) do
+    local r = rawget(cb, k)
+    if type(r) == "table" and r.SetAlpha then call(r.SetAlpha, r, 0) end
+  end
+  hh.castBg = cb:CreateTexture(nil, "BACKGROUND")
+  hh.castBg:SetAllPoints(cb)
+  hh.castBg:SetColorTexture(0.06, 0.06, 0.08, 0.85)
+  hh.castEdges = {}
+  local spec = { { "TOPLEFT", "TOPRIGHT", -1, 1, 1, 1, nil, 1 }, { "BOTTOMLEFT", "BOTTOMRIGHT", -1, -1, 1, -1, nil, 1 },
+    { "TOPLEFT", "BOTTOMLEFT", -1, 1, -1, -1, 1, nil }, { "TOPRIGHT", "BOTTOMRIGHT", 1, 1, 1, -1, 1, nil } }
+  for i, s in ipairs(spec) do
+    local e = cb:CreateTexture(nil, "OVERLAY")
+    e:SetColorTexture(LINE[1], LINE[2], LINE[3], 1)
+    e:SetPoint(s[1], cb, s[1], s[3], s[4])
+    e:SetPoint(s[2], cb, s[2], s[5], s[6])
+    if s[7] then e:SetWidth(s[7]) end
+    if s[8] then e:SetHeight(s[8]) end
+    hh.castEdges[i] = e
+  end
+  local text = rawget(cb, "Text") or rawget(cb, "text")
+  if type(text) == "table" then setFont(text, math.max(7, (d.fontSize or 10) - 1)) end
+  return cb
 end
 
 function Plates.Update(uf)

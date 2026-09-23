@@ -36,6 +36,7 @@ function Options.Build()
           get = function() return t().mode or "watched" end, set = function(_, v) t().mode = v; tr() end },
         showLevels = toggle(t, "showLevels", "Quest levels", 4, tr),
         lockPosition = toggle(t, "lockPosition", "Lock position (otherwise drag the header to move it)", 4.5, tr),
+        autoTrack = toggle(t, "autoTrack", "Watch new quests automatically when accepted", 4.7, tr),
         hideCompleted = toggle(t, "hideCompleted", "Hide finished quests", 5, tr),
         width = range(t, "width", "Width", 6, 160, 480, 10, tr),
         maxHeight = range(t, "maxHeight", "Max height", 7, 120, 900, 10, tr),

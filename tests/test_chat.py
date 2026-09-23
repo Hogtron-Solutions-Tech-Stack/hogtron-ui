@@ -111,3 +111,26 @@ def test_options_walk_clean(chat):
     ''')
     assert chat.eval('(select(2, ChatFrame2:GetFont()))') == 20
     assert errors(chat) == []
+
+
+@pytest.mark.parametrize("src,want", [
+    ("see https://hogtron-solutions.com/free-audit/ now", "see |Hhogurl:https://hogtron-solutions.com/free-audit/|h|cff21D4E0[https://hogtron-solutions.com/free-audit/]|r|h now"),
+    ("go to www.wowhead.com.", "go to |Hhogurl:www.wowhead.com|h|cff21D4E0[www.wowhead.com]|r|h."),
+    ("|Hitem:1|h[Linen Cloth]|h at http://x.io", "|Hitem:1|h[Linen Cloth]|h at |Hhogurl:http://x.io|h|cff21D4E0[http://x.io]|r|h"),
+    ("no links here 3.5k dps e.g. this", "no links here 3.5k dps e.g. this"),
+])
+def test_link_urls(chat, src, want):
+    chat.execute(f'R = HogHealsChat.Chat.LinkURLs({src!r})')
+    assert chat.eval('R') == want
+
+
+def test_clicking_a_url_opens_the_copy_box(chat):
+    chat.execute('function SetItemRef() end')
+    # the hook is installed at enable; re-enable to pick up the function defined above
+    chat.execute('HogHealsChat.module:OnEnable()')
+    chat.execute('SetItemRef("hogurl:https://example.com/a", "[https://example.com/a]", "LeftButton")')
+    assert chat.eval('HogUIURLCopy:IsShown()') is True
+    assert chat.eval('HogUIURLCopy.box._text') == "https://example.com/a"
+    chat.execute('ChatFrame1:AddMessage("look https://a.b/c")')
+    assert "|Hhogurl:https://a.b/c|h" in chat.eval('ADDED[#ADDED].msg')
+    assert errors(chat) == []
