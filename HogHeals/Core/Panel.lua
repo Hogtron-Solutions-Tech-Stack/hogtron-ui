@@ -61,6 +61,19 @@ local function text(parent, template, c, justify)
 end
 
 --- Resolve a possibly-functional option field. Errors are logged, never fatal: one bad option must not blank the page.
+-- AceConfig convention: a field may be a METHOD NAME (string) looked up on the group's `handler` object, inherited
+-- down the tree. AceDBOptions' profile page is built that way (values = "ListProfiles", func = "Reset", ...).
+-- Not supporting it crashed the Profiles tab on the beta (Panel.lua:437 pairs on a string).
+local function methodOf(x, info)
+  local h = info and info.handler
+  if type(x) == "string" and type(h) == "table" and type(h[x]) == "function" then
+    return function(i, ...) return h[x](h, i, ...) end
+  end
+  return x
+end
+
+-- Text fields (name, desc) are NEVER resolved as methods: a label that happens to equal a method name must not
+-- call it (test caught "Reset" firing five times).
 local function val(x, info, ...)
   if type(x) ~= "function" then return x end
   local r = { pcall(x, info, ...) }
@@ -68,7 +81,13 @@ local function val(x, info, ...)
   return unpack(r, 2)
 end
 
+--- Method-capable fields only: get, values, hidden, disabled.
+local function valM(x, info, ...)
+  return val(methodOf(x, info), info, ...)
+end
+
 local function call(fn, info, ...)
+  fn = methodOf(fn, info)
   if type(fn) ~= "function" then return end
   local ok, err = pcall(fn, info, ...)
   if not ok then HH:LogError("options: " .. tostring(err)) end
@@ -85,8 +104,8 @@ local function sortedArgs(group)
   return out
 end
 
-local function mkInfo(path, opt)
-  local info = { option = opt, arg = opt.arg, type = opt.type }
+local function mkInfo(path, opt, handler)
+  local info = { option = opt, arg = opt.arg, type = opt.type, handler = opt.handler or handler }
   for part in path:gmatch("[^%.]+") do info[#info + 1] = part end
   return info
 end
@@ -329,7 +348,7 @@ makers.toggle = function()
 end
 fillers.toggle = function(r, opt, info, _, off)
   r.label:SetText(tostring(val(opt.name, info) or ""))
-  r.checked = val(opt.get, info) and true or false
+  r.checked = valM(opt.get, info) and true or false
   if r.checked then r.tick:Show() else r.tick:Hide() end
   tooltip(r.button, opt, info)
   r.button:SetScript("OnClick", function()
@@ -397,7 +416,7 @@ fillers.range = function(r, opt, info, _, off)
   s:SetMinMaxValues(min, max)
   if s.SetValueStep then s:SetValueStep(step) end
   if s.SetObeyStepOnDrag then s:SetObeyStepOnDrag(true) end
-  local got = val(opt.get, info)          -- a getter may return nothing at all; tonumber() with zero args throws
+  local got = valM(opt.get, info)          -- a getter may return nothing at all; tonumber() with zero args throws
   local cur = tonumber(got) or min
   s:SetValue(cur)
   r.valueText:SetText(fmtNum(cur, step))
@@ -431,8 +450,9 @@ makers.select = function()
 end
 fillers.select = function(r, opt, info, _, off)
   r.label:SetText(tostring(val(opt.name, info) or ""))
-  local values = val(opt.values, info) or {}
-  local cur = val(opt.get, info)
+  local values = valM(opt.values, info)
+  if type(values) ~= "table" then values = {} end
+  local cur = valM(opt.get, info)
   local entries = {}
   for k, v in pairs(values) do entries[#entries + 1] = { key = k, label = tostring(v) } end
   table.sort(entries, function(a, b) return a.label < b.label end)
@@ -472,7 +492,7 @@ fillers.input = function(r, opt, info, _, off)
   r.label:SetText(tostring(val(opt.name, info) or ""))
   local e = r.edit
   e:SetMultiLine(multi)
-  e:SetText(tostring(val(opt.get, info) or ""))
+  e:SetText(tostring(valM(opt.get, info) or ""))
   if e.SetCursorPosition then e:SetCursorPosition(0) end
   if e.EnableMouse then e:EnableMouse(not off) end
   local function commit()
@@ -526,7 +546,7 @@ local function pickColor(cr, cg, cb, ca, hasAlpha, apply)
 end
 fillers.color = function(r, opt, info, _, off)
   r.label:SetText(tostring(val(opt.name, info) or ""))
-  local cr, cg, cb, ca = val(opt.get, info)
+  local cr, cg, cb, ca = valM(opt.get, info)
   cr, cg, cb, ca = tonumber(cr) or 1, tonumber(cg) or 1, tonumber(cb) or 1, tonumber(ca) or 1
   r.swatch:SetColorTexture(cr, cg, cb, 1)
   tooltip(r.button, opt, info)
@@ -543,7 +563,7 @@ end
 local FULL_WIDTH = { header = true, description = true }
 
 -- ------------------------------------------------------------------------------------------------ layout
-local function place(args, path, y)
+local function place(args, path, y, handler)
   local content = Panel.frame.content
   local total = content:GetWidth() or (W - SIDEBAR - PAD * 2 - 8)
   local colW = (total - GUTTER * (COLS - 1)) / COLS
@@ -553,8 +573,8 @@ local function place(args, path, y)
   end
   for _, a in ipairs(args) do
     local opt, p = a.opt, (path ~= "" and (path .. ".") or "") .. a.key
-    local info = mkInfo(p, opt)
-    if not val(opt.hidden, info) then
+    local info = mkInfo(p, opt, handler)
+    if not valM(opt.hidden, info) then
       if opt.type == "group" then
         -- A group nested below tab level (inline or not) is flattened in place under its own heading.
         newline()
@@ -564,7 +584,7 @@ local function place(args, path, y)
         local hh = fillers.header(h, opt, info)
         h:SetHeight(hh)
         y = y + hh + 6
-        y = place(sortedArgs(opt), p, y)
+        y = place(sortedArgs(opt), p, y, opt.handler or handler)
       elseif fillers[opt.type] then
         local full = FULL_WIDTH[opt.type] or opt.width == "full" or opt.multiline
         if full then newline() end
@@ -572,7 +592,7 @@ local function place(args, path, y)
         local w = full and total or colW
         row:SetPoint("TOPLEFT", content, "TOPLEFT", full and 0 or col * (colW + GUTTER), -y)
         row:SetWidth(w)
-        local off = val(opt.disabled, info) and true or false
+        local off = valM(opt.disabled, info) and true or false
         local ok, h = pcall(fillers[opt.type], row, opt, info, w, off)
         if not ok then HH:LogError("options " .. p .. ": " .. tostring(h)); h = 26 end
         row:SetHeight(h)
@@ -633,7 +653,7 @@ local function visibleGroups(group, path)
   for _, a in ipairs(sortedArgs(group)) do
     if a.opt.type == "group" and not a.opt.inline then
       local p = (path ~= "" and (path .. ".") or "") .. a.key
-      if not val(a.opt.hidden, mkInfo(p, a.opt)) then out[#out + 1] = a end
+      if not valM(a.opt.hidden, mkInfo(p, a.opt)) then out[#out + 1] = a end
     end
   end
   return out
@@ -703,8 +723,9 @@ function Panel.Refresh()
   end
 
   if current then
-    y = place(plainArgs(current.opt), current.key, y)
-    if tab then y = place(sortedArgs(tab.opt), current.key .. "." .. tab.key, y) end
+    local h1 = current.opt.handler or root.handler
+    y = place(plainArgs(current.opt), current.key, y, h1)
+    if tab then y = place(sortedArgs(tab.opt), current.key .. "." .. tab.key, y, tab.opt.handler or h1) end
   end
   f.content:SetHeight(math.max(10, y + PAD))
   local max = f.scroll:GetVerticalScrollRange() or 0
