@@ -204,15 +204,21 @@ function Pins.Update()
   if not mapID then Pins.HideAll() Pins.why = "no player position" return 0 end
   local w, h = Pins.MapSize(mapID)
   if not w then Pins.HideAll() Pins.why = "no map size for " .. tostring(mapID) return 0 end
-  local points = HHQ.Data.PointsOnMap(mapID)
-  local byId = {}
-  for _, q in ipairs(HHQ.Data.last or HHQ.Data.List()) do if q.id then byId[q.id] = q end end
   local radius = Pins.ViewRadius()
   local half = ((Minimap.GetWidth and Minimap:GetWidth()) or 140) / 2
   local facing = rotating() and type(GetPlayerFacing) == "function" and num(try(GetPlayerFacing)) or nil
+  -- The ticker runs 5x a second; standing still nothing below changes. Same map, position (to ~0.4 yd on a
+  -- 4,500 yd map), facing, zoom, minimap size, quest log and settings -> keep last frame's pins as they are.
+  local superTracked = type(C_SuperTrack) == "table" and num(try(C_SuperTrack.GetSuperTrackedQuestID)) or nil
+  local key = ("%d|%.4f|%.4f|%.2f|%.1f|%.0f|%d|%s|%s|%d|%s|%s"):format(mapID, px, py, facing or -1, radius, half,
+    HHQ.Data.gen or 0, tostring(d.edge), tostring(d.watchedOnly), d.size or 16, tostring(d.turnInInRange), tostring(superTracked))
+  if key == Pins.lastKey then return Pins.shown or 0 end
+  Pins.lastKey = key
+  local points = HHQ.Data.PointsOnMap(mapID)
+  local byId = {}
+  for _, q in ipairs(HHQ.Data.last or HHQ.Data.List()) do if q.id then byId[q.id] = q end end
   local square = type(GetMinimapShape) == "function" and try(GetMinimapShape) == "SQUARE"
   local size = d.size or 14
-  local superTracked = type(C_SuperTrack) == "table" and num(try(C_SuperTrack.GetSuperTrackedQuestID)) or nil
   local n = 0
   for _, pt in ipairs(points) do
     local q = pt.id and byId[pt.id] or { title = "Quest " .. tostring(pt.id), objectives = {} }
@@ -263,6 +269,7 @@ function Pins.Stop()
 end
 
 function Pins.Refresh()
+  Pins.lastKey = nil
   if cfg().enabled == false then Pins.Stop() Pins.HideAll() return end
   Pins.Start()
 end

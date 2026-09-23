@@ -135,6 +135,7 @@ function Data.List()
     end
   end
   Data.last = out
+  Data.gen = (Data.gen or 0) + 1   -- bumps on every re-read; the minimap pins skip work while it is unchanged
   return out
 end
 
