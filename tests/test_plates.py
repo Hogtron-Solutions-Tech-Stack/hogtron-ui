@@ -249,8 +249,30 @@ def test_quest_badge_sits_left_of_the_bar_clear_of_the_level_badge(plates):
              '{ { leftText = "Wandering Spirit", type = 2 }, { leftText = " - Wandering Spirit slain: 7/8", type = 8 } }')
     pt = plates.eval(f'{uf}.hh.questFrame._points[1]')
     assert pt[1] == "RIGHT" and pt[3] == "LEFT"                       # badge's right edge on the bar's left edge
-    assert plates.eval(f'{uf}.hh.questGlyph._text') == "!"
-    assert plates.eval(f'{uf}.hh.quest._color[1]') == pytest.approx(0.95)
+    assert plates.eval(f'{uf}.hh.quest._texture').endswith("HogHeals\\Media\\quest_open")
+    assert plates.eval(f'{uf}.hh.questGlyph:IsShown()') is False            # art loaded: no drawn fallback
     pp = plates.eval(f'{uf}.hh.progress._points[1]')
     assert pp[1] == "RIGHT" and pp[3] == "LEFT"                       # progress further left of the badge
     assert plates.eval(f'{uf}.hh.progress._text') == "7/8"
+
+
+def test_quest_badge_falls_back_to_drawn_square_when_art_is_refused(lua):
+    # a client that cannot load our .tga returns false from SetTexture: the marker must still show
+    boot(lua, extra='''
+      local mk = CreateFrame
+      function CreateFrame(...)
+        local f = mk(...)
+        local ct = f.CreateTexture
+        f.CreateTexture = function(self, ...)
+          local t = ct(self, ...)
+          local st = t.SetTexture
+          t.SetTexture = function(tt, path) st(tt, path) if type(path) == "string" and path:find("HogHeals") then return false end end
+          return t
+        end
+        return f
+      end
+    ''')
+    uf = add(lua, "nameplate4", '{ name = "Kobold Vermin", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-6" }')
+    assert lua.eval(f'{uf}.hh.questDrawn') is True
+    assert lua.eval(f'{uf}.hh.questGlyph._text') == "!" and lua.eval(f'{uf}.hh.questGlyph:IsShown()') is True
+    assert lua.eval(f'{uf}.hh.quest._color[1]') == pytest.approx(0.95)
