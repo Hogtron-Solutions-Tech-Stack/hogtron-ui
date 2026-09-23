@@ -27,7 +27,7 @@ function E.Update(button, unit)
   button.health:SetValue(hp)
 
   -- colour
-  local _, class = UnitClass(unit)
+  local class = HHF.Compat.ClassOf(unit)   -- remembered: stays the class colour in combat (identity can be secret)
   local mode = ap.healthMode or "class"
   if mode == "deficit" and pct then
     button.health:SetStatusBarColor(deficitColor(pct))

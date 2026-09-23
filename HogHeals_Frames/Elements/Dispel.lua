@@ -5,8 +5,7 @@ local HH = HogHeals
 local E = { Events = { "UNIT_AURA" } }
 
 local function playerClass()
-  local _, c = UnitClass("player")
-  return c
+  return HHF.Compat.ClassOf("player")
 end
 
 local function scanHarmful(unit, priorityNames)

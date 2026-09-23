@@ -25,11 +25,30 @@ local function incoming(unit)
   return mine, math.max(0, all - mine), all
 end
 
+local function anySecret(...)
+  for i = 1, select("#", ...) do if HHF.Compat.IsSecret((select(i, ...))) then return true end end
+  return false
+end
+
 function E.Update(button, unit)
   local cfg = HH.db.profile.frames.healPrediction
+  -- Forever beta measured: UnitGetIncomingHeals AND UnitHealth are SECRET (no maths allowed). This overlay is all
+  -- maths (missing = max - hp, width = shown / max), so with a secret input it steps aside instead of throwing on
+  -- every health event in combat. A secret-safe overlay needs a client-drawn bar (follow-up, not done).
+  local hp, max = UnitHealth(unit), UnitHealthMax(unit)
+  -- plain assignment, never `x and f() or nil`: that tests the RESULT for truth, and testing a secret throws
+  local rawMine, rawAll
+  if HHF.Compat.hasNativeIncoming and type(UnitGetIncomingHeals) == "function" then
+    rawMine = UnitGetIncomingHeals(unit, "player")
+    rawAll = UnitGetIncomingHeals(unit)
+  end
+  if anySecret(hp, max, rawMine, rawAll) then
+    button.healPred.overheal = false
+    button.healPred:Hide()
+    return
+  end
   local mine, others, all = incoming(unit)
   local amount = (cfg.show == "mine") and mine or (cfg.show == "others") and others or all
-  local hp, max = UnitHealth(unit), UnitHealthMax(unit)
   if amount <= 0 or max <= 0 or UnitIsDeadOrGhost(unit) then
     button.healPred.overheal = false
     button.healPred:Hide()
