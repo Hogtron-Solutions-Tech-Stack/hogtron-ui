@@ -289,3 +289,23 @@ def test_vendor_sells_junk_and_repairs(lua):
     lua.execute('function GetMoney() return 100 end; HogHeals.db.profile.skin.auto.sellJunk = false; wipe(SOLD); REPAIRED = nil; wipe(MockLog.chat); MockFire("MERCHANT_SHOW"); MockAdvance(0.4)')
     assert lua.eval('#SOLD') == 0 and lua.eval('REPAIRED') is None
     assert "not enough gold" in "\n".join(lua.eval('MockLog.chat').values())
+
+
+def test_vendor_classic_item_api_path(lua):
+    lua.execute(CLIENT + """
+      C_Container = nil
+      SOLD = {}
+      function GetContainerNumSlots(bag) return bag == 0 and 3 or 0 end
+      function GetContainerItemInfo(bag, slot)
+        local q = ({ [1] = 0, [2] = 0, [3] = 1 })[slot]
+        return "icon", 1, false, q, false, false, "link" .. slot, false, slot == 2   -- slot 2: grey but no value
+      end
+      function UseContainerItem(bag, slot) SOLD[#SOLD + 1] = slot end
+      function GetItemInfo() return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, 40 end
+      function CanMerchantRepair() return false end
+    """)
+    lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
+    lua.execute('wipe(MockLog.chat or {}); MockFire("MERCHANT_SHOW"); MockAdvance(0.4)')
+    assert list(lua.eval('SOLD').values()) == [1]
+    assert "sold 1 junk for ~40c" in "
+".join(lua.eval('MockLog.chat').values())
