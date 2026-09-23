@@ -29,8 +29,16 @@ def test_thresholds_and_health_fade(core):
 
 
 def test_migration_sets_schema_and_is_idempotent(core):
-    assert core.eval('HogHeals.db.global.schema') == 3
+    assert core.eval('HogHeals.db.global.schema') == 4
     core.execute('HogHeals.Migrate.Run(HogHeals.db); HogHeals.Migrate.Run(HogHeals.db)')
-    assert core.eval('HogHeals.db.global.schema') == 3
+    assert core.eval('HogHeals.db.global.schema') == 4
     core.execute('HogHeals.db.global.schema = nil; HogHeals.Migrate.Run(HogHeals.db)')
-    assert core.eval('HogHeals.db.global.schema') == 3
+    assert core.eval('HogHeals.db.global.schema') == 4
+
+
+def test_solo_frame_off_by_default_and_migrated_off(lua):
+    lua.execute('HogHealsDB = { profileKeys = {}, profiles = { Default = { frames = { layouts = { solo = { showSolo = true } } } } }, global = { schema = 3 } }')
+    lua.load_addon("HogHeals"); lua.player_login()
+    assert lua.eval('HogHeals.defaults.profile.frames.layouts.solo.showSolo') is False
+    assert lua.eval('HogHeals.db.profile.frames.layouts.solo.showSolo') is False      # migration 4 flipped the saved true
+    assert lua.eval('HogHeals.db.global.schema') == 4
