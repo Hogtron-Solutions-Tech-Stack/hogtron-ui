@@ -592,6 +592,11 @@ function Module:OnProfileChanged() Units.Refresh() end
 --- /hh unlock: every frame force-shown with a "drag: <unit>" label, unit watch paused (a target frame with no
 -- target would otherwise be invisible and undraggable); /hh lock restores the watch and hides the labels.
 function Module:SetLocked(locked)
+  local ok, err = pcall(Module.SetLockedNow, Module, locked)
+  if not ok then HH:Print("units unlock failed: " .. tostring(err)) HH:LogError("units SetLocked: " .. tostring(err)) end
+end
+
+function Module:SetLockedNow(locked)
   Units.ForEach(function(f)
     if not f.dragHint then
       f.dragHint = f.overlay:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -629,6 +634,27 @@ function Module:GetOptions()
 end
 
 HH:RegisterModule("Units", Module)
+
+--- What each unit frame is showing right now: texts, anchors, lock state, drag label. For "it doesn't unlock".
+function Units.Diagnose()
+  local out = { ("locked=%s  frames=%d"):format(tostring(HH.db.profile.locked), (function() local n = 0 for _ in pairs(Units.frames) do n = n + 1 end return n end)()) }
+  Units.ForEach(function(f)
+    local p1 = f.GetPoint and { f:GetPoint(1) } or {}
+    local np = f.name.GetPoint and { f.name:GetPoint(1) } or {}
+    out[#out + 1] = ("%s shown=%s compact=%s name='%s' level='%s' health='%s' at %s %s,%s | name@%s | hint=%s%s | %dx%d"):format(
+      f.unit, tostring(f:IsShown()), tostring(f.compact), tostring(f.name:GetText() or ""), tostring(f.level:GetText() or ""),
+      tostring(f.healthText:GetText() or ""), tostring(p1[1]), tostring(p1[4] and math.floor(p1[4]) or "?"), tostring(p1[5] and math.floor(p1[5]) or "?"),
+      tostring(np[1]), f.dragHint and "yes" or "no", f.dragHint and (f.dragHint:IsShown() and "(shown)" or "(hidden)") or "",
+      math.floor(f:GetWidth() or 0), math.floor(f:GetHeight() or 0))
+  end)
+  return out
+end
+
+HH:RegisterSlash("unitdiag", function()
+  local ok, lines = pcall(Units.Diagnose)
+  if not ok then HH:Print("unitdiag failed: " .. tostring(lines)) return end
+  for _, l in ipairs(lines) do HH:Print(l) end
+end, "print what each unit frame is showing (texts, anchors, lock state)")
 
 HH:RegisterSlash("units", function(arg)
   arg = (arg or ""):lower()
