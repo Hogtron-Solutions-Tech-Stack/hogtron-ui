@@ -14,8 +14,10 @@ local HH = HogHeals
 local Pins = { pool = {}, sizeCache = {} }
 HHQ.Pins = Pins
 
-local ICON_OPEN = "Interface\\GossipFrame\\AvailableQuestIcon"   -- yellow "!"
-local ICON_DONE = "Interface\\GossipFrame\\ActiveQuestIcon"      -- yellow "?" = go hand it in
+-- Pins are drawn badges (flat square + glyph), not game textures: the GossipFrame quest icons did not render on the
+-- Forever client (nameplate test 2026-09-22). Amber "!" = objective area, green "?" = ready to turn in.
+local OPEN = { glyph = "!", color = { 0.95, 0.65, 0.15 } }
+local DONE = { glyph = "?", color = { 0.25, 0.80, 0.35 } }
 
 -- Classic minimap diameters in yards per zoom level (HereBeDragons-Pins table) - only used when the client has no
 -- C_Minimap.GetViewRadius.
@@ -120,8 +122,15 @@ local function pin(i)
   p = CreateFrame("Button", nil, Minimap)
   p:SetFrameStrata("MEDIUM")
   p:SetFrameLevel(((Minimap.GetFrameLevel and Minimap:GetFrameLevel()) or 1) + 5)
-  p.icon = p:CreateTexture(nil, "OVERLAY")
+  p.edge = p:CreateTexture(nil, "BACKGROUND")
+  p.edge:SetPoint("TOPLEFT", p, "TOPLEFT", -1, 1)
+  p.edge:SetPoint("BOTTOMRIGHT", p, "BOTTOMRIGHT", 1, -1)
+  p.edge:SetColorTexture(0.05, 0.05, 0.06, 1)
+  p.icon = p:CreateTexture(nil, "ARTWORK")
   p.icon:SetAllPoints(p)
+  p.glyph = p:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  p.glyph:SetPoint("CENTER", p, "CENTER", 0, 0)
+  p.glyph:SetTextColor(0.07, 0.07, 0.09)
   p:SetScript("OnEnter", function(self)
     local q = self.quest
     if not GameTooltip or not q then return end
@@ -170,8 +179,13 @@ function Pins.Update()
         n = n + 1
         local p = pin(n)
         p.quest, p.yards = q, math.floor(math.sqrt(dx * dx + dy * dy) + 0.5)
-        p.icon:SetTexture(q.complete and ICON_DONE or ICON_OPEN)
+        local look = q.complete and DONE or OPEN
         local s = edge and math.floor(size * 0.75) or size
+        p.icon:SetColorTexture(look.color[1], look.color[2], look.color[3], 1)
+        p.glyph:SetText(look.glyph)
+        local font = p.glyph.GetFont and p.glyph:GetFont()
+        if font and p.glyph.SetFont then pcall(p.glyph.SetFont, p.glyph, font, math.max(7, s - 3), "") end
+        p.kind = look.glyph
         p:SetSize(s, s)
         p:SetAlpha(edge and 0.6 or 1)
         p:ClearAllPoints()

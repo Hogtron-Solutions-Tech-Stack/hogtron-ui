@@ -242,3 +242,15 @@ def test_platediag_explains_missing_plates(plates):
     assert "plate forbidden x1" in chat and "GetNamePlateForUnit(nameplateN)=nil x1" in chat
     assert "on screen now (GetNamePlates): 1" in chat
     assert errors(plates) == []
+
+
+def test_quest_badge_sits_left_of_the_bar_clear_of_the_level_badge(plates):
+    uf = add(plates, "nameplate4", '{ name = "Wandering Spirit", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-6" }',
+             '{ { leftText = "Wandering Spirit", type = 2 }, { leftText = " - Wandering Spirit slain: 7/8", type = 8 } }')
+    pt = plates.eval(f'{uf}.hh.questFrame._points[1]')
+    assert pt[1] == "RIGHT" and pt[3] == "LEFT"                       # badge's right edge on the bar's left edge
+    assert plates.eval(f'{uf}.hh.questGlyph._text') == "!"
+    assert plates.eval(f'{uf}.hh.quest._color[1]') == pytest.approx(0.95)
+    pp = plates.eval(f'{uf}.hh.progress._points[1]')
+    assert pp[1] == "RIGHT" and pp[3] == "LEFT"                       # progress further left of the badge
+    assert plates.eval(f'{uf}.hh.progress._text') == "7/8"

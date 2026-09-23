@@ -206,9 +206,9 @@ def test_pins_placed_from_client_points(modern):
     # quest 7: 0.1 of a 1000-yard map north = 100 yd, radius 200, half width 70 - 14/3
     pt = modern.eval(f'{p1}._points[1]')
     assert pt[4] == pytest.approx(0) and pt[5] == pytest.approx((70 - 14 / 3) / 2)
-    assert modern.eval(f'{p1}.icon._texture').endswith("AvailableQuestIcon")
+    assert modern.eval(f'{p1}.glyph._text') == "!" and modern.eval(f'{p1}.icon._color[1]') == pytest.approx(0.95)
     # quest 9 is complete and far away: turn-in icon on the rim, dimmed
-    assert modern.eval('HogHealsQuests.Pins.pool[2].icon._texture').endswith("ActiveQuestIcon")
+    assert modern.eval('HogHealsQuests.Pins.pool[2].glyph._text') == "?" and modern.eval('HogHealsQuests.Pins.pool[2].icon._color[2]') == pytest.approx(0.80)
     assert modern.eval('HogHealsQuests.Pins.pool[2]._alpha') == pytest.approx(0.6)
 
 
