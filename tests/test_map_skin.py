@@ -32,6 +32,7 @@ def test_pin_falls_back_to_drawn_badge_when_art_is_refused(lua):
       local p = HogHealsQuests.Pins.pool[1]
       local st = p.icon.SetTexture
       p.icon.SetTexture = function(t, path) st(t, path) if type(path) == "string" then return false end end
+      HogHealsQuests.Pins.lastKey = nil   -- a client refusing a texture mid-session is not a state the key tracks
       HogHealsQuests.Pins.Update()
     ''')
     p1 = 'HogHealsQuests.Pins.pool[1]'
@@ -163,13 +164,34 @@ def test_nearby_turn_in_left_to_blizzard_far_one_keeps_its_arrow(lua):
     boot(lua, MODERN)
     lua.execute('GetMinimapShape = nil; Minimap:SetSize(140, 140)')
     # quest 9 (complete) moved next to the player: Blizzard's own ? marks that NPC -> no pin from us
-    lua.execute('QPoints = { { questID = 7, x = 0.50, y = 0.40 }, { questID = 9, x = 0.52, y = 0.52 } }')
+    # quest points only move with the quest log in game (QUEST_LOG_UPDATE -> Data.List): re-read to mirror that
+    lua.execute('QPoints = { { questID = 7, x = 0.50, y = 0.40 }, { questID = 9, x = 0.52, y = 0.52 } }; HogHealsQuests.Data.List()')
     assert lua.eval('HogHealsQuests.Pins.Update()') == 1
     assert lua.eval('HogHealsQuests.Pins.pool[1].quest.id') == 7
     # far away: Blizzard shows nothing, our rim arrow stays
-    lua.execute('QPoints = { { questID = 9, x = 0.95, y = 0.95 } }')
+    lua.execute('QPoints = { { questID = 9, x = 0.95, y = 0.95 } }; HogHealsQuests.Data.List()')
     assert lua.eval('HogHealsQuests.Pins.Update()') == 1
     assert lua.eval('HogHealsQuests.Pins.pool[1].arrow:IsShown()') is True
     # option: mark nearby turn-ins too
-    lua.execute('HogHeals.db.profile.quests.minimap.turnInInRange = true; QPoints = { { questID = 9, x = 0.52, y = 0.52 } }')
+    lua.execute('HogHeals.db.profile.quests.minimap.turnInInRange = true; QPoints = { { questID = 9, x = 0.52, y = 0.52 } }; HogHealsQuests.Data.List()')
     assert lua.eval('HogHealsQuests.Pins.Update()') == 1
+
+
+def test_pins_skip_work_while_nothing_changed(lua):
+    boot(lua, MODERN)
+    lua.execute("""
+      GetMinimapShape = nil; Minimap:SetSize(140, 140)
+      QCALLS = 0
+      local orig = C_QuestLog.GetQuestsOnMap
+      C_QuestLog.GetQuestsOnMap = function(...) QCALLS = QCALLS + 1 return orig(...) end
+    """)
+    assert lua.eval('HogHealsQuests.Pins.Update()') == 2
+    n = lua.eval('QCALLS')
+    for _ in range(10):
+        assert lua.eval('HogHealsQuests.Pins.Update()') == 2
+    assert lua.eval('QCALLS') == n                                     # nothing re-queried while standing still
+    lua.execute('C_Map.GetPlayerMapPosition = function() return { x = 0.51, y = 0.50 } end')
+    lua.eval('HogHealsQuests.Pins.Update()')
+    assert lua.eval('QCALLS') == n + 1                                 # moved: recomputed once
+    lua.execute('HogHealsQuests.Data.List(); HogHealsQuests.Pins.Update()')
+    assert lua.eval('QCALLS') == n + 2                                 # quest log re-read: recomputed once
