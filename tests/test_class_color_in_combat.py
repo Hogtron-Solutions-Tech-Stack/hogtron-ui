@@ -67,3 +67,12 @@ def test_frame_snapshot_taken_three_seconds_into_combat_and_on_slash(frames):
     frames.execute('wipe(HogHeals.errors); HogHeals:SlashCommand("framediag")')
     assert frames.eval('HogHeals.db.global.diag.frameSnapshots[1].reason') == "slash"
     assert frames.eval('#HogHeals.errors') == 0
+
+
+def test_healthtest_draws_five_bars_and_cleans_up(frames):
+    frames.execute('MockSetSecrets(true); function UnitHealthPercent() return MockSecret(80) end; CurveConstants = { ScaleTo100 = 1 }')
+    frames.execute('wipe(HogHeals.errors); wipe(MockLog.chat or {}); HogHeals:SlashCommand("healthtest")')
+    chat = "\n".join(frames.eval('MockLog.chat').values())
+    assert "5 bars" in chat and "ERR" not in chat and "failed" not in chat
+    frames.execute('MockAdvance(16)')
+    assert frames.eval('#HogHeals.errors') == 0

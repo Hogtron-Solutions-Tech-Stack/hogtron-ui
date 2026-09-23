@@ -117,6 +117,64 @@ snapFrame:SetScript("OnEvent", function()
   end
 end)
 
+-- ------------------------------------------------------------------------------------------------ health render test
+-- 2026-09-22: the unit frame health bar draws EMPTY (colour + alpha measured fine, value SECRET) while the HUD mana
+-- bar, fed the same way with a SECRET UnitPower, fills fine. Difference: the health bar is a child of a SECURE unit
+-- button. One screenshot of these five bars decides the fix (15 s, then they are removed).
+function Frames.HealthTest()
+  local secureParent
+  for _, b in ipairs(HHF.UnitButton.All()) do if b.unit == "player" then secureParent = b break end end
+  secureParent = secureParent or (HHF.UnitButton.All()[1])
+  local holder = CreateFrame("Frame", nil, UIParent)
+  holder:SetSize(320, 150)
+  holder:SetPoint("CENTER", UIParent, "CENTER", 0, 120)
+  holder:SetFrameStrata("DIALOG")
+  local bg = holder:CreateTexture(nil, "BACKGROUND")
+  bg:SetAllPoints(holder)
+  bg:SetColorTexture(0, 0, 0, 0.7)
+  local made = {}
+  local function bar(i, label, parent, fill)
+    local sb = CreateFrame("StatusBar", nil, parent or holder)
+    sb:SetSize(200, 18)
+    sb:ClearAllPoints()
+    sb:SetPoint("TOPLEFT", holder, "TOPLEFT", 110, -8 - (i - 1) * 27)
+    sb:SetFrameStrata("DIALOG")
+    sb:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
+    sb:SetStatusBarColor(0.53, 0.53, 0.93)
+    local sbg = sb:CreateTexture(nil, "BACKGROUND")
+    sbg:SetAllPoints(sb)
+    sbg:SetColorTexture(0.2, 0.2, 0.2, 1)
+    local ok, err = pcall(fill, sb)
+    local fs = holder:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    fs:SetPoint("RIGHT", sb, "LEFT", -6, 0)
+    fs:SetText(label .. (ok and "" or " ERR"))
+    if not ok then HH:Print("healthtest " .. label .. ": " .. tostring(err)) end
+    made[#made + 1] = sb
+  end
+  local max = UnitHealthMax("player")
+  bar(1, "A secure+hidden", secureParent, function(sb) sb:SetMinMaxValues(0, max) sb:SetValue(UnitHealth("player")) end)
+  bar(2, "B free+hidden", nil, function(sb) sb:SetMinMaxValues(0, max) sb:SetValue(UnitHealth("player")) end)
+  bar(3, "C free+50%", nil, function(sb) sb:SetMinMaxValues(0, 1) sb:SetValue(0.5) end)
+  bar(4, "D secure+50%", secureParent, function(sb) sb:SetMinMaxValues(0, 1) sb:SetValue(0.5) end)
+  bar(5, "E free+percent", nil, function(sb)
+    local curve = type(CurveConstants) == "table" and CurveConstants.ScaleTo100 or nil
+    sb:SetMinMaxValues(0, curve and 100 or 1)
+    sb:SetValue(UnitHealthPercent("player", true, curve))
+  end)
+  HH:Print("healthtest: 5 bars for 15 s. Screenshot them. Which ones are filled?")
+  local function remove()
+    for _, sb in ipairs(made) do sb:Hide() sb:SetParent(holder) end
+    holder:Hide()
+  end
+  if C_Timer and C_Timer.After then C_Timer.After(15, remove) end
+  return made
+end
+
+HH:RegisterSlash("healthtest", function()
+  local ok, err = pcall(Frames.HealthTest)
+  if not ok then HH:Print("healthtest failed: " .. tostring(err)) end
+end, "15 s test: which way of drawing your health bar works on this client")
+
 HH:RegisterSlash("framediag", function()
   local ok, s = pcall(Frames.Snapshot, "slash")
   if not ok then HH:Print("framediag failed: " .. tostring(s)) return end
