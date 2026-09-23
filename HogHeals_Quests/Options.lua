@@ -36,7 +36,8 @@ function Options.Build()
         hideCompleted = toggle(t, "hideCompleted", "Hide finished quests", 5, tr),
         width = range(t, "width", "Width", 6, 160, 480, 10, tr),
         maxHeight = range(t, "maxHeight", "Max height", 7, 120, 900, 10, tr),
-        fontSize = range(t, "fontSize", "Font size", 8, 8, 20, 1, tr),
+        fontSize = range(t, "fontSize", "Font size", 8, 8, 28, 1, tr),
+        scale = range(t, "scale", "Scale (whole window)", 8.5, 0.6, 2.5, 0.05, tr),
         backgroundAlpha = range(t, "backgroundAlpha", "Background opacity", 9, 0, 1, 0.05, tr),
       } },
       minimap = { type = "group", name = "Minimap", order = 2, args = {
