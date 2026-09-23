@@ -516,6 +516,13 @@ function Plates.ApplyCVars()
   local on = (d.nameClass or "friendly") ~= "none"
   pcall(SetCVar, "ShowClassColorInFriendlyNameplate", on and "1" or "0")
   pcall(SetCVar, "ShowClassColorInNameplate", (d.classColors ~= false) and "1" or "0")
+  -- One size at every distance (Sean 2026-09-23: far plates looked like a different font - the client shrinks
+  -- them to 80 % with distance, grows the target to 120 % and fades far ones). Client settings, so they persist.
+  if d.uniformScale ~= false then
+    for k, v in pairs({ nameplateMinScale = "1", nameplateMaxScale = "1", nameplateGlobalScale = "1",
+      nameplateMinAlpha = "1", nameplateMaxAlpha = "1", nameplateLargerScale = "1" }) do pcall(SetCVar, k, v) end
+    pcall(SetCVar, "nameplateSelectedScale", tostring(d.targetScale or 1))
+  end
 end
 
 function Module:OnEnable()

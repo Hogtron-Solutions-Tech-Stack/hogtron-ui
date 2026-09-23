@@ -42,6 +42,8 @@ function Options.Build()
         castbar = toggle(p, "castbar", "Flatten the cast bar under the plate", 7),
         friendlyNameOnly = toggle(p, "friendlyNameOnly", "Friendly plates: name only (no health bar)", 7.5),
         friendlyNameSize = range(p, "friendlyNameSize", "Friendly name text size", 7.6, 8, 24, 1),
+        uniformScale = toggle(p, "uniformScale", "Same plate size at every distance (no shrink / fade)", 7.8),
+        targetScale = range(p, "targetScale", "Target plate scale", 7.9, 0.8, 1.5, 0.05),
         showLevel = { type = "toggle", name = "Level badge next to the bar", order = 7.7,
           get = function() return p().showLevel == true end, set = function(_, v) p().showLevel = v and true or false; refresh() end },
         nameClass = { type = "select", name = "Player names in class colour", order = 8,
