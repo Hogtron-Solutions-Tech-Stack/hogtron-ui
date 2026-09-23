@@ -23,6 +23,8 @@ function E.Update(button, unit)
     if max <= 0 then max = 1 end
     pct = hp / max
   end
+  -- a bar that collapsed to 0x0 draws nothing whatever we feed it (2026-09-22 in game): re-check in 1 s, rebuild
+  if HHF.module and HHF.module.HealIfCollapsed then HHF.module.HealIfCollapsed(button) end
   button.health:SetMinMaxValues(0, max)
   button.health:SetValue(hp)
 

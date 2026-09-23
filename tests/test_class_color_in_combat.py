@@ -89,3 +89,43 @@ def test_healthfix_rebuilds_bars_and_they_take_the_value(frames):
     frames.execute('HogHeals:SlashCommand("framediag")')
     assert "x" in frames.eval('HogHeals.db.global.diag.frameSnapshots[1].buttons[1].barSize')
     assert frames.eval('#HogHeals.errors') == 0
+
+
+def test_collapsed_bar_is_rebuilt_automatically_and_logged(frames):
+    frames.execute('MockSetSecrets(true); MockSetGroup(2, false); MockUnits.party1 = { name = "Zugzug", class = "MAGE", health = 50, maxHealth = 100, guid = "Player-7" }')
+    make(frames, "party1")
+    frames.execute('B:SetSize(151, 80); B.health:SetSize(0, 0); OLD = B.health; wipe(HogHeals.errors)')
+    frames.execute('HogHealsFrames.UnitButton.OnEvent(B, "UNIT_HEALTH", "party1")')
+    assert frames.eval('B.health == OLD')                          # a zero reading alone only schedules a re-check
+    frames.execute('MockAdvance(1.1)')
+    assert frames.eval('B.health ~= OLD')
+    assert "party1" in frames.eval('HogHeals.db.global.diag.healthRebuilds[1]')
+    assert frames.eval('B.health._value') == 50
+    assert frames.eval('#HogHeals.errors') == 0
+
+
+def test_collapsed_bar_rebuild_is_capped(frames):
+    frames.execute('MockSetGroup(2, false); MockUnits.party1 = { name = "Zugzug", class = "MAGE", health = 50, maxHealth = 100, guid = "Player-7" }')
+    make(frames, "party1")
+    frames.execute("""
+      B:SetSize(151, 80)
+      for i = 1, 6 do B.health:SetSize(0, 0); HogHealsFrames.UnitButton.OnEvent(B, "UNIT_HEALTH", "party1"); MockAdvance(1.1) end
+    """)
+    log = frames.eval('HogHeals.db.global.diag.healthRebuilds')
+    assert len([e for e in log.values() if " party1 " in e]) == 3
+
+
+def test_new_bars_get_their_texture_before_anything_anchors_to_the_fill(frames):
+    frames.execute('B = HogHealsFrames.UnitButton.Create("HogHealsTexFirst", UIParent)')
+    assert frames.eval('B.health._texture') is not None
+
+
+
+def test_bar_that_lays_out_within_a_second_is_left_alone(frames):
+    frames.execute('MockSetGroup(2, false); MockUnits.party1 = { name = "Zugzug", class = "MAGE", health = 50, maxHealth = 100, guid = "Player-7" }')
+    make(frames, "party1")
+    frames.execute('B:SetSize(151, 80); B.health:SetSize(0, 0); OLD = B.health')
+    frames.execute('HogHealsFrames.UnitButton.OnEvent(B, "UNIT_HEALTH", "party1"); B.health:SetSize(149, 78); MockAdvance(1.1)')
+    assert frames.eval('B.health == OLD')
+    log = frames.eval('HogHeals.db.global.diag.healthRebuilds')
+    assert log is None or not [e for e in log.values() if " party1 " in e]

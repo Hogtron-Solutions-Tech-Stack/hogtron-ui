@@ -184,6 +184,48 @@ end
 function Frames.RebuildHealthBars()
   local n = 0
   for _, b in ipairs(HHF.UnitButton.All()) do
+    if Frames.RebuildHealthBar(b) then n = n + 1 end
+  end
+  return n
+end
+
+--- Collapsed-bar guard (called from the Health element). A bar can read 0 wide for a moment right after it is built,
+-- before the client lays it out, so a zero reading only schedules a re-check 1 s later; still 0 wide inside a button
+-- that is not -> rebuilt (out of combat), at most 3 times per button per session, each logged to diag.healthRebuilds.
+local function collapsed(b)
+  local h = b.health
+  if not h or not h.GetWidth then return false end
+  local bw, hw = b:GetWidth() or 0, h:GetWidth() or 0
+  if HHF.Compat.IsSecret(bw) or HHF.Compat.IsSecret(hw) then return false end
+  return bw > 4 and hw < 1, bw
+end
+
+function Frames.HealIfCollapsed(b)
+  if b.hhHealPending or (b.hhRebuilds or 0) >= 3 or not collapsed(b) then return end
+  b.hhHealPending = true
+  local function recheck()
+    b.hhHealPending = nil
+    local still, bw = collapsed(b)
+    if not still or (b.hhRebuilds or 0) >= 3 then return end
+    b.hhRebuilds = (b.hhRebuilds or 0) + 1
+    HH:RunOutOfCombat(function()
+      if Frames.RebuildHealthBar(b) then
+        local g = HH.db and HH.db.global
+        if g then
+          g.diag = g.diag or {}
+          g.diag.healthRebuilds = g.diag.healthRebuilds or {}
+          local list = g.diag.healthRebuilds
+          list[#list + 1] = (date and date("%Y-%m-%d %H:%M:%S") or "") .. " " .. tostring(b.unit) .. " button " .. ("%.0f"):format(bw or 0) .. " wide, bar 0"
+          while #list > 20 do table.remove(list, 1) end
+        end
+      end
+    end)
+  end
+  if C_Timer and C_Timer.After then C_Timer.After(1, recheck) else recheck() end
+end
+
+function Frames.RebuildHealthBar(b)
+  do
     local old = b.health
     if old then
       local fresh = CreateFrame("StatusBar", nil, b)
@@ -210,11 +252,12 @@ function Frames.RebuildHealthBars()
       old:Hide()
       old:ClearAllPoints()
       b.health = fresh
-      n = n + 1
+      if HHF.UnitButton.ApplyAppearance then pcall(HHF.UnitButton.ApplyAppearance, b) end
       if b.unit then HHF.UnitButton.UpdateAll(b) end
+      return true
     end
   end
-  return n
+  return false
 end
 
 HH:RegisterSlash("healthfix", function()
