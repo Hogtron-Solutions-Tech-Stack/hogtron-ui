@@ -69,6 +69,7 @@ function Part.Apply()
     end
     for _, n in ipairs(Part.HIDE) do Skin.HideFrame(Skin.G(n)) end
   end
+  if d.cooldownNumbers ~= false and type(SetCVar) == "function" then pcall(SetCVar, "countdownForCooldowns", "1") end
   local n = 0
   for _, b in ipairs(Part.Buttons()) do
     if not b.hhSkinned then

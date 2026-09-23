@@ -44,6 +44,7 @@ function Options.Build()
         hideArt = toggle(sub("actionBars"), "hideArt", "Hide the bar art (gryphons, end caps, page arrows)", 2),
         hotkeySize = range(sub("actionBars"), "hotkeySize", "Keybind text size", 3, 7, 16, 1),
         hideNames = toggle(sub("actionBars"), "hideNames", "Hide macro names on buttons", 4),
+        cooldownNumbers = toggle(sub("actionBars"), "cooldownNumbers", "Cooldown numbers on buttons (Blizzard's countdown)", 5),
       } },
       bags = { type = "group", name = "Bags", order = 2, args = {
         about = { type = "description", order = 0, name = "Blizzard's bags in the HogUI panel: art removed, item slots flattened, outline coloured by item quality." },
@@ -72,6 +73,29 @@ function Options.Build()
         buffs = toggle(sub("extras"), "buffs", "Skin my buff and debuff icons", 1),
         durationSize = range(sub("extras"), "durationSize", "Duration / count text size", 2, 7, 16, 1),
         xpBar = toggle(sub("extras"), "xpBar", "Flat experience / reputation bar", 3),
+      } },
+      panels = { type = "group", name = "Windows", order = 4.7, args = {
+        about = { type = "description", order = 0, name = "Blizzard's windows (character, spellbook, quest log, escape menu, vendor, mail, trade, bank, ...) on the HogUI panel: art and portrait off, outline, flat close button. Untick a window to leave it alone (needs a /reload to come back)." },
+        enabled = toggle(sub("panels"), "enabled", "Skin Blizzard's windows", 1),
+        alpha = range(sub("panels"), "alpha", "Background opacity", 2, 0.3, 1, 0.05),
+        titleSize = range(sub("panels"), "titleSize", "Title text size", 3, 9, 20, 1),
+        list = { type = "group", inline = true, name = "Windows", order = 4, args = (function()
+          local a = {}
+          for i, n in ipairs(HHS.Panels.NAMES) do
+            a[n] = { type = "toggle", name = n:gsub("Frame$", ""), order = i,
+              get = function() return not (root().panels.skip and root().panels.skip[n]) end,
+              set = function(_, v) root().panels.skip = root().panels.skip or {} root().panels.skip[n] = (not v) or nil; apply() end }
+          end
+          return a
+        end)() },
+      } },
+      auto = { type = "group", name = "Vendor", order = 4.8, args = {
+        about = { type = "description", order = 0, name = "At a merchant: sell grey junk and repair automatically, with one chat line saying what happened. Capped at 60 items per visit." },
+        sellJunk = toggle(sub("auto"), "sellJunk", "Sell grey junk", 1),
+        repair = toggle(sub("auto"), "repair", "Repair (own gold)", 2),
+        guildRepair = { type = "toggle", name = "Use guild bank repair when allowed", order = 3,
+          get = function() return root().auto.guildRepair == true end,
+          set = function(_, v) root().auto.guildRepair = v and true or false end },
       } },
       infobar = { type = "group", name = "Info bar", order = 5, args = {
         about = { type = "description", order = 0, name = "A slim strip of live readouts: gold, durability, bag space, fps, latency, clock, coordinates, friends, guild, experience. Click a readout to open its frame. Drag it when frames are unlocked (/hh unlock)." },

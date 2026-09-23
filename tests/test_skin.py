@@ -230,3 +230,62 @@ def test_player_buffs_and_xp_bar_flattened(lua):
     """)
     assert lua.eval('BuffButton3.hhSkinned') is True
     assert [e["msg"] for e in lua.eval('HogHeals.errors').values()] == []
+
+
+def test_blizzard_window_styled_on_show_and_lod_window_caught_by_showuipanel(lua):
+    lua.execute(CLIENT + """
+      CharacterFrame = CreateFrame("Frame", "CharacterFrame", UIParent)
+      CharacterFrame:CreateTexture("CharacterFramePortrait"):SetTexture("portrait")
+      CharacterFrame.NineSlice = CreateFrame("Frame", nil, CharacterFrame)
+      CharacterFrame.NineSlice:CreateTexture():SetTexture("border")
+      CharacterFrame.TitleText = CharacterFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+      CharacterFrame.CloseButton = CreateFrame("Button", nil, CharacterFrame)
+      CharacterFrame:Hide()
+      function ShowUIPanel(f) f:Show() end
+    """)
+    lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
+    assert lua.eval('CharacterFrame.hhPanel') is None
+    lua.execute('CharacterFrame:Show(); CharacterFrame:GetScript("OnShow")(CharacterFrame)')
+    assert lua.eval('CharacterFramePortrait._alpha') == 0 and lua.eval('CharacterFrame.NineSlice._alpha') == 0
+    assert lua.eval('CharacterFrame.hhPanel.bg._color[4]') == pytest.approx(0.9)
+    assert lua.eval('CharacterFrame.CloseButton.hhX._text') == "x"
+    # a load-on-demand window that did not exist at login, opened through ShowUIPanel
+    lua.execute("""
+      MacroFrame = CreateFrame("Frame", "MacroFrame", UIParent)
+      MacroFrame:CreateTexture("MacroFrameBg"):SetTexture("art")
+      ShowUIPanel(MacroFrame)
+    """)
+    assert lua.eval('MacroFrame.hhPanel ~= nil') and lua.eval('MacroFrameBg._alpha') == 0
+    # the escape hatch: a skipped window is left alone
+    lua.execute("""
+      HogHeals.db.profile.skin.panels.skip.MailFrame = true
+      MailFrame = CreateFrame("Frame", "MailFrame", UIParent); ShowUIPanel(MailFrame)
+    """)
+    assert lua.eval('MailFrame.hhPanel') is None
+    assert [e["msg"] for e in lua.eval('HogHeals.errors').values()] == []
+
+
+def test_vendor_sells_junk_and_repairs(lua):
+    lua.execute(CLIENT + """
+      SOLD, REPAIRED = {}, nil
+      QUAL = { [1] = 0, [2] = 2, [3] = 0, [4] = 0 }
+      C_Container.GetContainerItemInfo = function(bag, slot) if bag ~= 0 then return nil end local q = QUAL[slot] if q == nil then return nil end return { quality = q, stackCount = 2, hyperlink = "item" .. slot, hasNoValue = (slot == 4) } end
+      C_Container.GetContainerNumSlots = function(bag) return bag == 0 and 4 or 0 end
+      C_Container.UseContainerItem = function(bag, slot) SOLD[#SOLD + 1] = slot end
+      function GetItemInfo(link) return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, 150 end
+      function CanMerchantRepair() return true end
+      function GetRepairAllCost() return 2500, true end
+      function GetMoney() return 10000 end
+      function RepairAllItems(guild) REPAIRED = guild or false end
+      function SetCVar(k, v) CVARS = CVARS or {}; CVARS[k] = v end
+    """)
+    lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
+    lua.execute('wipe(MockLog.chat or {}); MockFire("MERCHANT_SHOW"); MockAdvance(0.4)')
+    assert list(lua.eval('SOLD').values()) == [1, 3]                 # greys with a value only
+    assert lua.eval('REPAIRED') is False                              # own gold, not guild
+    chat = "\n".join(lua.eval('MockLog.chat').values())
+    assert "sold 2 junk" in chat and "6s" in chat and "repaired for 25s" in chat
+    assert lua.eval('CVARS.countdownForCooldowns') == "1"
+    lua.execute('function GetMoney() return 100 end; HogHeals.db.profile.skin.auto.sellJunk = false; wipe(SOLD); REPAIRED = nil; wipe(MockLog.chat); MockFire("MERCHANT_SHOW"); MockAdvance(0.4)')
+    assert lua.eval('#SOLD') == 0 and lua.eval('REPAIRED') is None
+    assert "not enough gold" in "\n".join(lua.eval('MockLog.chat').values())
