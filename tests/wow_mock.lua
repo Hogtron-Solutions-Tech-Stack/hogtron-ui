@@ -343,6 +343,7 @@ end
 function Region:GetText() return self._text end
 function Region:GetStringWidth() local w = #self._text * 6 if self._secretText then return MockSecret(w) end return w end
 function Region:SetTextColor(r, g, b, a) self._color = { r, g, b, a } end
+function Region:GetTextColor() return unpack(self._color) end
 function Region:SetVertexColor(r, g, b, a) self._color = { r, g, b, a } end
 function Region:SetColorTexture(r, g, b, a) self._color = { r, g, b, a } end
 function Region:GetVertexColor() return unpack(self._color) end
