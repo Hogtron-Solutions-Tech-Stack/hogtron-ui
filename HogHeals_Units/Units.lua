@@ -423,13 +423,28 @@ function Units.UpdateStatus(f)
   end
 end
 
+--- Each piece on its own: a failure in one (in game 2026-09-23 the target-change refresh threw and the name
+-- and level never got set) is reported by name and does not stop the rest.
+local function piece(label, fn, f)
+  local ok, err = xpcall(fn, HH.Trace, f)
+  if not ok then
+    local first = tostring(err):match("^[^%c]*") or tostring(err)
+    if first ~= Units.lastPieceError then
+      Units.lastPieceError = first
+      HH:Print("unit frame " .. label .. " (" .. tostring(f.unit) .. "): " .. first)
+    end
+    HH:LogError("units " .. label .. " " .. tostring(f.unit) .. ": " .. tostring(err))
+  end
+  return ok
+end
+
 function Units.UpdateAll(f)
   if ucfg(f.unit).enabled == false then return end
-  Units.UpdateHealth(f)
-  Units.UpdatePower(f)
-  Units.UpdateInfo(f)
-  Units.UpdateStatus(f)
-  if HHU.Auras and HHU.Auras.Update then HHU.Auras.Update(f) end
+  piece("health", Units.UpdateHealth, f)
+  piece("power", Units.UpdatePower, f)
+  piece("name/level", Units.UpdateInfo, f)
+  piece("status", Units.UpdateStatus, f)
+  if HHU.Auras and HHU.Auras.Update then piece("auras", HHU.Auras.Update, f) end
 end
 
 function Units.ForEach(fn)
@@ -575,7 +590,11 @@ function Module:OnEnable()
   for _, e in ipairs(OTHER_EVENTS) do if not pcall(ev.RegisterEvent, ev, e) then Module.unknown[#Module.unknown + 1] = e end end
   ev:SetScript("OnEvent", function(self, e, ...)
     local ok, err = xpcall(Units.OnEvent, HH.Trace, self, e, ...)
-    if not ok and err ~= Units.lastError then Units.lastError = err HH:LogError("units " .. tostring(e) .. ": " .. tostring(err)) end
+    if not ok and err ~= Units.lastError then
+      Units.lastError = err
+      HH:Print("unit frames " .. tostring(e) .. ": " .. (tostring(err):match("^[^%c]*") or tostring(err)))
+      HH:LogError("units " .. tostring(e) .. ": " .. tostring(err))
+    end
   end)
   Module.events = ev
   -- target-of-target gets no unit events of its own: poll it while it is shown

@@ -247,3 +247,18 @@ def test_unitdiag_prints_every_frame(units):
     chat = "\n".join(units.eval('MockLog.chat').values())
     assert "locked=true" in chat and "player shown=true" in chat and "targettarget shown=" in chat
     assert errors(units) == []
+
+
+def test_a_failing_piece_is_named_in_chat_and_does_not_block_the_others(units):
+    units.execute("""
+      MockUnits.target = { name = "Kobold", class = "WARRIOR", health = 30, maxHealth = 60, guid = "C-99" }
+      local real = HogHealsUnits.Units.UpdateInfo
+      HogHealsUnits.Units.UpdateInfo = function() error("boom") end
+      wipe(MockLog.chat or {})
+      MockFire("PLAYER_TARGET_CHANGED")
+      HogHealsUnits.Units.UpdateInfo = real
+    """)
+    chat = " ".join(units.eval('MockLog.chat').values())
+    assert "unit frame name/level (target): " in chat and "boom" in chat
+    assert units.eval('HogUITarget.healthText._text') == "30 / 60"         # health still updated
+    assert units.eval('HogUITarget.status._text') == ""                    # status piece still ran
