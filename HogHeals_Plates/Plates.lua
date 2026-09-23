@@ -269,6 +269,7 @@ end
 function Plates.UpdateHighlight(uf)
   local hh, d = uf.hh, cfg()
   if not hh or not hh.unit then return end
+  if hh.nameOnly then for _, e in ipairs(hh.edges) do e:Hide() end uf:SetAlpha(1) return "nameonly" end
   local unit = hh.unit
   local isTarget = bool(call(UnitIsUnit, unit, "target")) or false
   local threat = num(call(UnitThreatSituation, "player", unit))
@@ -342,10 +343,38 @@ function Plates.SkinCastbar(uf)
   return cb
 end
 
+--- Friendly plates as names only (Sean 2026-09-23: "remove the health bars"): the bar, its backing / outline /
+-- health text, the level and classification badges hidden; the class-coloured name stays. Blizzard shows the
+-- bar again when it recycles the plate, so this runs on every update. Off = full plate.
+function Plates.FriendlyLook(uf)
+  local hh, d = uf.hh, cfg()
+  if not hh or not hh.unit then return nil end
+  local unit = hh.unit
+  local friendly = bool(call(UnitIsFriend, "player", unit))
+  if friendly == nil then local r = num(call(UnitReaction, unit, "player")) friendly = r ~= nil and r >= 5 end
+  local nameOnly = friendly and d.friendlyNameOnly ~= false
+  hh.nameOnly = nameOnly
+  local pieces = { hh.bar, hh.bg, hh.health, hh.castBar, rawget(uf, "LevelFrame"), rawget(uf, "ClassificationFrame"), rawget(uf, "HealthBarsContainer") }
+  for _, p in ipairs(pieces) do
+    if type(p) == "table" and p.SetShown then
+      if nameOnly then call(p.Hide, p) elseif p == hh.bar or p == rawget(uf, "HealthBarsContainer") then call(p.Show, p) end
+    end
+  end
+  for _, e in ipairs(hh.edges or {}) do if nameOnly then e:Hide() end end
+  if nameOnly and hh.questFrame then hh.questFrame:Hide() end
+  -- keep the bar hidden when Blizzard shows it on plate reuse
+  if hh.bar and not hh.barHideHooked and type(hooksecurefunc) == "function" then
+    hh.barHideHooked = true
+    pcall(hooksecurefunc, hh.bar, "Show", function(self) if hh.nameOnly and hh.unit then call(self.Hide, self) end end)
+  end
+  return nameOnly
+end
+
 function Plates.Update(uf)
   Plates.ApplyLook(uf)
   Plates.Color(uf)
   Plates.ColorName(uf)
+  Plates.FriendlyLook(uf)
   Plates.UpdateHealth(uf)
   Plates.UpdateQuest(uf)
   Plates.UpdateHighlight(uf)
@@ -447,7 +476,7 @@ function Plates.OnEvent(_, e, unit)
     if uf then Plates.UpdateHealth(uf) end
   elseif e == "UNIT_FACTION" then
     local uf = unit and Plates.active[unit]
-    if uf then Plates.Color(uf) end
+    if uf then Plates.Color(uf) Plates.FriendlyLook(uf) Plates.UpdateHighlight(uf) end
   elseif e == "PLAYER_ENTERING_WORLD" then Plates.Scan()
   else questChanged() end
 end

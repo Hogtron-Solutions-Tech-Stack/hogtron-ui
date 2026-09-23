@@ -31,6 +31,8 @@ function UnitIsUnit(a, b) if b == "target" then return TARGET == a end return a 
 local _exists = UnitExists
 function UnitExists(u) if u == "target" then return TARGET ~= nil end return _exists(u) end
 function UnitIsPlayer(u) local m = MockUnits[u] return m ~= nil and m.isPlayer == true end
+-- friendliness like the client: an explicit flag wins, else the reaction (unset = a mob = not a friend)
+function UnitIsFriend(a, b) local m = MockUnits[b] if m and m.friendly ~= nil then return m.friendly end local r = REACT[b] return r ~= nil and r >= 5 end
 '''
 
 QUESTLOG = '''
@@ -318,3 +320,18 @@ def test_name_colour_survives_blizzard_vertex_repaint_and_cvars_set(plates):
     plates.execute(f'{uf}.name:SetVertexColor(1, 1, 1)')                              # how Blizzard repaints plate names
     assert plates.eval(f'{uf}.name._color[1]') == pytest.approx(1.0) and plates.eval(f'{uf}.name._color[2]') == pytest.approx(0.49, abs=0.02)  # druid orange
     assert plates.eval('CV.ShowClassColorInFriendlyNameplate') == "1" and plates.eval('CV.ShowClassColorInNameplate') == "1"
+
+
+def test_friendly_plates_are_name_only_by_default_and_full_when_off(plates):
+    plates.execute('function UnitIsFriend(a, b) return MockUnits[b] and MockUnits[b].friendly == true end')
+    uf = add(plates, "nameplate14", '{ name = "Anthony", class = "PALADIN", health = 1, maxHealth = 1, isPlayer = true, friendly = true, guid = "P-14" }')
+    assert plates.eval(f'{uf}.healthBar:IsShown()') is False
+    assert plates.eval(f'{uf}.hh.health:IsShown()') is False and plates.eval(f'{uf}.hh.edges[1]:IsShown()') is False
+    assert plates.eval(f'{uf}.name._color[1]') == pytest.approx(0.96, abs=0.02)   # class-coloured name stays
+    plates.execute(f'{uf}.healthBar:Show()')                                        # Blizzard re-shows on reuse
+    assert plates.eval(f'{uf}.healthBar:IsShown()') is False
+    hostile = add(plates, "nameplate15", '{ name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, friendly = false, guid = "C-15" }')
+    assert plates.eval(f'{hostile}.healthBar:IsShown()') is True
+    plates.execute('HogHeals.db.profile.plates.friendlyNameOnly = false; HogHealsPlates.Plates.Refresh()')
+    assert plates.eval(f'{uf}.healthBar:IsShown()') is True
+    assert errors(plates) == []
