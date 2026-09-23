@@ -83,11 +83,16 @@ end
 
 --- Find the per-player list inside a session table without assuming its field name: the first array whose
 -- elements are tables carrying something name-like.
+-- Measured on the Forever beta 2026-09-17 (diag.client.meter):
+--   GetCombatSessionFromType(sessionType, type) -> { combatSources = { { name, classFilename, totalAmount,
+--   amountPerSecond, sourceGUID, specIconID, isLocalPlayer, classification, deathRecapID, deathTimeSeconds,
+--   sourceDisplayType } ... }, durationSeconds, maxAmount, totalAmount }
+--   Enum.DamageMeterSessionType = { Overall = 0, Current = 1, Expired = 2 }
 local function findSources(session)
   if type(session) ~= "table" then return nil end
   for _, key in ipairs({ "combatSources", "sources", "entries", "players" }) do
     local v = session[key]
-    if type(v) == "table" and type(v[1]) == "table" then return v, key end
+    if type(v) == "table" and not isSecret(v) then return v, key end      -- may legitimately be EMPTY (no fight yet)
   end
   for key, v in pairs(session) do
     if type(v) == "table" and not isSecret(v) and type(v[1]) == "table" and pick(v[1], NAME_KEYS) ~= nil then return v, key end
@@ -112,7 +117,7 @@ function Meter.ReadSession(session)
       }
     end
   end
-  return { sources = out, listKey = key, encounter = session.encounterName or session.name }
+  return { sources = out, listKey = key, encounter = session.encounterName or session.name, maxAmount = session.maxAmount }
 end
 
 function Meter.DescribeKeys(t)
@@ -359,7 +364,7 @@ function Meter.Update()
   end
   f.empty:Hide()
   setTitle(data.encounter)
-  local top = data.sources[1].amount
+  local top = data.maxAmount or data.sources[1].amount      -- the session reports its own top amount
   local shown = 0
   for i, src in ipairs(data.sources) do
     if i > max then break end
