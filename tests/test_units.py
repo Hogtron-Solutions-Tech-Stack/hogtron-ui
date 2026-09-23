@@ -205,3 +205,21 @@ def test_disabling_a_frame_stops_its_unit_watch(units):
     assert units.eval('MockUnitWatch[HogUIPet]') is None and units.eval('HogUIPet:IsShown()') is False
     units.execute('HogHeals.db.profile.units.pet.enabled = true; HogHealsUnits.Units.Refresh()')
     assert units.eval('MockUnitWatch[HogUIPet] == true')
+
+
+def test_small_frames_use_one_row_layout(units):
+    assert units.eval('HogUITargetOfTarget.compact') is True and units.eval('HogUIPlayer.compact') is False
+    assert units.eval('HogUITargetOfTarget.name._points[1][1]') == "LEFT"
+    assert units.eval('HogUITargetOfTarget.healthText._points[1][1]') == "RIGHT"
+    assert units.eval('HogUITargetOfTarget.level:IsShown()') is False
+    assert units.eval('HogUITargetOfTarget.powerText:IsShown()') is False
+    assert units.eval('HogUIPlayer.name._points[1][1]') == "TOPLEFT" and units.eval('HogUIPlayer.powerText:IsShown()') is True
+    units.execute('HogHeals.db.profile.units.targettarget.height = 40; HogHealsUnits.Units.Refresh()')
+    assert units.eval('HogUITargetOfTarget.compact') is False
+
+
+def test_no_power_text_for_a_unit_without_power(units):
+    units.execute('MockUnits.target = { name = "Bat", class = "WARRIOR", health = 5, maxHealth = 5, power = 0, maxPower = 0, guid = "C-9" }; MockFire("PLAYER_TARGET_CHANGED")')
+    assert units.eval('HogUITarget.powerText._text') == ""
+    units.execute('MockSetSecrets(true); MockFire("UNIT_POWER_UPDATE", "target")')
+    assert units.eval('HogUITarget.powerText._text') == ""

@@ -153,6 +153,7 @@ function Units.PowerText(unit, mode)
   if p == nil then return "" end
   local m = num(max)
   if m and m <= 0 then return "" end
+  if tostring(max) == "0" or tostring(p) == "0" and tostring(max) == "0" then return "" end
   if mode == "current" then return abbreviate(p) end
   return abbreviate(p) .. " / " .. abbreviate(max)
 end
@@ -321,8 +322,39 @@ function Units.ApplyLook(f)
   setFont(f.healthText, size)
   setFont(f.powerText, math.max(7, size - 3))
   setFont(f.status, size)
+  Units.LayoutText(f)
   if HHU.Auras and HHU.Auras.Layout then HHU.Auras.Layout(f) end
   if Units.PlaceCastbar then Units.PlaceCastbar(f) end
+end
+
+--- Text placement. Full frames: name top-left, level top-right, health text bottom-right, power text on the
+-- power bar. Frames under COMPACT_HEIGHT (target-of-target, pet): one row - name left, health text right, no
+-- level, no power text. In game 2026-09-23 the 28 px ToT frame had all four fighting for two rows.
+Units.COMPACT_HEIGHT = 34
+function Units.LayoutText(f)
+  local d = ucfg(f.unit)
+  local compact = (d.height or 42) < Units.COMPACT_HEIGHT
+  f.compact = compact
+  f.name:ClearAllPoints()
+  f.level:ClearAllPoints()
+  f.healthText:ClearAllPoints()
+  if compact then
+    f.healthText:SetPoint("RIGHT", f.health, "RIGHT", -4, 0)
+    f.name:SetPoint("LEFT", f.health, "LEFT", 4, 0)
+    f.name:SetPoint("RIGHT", f.healthText, "LEFT", -4, 0)
+    f.level:SetPoint("TOPRIGHT", f.health, "TOPRIGHT", -4, -2)
+    f.level:Hide()
+    f.powerText:Hide()
+    f.status:Hide()
+  else
+    f.level:SetPoint("TOPRIGHT", f.health, "TOPRIGHT", -5, -3)
+    f.name:SetPoint("TOPLEFT", f.health, "TOPLEFT", 5, -3)
+    f.name:SetPoint("RIGHT", f.level, "LEFT", -4, 0)
+    f.healthText:SetPoint("BOTTOMRIGHT", f.health, "BOTTOMRIGHT", -5, 3)
+    if d.showLevel ~= false then f.level:Show() end
+    f.powerText:Show()
+    f.status:Show()
+  end
 end
 
 -- ------------------------------------------------------------------------------------------------ updates
