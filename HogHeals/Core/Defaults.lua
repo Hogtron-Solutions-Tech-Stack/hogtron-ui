@@ -78,10 +78,14 @@ HH.defaults = {
       tracker = {
         enabled = true, hideBlizzard = true, mode = "watched",   -- "watched" (all when none) | "zone" | "all"
         showLevels = true, hideCompleted = false, collapsed = false,
-        width = 260, maxHeight = 420, fontSize = 12, backgroundAlpha = 0.6,
+        width = 260, maxHeight = 420, fontSize = 12, scale = 1, backgroundAlpha = 0.6,
         point = "TOPRIGHT", x = -80, y = -260,
       },
       minimap = { enabled = true, edge = true, watchedOnly = false, size = 14 },
+    },
+    chat = {
+      enabled = true, backgroundAlpha = 0.6, fontSize = nil, outline = false,   -- fontSize nil = keep Blizzard's size
+      shortChannels = true, classNames = true, fade = true, hideButtons = true, hideMenuButtons = false,
     },
     plates = {
       enabled = true,                 -- restyle Blizzard's nameplates (flat bar, outline, health text)
