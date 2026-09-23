@@ -3,7 +3,7 @@
 ## Notes: Healer-first UI suite for WoW: Forever / Classic. Core module.
 ## Author: HogTron Solutions (Sean Bilger)
 ## Version: 0.1.0
-## SavedVariables: HogHealsDB
+## SavedVariables: HogHealsDB, HogHealsDBBackup
 ## X-Category: UnitFrame
 ## X-License: MIT
 ## X-Website: https://github.com/sbilger/hogheals
