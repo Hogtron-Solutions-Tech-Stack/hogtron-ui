@@ -128,6 +128,15 @@ function UnitButton.Setup(button)
   button.dispelIcon:SetSize(14, 14)
   button.dispelIcon:SetPoint("CENTER", button, "CENTER", 0, 0)
   button.dispelIcon:Hide()
+  -- Secret-aura path: one icon per harmful aura slot, shown/hidden by the client from a secret boolean.
+  button.dispelIcons = { button.dispelIcon }
+  for i = 2, 3 do
+    local t = mkTexture(button.overlay, "OVERLAY", 3)
+    t:SetSize(14, 14)
+    t:SetPoint("CENTER", button, "CENTER", (i - 2) * 16 + 16, 0)
+    t:Hide()
+    button.dispelIcons[i] = t
+  end
   button.priorityIcon = mkTexture(button.overlay, "OVERLAY", 4)
   button.priorityIcon:SetSize(18, 18)
   button.priorityIcon:SetPoint("CENTER", button, "CENTER", 0, 0)
