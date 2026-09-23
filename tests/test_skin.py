@@ -374,3 +374,24 @@ def test_flight_map_left_alone_by_default(lua):
     lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
     lua.execute('ShowUIPanel(TaxiFrame)')
     assert lua.eval('TaxiFrame.hhPanel') is None and lua.eval('TaxiMap1._texture') == "map-tile"
+
+
+def test_late_built_gossip_option_lines_lifted_and_kept_through_hover_repaint(lua):
+    lua.execute(CLIENT + """
+      GossipFrame = CreateFrame("Frame", "GossipFrame", UIParent)
+      SCROLL = CreateFrame("ScrollFrame", nil, GossipFrame)
+      function ShowUIPanel(f) f:Show() end
+    """)
+    lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
+    lua.execute('ShowUIPanel(GossipFrame)')
+    # option line created after the window is shown, dark grey like the quest lines in game
+    lua.execute("""
+      local b = CreateFrame("Button", nil, SCROLL)
+      OPT = b:CreateFontString(nil, "OVERLAY", "GameFontNormal"); OPT:SetTextColor(0.35, 0.35, 0.35)
+      MockAdvance(0.3)
+    """)
+    assert lua.eval('OPT._color[1]') == pytest.approx(0.96)
+    lua.execute('OPT:SetTextColor(0.35, 0.35, 0.35)')                        # Blizzard hover repaint
+    assert lua.eval('OPT._color[1]') == pytest.approx(0.96)
+    lua.execute('OPT:SetTextColor(1, 0.82, 0)')                               # gold stays gold
+    assert lua.eval('OPT._color[2]') == pytest.approx(0.82)
