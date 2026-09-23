@@ -524,6 +524,15 @@ function Units.AdoptCastbar(f)
   local name = Units.SPELLBAR[f.unit]
   local sb = name and rawget(_G, name)
   if not sb or f.castbar then return f.castbar end
+  -- Blizzard's bar talks to its parent as if it were TargetFrame (in game 2026-09-23, TargetFrame.lua:824 OnShow:
+  -- parentFrame:<method>() -> "attempt to call a nil value" on our frame). Every method the old parent has that we
+  -- lack becomes a no-op on ours: its aura / layout bookkeeping is about a frame that is hidden anyway.
+  local oldParent = call(sb.GetParent, sb)
+  if type(oldParent) == "table" then
+    for k, v in pairs(oldParent) do
+      if type(v) == "function" and rawget(f, k) == nil and f[k] == nil then f[k] = function() end end
+    end
+  end
   call(sb.SetParent, sb, f)
   f.castbar = sb
   if sb.SetStatusBarTexture then call(sb.SetStatusBarTexture, sb, FLAT) end
