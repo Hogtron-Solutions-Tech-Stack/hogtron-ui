@@ -27,6 +27,55 @@ local function skipped(name)
   return d and type(d.skip) == "table" and d.skip[name] == true
 end
 
+-- Parchment windows: their text is BLACK on parchment art that sits a layer or two below the window itself.
+-- Treatment (Sean 2026-09-23: "I do like the darker if we can recolour it properly"): recolour Blizzard's shared
+-- quest / book / mail font objects once (cream body, amber titles), then strip texture regions through the child
+-- frames too - but never inside Buttons, Sliders (scroll bars), EditBoxes or CheckButtons, and never an icon.
+Part.PARCHMENT = { GossipFrame = true, QuestFrame = true, QuestLogFrame = true, QuestLogDetailFrame = true, ItemTextFrame = true,
+  OpenMailFrame = true, QuestLogPopupDetailFrame = true }
+Part.BODY_FONTS = { "QuestFont", "QuestFontNormalSmall", "QuestFontLeft", "QuestFontHighlight", "ItemTextFontNormal", "MailTextFontNormal",
+  "InvoiceTextFontNormal", "InvoiceTextFontSmall", "MailFont_Large", "GossipGreetingText" }
+Part.TITLE_FONTS = { "QuestTitleFont", "QuestTitleFontBlack", "QuestFontNormalHuge", "QuestFontNormalLarge", "QuestFont_Huge", "QuestFont_Large", "QuestFont_Enormous" }
+local KEEP_TYPES = { Button = true, CheckButton = true, Slider = true, ScrollBar = true, EditBox = true, StatusBar = true, Model = true, PlayerModel = true }
+
+function Part.RecolorFonts()
+  if Part.fontsDone then return 0 end
+  Part.fontsDone = true
+  local n = 0
+  for _, fn in ipairs(Part.BODY_FONTS) do
+    local f = rawget(_G, fn)
+    if type(f) == "table" and f.SetTextColor then Skin.call(f.SetTextColor, f, Skin.CREAM[1], Skin.CREAM[2], Skin.CREAM[3]) n = n + 1 end
+  end
+  for _, fn in ipairs(Part.TITLE_FONTS) do
+    local f = rawget(_G, fn)
+    if type(f) == "table" and f.SetTextColor then Skin.call(f.SetTextColor, f, 0.95, 0.65, 0.15) n = n + 1 end
+  end
+  return n
+end
+
+local function isIcon(t)
+  local n = t.GetName and t:GetName()
+  return (type(n) == "string" and (n:find("Icon") or n:find("Portrait"))) or t.hhOurs
+end
+
+--- Texture regions of `frame` and its descendants cleared, skipping functional widgets and icons. Depth-limited.
+function Part.DeepKill(frame, depth)
+  depth = depth or 0
+  if type(frame) ~= "table" or depth > 6 then return 0 end
+  local kind = frame.GetObjectType and frame:GetObjectType() or "Frame"
+  if depth > 0 and KEEP_TYPES[kind] then return 0 end
+  local n = 0
+  if frame.GetRegions then
+    for _, r in ipairs({ frame:GetRegions() }) do
+      if r and r.GetObjectType and r:GetObjectType() == "Texture" and not isIcon(r) and Skin.Kill(r) then n = n + 1 end
+    end
+  end
+  if frame.GetChildren then
+    for _, c in ipairs({ frame:GetChildren() }) do n = n + Part.DeepKill(c, depth + 1) end
+  end
+  return n
+end
+
 function Part.Style(f)
   if type(f) ~= "table" or f.hhPanel then return false end
   local name = f.GetName and f:GetName() or "?"
@@ -60,6 +109,15 @@ function Part.Style(f)
     close.hhX:SetText("x")
     close.hhX:SetTextColor(Skin.CREAM[1], Skin.CREAM[2], Skin.CREAM[3])
     Skin.SetFont(close.hhX, 14)
+  end
+  if Part.PARCHMENT[name] then
+    Part.RecolorFonts()
+    Part.DeepKill(f)
+    -- scroll panels reuse parchment on show; strip again when the window shows
+    if not f.hhParchHooked and f.HookScript then
+      f.hhParchHooked = true
+      f:HookScript("OnShow", function(self) if Skin.cfg().enabled ~= false and Skin.cfg().panels.enabled ~= false and not skipped(self:GetName() or "") then Part.DeepKill(self) end end)
+    end
   end
   Part.styled[#Part.styled + 1] = name
   return true

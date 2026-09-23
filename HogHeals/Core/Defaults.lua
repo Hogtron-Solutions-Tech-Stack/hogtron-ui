@@ -127,10 +127,9 @@ HH.defaults = {
     skin = {
       enabled = true, font = "Friz Quadrata TT", backgroundAlpha = 0.75,
       actionBars = { enabled = true, hideArt = true, hotkeySize = 10, hideNames = true, cooldownNumbers = true },
-      -- parchment windows keep Blizzard's look: their text is black on parchment (in game 2026-09-23 the gossip
-      -- window went black-on-ink and unreadable); World Map keeps its own art
-      panels = { enabled = true, alpha = 0.9, titleSize = 13, skip = { WorldMapFrame = true, GossipFrame = true, QuestFrame = true,
-        QuestLogFrame = true, QuestLogDetailFrame = true, ItemTextFrame = true, OpenMailFrame = true, TabardFrame = true } },
+      -- parchment windows get the parchment treatment in Panels.lua (fonts recoloured, inner art stripped);
+      -- World Map and the tabard designer keep their own art
+      panels = { enabled = true, alpha = 0.9, titleSize = 13, skip = { WorldMapFrame = true, TabardFrame = true } },
       auto = { sellJunk = true, repair = true, guildRepair = false },
       micro = { enabled = true, scale = 1 },
       bagBar = { enabled = true },
