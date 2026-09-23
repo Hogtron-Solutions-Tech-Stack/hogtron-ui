@@ -23,6 +23,20 @@ HH.defaults = {
     locked = true,
     minimap = { hide = true },
     wizardDone = false,
+    units = {
+      enabled = true, hideBlizzard = true, tooltips = true,
+      classColors = true, reactionColors = true, healthColor = { 0.25, 0.80, 0.35 },
+      healthText = "current-max", powerText = "current-max",   -- percent | current | current-max | current-percent | none (Sean: "343 / 343")
+      texture = "Solid", font = "Friz Quadrata TT", fontSize = 12, backgroundAlpha = 0.6,
+      -- flanking the bottom centre (ElvUI's arrangement): player left, target right, small frames beside them
+      player = { enabled = true, width = 240, height = 42, powerHeight = 8, showPower = true, showName = true, showLevel = true, point = "BOTTOM", x = -280, y = 230 },
+      target = { enabled = true, width = 240, height = 42, powerHeight = 8, showPower = true, showName = true, showLevel = true, point = "BOTTOM", x = 280, y = 230,
+        castbar = true, castbarHeight = 16, debuffs = true, buffs = false, auraSize = 22, aurasPerRow = 8, maxDebuffs = 16, maxBuffs = 16 },
+      targettarget = { enabled = true, width = 170, height = 28, powerHeight = 4, showPower = true, showName = true, showLevel = false, point = "BOTTOM", x = 500, y = 275 },
+      pet = { enabled = true, width = 170, height = 28, powerHeight = 4, showPower = true, showName = true, showLevel = false, point = "BOTTOM", x = -500, y = 275 },
+      focus = { enabled = false, width = 200, height = 36, powerHeight = 6, showPower = true, showName = true, showLevel = true, point = "BOTTOM", x = 280, y = 330,
+        castbar = true, castbarHeight = 14, debuffs = true, buffs = false, auraSize = 20, aurasPerRow = 8, maxDebuffs = 8, maxBuffs = 8 },
+    },
     frames = {
       hideBlizzard = true,           -- our group frames on = Blizzard's party / raid-style frames off
       soloSharesParty = true,        -- one layout for solo and party (size, growth, anchor); showSolo stays solo's own
