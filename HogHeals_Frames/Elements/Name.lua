@@ -14,7 +14,7 @@ function E.Update(button, unit)
     if button.name.SetWordWrap then button.name:SetWordWrap(false) end
   elseif n > 0 and #name > n then name = name:sub(1, n) end
   button.name:SetText(name)
-  local _, class = UnitClass(unit)
+  local class = HHF.Compat.ClassOf(unit)
   local c = class and RAID_CLASS_COLORS[class]
   if ap.healthMode == "class" or not c then
     button.name:SetTextColor(0.96, 0.92, 0.86)

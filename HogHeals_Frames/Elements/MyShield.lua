@@ -20,7 +20,7 @@ end
 local WS = {}
 
 function E.Update(button, unit)
-  local _, class = UnitClass("player")
+  local class = HHF.Compat.ClassOf("player")
   local shields = {}
   for _, s in ipairs(HH.ShieldSpells(class)) do shields[s] = true end
   WS[HH.WEAKENED_SOUL] = true

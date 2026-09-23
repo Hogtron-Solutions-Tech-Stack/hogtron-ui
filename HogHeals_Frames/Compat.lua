@@ -92,6 +92,37 @@ function Compat.IsSecret(v)
   return f(v) and true or false
 end
 
+-- Class tokens, remembered. 2026-09-22 in game (Forever beta): the player frame's class-coloured health bar went
+-- GREY in combat. The client has C_Secrets.ShouldUnitIdentityBeSecret: in combat UnitClass can come back secret or
+-- empty, and "no readable class" fell through to the grey default. A unit's class never changes, so every class we
+-- CAN read is kept (by GUID and by name - names were measured NOT secret) and handed back while it is hidden.
+Compat.classByGUID, Compat.classByName = Compat.classByGUID or {}, Compat.classByName or {}
+
+local function plainString(v)
+  if type(v) ~= "string" or Compat.IsSecret(v) or v == "" then return nil end
+  return v
+end
+
+--- Class token ("SHAMAN") for a unit, readable in combat too when we have seen it before. nil only for a unit whose
+-- class we have never been able to read.
+function Compat.ClassOf(unit)
+  if not unit then return nil end
+  local okC, _, class = pcall(UnitClass, unit)
+  class = okC and plainString(class) or nil
+  local okG, guid = pcall(UnitGUID, unit)
+  guid = okG and plainString(guid) or nil
+  local okN, name = pcall(UnitName, unit)
+  name = okN and plainString(name) or nil
+  if class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class] then
+    if guid then Compat.classByGUID[guid] = class end
+    if name then Compat.classByName[name] = class end
+    if unit == "player" then Compat.playerClass = class end
+    return class
+  end
+  if unit == "player" and Compat.playerClass then return Compat.playerClass end
+  return (guid and Compat.classByGUID[guid]) or (name and Compat.classByName[name]) or nil
+end
+
 --- Reason string when this client cannot support an element, else nil. Runtime only, never saved.
 function Compat.Blocked(name)
   return Compat.blocked and Compat.blocked[name] or nil
