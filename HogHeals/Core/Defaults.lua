@@ -92,6 +92,7 @@ HH.defaults = {
       enabled = true,                 -- restyle Blizzard's nameplates (flat bar, outline, health text)
       font = "Friz Quadrata TT", fontSize = 10, healthText = "percent",   -- "percent" | "value" | "none"
       border = true, classColors = true, reactionColors = true, castbar = true,
+      nameClass = "friendly",         -- player names on plates in class colour: "friendly" | "all" | "none"
       target = { highlight = true, color = { 0.13, 0.83, 0.88 }, fadeOthers = true, otherAlpha = 0.6 },
       aggro = { warn = true, color = { 0.85, 0.20, 0.20 } },   -- healer pulled threat: red outline
       quest = { icon = true, highlight = true, progress = true, tint = false, iconSize = 16, color = { 0.95, 0.65, 0.15 } },

@@ -40,6 +40,9 @@ function Options.Build()
           get = function() return p().healthText or "percent" end, set = function(_, v) p().healthText = v; refresh() end },
         fontSize = range(p, "fontSize", "Font size", 6, 7, 18, 1),
         castbar = toggle(p, "castbar", "Flatten the cast bar under the plate", 7),
+        nameClass = { type = "select", name = "Player names in class colour", order = 8,
+          values = { friendly = "Friendly players", all = "All players", none = "Off" },
+          get = function() return p().nameClass or "friendly" end, set = function(_, v) p().nameClass = v; refresh() end },
       } },
       highlight = { type = "group", name = "Highlight", order = 2, args = {
         about = { type = "description", order = 0, name = "Outline colour by priority: a mob on YOU (red) beats your target (cyan) beats a quest mob (amber)." },
