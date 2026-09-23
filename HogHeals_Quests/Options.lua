@@ -51,9 +51,9 @@ function Options.Build()
           wheelZoom = toggle(mp, "wheelZoom", "Mouse wheel zoom", 4, sr),
           hideDecor = toggle(mp, "hideDecor", "Hide Blizzard's round border and zoom buttons", 5, sr),
         } },
-        pins = { type = "group", inline = true, name = "Extra quest pins", order = 2, args = {
-          about = { type = "description", order = 0, name = "The game already marks your quests on the minimap. These are EXTRA HogHeals pins, off by default because they sit on top of Blizzard's. Only turn them on if Blizzard's markers are missing somewhere." },
-          enabled = toggle(mm, "enabled", "Extra quest pins", 1, pr),
+        pins = { type = "group", inline = true, name = "Quest markers", order = 2, args = {
+          about = { type = "description", order = 0, name = "Quest markers on the minimap: amber ! = objective, amber ? = ready to turn in. Blizzard only shades the quest AREA; these mark the spot. Far quests get an arrow on the rim (except the one Blizzard already points at with its gold arrow). Hover for the objectives, click to open the quest." },
+          enabled = toggle(mm, "enabled", "Quest markers", 1, pr),
           edge = toggle(mm, "edge", "Arrow on the rim for far quests", 2, pr),
           watchedOnly = toggle(mm, "watchedOnly", "Only watched quests", 3, pr),
           size = range(mm, "size", "Pin size", 4, 8, 32, 1, pr),

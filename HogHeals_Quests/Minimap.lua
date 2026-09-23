@@ -14,8 +14,9 @@ local HH = HogHeals
 local Pins = { pool = {}, sizeCache = {} }
 HHQ.Pins = Pins
 
--- OFF by default since 2026-09-22: the Forever client draws its OWN quest markers on the minimap (icon, shaded quest
--- area, rim arrow) and ours stacked on top of them ("cluttered"). Kept as an option for clients / zones without them.
+-- ON by default. 2026-09-22 in game: Forever draws only the shaded quest AREAS and one gold rim arrow for the
+-- super-tracked quest, no point markers; the "clutter" was our old drawn squares on top of each other. So: our pins
+-- mark the points, and the super-tracked quest gets no rim arrow from us (Blizzard's gold one is already there).
 -- Art = HogHeals/Media/quest_*.tga (dev/icons/build_icons.py); a client that refuses the file (SetTexture -> false)
 -- gets a drawn square + glyph instead, never an invisible pin. Far quests show a rotated arrow on the rim.
 local OPEN = { art = "Interface\\AddOns\\HogHeals\\Media\\quest_open", glyph = "!", color = { 0.95, 0.65, 0.15 } }
@@ -210,13 +211,14 @@ function Pins.Update()
   local facing = rotating() and type(GetPlayerFacing) == "function" and num(try(GetPlayerFacing)) or nil
   local square = type(GetMinimapShape) == "function" and try(GetMinimapShape) == "SQUARE"
   local size = d.size or 14
+  local superTracked = type(C_SuperTrack) == "table" and num(try(C_SuperTrack.GetSuperTrackedQuestID)) or nil
   local n = 0
   for _, pt in ipairs(points) do
     local q = pt.id and byId[pt.id] or { title = "Quest " .. tostring(pt.id), objectives = {} }
     if not (d.watchedOnly and not q.watched) then
       local dx, dy = (pt.x - px) * w, (pt.y - py) * h
       local ox, oy, edge = Pins.Place(dx, dy, radius, half - size / 3, facing, square)
-      if not edge or d.edge ~= false then
+      if (not edge or d.edge ~= false) and not (edge and pt.id ~= nil and pt.id == superTracked) then
         n = n + 1
         local p = pin(n)
         p.quest, p.yards = q, math.floor(math.sqrt(dx * dx + dy * dy) + 0.5)

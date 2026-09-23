@@ -13,10 +13,15 @@ function GetZonePVPInfo() return "friendly" end
 '''
 
 
-def test_pins_off_by_default_because_the_client_draws_its_own(lua):
+def test_pins_on_by_default_and_no_second_arrow_for_the_super_tracked_quest(lua):
     boot(lua, MODERN)
-    assert lua.eval('HogHeals.db.profile.quests.minimap.enabled') is False
-    assert lua.eval('HogHealsQuests.Pins.Update()') == 0
+    assert lua.eval('HogHeals.db.profile.quests.minimap.enabled') is True
+    lua.execute('GetMinimapShape = nil; Minimap:SetSize(140, 140)')
+    assert lua.eval('HogHealsQuests.Pins.Update()') == 2          # in-range objective + far turn-in arrow
+    lua.execute('C_SuperTrack = { GetSuperTrackedQuestID = function() return 9 end }')
+    assert lua.eval('HogHealsQuests.Pins.Update()') == 1          # Blizzard's gold arrow already points at 9
+    lua.execute('C_SuperTrack = { GetSuperTrackedQuestID = function() return 7 end }')
+    assert lua.eval('HogHealsQuests.Pins.Update()') == 2          # in-range pins are never dropped
 
 
 def test_pin_falls_back_to_drawn_badge_when_art_is_refused(lua):
