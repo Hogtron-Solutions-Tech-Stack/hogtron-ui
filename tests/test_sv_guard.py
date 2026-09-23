@@ -75,7 +75,7 @@ def test_empty_main_db_is_reseeded_from_backup():
     assert lua.eval("HogHeals.db.profile.wizardDone") is True
     assert lua.eval("HogHeals.db.profile.meter.width") == 370
     assert lua.eval("HogHeals.db.profile.frames.appearance.fontSize") == 18
-    assert lua.eval("HogHeals.db.global.schema") == 3
+    assert lua.eval("HogHeals.db.global.schema") == 4
     e = last_init(lua)
     assert e["restored"] is True and e["svPresent"] == "nil" and e["backup"] == "table"
 
@@ -89,7 +89,7 @@ def test_backup_is_refreshed_at_logout_without_defaults_or_diag():
     assert d["frames"]["appearance"]["fontSize"] == 17 and d["meter"]["width"] == 333
     assert d["meter"]["barHeight"] is None          # default value, stripped (AceDB logout ran first)
     assert b["profileKeys"]["Hog Tistic - Classic Beta PvP"] == "Default"
-    assert b["global"] is None and b["schema"] == 3 and b["reason"] == "logout"
+    assert b["global"] is None and b["schema"] == 4 and b["reason"] == "logout"
 
 
 def test_backup_written_at_init_without_baked_defaults():
