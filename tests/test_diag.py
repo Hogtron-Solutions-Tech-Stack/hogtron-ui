@@ -117,3 +117,15 @@ def test_aura_probe_describes_fields_and_secrecy(core):
     assert a["HARMFUL|RAID"] == "auraInstanceID=number dispelName=userdata:secret icon=number name=userdata:secret"
     assert a["HELPFUL"].startswith("none")
     core.execute('C_UnitAuras = nil')
+
+
+def test_nameplate_probe_records_api_surface_and_cvars(core):
+    core.execute("""C_NamePlate = { GetNamePlates = function() return { { UnitFrame = { healthBar = {}, name = {} }, namePlateUnitToken = "nameplate1" } } end, GetNamePlateForUnit = function() end }
+    GetCVar = function(cv) if cv == "nameplateShowEnemies" then return "1" end return nil end
+    HogHeals:SnapshotClient()""")
+    n = core.eval('HogHeals.db.global.diag.client.nameplates')
+    assert n["C_NamePlate"] == "GetNamePlateForUnit,GetNamePlates"
+    assert n["platesOnScreen"] == 1 and "UnitFrame=table" in n["plate1"]
+    assert n["plate1UnitFrameChildren"] == "healthBar,name"
+    assert n["cvar.nameplateShowEnemies"] == "1"
+    core.execute('C_NamePlate = nil')
