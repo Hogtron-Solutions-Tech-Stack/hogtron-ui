@@ -231,3 +231,14 @@ def test_every_options_getter_runs(lua):
     assert lua.eval('HogHeals.OptionsTable().args.Plates.name') == "Nameplates"
     assert lua.eval('HogHeals.OptionsTable().args.Quests.name') == "Quests"
     assert errors(lua) == []
+
+
+def test_platediag_explains_missing_plates(plates):
+    plates.execute('local p = MockPlate("nameplate7", { name = "Guard", class = "WARRIOR", guid = "C-10" }); function p:IsForbidden() return true end')
+    plates.execute('MockFire("NAME_PLATE_UNIT_ADDED", "nameplate7"); MockFire("NAME_PLATE_UNIT_ADDED", "nameplate99")')
+    plates.execute('wipe(MockLog.chat or {}); HogHeals:SlashCommand("platediag")')
+    chat = "\n".join(plates.eval('MockLog.chat').values())
+    assert "ADDED=2" in chat
+    assert "plate forbidden x1" in chat and "GetNamePlateForUnit(nameplateN)=nil x1" in chat
+    assert "on screen now (GetNamePlates): 1" in chat
+    assert errors(plates) == []

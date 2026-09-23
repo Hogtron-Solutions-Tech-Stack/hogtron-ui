@@ -35,12 +35,13 @@ end
 -- ------------------------------------------------------------------------------------------------ frames
 --- Blizzard's UnitFrame for a nameplate unit (nil for forbidden / missing plates).
 function Plates.FrameFor(unit)
-  if type(C_NamePlate) ~= "table" then return nil end
+  if type(C_NamePlate) ~= "table" then return nil, "no C_NamePlate" end
   local plate = call(C_NamePlate.GetNamePlateForUnit, unit)
-  if type(plate) ~= "table" then return nil end
-  if plate.IsForbidden and call(plate.IsForbidden, plate) then return nil end
+  if type(plate) ~= "table" then return nil, "GetNamePlateForUnit(" .. tostring(unit) .. ")=" .. type(plate) end
+  if plate.IsForbidden and call(plate.IsForbidden, plate) then return nil, "plate forbidden" end
   local uf = plate.UnitFrame
-  if type(uf) ~= "table" or (uf.IsForbidden and call(uf.IsForbidden, uf)) then return nil end
+  if type(uf) ~= "table" then return nil, "no plate.UnitFrame" end
+  if uf.IsForbidden and call(uf.IsForbidden, uf) then return nil, "UnitFrame forbidden" end
   return uf, plate
 end
 
@@ -263,9 +264,14 @@ local function sample(unit, uf)
   end
 end
 
+Plates.skips = {}
 function Plates.Added(unit)
-  local uf = Plates.FrameFor(unit)
-  if not uf then return end
+  local uf, why = Plates.FrameFor(unit)
+  if not uf then
+    why = type(why) == "string" and why:gsub("nameplate%d+", "nameplateN") or "?"
+    Plates.skips[why] = (Plates.skips[why] or 0) + 1
+    return
+  end
   Plates.Skin(uf)
   uf.hh.unit = unit
   Plates.active[unit] = uf
@@ -345,7 +351,9 @@ function Module:OnEnable()
   for _, e in ipairs(EVENTS) do
     if not pcall(ev.RegisterEvent, ev, e) then Module.unknown[#Module.unknown + 1] = e end
   end
+  Plates.seen = {}
   ev:SetScript("OnEvent", function(self, e, ...)
+    Plates.seen[e] = (Plates.seen[e] or 0) + 1
     local ok, err = xpcall(Plates.OnEvent, HH.Trace, self, e, ...)
     if not ok and err ~= Plates.lastError then Plates.lastError = err HH:LogError("plates " .. tostring(e) .. ": " .. tostring(err)) end
   end)
@@ -360,9 +368,37 @@ function Module:GetOptions()
 end
 
 HH:RegisterModule("Plates", Module)
+--- Everything needed to tell "no plates on screen" from "plates we fail to pick up".
+function Plates.Diagnose()
+  local out = {}
+  out[#out + 1] = ("module enabled: %s   unknown events: %s"):format(tostring(Module.events ~= nil), table.concat(Module.unknown or {}, ",") ~= "" and table.concat(Module.unknown, ",") or "none")
+  local seen = Plates.seen or {}
+  out[#out + 1] = ("events seen: ADDED=%d REMOVED=%d TARGET=%d QUEST_LOG=%d"):format(seen.NAME_PLATE_UNIT_ADDED or 0, seen.NAME_PLATE_UNIT_REMOVED or 0, seen.PLAYER_TARGET_CHANGED or 0, seen.QUEST_LOG_UPDATE or 0)
+  local cvar = function(n) local ok, v = pcall(GetCVar, n) return ok and tostring(v) or "?" end
+  out[#out + 1] = ("cvars: nameplateShowEnemies=%s nameplateShowAll=%s nameplateShowFriends=%s"):format(cvar("nameplateShowEnemies"), cvar("nameplateShowAll"), cvar("nameplateShowFriends"))
+  local plates = type(C_NamePlate) == "table" and call(C_NamePlate.GetNamePlates) or nil
+  out[#out + 1] = ("on screen now (GetNamePlates): %s"):format(type(plates) == "table" and #plates or tostring(plates))
+  for i, plate in ipairs(type(plates) == "table" and plates or {}) do
+    if i > 5 then break end
+    local unit = plate.unitToken or plate.namePlateUnitToken or (type(plate.UnitFrame) == "table" and (plate.UnitFrame.unit or plate.UnitFrame.displayedUnit))
+    local uf, why = Plates.FrameFor(unit)
+    out[#out + 1] = ("  #%d unit=%s name=%s -> %s"):format(i, tostring(unit), tostring(unit and call(UnitName, unit)), uf and ("ok, skinned=" .. tostring(uf.hh ~= nil)) or tostring(why))
+  end
+  local sk = {}
+  for k, v in pairs(Plates.skips or {}) do sk[#sk + 1] = k .. " x" .. v end
+  out[#out + 1] = "skipped: " .. (#sk > 0 and table.concat(sk, "; ") or "none")
+  return out
+end
+
 HH:RegisterSlash("platediag", function()
+  local ok, lines = pcall(Plates.Diagnose)
+  if not ok then HH:Print("platediag failed: " .. tostring(lines)) return end
+  for _, l in ipairs(lines) do HH:Print(l) end
+  Plates.Scan()
   local n = 0
   for _ in pairs(Plates.active) do n = n + 1 end
-  HH:Print(("plates: %d active, %d sampled (see diag.plates in the saved file)"):format(n, #Plates.samples))
+  HH:Print(("after rescan: %d active, %d sampled (details in diag.plates)"):format(n, #Plates.samples))
   for _, s in ipairs(Plates.samples) do HH:Print(("  %s: quest=%s tooltip=%s"):format(s.name, s.quest, s.tooltip)) end
+  local g = HH.db and HH.db.global
+  if g then g.diag = g.diag or {} g.diag.platesDiagnose = lines end
 end, "print what the nameplate module sees")
