@@ -31,7 +31,7 @@ HH.defaults = {
       -- flanking the bottom centre (ElvUI's arrangement): player left, target right, small frames beside them
       player = { enabled = true, width = 240, height = 42, powerHeight = 8, showPower = true, showName = true, showLevel = true, point = "BOTTOM", x = -280, y = 230 },
       target = { enabled = true, width = 240, height = 42, powerHeight = 8, showPower = true, showName = true, showLevel = true, point = "BOTTOM", x = 280, y = 230,
-        castbar = true, castbarHeight = 16, debuffs = true, buffs = true, auraSize = 22, aurasPerRow = 8, maxDebuffs = 16, maxBuffs = 16 },
+        castbar = true, castbarHeight = 16, debuffs = true, buffs = false, auraSize = 22, aurasPerRow = 8, maxDebuffs = 16, maxBuffs = 16 },
       targettarget = { enabled = true, width = 140, height = 28, powerHeight = 4, showPower = true, showName = true, showLevel = false, point = "BOTTOM", x = 480, y = 275 },
       pet = { enabled = true, width = 140, height = 28, powerHeight = 4, showPower = true, showName = true, showLevel = false, point = "BOTTOM", x = -480, y = 275 },
       focus = { enabled = false, width = 200, height = 36, powerHeight = 6, showPower = true, showName = true, showLevel = true, point = "BOTTOM", x = 280, y = 330,

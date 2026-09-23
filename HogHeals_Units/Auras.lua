@@ -60,7 +60,9 @@ local function newIcon(parent, unit)
   if b.icon.SetTexCoord then b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92) end   -- trim Blizzard's icon border
   b.cd = CreateFrame("Cooldown", nil, b, "CooldownFrameTemplate")
   b.cd:SetAllPoints(b)
-  if b.cd.SetHideCountdownNumbers then b.cd:SetHideCountdownNumbers(false) end
+  -- the swipe shows the time; Blizzard's countdown numbers were far too big for a 22 px icon (in game 2026-09-23)
+  if b.cd.SetHideCountdownNumbers then b.cd:SetHideCountdownNumbers(true) end
+  if b.cd.SetDrawEdge then b.cd:SetDrawEdge(false) end
   b.count = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   b.count:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 1, 0)
   b.count:SetJustifyH("RIGHT")
@@ -99,6 +101,11 @@ end
 function Auras.Update(f)
   local d = ucfg(f.unit)
   local unit = f.unit
+  -- only frames configured for auras (target, focus): the player's buffs live in Blizzard's buff area
+  if d.debuffs == nil and d.buffs == nil then
+    if f.auras then for _, k in ipairs({ "debuffs", "buffs" }) do for _, b in ipairs(f.auras[k]) do b:Hide() end end end
+    return 0, 0
+  end
   f.auras = f.auras or { buffs = {}, debuffs = {} }
   local shownD, shownB = 0, 0
   if d.debuffs ~= false and f:IsShown() then
@@ -110,7 +117,7 @@ function Auras.Update(f)
     end
   end
   for i = shownD + 1, #f.auras.debuffs do f.auras.debuffs[i]:Hide() end
-  if d.buffs ~= false and f:IsShown() then
+  if d.buffs == true and f:IsShown() then
     for i, a in ipairs(Auras.Read(unit, "HELPFUL", d.maxBuffs or 16)) do
       local b = f.auras.buffs[i] or newIcon(f, unit)
       f.auras.buffs[i] = b

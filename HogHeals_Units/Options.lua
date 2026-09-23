@@ -57,7 +57,8 @@ local function unitTab(unit, order)
     t.args.castbar = toggle(u(unit), "castbar", "Cast bar above the frame (Blizzard's, restyled)", 11)
     t.args.castbarHeight = range(u(unit), "castbarHeight", "Cast bar height", 12, 8, 30, 1)
     t.args.debuffs = toggle(u(unit), "debuffs", "Debuffs under the frame", 13)
-    t.args.buffs = toggle(u(unit), "buffs", "Buffs under the debuffs", 14)
+    t.args.buffs = { type = "toggle", name = "Buffs under the debuffs (off: Blizzard's buff area keeps them)", order = 14,
+      get = function() return u(unit)().buffs == true end, set = function(_, v) u(unit)().buffs = v and true or false; refresh() end }
     t.args.auraSize = range(u(unit), "auraSize", "Aura icon size", 15, 12, 40, 1)
     t.args.aurasPerRow = range(u(unit), "aurasPerRow", "Auras per row", 16, 4, 20, 1)
     t.args.maxDebuffs = range(u(unit), "maxDebuffs", "Max debuffs", 17, 0, 40, 1)
