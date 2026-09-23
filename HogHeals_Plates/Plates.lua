@@ -1,0 +1,368 @@
+-- HogHeals nameplates: restyle Blizzard's plates, mark quest mobs, highlight the target and aggro.
+--
+-- We never replace Blizzard's plate (its base frame is protected; replacing it is Plater-sized and the secret-value
+-- rules make most of that moot). We decorate plate.UnitFrame, whose structure was MEASURED on the Forever beta
+-- (2026-09-18: healthBar, name, HealthBarsContainer, CastBarsContainer, AurasFrame, RaidTargetFrame, ...):
+--   look      flat bar texture, dark backing, 1 px outline, name font, health text
+--   colours   class colour for enemy players, reaction colour for NPCs, grey when tapped by someone else;
+--             Blizzard re-colours the bar on its own updates, so SetStatusBarColor is hooked and our colour re-applied
+--   highlight outline colour by priority: aggro on you (red) > your target (cyan) > quest mob (amber);
+--             optional fade of every plate that is not your target
+--   quest     "!" icon + progress ("3/8") beside quest mobs (QuestMobs.lua)
+-- Health on this client can be SECRET in combat: text goes through UnitHealthPercent / format / AbbreviateNumbers,
+-- never through our own arithmetic.
+HogHealsPlates = HogHealsPlates or {}
+local HHP = HogHealsPlates
+local HH = HogHeals
+
+local Plates = { active = {}, samples = {} }
+HHP.Plates = Plates
+
+local FLAT = "Interface\\Buttons\\WHITE8X8"
+local QUEST_ICON = "Interface\\GossipFrame\\AvailableQuestIcon"
+local LINE = { 0.05, 0.05, 0.06 }
+
+local function cfg() return HH.db.profile.plates end
+local function isSecret(v) return type(issecretvalue) == "function" and issecretvalue(v) and true or false end
+local function num(v) if type(v) == "number" and not isSecret(v) then return v end end
+local function bool(v) if isSecret(v) then return nil end return v and true or false end
+local function call(f, ...)
+  if type(f) ~= "function" then return nil end
+  local ok, a, b = pcall(f, ...)
+  if ok then return a, b end
+end
+
+-- ------------------------------------------------------------------------------------------------ frames
+--- Blizzard's UnitFrame for a nameplate unit (nil for forbidden / missing plates).
+function Plates.FrameFor(unit)
+  if type(C_NamePlate) ~= "table" then return nil end
+  local plate = call(C_NamePlate.GetNamePlateForUnit, unit)
+  if type(plate) ~= "table" then return nil end
+  if plate.IsForbidden and call(plate.IsForbidden, plate) then return nil end
+  local uf = plate.UnitFrame
+  if type(uf) ~= "table" or (uf.IsForbidden and call(uf.IsForbidden, uf)) then return nil end
+  return uf, plate
+end
+
+local function healthBar(uf)
+  return uf.healthBar or (type(uf.HealthBarsContainer) == "table" and uf.HealthBarsContainer.healthBar) or nil
+end
+
+local function fontPath()
+  local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
+  local p = LSM and call(LSM.Fetch, LSM, "font", cfg().font or "Friz Quadrata TT")
+  return p or STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
+end
+
+local function setFont(fs, size)
+  if fs and fs.SetFont then call(fs.SetFont, fs, fontPath(), size, "OUTLINE") end
+end
+
+--- Add our pieces to a UnitFrame once. Plates are recycled between units, so everything unit-specific lives in
+-- Update, not here.
+function Plates.Skin(uf)
+  if uf.hh then return uf.hh end
+  local hh = {}
+  uf.hh = hh
+  local hb = healthBar(uf)
+  hh.bar = hb
+  local anchor = hb or uf
+  hh.overlay = CreateFrame("Frame", nil, uf)
+  hh.overlay:SetAllPoints(anchor)
+  hh.overlay:SetFrameLevel(((anchor.GetFrameLevel and anchor:GetFrameLevel()) or 1) + 5)
+  hh.edges = {}
+  local spec = { { "TOPLEFT", "TOPRIGHT", -1, 1, 1, 1, nil, 1 }, { "BOTTOMLEFT", "BOTTOMRIGHT", -1, -1, 1, -1, nil, 1 },
+    { "TOPLEFT", "BOTTOMLEFT", -1, 1, -1, -1, 1, nil }, { "TOPRIGHT", "BOTTOMRIGHT", 1, 1, 1, -1, 1, nil } }
+  for i, s in ipairs(spec) do
+    local e = hh.overlay:CreateTexture(nil, "OVERLAY")
+    e:SetColorTexture(LINE[1], LINE[2], LINE[3], 1)
+    e:SetPoint(s[1], anchor, s[1], s[3], s[4])
+    e:SetPoint(s[2], anchor, s[2], s[5], s[6])
+    if s[7] then e:SetWidth(s[7]) end
+    if s[8] then e:SetHeight(s[8]) end
+    e:Hide()
+    hh.edges[i] = e
+  end
+  hh.health = hh.overlay:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  hh.health:SetPoint("CENTER", anchor, "CENTER", 0, 0)
+  hh.questFrame = CreateFrame("Frame", nil, uf)
+  hh.questFrame:SetFrameLevel(hh.overlay:GetFrameLevel() + 1)
+  hh.questFrame:SetSize(16, 16)
+  hh.questFrame:SetPoint("LEFT", anchor, "RIGHT", 3, 0)
+  hh.quest = hh.questFrame:CreateTexture(nil, "OVERLAY")
+  hh.quest:SetAllPoints(hh.questFrame)
+  hh.quest:SetTexture(QUEST_ICON)
+  hh.progress = hh.questFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  hh.progress:SetPoint("LEFT", hh.questFrame, "RIGHT", 1, 0)
+  hh.progress:SetTextColor(0.95, 0.65, 0.15)
+  hh.questFrame:Hide()
+  if hb then
+    hh.bg = hb:CreateTexture(nil, "BACKGROUND")
+    hh.bg:SetAllPoints(hb)
+    hh.bg:SetColorTexture(0.06, 0.06, 0.08, 0.85)
+    hh.bg:Hide()
+    if type(hooksecurefunc) == "function" and hb.SetStatusBarColor then
+      -- Blizzard recolours on its own schedule; put ours back right after. hh.lock stops our own call recursing.
+      local ok = pcall(hooksecurefunc, hb, "SetStatusBarColor", function()
+        if not hh.lock and hh.unit then Plates.Color(uf) end
+      end)
+      hh.hooked = ok
+    end
+  end
+  return hh
+end
+
+-- ------------------------------------------------------------------------------------------------ pieces
+function Plates.ColorFor(unit)
+  local d = cfg()
+  if d.classColors ~= false and bool(call(UnitIsPlayer, unit)) then
+    local _, class = call(UnitClass, unit)
+    local c = type(class) == "string" and not isSecret(class) and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+    if c then return c.r, c.g, c.b end
+  end
+  if bool(call(UnitIsTapDenied, unit)) then return 0.5, 0.5, 0.5 end
+  if d.reactionColors ~= false then
+    local r = num(call(UnitReaction, unit, "player"))
+    if r then
+      if r <= 2 then return 0.85, 0.20, 0.20
+      elseif r == 3 then return 0.90, 0.45, 0.10
+      elseif r == 4 then return 0.95, 0.80, 0.20 end
+      return 0.25, 0.80, 0.35
+    end
+  end
+  return nil
+end
+
+function Plates.Color(uf)
+  local hh, d = uf.hh, cfg()
+  if not hh or not hh.bar or not hh.unit or d.enabled == false then return end
+  local r, g, b = Plates.ColorFor(hh.unit)
+  if hh.questInfo and d.quest.tint then r, g, b = d.quest.color[1], d.quest.color[2], d.quest.color[3] end
+  if not r then return end
+  hh.lock = true
+  call(hh.bar.SetStatusBarColor, hh.bar, r, g, b)
+  hh.lock = false
+end
+
+--- Health text without doing sums on a value that may be secret.
+function Plates.HealthText(unit, mode)
+  if mode == "none" then return "" end
+  if mode == "percent" then
+    if type(UnitHealthPercent) == "function" then
+      local curve = type(CurveConstants) == "table" and CurveConstants.ScaleTo100 or nil
+      local v = call(UnitHealthPercent, unit, true, curve)
+      if v ~= nil then
+        if curve then return string.format("%.0f%%", v) end
+        if num(v) then return string.format("%.0f%%", v * 100) end
+      end
+    end
+    local h, m = call(UnitHealth, unit), call(UnitHealthMax, unit)
+    if num(h) and num(m) and m > 0 then return string.format("%.0f%%", h / m * 100) end
+  end
+  local h = call(UnitHealth, unit)
+  if h == nil then return "" end
+  local s = call(AbbreviateNumbers, h)
+  if s ~= nil then return s end
+  return tostring(h)
+end
+
+function Plates.UpdateHealth(uf)
+  local hh, d = uf.hh, cfg()
+  if not hh or not hh.unit then return end
+  if d.enabled == false or d.healthText == "none" then hh.health:Hide() return end
+  setFont(hh.health, math.max(7, (d.fontSize or 10) - 1))
+  hh.health:SetText(Plates.HealthText(hh.unit, d.healthText or "percent"))
+  hh.health:Show()
+end
+
+function Plates.UpdateQuest(uf)
+  local hh, d = uf.hh, cfg()
+  if not hh or not hh.unit then return end
+  local q = d.quest
+  local info = (q.icon or q.highlight or q.tint) and HHP.QuestMobs.Check(hh.unit) or nil
+  hh.questInfo = info
+  if info and q.icon then
+    local s = q.iconSize or 16
+    hh.questFrame:SetSize(s, s)
+    hh.progress:SetText((q.progress and info.progress) or "")
+    setFont(hh.progress, math.max(7, (d.fontSize or 10) - 1))
+    hh.questFrame:Show()
+  else
+    hh.questFrame:Hide()
+  end
+end
+
+--- Outline colour by priority, fade for non-targets. Returns the reason it chose (tests read it).
+function Plates.UpdateHighlight(uf)
+  local hh, d = uf.hh, cfg()
+  if not hh or not hh.unit then return end
+  local unit = hh.unit
+  local isTarget = bool(call(UnitIsUnit, unit, "target")) or false
+  local threat = num(call(UnitThreatSituation, "player", unit))
+  local color, why, thick
+  if d.aggro.warn and threat and threat >= 2 then color, why, thick = d.aggro.color, "aggro", 2
+  elseif d.target.highlight and isTarget then color, why, thick = d.target.color, "target", 2
+  elseif d.quest.highlight and hh.questInfo then color, why, thick = d.quest.color, "quest", 1
+  elseif d.enabled ~= false and d.border ~= false then color, why, thick = LINE, "plain", 1 end
+  for i, e in ipairs(hh.edges) do
+    if color then
+      e:SetColorTexture(color[1], color[2], color[3], 1)
+      if i <= 2 then e:SetHeight(thick) else e:SetWidth(thick) end
+      e:Show()
+    else
+      e:Hide()
+    end
+  end
+  local hasTarget = bool(call(UnitExists, "target")) or false
+  if d.target.fadeOthers and hasTarget and not isTarget then uf:SetAlpha(d.target.otherAlpha or 0.6) else uf:SetAlpha(1) end
+  hh.why = why
+  return why
+end
+
+function Plates.ApplyLook(uf)
+  local hh, d = uf.hh, cfg()
+  if not hh then return end
+  if d.enabled == false then
+    if hh.bg then hh.bg:Hide() end
+    return
+  end
+  if hh.bar then
+    call(hh.bar.SetStatusBarTexture, hh.bar, FLAT)
+    hh.bg:Show()
+  end
+  if uf.name then setFont(uf.name, d.fontSize or 10) end
+end
+
+function Plates.Update(uf)
+  Plates.ApplyLook(uf)
+  Plates.Color(uf)
+  Plates.UpdateHealth(uf)
+  Plates.UpdateQuest(uf)
+  Plates.UpdateHighlight(uf)
+end
+
+-- ------------------------------------------------------------------------------------------------ lifecycle
+local function sample(unit, uf)
+  if #Plates.samples >= 4 or bool(call(UnitIsPlayer, unit)) ~= false then return end
+  local lines = HHP.QuestMobs.TooltipLines(unit)
+  local shown = {}
+  for i, l in ipairs(lines or {}) do
+    if i > 8 then break end
+    shown[#shown + 1] = tostring(l.type) .. ":" .. l.text
+  end
+  local info = uf.hh.questInfo
+  Plates.samples[#Plates.samples + 1] = {
+    name = tostring(call(UnitName, unit)), tooltip = lines and table.concat(shown, " | ") or "no C_TooltipInfo",
+    quest = info and ((info.source or "?") .. " " .. tostring(info.progress)) or "no",
+    hooked = uf.hh.hooked and true or false, bar = uf.hh.bar and true or false,
+  }
+  local g = HH.db and HH.db.global
+  if g then
+    g.diag = g.diag or {}
+    g.diag.plates = { samples = Plates.samples, tooltipLineEnum = (Enum and Enum.TooltipDataLineType) and tostring(Enum.TooltipDataLineType.QuestObjective) or "nil" }
+  end
+end
+
+function Plates.Added(unit)
+  local uf = Plates.FrameFor(unit)
+  if not uf then return end
+  Plates.Skin(uf)
+  uf.hh.unit = unit
+  Plates.active[unit] = uf
+  Plates.Update(uf)
+  pcall(sample, unit, uf)
+end
+
+function Plates.Removed(unit)
+  local uf = Plates.active[unit]
+  Plates.active[unit] = nil
+  if uf and uf.hh then
+    uf.hh.unit, uf.hh.questInfo = nil, nil
+    uf.hh.questFrame:Hide()
+    uf:SetAlpha(1)
+  end
+end
+
+function Plates.ForEach(fn)
+  for _, uf in pairs(Plates.active) do fn(uf) end
+end
+
+--- Pick up plates that already exist (enable after a /reload in the open world).
+function Plates.Scan()
+  if type(C_NamePlate) ~= "table" then return end
+  local plates = call(C_NamePlate.GetNamePlates)
+  if type(plates) ~= "table" then return end
+  for _, plate in ipairs(plates) do
+    local unit = plate.unitToken or plate.namePlateUnitToken or (plate.UnitFrame and (plate.UnitFrame.unit or plate.UnitFrame.displayedUnit))
+    if type(unit) == "string" and not isSecret(unit) then Plates.Added(unit) end
+  end
+end
+
+function Plates.Refresh()
+  HHP.QuestMobs.Invalidate()
+  Plates.ForEach(Plates.Update)
+end
+
+local questPending = false
+local function questChanged()
+  HHP.QuestMobs.Invalidate()
+  if questPending then return end
+  questPending = true
+  local function run()
+    questPending = false
+    Plates.ForEach(function(uf) Plates.UpdateQuest(uf) Plates.UpdateHighlight(uf) Plates.Color(uf) end)
+  end
+  if C_Timer and C_Timer.After then C_Timer.After(0.2, run) else run() end
+end
+
+local EVENTS = { "NAME_PLATE_UNIT_ADDED", "NAME_PLATE_UNIT_REMOVED", "PLAYER_TARGET_CHANGED", "UNIT_THREAT_SITUATION_UPDATE",
+  "UNIT_THREAT_LIST_UPDATE", "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_FACTION", "QUEST_LOG_UPDATE", "UNIT_QUEST_LOG_CHANGED",
+  "QUEST_ACCEPTED", "QUEST_REMOVED", "PLAYER_ENTERING_WORLD" }
+
+function Plates.OnEvent(_, e, unit)
+  if e == "NAME_PLATE_UNIT_ADDED" then Plates.Added(unit)
+  elseif e == "NAME_PLATE_UNIT_REMOVED" then Plates.Removed(unit)
+  elseif e == "PLAYER_TARGET_CHANGED" then Plates.ForEach(Plates.UpdateHighlight)
+  elseif e == "UNIT_THREAT_SITUATION_UPDATE" or e == "UNIT_THREAT_LIST_UPDATE" then
+    local uf = unit and Plates.active[unit]
+    if uf then Plates.UpdateHighlight(uf) elseif unit == "player" or not unit then Plates.ForEach(Plates.UpdateHighlight) end
+  elseif e == "UNIT_HEALTH" or e == "UNIT_MAXHEALTH" then
+    local uf = unit and Plates.active[unit]
+    if uf then Plates.UpdateHealth(uf) end
+  elseif e == "UNIT_FACTION" then
+    local uf = unit and Plates.active[unit]
+    if uf then Plates.Color(uf) end
+  elseif e == "PLAYER_ENTERING_WORLD" then Plates.Scan()
+  else questChanged() end
+end
+
+local Module = {}
+HHP.module = Module
+
+function Module:OnEnable()
+  local ev = CreateFrame("Frame")
+  Module.unknown = {}
+  for _, e in ipairs(EVENTS) do
+    if not pcall(ev.RegisterEvent, ev, e) then Module.unknown[#Module.unknown + 1] = e end
+  end
+  ev:SetScript("OnEvent", function(self, e, ...)
+    local ok, err = xpcall(Plates.OnEvent, HH.Trace, self, e, ...)
+    if not ok and err ~= Plates.lastError then Plates.lastError = err HH:LogError("plates " .. tostring(e) .. ": " .. tostring(err)) end
+  end)
+  Module.events = ev
+  Plates.Scan()
+end
+
+function Module:OnProfileChanged() Plates.Refresh() end
+
+function Module:GetOptions()
+  if HHP.Options and HHP.Options.Build then return HHP.Options.Build() end
+end
+
+HH:RegisterModule("Plates", Module)
+HH:RegisterSlash("platediag", function()
+  local n = 0
+  for _ in pairs(Plates.active) do n = n + 1 end
+  HH:Print(("plates: %d active, %d sampled (see diag.plates in the saved file)"):format(n, #Plates.samples))
+  for _, s in ipairs(Plates.samples) do HH:Print(("  %s: quest=%s tooltip=%s"):format(s.name, s.quest, s.tooltip)) end
+end, "print what the nameplate module sees")
