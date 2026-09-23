@@ -364,3 +364,13 @@ def test_dark_gossip_text_lifted_to_cream_on_show_and_on_content_events(lua):
     lua.execute('GREET:SetTextColor(0.18, 0.12, 0.06); MockFire("GOSSIP_SHOW"); MockAdvance(0.1)')
     assert lua.eval('GREET._color[1]') == pytest.approx(0.96)
     assert [e["msg"] for e in lua.eval('HogHeals.errors').values()] == []
+
+
+def test_flight_map_left_alone_by_default(lua):
+    lua.execute(CLIENT + """
+      TaxiFrame = CreateFrame("Frame", "TaxiFrame", UIParent); TaxiFrame:CreateTexture("TaxiMap1"):SetTexture("map-tile")
+      function ShowUIPanel(f) f:Show() end
+    """)
+    lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
+    lua.execute('ShowUIPanel(TaxiFrame)')
+    assert lua.eval('TaxiFrame.hhPanel') is None and lua.eval('TaxiMap1._texture') == "map-tile"
