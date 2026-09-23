@@ -153,10 +153,14 @@ def test_highlight_priority_aggro_over_target_over_quest(plates):
     uf = add(plates, "nameplate3", '{ name = "Kobold Tunneler", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-3" }',
              '{ { leftText = "Kobold Tunneler", type = 2 }, { leftText = " - Kobold Tunneler slain: 1/5", type = 8 } }')
     other = add(plates, "nameplate9", '{ name = "Rabbit", class = "WARRIOR", health = 1, maxHealth = 1, guid = "C-9" }')
+    plates.execute('HogHeals.db.profile.plates.target.fadeOthers = true')
     assert plates.eval(f'{uf}.hh.why') == "quest"
     plates.execute('TARGET = "nameplate3"; MockFire("PLAYER_TARGET_CHANGED")')
     assert plates.eval(f'{uf}.hh.why') == "target"
-    assert plates.eval(f'{uf}.hh.edges[1]._color[2]') == pytest.approx(0.83)
+    assert plates.eval(f'{uf}.hh.arrows[1]:IsShown()') is True                     # arrows, not a box
+    assert plates.eval(f'{uf}.hh.arrows[1]._color[2]') == pytest.approx(0.83)
+    assert plates.eval(f'{uf}.hh.edges[1]._color[2]') == pytest.approx(0.65)        # outline stays the quest amber
+    assert plates.eval(f'{other}.hh.arrows[1]:IsShown()') is False
     assert plates.eval(f'{other}._alpha') == pytest.approx(0.6) and plates.eval(f'{uf}._alpha') == 1
     plates.execute('THREAT.nameplate3 = 3; MockFire("UNIT_THREAT_SITUATION_UPDATE", "nameplate3")')
     assert plates.eval(f'{uf}.hh.why') == "aggro"
@@ -356,7 +360,7 @@ def test_level_badge_hidden_by_default_kept_hidden_and_friendly_name_bigger(plat
     """)
     assert plates.eval('NP.nameplate17.UnitFrame.LevelFrame:IsShown()') is False   # never on name-only plates
     assert plates.eval('NP.nameplate17.UnitFrame.name._last.SetFont[2]') == 14      # bigger friendly name
-    assert plates.eval(f'{uf}.name._last.SetFont[2]') == 10                          # hostile keeps the small font
+    assert plates.eval(f'{uf}.name._last.SetFont[2]') == 13                          # hostile keeps the normal font
     assert errors(plates) == []
 
 
@@ -380,3 +384,47 @@ def test_plate_distance_cvar_and_untruncated_friendly_names(plates):
     plates.execute(f'{uf}.name:SetWidth(90); HogHealsPlates.Plates.FriendlyLook({uf})')
     assert plates.eval(f'{uf}.name._width') == 0
     assert errors(plates) == []
+
+
+def test_recycled_plate_goes_back_to_a_full_plate(plates):
+    # in game 2026-09-23 (picture 2): a bear on a plate that had just held a friendly player showed no bar and a big name
+    plates.execute('function UnitIsFriend(a, b) return MockUnits[b] and MockUnits[b].friendly == true end')
+    uf = add(plates, "nameplate20", '{ name = "Anthony", class = "PALADIN", health = 1, maxHealth = 1, isPlayer = true, friendly = true, guid = "P-20" }')
+    assert plates.eval(f'{uf}.healthBar:IsShown()') is False and plates.eval(f'{uf}.name._last.SetFont[2]') == 14
+    plates.execute('MockFire("NAME_PLATE_UNIT_REMOVED", "nameplate20")')
+    assert plates.eval(f'{uf}.hh.nameOnly') is False and plates.eval(f'{uf}.healthBar:IsShown()') is True
+    plates.execute('MockUnits.nameplate20 = { name = "Ferocious Grizzled Bear", class = "WARRIOR", health = 9, maxHealth = 9, friendly = false, guid = "C-20b" }; REACT.nameplate20 = 2; MockFire("NAME_PLATE_UNIT_ADDED", "nameplate20")')
+    assert plates.eval(f'{uf}.healthBar:IsShown()') is True
+    assert plates.eval(f'{uf}.hh.nameOnly') is False
+    assert plates.eval(f'{uf}.name._last.SetFont[2]') == 13
+    assert plates.eval(f'{uf}.name._width') == 0                                    # never truncated
+    assert plates.eval(f'{uf}.hh.bar._height') == 14
+    assert errors(plates) == []
+
+
+def test_target_mark_styles_and_size_cvars(plates):
+    uf = add(plates, "nameplate21", '{ name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-21" }')
+    plates.execute('TARGET = "nameplate21"; MockFire("PLAYER_TARGET_CHANGED")')
+    assert plates.eval(f'{uf}.hh.arrows[2]:IsShown()') is True and plates.eval(f'{uf}.hh.glow:IsShown()') is False
+    plates.execute('HogHeals.db.profile.plates.target.style = "glow"; HogHealsPlates.Plates.Refresh()')
+    assert plates.eval(f'{uf}.hh.glow:IsShown()') is True and plates.eval(f'{uf}.hh.arrows[1]:IsShown()') is False
+    plates.execute('HogHeals.db.profile.plates.target.style = "outline"; HogHealsPlates.Plates.Refresh()')
+    assert plates.eval(f'{uf}.hh.edges[1]._color[2]') == pytest.approx(0.83) and plates.eval(f'{uf}.hh.glow:IsShown()') is False
+    plates.execute('HogHeals.db.profile.plates.target.style = "none"; HogHealsPlates.Plates.Refresh()')
+    assert plates.eval(f'{uf}.hh.why') == "target" and plates.eval(f'{uf}.hh.edges[1]._color[2]') == pytest.approx(0.05)
+    plates.execute('TARGET = nil; MockFire("PLAYER_TARGET_CHANGED")')
+    assert plates.eval(f'{uf}.hh.arrows[1]:IsShown()') is False
+    # aggro outline sits on top of the target mark
+    plates.execute('HogHeals.db.profile.plates.target.style = "arrows"; TARGET = "nameplate21"; THREAT.nameplate21 = 3; MockFire("UNIT_THREAT_SITUATION_UPDATE", "nameplate21")')
+    assert plates.eval(f'{uf}.hh.why') == "aggro" and plates.eval(f'{uf}.hh.arrows[1]:IsShown()') is True
+    assert plates.eval(f'{uf}.hh.edges[1]._color[1]') == pytest.approx(0.85)
+    plates.execute('CV = {}; function SetCVar(k, v) CV[k] = v end; HogHealsPlates.Plates.ApplyCVars()')
+    assert plates.eval('CV.nameplateHorizontalScale') == "1.3" and plates.eval('CV.nameplateSelectedScale') == "1.15"
+    assert errors(plates) == []
+
+
+def test_a_failing_plate_piece_is_named_and_the_rest_still_runs(plates):
+    plates.execute('HogHealsPlates.Plates.UpdateHighlight = function() error("boom highlight") end')
+    uf = add(plates, "nameplate22", '{ name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-22" }')
+    assert plates.eval(f'{uf}.hh.health:IsShown()') is True                         # health piece still ran
+    assert any("plates highlight" in e for e in errors(plates))

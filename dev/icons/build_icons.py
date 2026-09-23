@@ -9,7 +9,7 @@ from playwright.sync_api import sync_playwright
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE.parents[1] / "HogHeals" / "Media"
-IDS = ["quest_open", "quest_done", "quest_arrow"]
+IDS = ["quest_open", "quest_done", "quest_arrow", "target_arrow"]
 DRY = "--dry-run" in sys.argv
 
 def main():

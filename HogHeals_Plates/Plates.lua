@@ -20,6 +20,7 @@ HHP.Plates = Plates
 
 local FLAT = "Interface\\Buttons\\WHITE8X8"
 local QUEST_ART = "Interface\\AddOns\\HogHeals\\Media\\quest_open"
+local ARROW_ART = "Interface\\AddOns\\HogHeals\\Media\\target_arrow"   -- white, points right; tinted in code
 local LINE = { 0.05, 0.05, 0.06 }
 
 local function cfg() return HH.db.profile.plates end
@@ -86,6 +87,23 @@ function Plates.Skin(uf)
   end
   hh.health = hh.overlay:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   hh.health:SetPoint("CENTER", anchor, "CENTER", 0, 0)
+  -- Target marks (Sean 2026-09-23: "I don't like ... just drawing a box around the name tag"): a pair of arrows
+  -- pointing at the bar, or a soft glow behind it. The art is white so the target colour tints it.
+  hh.arrows = {}
+  for i, side in ipairs({ "LEFT", "RIGHT" }) do
+    local a = hh.overlay:CreateTexture(nil, "OVERLAY")
+    a:SetTexture(ARROW_ART)
+    if side == "LEFT" then a:SetPoint("RIGHT", anchor, "LEFT", -3, 0) a:SetTexCoord(0, 1, 0, 1)
+    else a:SetPoint("LEFT", anchor, "RIGHT", 3, 0) a:SetTexCoord(1, 0, 0, 1) end
+    a:SetSize(18, 18)
+    a:Hide()
+    hh.arrows[i] = a
+  end
+  hh.glow = uf:CreateTexture(nil, "BACKGROUND")   -- on the UnitFrame, so it draws under the bar's own frame
+  hh.glow:SetTexture(FLAT)
+  hh.glow:SetPoint("TOPLEFT", anchor, "TOPLEFT", -5, 5)
+  hh.glow:SetPoint("BOTTOMRIGHT", anchor, "BOTTOMRIGHT", 5, -5)
+  hh.glow:Hide()
   -- Quest badge on the LEFT of the bar: the right side belongs to Blizzard's level badge (in-game 2026-09-22 our
   -- icon sat on top of it). Art = HogHeals/Media/quest_open.tga (dev/icons/build_icons.py). If the client refuses
   -- the file (SetTexture returns false), fall back to a drawn amber square + "!" glyph: the GossipFrame icon we used
@@ -237,7 +255,7 @@ function Plates.UpdateHealth(uf)
   local hh, d = uf.hh, cfg()
   if not hh or not hh.unit then return end
   if d.enabled == false or d.healthText == "none" or hh.nameOnly then hh.health:Hide() return end
-  setFont(hh.health, math.max(7, (d.fontSize or 10) - 1))
+  setFont(hh.health, math.max(7, (d.fontSize or 13) - 2))
   hh.health:SetText(Plates.HealthText(hh.unit, d.healthText or "percent"))
   hh.health:Show()
 end
@@ -265,19 +283,29 @@ function Plates.UpdateQuest(uf)
   end
 end
 
---- Outline colour by priority, fade for non-targets. Returns the reason it chose (tests read it).
+--- Target / aggro / quest marks. Outline colour by priority: aggro on you (red, thick) beats a quest mob (amber)
+-- beats plain. The target is marked by style (target.style): "arrows" (default) beside the bar, "glow" behind it,
+-- "outline" (the old cyan box), "none" (the target plate's bigger scale is the only cue). Aggro and target combine.
+-- Returns the reason it chose (tests read it): aggro > target > quest > plain.
 function Plates.UpdateHighlight(uf)
   local hh, d = uf.hh, cfg()
   if not hh or not hh.unit then return end
-  if hh.nameOnly then for _, e in ipairs(hh.edges) do e:Hide() end uf:SetAlpha(1) return "nameonly" end
+  local function marks(show)
+    for _, a in ipairs(hh.arrows or {}) do if show == "arrows" then a:Show() else a:Hide() end end
+    if hh.glow then if show == "glow" then hh.glow:Show() else hh.glow:Hide() end end
+  end
+  if hh.nameOnly then for _, e in ipairs(hh.edges) do e:Hide() end marks(nil) uf:SetAlpha(1) return "nameonly" end
   local unit = hh.unit
   local isTarget = bool(call(UnitIsUnit, unit, "target")) or false
   local threat = num(call(UnitThreatSituation, "player", unit))
+  local style = d.target.highlight ~= false and (d.target.style or "arrows") or "none"
+  local tc = d.target.color or { 0.13, 0.83, 0.88 }
   local color, why, thick
   if d.aggro.warn and threat and threat >= 2 then color, why, thick = d.aggro.color, "aggro", 2
-  elseif d.target.highlight and isTarget then color, why, thick = d.target.color, "target", 2
+  elseif isTarget and style == "outline" then color, why, thick = tc, "target", 2
   elseif d.quest.highlight and hh.questInfo then color, why, thick = d.quest.color, "quest", 1
   elseif d.enabled ~= false and d.border ~= false then color, why, thick = LINE, "plain", 1 end
+  if isTarget and why ~= "aggro" then why = "target" end
   for i, e in ipairs(hh.edges) do
     if color then
       e:SetColorTexture(color[1], color[2], color[3], 1)
@@ -286,6 +314,14 @@ function Plates.UpdateHighlight(uf)
     else
       e:Hide()
     end
+  end
+  if isTarget and (style == "arrows" or style == "glow") then
+    local size = (d.barHeight or 14) + 6
+    for _, a in ipairs(hh.arrows or {}) do a:SetSize(size, size) a:SetVertexColor(tc[1], tc[2], tc[3], 1) end
+    if hh.glow then hh.glow:SetVertexColor(tc[1], tc[2], tc[3], 0.45) end
+    marks(style)
+  else
+    marks(nil)
   end
   local hasTarget = bool(call(UnitExists, "target")) or false
   if d.target.fadeOthers and hasTarget and not isTarget then uf:SetAlpha(d.target.otherAlpha or 0.6) else uf:SetAlpha(1) end
@@ -303,8 +339,15 @@ function Plates.ApplyLook(uf)
   if hh.bar then
     call(hh.bar.SetStatusBarTexture, hh.bar, FLAT)
     hh.bg:Show()
+    -- bar height (Sean 2026-09-23: "make the health bar bigger"); width comes from the nameplateHorizontalScale cvar
+    if d.barHeight then call(hh.bar.SetHeight, hh.bar, d.barHeight) end
   end
-  if uf.name then setFont(uf.name, d.fontSize or 10) end
+  if uf.name then
+    setFont(uf.name, d.fontSize or 13)
+    -- width 0 = as wide as the text: "Ferocious Grizzled Be..." was Blizzard's fixed name width (2026-09-23)
+    call(uf.name.SetWidth, uf.name, 0)
+    if uf.name.SetWordWrap then call(uf.name.SetWordWrap, uf.name, false) end
+  end
   Plates.SkinCastbar(uf)
 end
 
@@ -364,7 +407,7 @@ function Plates.FriendlyLook(uf)
   if nameOnly and hh.questFrame then hh.questFrame:Hide() end
   -- name-only plates carry the name in a bigger font (Sean: "match my own font above my head")
   if uf.name then
-    setFont(uf.name, nameOnly and (d.friendlyNameSize or 14) or (d.fontSize or 10))
+    setFont(uf.name, nameOnly and (d.friendlyNameSize or 14) or (d.fontSize or 13))
     -- width 0 = "as wide as the text": the bigger font had "Benjamin Neta..." cut at Blizzard's width (2026-09-23)
     if nameOnly then call(uf.name.SetWidth, uf.name, 0) if uf.name.SetWordWrap then call(uf.name.SetWordWrap, uf.name, false) end end
   end
@@ -398,15 +441,47 @@ function Plates.ApplyLevel(uf)
   end
 end
 
+--- Each piece on its own: one throwing (a secret in combat) must not leave the plate half-dressed - in game
+-- 2026-09-23 a recycled plate kept the previous friendly occupant's hidden bar and big font (picture 2).
+local function piece(label, fn, uf)
+  local ok, err = xpcall(fn, HH.Trace or tostring, uf)
+  if not ok then
+    local first = tostring(err):match("^[^%c]*") or tostring(err)
+    if first ~= Plates.lastPieceError then
+      Plates.lastPieceError = first
+      HH:Print("nameplate " .. label .. ": " .. first)
+    end
+    HH:LogError("plates " .. label .. ": " .. tostring(err))
+  end
+  return ok
+end
+
 function Plates.Update(uf)
-  Plates.ApplyLook(uf)
-  Plates.Color(uf)
-  Plates.ColorName(uf)
-  Plates.FriendlyLook(uf)
-  Plates.ApplyLevel(uf)
-  Plates.UpdateHealth(uf)
-  Plates.UpdateQuest(uf)
-  Plates.UpdateHighlight(uf)
+  piece("look", Plates.ApplyLook, uf)
+  piece("colour", Plates.Color, uf)
+  piece("name colour", Plates.ColorName, uf)
+  piece("friendly", Plates.FriendlyLook, uf)
+  piece("level", Plates.ApplyLevel, uf)
+  piece("health", Plates.UpdateHealth, uf)
+  piece("quest", Plates.UpdateQuest, uf)
+  piece("highlight", Plates.UpdateHighlight, uf)
+end
+
+--- Back to a full plate the moment a unit leaves it: Blizzard recycles plates, and the next occupant must not
+-- inherit name-only (hidden bar), the big friendly font, a class colour or a target mark.
+function Plates.Reset(uf)
+  local hh, d = uf.hh, cfg()
+  if not hh then return end
+  hh.nameOnly, hh.nameClass, hh.questInfo, hh.why = false, nil, nil, nil
+  for _, p in ipairs({ hh.bar, hh.bg, rawget(uf, "HealthBarsContainer") }) do
+    if type(p) == "table" and p.Show then call(p.Show, p) end
+  end
+  if hh.health then hh.health:Hide() end
+  for _, a in ipairs(hh.arrows or {}) do a:Hide() end
+  if hh.glow then hh.glow:Hide() end
+  if hh.questFrame then hh.questFrame:Hide() end
+  if uf.name then setFont(uf.name, d.fontSize or 13) end
+  uf:SetAlpha(1)
 end
 
 -- ------------------------------------------------------------------------------------------------ lifecycle
@@ -450,9 +525,8 @@ function Plates.Removed(unit)
   local uf = Plates.active[unit]
   Plates.active[unit] = nil
   if uf and uf.hh then
-    uf.hh.unit, uf.hh.questInfo, uf.hh.nameClass = nil, nil, nil
-    uf.hh.questFrame:Hide()
-    uf:SetAlpha(1)
+    uf.hh.unit = nil
+    pcall(Plates.Reset, uf)
   end
 end
 
@@ -530,6 +604,8 @@ function Plates.ApplyCVars()
   -- How far plates reach. Past this the small blue names over far players are drawn by the engine itself (the
   -- "unit names" setting) and no addon can colour or size them (Sean 2026-09-23). The client clamps the value.
   if d.maxDistance then pcall(SetCVar, "nameplateMaxDistance", tostring(d.maxDistance)) end
+  -- plate width: the client sizes the plate from these; the bar follows (Sean 2026-09-23: "health bar bigger")
+  if d.widthScale then pcall(SetCVar, "nameplateHorizontalScale", tostring(d.widthScale)) end
 end
 
 function Module:OnEnable()
