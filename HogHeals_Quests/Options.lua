@@ -8,6 +8,7 @@ HHQ.Options = Options
 
 local function t() return HH.db.profile.quests.tracker end
 local function mm() return HH.db.profile.quests.minimap end
+local function mp() return HH.db.profile.quests.map end
 
 local function toggle(tbl, key, name, order, after, desc)
   return { type = "toggle", name = name, desc = desc, order = order,
@@ -23,6 +24,7 @@ end
 function Options.Build()
   local tr = function() HHQ.Tracker.Refresh() end
   local pr = function() HHQ.Pins.Refresh() end
+  local sr = function() HHQ.MapSkin.Refresh() end
   return {
     type = "group", name = "Quests", order = 35,
     args = {
@@ -36,16 +38,26 @@ function Options.Build()
         hideCompleted = toggle(t, "hideCompleted", "Hide finished quests", 5, tr),
         width = range(t, "width", "Width", 6, 160, 480, 10, tr),
         maxHeight = range(t, "maxHeight", "Max height", 7, 120, 900, 10, tr),
-        fontSize = range(t, "fontSize", "Font size", 8, 8, 28, 1, tr),
+        fontSize = range(t, "fontSize", "Text size", 8, 8, 28, 1, tr),
         scale = range(t, "scale", "Scale (whole window)", 8.5, 0.6, 2.5, 0.05, tr),
         backgroundAlpha = range(t, "backgroundAlpha", "Background opacity", 9, 0, 1, 0.05, tr),
       } },
       minimap = { type = "group", name = "Minimap", order = 2, args = {
-        about = { type = "description", order = 0, name = "Pins for your quests on the minimap: yellow ! = objective area, yellow ? = ready to turn in. Out of range pins sit on the rim, dimmed, pointing the way. Hover for the objectives, click to open the quest. These are the client's own quest points (not a Questie-style database), so quest givers you have not met yet do not show." },
-        enabled = toggle(mm, "enabled", "Quest pins on the minimap", 1, pr),
-        edge = toggle(mm, "edge", "Keep far quests on the rim", 2, pr),
-        watchedOnly = toggle(mm, "watchedOnly", "Only watched quests", 3, pr),
-        size = range(mm, "size", "Pin size", 4, 8, 28, 1, pr),
+        look = { type = "group", inline = true, name = "Look", order = 1, args = {
+          about = { type = "description", order = 0, name = "Square minimap in the HogHeals frame, zone name on top (click it for the world map), mouse wheel zooms. Turning it off fully undoes it after a /reload." },
+          enabled = toggle(mp, "enabled", "HogHeals minimap", 1, sr),
+          size = range(mp, "size", "Size", 2, 120, 360, 5, sr),
+          zoneText = toggle(mp, "zoneText", "Zone name on top", 3, sr),
+          wheelZoom = toggle(mp, "wheelZoom", "Mouse wheel zoom", 4, sr),
+          hideDecor = toggle(mp, "hideDecor", "Hide Blizzard's round border and zoom buttons", 5, sr),
+        } },
+        pins = { type = "group", inline = true, name = "Extra quest pins", order = 2, args = {
+          about = { type = "description", order = 0, name = "The game already marks your quests on the minimap. These are EXTRA HogHeals pins, off by default because they sit on top of Blizzard's. Only turn them on if Blizzard's markers are missing somewhere." },
+          enabled = toggle(mm, "enabled", "Extra quest pins", 1, pr),
+          edge = toggle(mm, "edge", "Arrow on the rim for far quests", 2, pr),
+          watchedOnly = toggle(mm, "watchedOnly", "Only watched quests", 3, pr),
+          size = range(mm, "size", "Pin size", 4, 8, 32, 1, pr),
+        } },
       } },
     },
   }

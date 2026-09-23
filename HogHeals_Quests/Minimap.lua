@@ -14,10 +14,13 @@ local HH = HogHeals
 local Pins = { pool = {}, sizeCache = {} }
 HHQ.Pins = Pins
 
--- Pins are drawn badges (flat square + glyph), not game textures: the GossipFrame quest icons did not render on the
--- Forever client (nameplate test 2026-09-22). Amber "!" = objective area, green "?" = ready to turn in.
-local OPEN = { glyph = "!", color = { 0.95, 0.65, 0.15 } }
-local DONE = { glyph = "?", color = { 0.25, 0.80, 0.35 } }
+-- OFF by default since 2026-09-22: the Forever client draws its OWN quest markers on the minimap (icon, shaded quest
+-- area, rim arrow) and ours stacked on top of them ("cluttered"). Kept as an option for clients / zones without them.
+-- Art = HogHeals/Media/quest_*.tga (dev/icons/build_icons.py); a client that refuses the file (SetTexture -> false)
+-- gets a drawn square + glyph instead, never an invisible pin. Far quests show a rotated arrow on the rim.
+local OPEN = { art = "Interface\\AddOns\\HogHeals\\Media\\quest_open", glyph = "!", color = { 0.95, 0.65, 0.15 } }
+local DONE = { art = "Interface\\AddOns\\HogHeals\\Media\\quest_done", glyph = "?", color = { 0.25, 0.80, 0.35 } }
+local ARROW = "Interface\\AddOns\\HogHeals\\Media\\quest_arrow"
 
 -- Classic minimap diameters in yards per zoom level (HereBeDragons-Pins table) - only used when the client has no
 -- C_Minimap.GetViewRadius.
@@ -128,6 +131,9 @@ local function pin(i)
   p.edge:SetColorTexture(0.05, 0.05, 0.06, 1)
   p.icon = p:CreateTexture(nil, "ARTWORK")
   p.icon:SetAllPoints(p)
+  p.arrow = p:CreateTexture(nil, "OVERLAY")
+  p.arrow:SetAllPoints(p)
+  p.arrow:Hide()
   p.glyph = p:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   p.glyph:SetPoint("CENTER", p, "CENTER", 0, 0)
   p.glyph:SetTextColor(0.07, 0.07, 0.09)
@@ -152,6 +158,41 @@ local function pin(i)
 end
 
 function Pins.HideAll() for _, p in ipairs(Pins.pool) do p:Hide() end end
+
+--- Art when the client takes our texture, drawn square + glyph when it does not. On the rim: the arrow art, turned
+-- to point from the minimap centre toward the quest (arrow art points up = angle 0).
+function Pins.Paint(p, look, edge, ox, oy, s)
+  local drawn
+  if edge then
+    p.icon:Hide()
+    local ok = p.arrow:SetTexture(ARROW)
+    drawn = (ok == false)
+    if not drawn then
+      p.arrow:Show()
+      if p.arrow.SetRotation then pcall(p.arrow.SetRotation, p.arrow, math.atan2(oy, ox) - math.pi / 2) end
+    else
+      p.arrow:Hide()
+    end
+  else
+    p.arrow:Hide()
+    p.icon:Show()
+    local ok = p.icon:SetTexture(look.art)
+    drawn = (ok == false)
+  end
+  p.drawn = drawn
+  if drawn then
+    p.icon:Show()
+    p.icon:SetColorTexture(look.color[1], look.color[2], look.color[3], 1)
+    p.glyph:SetText(look.glyph)
+    local font = p.glyph.GetFont and p.glyph:GetFont()
+    if font and p.glyph.SetFont then pcall(p.glyph.SetFont, p.glyph, font, math.max(7, s - 3), "") end
+    p.glyph:Show()
+    p.edge:Show()
+  else
+    p.glyph:Hide()
+    p.edge:Hide()
+  end
+end
 
 --- Place every pin for the player's current map. Returns the number shown (tests read it).
 function Pins.Update()
@@ -180,12 +221,9 @@ function Pins.Update()
         local p = pin(n)
         p.quest, p.yards = q, math.floor(math.sqrt(dx * dx + dy * dy) + 0.5)
         local look = q.complete and DONE or OPEN
-        local s = edge and math.floor(size * 0.75) or size
-        p.icon:SetColorTexture(look.color[1], look.color[2], look.color[3], 1)
-        p.glyph:SetText(look.glyph)
-        local font = p.glyph.GetFont and p.glyph:GetFont()
-        if font and p.glyph.SetFont then pcall(p.glyph.SetFont, p.glyph, font, math.max(7, s - 3), "") end
+        local s = edge and math.floor(size * 0.85) or size
         p.kind = look.glyph
+        Pins.Paint(p, look, edge, ox, oy, s)
         p:SetSize(s, s)
         p:SetAlpha(edge and 0.6 or 1)
         p:ClearAllPoints()

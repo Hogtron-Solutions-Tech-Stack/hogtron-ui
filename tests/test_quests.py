@@ -69,7 +69,10 @@ def boot(lua, api):
 
 @pytest.fixture
 def modern(lua):
-    return boot(lua, MODERN)
+    boot(lua, MODERN)
+    # pin geometry tests: pins on (default off since 2026-09-22), round 140 px minimap as the pin maths was written for
+    lua.execute("HogHeals.db.profile.quests.minimap.enabled = true; GetMinimapShape = nil; Minimap:SetSize(140, 140)")
+    return lua
 
 
 @pytest.fixture
@@ -151,7 +154,7 @@ def test_tracker_click_opens_and_right_click_toggles_watch(modern):
 def test_tracker_collapse_and_mode_cycle(modern):
     modern.execute('HogHealsQuestTracker.header:Click("LeftButton")')
     assert modern.eval('HogHeals.db.profile.quests.tracker.collapsed') is True
-    assert modern.eval('HogHealsQuestTracker._height') == 20
+    assert modern.eval('HogHealsQuestTracker._height') == modern.eval('HogHealsQuestTracker.header._height')
     modern.execute('HogHealsQuestTracker.header:Click("RightButton")')
     assert modern.eval('HogHeals.db.profile.quests.tracker.mode') == "zone"
 
@@ -203,13 +206,17 @@ def test_pins_placed_from_client_points(modern):
     n = modern.eval('HogHealsQuests.Pins.Update()')
     assert n == 2
     p1 = 'HogHealsQuests.Pins.pool[1]'
-    # quest 7: 0.1 of a 1000-yard map north = 100 yd, radius 200, half width 70 - 14/3
+    # quest 7: 0.1 of a 1000-yard map north = 100 yd, radius 200, half width 70 - pin size (16) / 3
     pt = modern.eval(f'{p1}._points[1]')
-    assert pt[4] == pytest.approx(0) and pt[5] == pytest.approx((70 - 14 / 3) / 2)
-    assert modern.eval(f'{p1}.glyph._text') == "!" and modern.eval(f'{p1}.icon._color[1]') == pytest.approx(0.95)
+    assert pt[4] == pytest.approx(0) and pt[5] == pytest.approx((70 - 16 / 3) / 2)
+    assert modern.eval(f'{p1}.icon._texture').endswith("quest_open")
     # quest 9 is complete and far away: turn-in icon on the rim, dimmed
-    assert modern.eval('HogHealsQuests.Pins.pool[2].glyph._text') == "?" and modern.eval('HogHealsQuests.Pins.pool[2].icon._color[2]') == pytest.approx(0.80)
-    assert modern.eval('HogHealsQuests.Pins.pool[2]._alpha') == pytest.approx(0.6)
+    # quest 9 is complete and far away: a rim ARROW turned toward it (south-east of the player), dimmed
+    p2 = 'HogHealsQuests.Pins.pool[2]'
+    assert modern.eval(f'{p2}.arrow._texture').endswith("quest_arrow")
+    assert modern.eval(f'{p2}.arrow:IsShown()') is True and modern.eval(f'{p2}.icon:IsShown()') is False
+    assert modern.eval(f'{p2}.arrow._last.SetRotation[1]') == pytest.approx(math.atan2(-1, 1) - math.pi / 2)
+    assert modern.eval(f'{p2}._alpha') == pytest.approx(0.6)
 
 
 def test_pins_hide_without_position(modern):
