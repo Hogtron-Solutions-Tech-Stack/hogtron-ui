@@ -345,3 +345,22 @@ def test_world_map_still_skipped_by_default(lua):
     lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
     lua.execute('ShowUIPanel(WorldMapFrame)')
     assert lua.eval('WorldMapFrame.hhPanel') is None and lua.eval('WorldMapFrameBg._texture') == "map-art"
+
+
+def test_dark_gossip_text_lifted_to_cream_on_show_and_on_content_events(lua):
+    lua.execute(CLIENT + """
+      GossipFrame = CreateFrame("Frame", "GossipFrame", UIParent)
+      local panel = CreateFrame("Frame", nil, GossipFrame)
+      local scroll = CreateFrame("ScrollFrame", nil, panel)
+      GREET = scroll:CreateFontString("GossipGreetingText", "OVERLAY", "GameFontNormal"); GREET:SetTextColor(0.18, 0.12, 0.06)
+      OPTION = scroll:CreateFontString(nil, "OVERLAY", "GameFontNormal"); OPTION:SetTextColor(1, 0.82, 0)
+      function ShowUIPanel(f) f:Show() end
+    """)
+    lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
+    lua.execute('ShowUIPanel(GossipFrame)')
+    assert lua.eval('GREET._color[1]') == pytest.approx(0.96)                      # dark brown -> cream
+    assert lua.eval('OPTION._color[2]') == pytest.approx(0.82)                     # gold option text untouched
+    # Blizzard rebuilds the greeting on GOSSIP_SHOW with its dark colour again
+    lua.execute('GREET:SetTextColor(0.18, 0.12, 0.06); MockFire("GOSSIP_SHOW"); MockAdvance(0.1)')
+    assert lua.eval('GREET._color[1]') == pytest.approx(0.96)
+    assert [e["msg"] for e in lua.eval('HogHeals.errors').values()] == []

@@ -58,6 +58,40 @@ local function isIcon(t)
   return (type(n) == "string" and (n:find("Icon") or n:find("Portrait"))) or t.hhOurs
 end
 
+--- Dark text inside a parchment window lifted to cream. In game 2026-09-23 the gossip greeting stayed dark brown
+-- after the font objects were recoloured: that text is coloured directly by Blizzard's code, so the strings
+-- themselves are walked (light text, e.g. gold option lines, is left alone).
+function Part.DeepRecolor(frame, depth)
+  depth = depth or 0
+  if type(frame) ~= "table" or depth > 7 then return 0 end
+  local n = 0
+  if frame.GetRegions then
+    for _, r in ipairs({ frame:GetRegions() }) do
+      if r and r.GetObjectType and r:GetObjectType() == "FontString" and r.GetTextColor and not r.hhOurs then
+        local cr, cg, cb = Skin.call(r.GetTextColor, r)
+        if Skin.num(cr) and Skin.num(cg) and Skin.num(cb) and (cr + cg + cb) < 1.2 then
+          Skin.call(r.SetTextColor, r, Skin.CREAM[1], Skin.CREAM[2], Skin.CREAM[3])
+          n = n + 1
+        end
+      end
+    end
+  end
+  if frame.GetChildren then
+    for _, c in ipairs({ frame:GetChildren() }) do n = n + Part.DeepRecolor(c, depth + 1) end
+  end
+  return n
+end
+
+--- Strip + recolour a parchment window now and a moment later (its text is built after the show / event).
+function Part.Parchment(f)
+  if type(f) ~= "table" then return end
+  Part.DeepKill(f)
+  Part.DeepRecolor(f)
+  if C_Timer and C_Timer.After then
+    C_Timer.After(0.05, function() if f:IsShown() then Part.DeepKill(f) Part.DeepRecolor(f) end end)
+  end
+end
+
 --- Texture regions of `frame` and its descendants cleared, skipping functional widgets and icons. Depth-limited.
 function Part.DeepKill(frame, depth)
   depth = depth or 0
@@ -112,11 +146,11 @@ function Part.Style(f)
   end
   if Part.PARCHMENT[name] then
     Part.RecolorFonts()
-    Part.DeepKill(f)
-    -- scroll panels reuse parchment on show; strip again when the window shows
+    Part.Parchment(f)
+    -- scroll panels rebuild their parchment and text on show; do it again then
     if not f.hhParchHooked and f.HookScript then
       f.hhParchHooked = true
-      f:HookScript("OnShow", function(self) if Skin.cfg().enabled ~= false and Skin.cfg().panels.enabled ~= false and not skipped(self:GetName() or "") then Part.DeepKill(self) end end)
+      f:HookScript("OnShow", function(self) if Skin.cfg().enabled ~= false and Skin.cfg().panels.enabled ~= false and not skipped(self:GetName() or "") then Part.Parchment(self) end end)
     end
   end
   Part.styled[#Part.styled + 1] = name
@@ -151,8 +185,16 @@ function Part.Apply()
   end
 end
 
+Part.CONTENT_EVENTS = { GOSSIP_SHOW = "GossipFrame", QUEST_GREETING = "QuestFrame", QUEST_DETAIL = "QuestFrame", QUEST_PROGRESS = "QuestFrame",
+  QUEST_COMPLETE = "QuestFrame", ITEM_TEXT_READY = "ItemTextFrame", MAIL_SHOW = "OpenMailFrame", QUEST_LOG_UPDATE = "QuestLogFrame" }
+
 function Part.OnEvent(e, arg1)
-  if e == "PLAYER_ENTERING_WORLD" or (e == "ADDON_LOADED" and type(arg1) == "string" and arg1:find("^Blizzard_")) then Part.Apply() end
+  if e == "PLAYER_ENTERING_WORLD" or (e == "ADDON_LOADED" and type(arg1) == "string" and arg1:find("^Blizzard_")) then Part.Apply() return end
+  local target = Part.CONTENT_EVENTS[e]
+  if target and Skin.cfg().panels.enabled ~= false and not skipped(target) then
+    local f = rawget(_G, target)
+    if type(f) == "table" and f.hhPanel then Part.Parchment(f) end
+  end
 end
 
 Skin.Register(Part)
