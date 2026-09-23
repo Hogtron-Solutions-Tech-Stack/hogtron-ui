@@ -362,6 +362,8 @@ function Plates.FriendlyLook(uf)
   end
   for _, e in ipairs(hh.edges or {}) do if nameOnly then e:Hide() end end
   if nameOnly and hh.questFrame then hh.questFrame:Hide() end
+  -- name-only plates carry the name in a bigger font (Sean: "match my own font above my head")
+  if uf.name then setFont(uf.name, nameOnly and (d.friendlyNameSize or 14) or (d.fontSize or 10)) end
   -- keep the bar hidden when Blizzard shows it on plate reuse
   if hh.bar and not hh.barHideHooked and type(hooksecurefunc) == "function" then
     hh.barHideHooked = true
@@ -370,11 +372,34 @@ function Plates.FriendlyLook(uf)
   return nameOnly
 end
 
+--- Level badge (and the classification / level-diff badges next to it): off by default, kept off through
+-- Blizzard's re-shows (in game 2026-09-23 "(20)" stayed on name-only plates); the option brings it back on plates
+-- that are not name-only.
+function Plates.ApplyLevel(uf)
+  local hh, d = uf.hh, cfg()
+  if not hh then return end
+  local want = d.showLevel == true and not hh.nameOnly
+  for _, k in ipairs({ "LevelFrame", "ClassificationFrame", "PlayerLevelDiffFrame" }) do
+    local fr = rawget(uf, k)
+    if type(fr) == "table" and fr.Hide then
+      if want then call(fr.Show, fr) else call(fr.Hide, fr) end
+      if not fr.hhLevelHooked and type(hooksecurefunc) == "function" then
+        fr.hhLevelHooked = true
+        pcall(hooksecurefunc, fr, "Show", function(self)
+          local dd = cfg()
+          if dd.enabled ~= false and (dd.showLevel ~= true or (uf.hh and uf.hh.nameOnly)) then call(self.Hide, self) end
+        end)
+      end
+    end
+  end
+end
+
 function Plates.Update(uf)
   Plates.ApplyLook(uf)
   Plates.Color(uf)
   Plates.ColorName(uf)
   Plates.FriendlyLook(uf)
+  Plates.ApplyLevel(uf)
   Plates.UpdateHealth(uf)
   Plates.UpdateQuest(uf)
   Plates.UpdateHighlight(uf)

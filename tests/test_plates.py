@@ -335,3 +335,26 @@ def test_friendly_plates_are_name_only_by_default_and_full_when_off(plates):
     plates.execute('HogHeals.db.profile.plates.friendlyNameOnly = false; HogHealsPlates.Plates.Refresh()')
     assert plates.eval(f'{uf}.healthBar:IsShown()') is True
     assert errors(plates) == []
+
+
+def test_level_badge_hidden_by_default_kept_hidden_and_friendly_name_bigger(plates):
+    plates.execute("""
+      local p = MockPlate("nameplate16", { name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-16" })
+      p.UnitFrame.LevelFrame = CreateFrame("Frame", nil, p.UnitFrame)
+      MockFire("NAME_PLATE_UNIT_ADDED", "nameplate16")
+    """)
+    uf = 'NP.nameplate16.UnitFrame'
+    assert plates.eval(f'{uf}.LevelFrame:IsShown()') is False
+    plates.execute(f'{uf}.LevelFrame:Show()')                                       # Blizzard re-show
+    assert plates.eval(f'{uf}.LevelFrame:IsShown()') is False
+    plates.execute('HogHeals.db.profile.plates.showLevel = true; HogHealsPlates.Plates.Refresh()')
+    assert plates.eval(f'{uf}.LevelFrame:IsShown()') is True                        # hostile plate, option on
+    plates.execute("""
+      local p = MockPlate("nameplate17", { name = "Friend", class = "MAGE", health = 1, maxHealth = 1, isPlayer = true, friendly = true, guid = "P-17" })
+      p.UnitFrame.LevelFrame = CreateFrame("Frame", nil, p.UnitFrame)
+      MockFire("NAME_PLATE_UNIT_ADDED", "nameplate17")
+    """)
+    assert plates.eval('NP.nameplate17.UnitFrame.LevelFrame:IsShown()') is False   # never on name-only plates
+    assert plates.eval('NP.nameplate17.UnitFrame.name._last.SetFont[2]') == 14      # bigger friendly name
+    assert plates.eval(f'{uf}.name._last.SetFont[2]') == 10                          # hostile keeps the small font
+    assert errors(plates) == []
