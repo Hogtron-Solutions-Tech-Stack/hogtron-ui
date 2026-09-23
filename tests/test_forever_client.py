@@ -58,5 +58,6 @@ def test_aura_shim_falls_back_to_c_unitauras(frames):
 
 def test_aura_elements_blocked_on_secret_clients(frames):
     frames.execute('MockSetSecrets(true); HogHealsFrames.Compat.Init()')
-    for el in ("dispel", "missingBuffs", "myShield"):
+    for el in ("missingBuffs", "myShield"):
         assert frames.eval(f'HogHealsFrames.Compat.Blocked("{el}")') is not None, el
+    assert frames.eval('HogHealsFrames.Compat.Blocked("dispel")') is None     # rebuilt on canActivePlayerDispel (test_dispel_rebuild)
