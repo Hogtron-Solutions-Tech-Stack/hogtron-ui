@@ -199,6 +199,7 @@ local function objLine(i)
   local fs = Tracker.lines[i]
   if fs then return fs end
   fs = text(Tracker.frame.body, CREAM, "LEFT")
+  if fs.SetWordWrap then fs:SetWordWrap(false) end   -- one row each; the RIGHT anchor truncates with "..."
   Tracker.lines[i] = fs
   return fs
 end
@@ -215,6 +216,8 @@ function Tracker.Update()
   f.title:SetText(("%s  %d/%d"):format(label, #shown, #list))
   f.hint:SetText(d.collapsed and "+" or "-")
   applyFont(f.title, size)
+  applyFont(f.hint, size)
+  f.header:SetHeight(math.max(HEADER_H, size + 8))
 
   for _, b in ipairs(Tracker.titles) do b:Hide() end
   for _, fs in ipairs(Tracker.lines) do fs:Hide() end
@@ -282,7 +285,8 @@ function Tracker.Update()
       local fs = objLine(li)
       fs:ClearAllPoints()
       fs:SetPoint("TOPLEFT", f.body, "TOPLEFT", 0, -y)
-      fs:SetText(("+%d more (right-click the header to change what is shown)"):format(more))
+      fs:SetPoint("RIGHT", f.body, "RIGHT", 0, 0)   -- 2026-09-22 in game: unanchored, this line ran off the panel
+      fs:SetText(("+%d more  -  right-click header"):format(more))
       fs:SetTextColor(AMBER[1], AMBER[2], AMBER[3])
       applyFont(fs, size - 1)
       fs:Show()
@@ -290,7 +294,8 @@ function Tracker.Update()
     end
   end
   f.body:SetHeight(math.max(y, 1))
-  f:SetSize(d.width or 260, HEADER_H + (d.collapsed and 0 or (y + 8)))
+  f:SetSize(d.width or 260, math.max(HEADER_H, size + 8) + (d.collapsed and 0 or (y + 8)))
+  f:SetScale(d.scale or 1)
   f.bg:SetColorTexture(INK[1], INK[2], INK[3], d.backgroundAlpha or 0.6)
   Tracker.shownCount, Tracker.moreCount = ti, more
 end

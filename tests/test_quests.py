@@ -252,3 +252,18 @@ def test_unknown_events_do_not_break_enable(lua):
 def test_quest_events_repaint(modern):
     modern.execute('QObj[7][1] = { text = "Kobold Vermin slain: 4/8", numFulfilled = 4, numRequired = 8 }; MockFire("QUEST_LOG_UPDATE"); MockAdvance(1)')
     assert modern.eval('HogHealsQuests.Tracker.lines[1]._text') == "- Kobold Vermin slain: 4/8"
+
+
+def test_more_line_stays_inside_the_panel_and_scale_applies(modern):
+    modern.execute('''
+      for i = 1, 30 do QL[#QL + 1] = { title = "Q" .. i, questID = 100 + i, level = 5 } QObj[100 + i] = { { text = "Thing: 0/5" } } end
+      local d = HogHeals.db.profile.quests.tracker
+      d.mode, d.maxHeight, d.scale, d.fontSize = "all", 200, 1.5, 24
+      HogHealsQuests.Tracker.Update()
+    ''')
+    i = modern.eval('#HogHealsQuests.Tracker.lines')
+    assert modern.eval(f'HogHealsQuests.Tracker.lines[{i}]._text').startswith("+")
+    assert modern.eval(f'HogHealsQuests.Tracker.lines[{i}]._points[2][1]') == "RIGHT"
+    assert modern.eval('HogHealsQuestTracker._calls.SetScale') >= 1
+    assert modern.eval('HogHealsQuestTracker._last.SetScale[1]') == 1.5
+    assert modern.eval('HogHealsQuestTracker.header._height') == 32
