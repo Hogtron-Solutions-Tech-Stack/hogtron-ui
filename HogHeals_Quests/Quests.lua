@@ -10,7 +10,7 @@ HHQ.module = Module
 -- Every one of these is pcall-registered: the Forever beta THROWS on events it does not know.
 local EVENTS = { "QUEST_LOG_UPDATE", "QUEST_WATCH_LIST_CHANGED", "QUEST_WATCH_UPDATE", "UNIT_QUEST_LOG_CHANGED",
   "QUEST_ACCEPTED", "QUEST_REMOVED", "QUEST_TURNED_IN", "PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA", "ZONE_CHANGED",
-  "PLAYER_LEVEL_UP", "ZONE_CHANGED_INDOORS" }
+  "PLAYER_LEVEL_UP", "ZONE_CHANGED_INDOORS", "ADDON_LOADED" }
 
 function Module.WriteProbe()
   local g = HH.db and HH.db.global
@@ -35,8 +35,14 @@ function Module:OnEnable()
     local ok = pcall(ev.RegisterEvent, ev, e)
     if not ok then Module.unknown[#Module.unknown + 1] = e end
   end
-  ev:SetScript("OnEvent", function(_, e)
-    if e == "PLAYER_ENTERING_WORLD" then HHQ.Tracker.ApplyBlizzard() HH:SafeCall(HHQ.MapSkin, "Apply") end
+  ev:SetScript("OnEvent", function(_, e, arg1)
+    if e == "ADDON_LOADED" then
+      -- Blizzard's tracker is a load-on-demand addon that can arrive after us: hide it the moment it exists
+      if type(arg1) == "string" and arg1:find("ObjectiveTracker") then HHQ.Tracker.ApplyBlizzard() end
+      return
+    end
+    if e == "PLAYER_ENTERING_WORLD" then
+      if C_Timer and C_Timer.After then C_Timer.After(3, function() HHQ.Tracker.ApplyBlizzard() end) end HHQ.Tracker.ApplyBlizzard() HH:SafeCall(HHQ.MapSkin, "Apply") end
     if e == "ZONE_CHANGED" or e == "ZONE_CHANGED_NEW_AREA" or e == "PLAYER_ENTERING_WORLD" then HH:SafeCall(HHQ.MapSkin, "UpdateZone") end
     HHQ.Tracker.Schedule()
   end)

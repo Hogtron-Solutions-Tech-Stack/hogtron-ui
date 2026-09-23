@@ -135,7 +135,8 @@ local function build()
   header.rule:SetHeight(1)
   header:RegisterForDrag("LeftButton")
   header:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-  header:SetScript("OnDragStart", function() if not HH.db.profile.locked then f:StartMoving() end end)
+  -- Drag by the header any time (2026-09-22: "/hh unlock" first was invisible to the player); own lock option.
+  header:SetScript("OnDragStart", function() if not cfg().lockPosition then f:StartMoving() end end)
   header:SetScript("OnDragStop", function()
     f:StopMovingOrSizing()
     local point, _, _, x, y = f:GetPoint(1)
@@ -324,11 +325,29 @@ end
 
 -- ------------------------------------------------------------------------------------------------ Blizzard's tracker
 local hiddenParent
+-- 2026-09-22 in game: Blizzard's modern tracker ("All Objectives") was back on screen next to ours. Blizzard's
+-- tracker is its own addon and can load AFTER us (Quests.lua re-applies on its ADDON_LOADED), and its manager can
+-- re-show / re-parent it on updates, so every banished frame also gets hooks that put it back in the hidden parent.
 local function banish(f)
   if type(f) ~= "table" then return end
   if f.UnregisterAllEvents then pcall(f.UnregisterAllEvents, f) end
   if f.Hide then pcall(f.Hide, f) end
   if f.SetParent then pcall(f.SetParent, f, hiddenParent) end
+  if not f.hhBanishHooked and type(hooksecurefunc) == "function" then
+    f.hhBanishHooked = true
+    local function again(self)
+      local d = cfg()
+      if d.enabled == false or d.hideBlizzard == false or self.hhRebanishing then return end
+      self.hhRebanishing = true
+      if not (InCombatLockdown and InCombatLockdown()) then
+        if self.GetParent and self:GetParent() ~= hiddenParent and self.SetParent then pcall(self.SetParent, self, hiddenParent) end
+      end
+      if self.Hide then pcall(self.Hide, self) end
+      self.hhRebanishing = false
+    end
+    if f.Show then pcall(hooksecurefunc, f, "Show", again) end
+    if f.SetParent then pcall(hooksecurefunc, f, "SetParent", again) end
+  end
 end
 
 function Tracker.ApplyBlizzard()
@@ -342,6 +361,7 @@ function Tracker.ApplyBlizzard()
       hiddenParent:Hide()
     end
     banish(_G.ObjectiveTrackerFrame)
+    Tracker.hidBlizzard = _G.ObjectiveTrackerFrame ~= nil or _G.QuestWatchFrame ~= nil or _G.WatchFrame ~= nil
     banish(_G.QuestWatchFrame)
     banish(_G.WatchFrame)
   end)

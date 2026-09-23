@@ -77,7 +77,7 @@ HH.defaults = {
     quests = {
       tracker = {
         enabled = true, hideBlizzard = true, mode = "watched",   -- "watched" (all when none) | "zone" | "all"
-        showLevels = true, hideCompleted = false, collapsed = false,
+        showLevels = true, hideCompleted = false, collapsed = false, lockPosition = false,
         width = 260, maxHeight = 420, fontSize = 13, scale = 1, backgroundAlpha = 0.6,
         point = "TOPRIGHT", x = -80, y = -260,
       },
