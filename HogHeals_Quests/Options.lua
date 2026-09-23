@@ -61,6 +61,7 @@ function Options.Build()
           enabled = toggle(mm, "enabled", "Quest markers", 1, pr),
           edge = toggle(mm, "edge", "Arrow on the rim for far quests", 2, pr),
           watchedOnly = toggle(mm, "watchedOnly", "Only watched quests", 3, pr),
+          turnInInRange = toggle(mm, "turnInInRange", "Also mark nearby turn-ins (Blizzard already shows a ? on the NPC)", 3.5, pr),
           size = range(mm, "size", "Pin size", 4, 8, 32, 1, pr),
         } },
       } },

@@ -219,7 +219,11 @@ function Pins.Update()
     if not (d.watchedOnly and not q.watched) then
       local dx, dy = (pt.x - px) * w, (pt.y - py) * h
       local ox, oy, edge = Pins.Place(dx, dy, radius, half - size / 3, facing, square)
-      if (not edge or d.edge ~= false) and not (edge and pt.id ~= nil and pt.id == superTracked) then
+      -- 2026-09-22 in game: a finished quest showed Blizzard's small "?" on the turn-in NPC AND our "?" a few yards
+      -- off ("same quests, two different icons"). The client marks the NPC itself once it is in minimap range, so an
+      -- in-range turn-in gets no pin from us; far away (rim arrow) and next-step waypoints on other maps still do.
+      local blizzardShowsIt = q.complete and not edge and not pt.waypoint and not d.turnInInRange
+      if (not edge or d.edge ~= false) and not (edge and pt.id ~= nil and pt.id == superTracked) and not blizzardShowsIt then
         n = n + 1
         local p = pin(n)
         p.quest, p.yards = q, math.floor(math.sqrt(dx * dx + dy * dy) + 0.5)

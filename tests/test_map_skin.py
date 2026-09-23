@@ -157,3 +157,19 @@ def test_docked_button_stays_docked_when_the_client_moves_it_back(lua):
     lua.execute('GameTimeFrame:ClearAllPoints(); GameTimeFrame:SetPoint("TOPRIGHT", Minimap, "TOPRIGHT", 0, 0)')
     assert lua.eval('GameTimeFrame._points[1][2] == HogHealsMinimapFrame.header')
     assert errors(lua) == []
+
+
+def test_nearby_turn_in_left_to_blizzard_far_one_keeps_its_arrow(lua):
+    boot(lua, MODERN)
+    lua.execute('GetMinimapShape = nil; Minimap:SetSize(140, 140)')
+    # quest 9 (complete) moved next to the player: Blizzard's own ? marks that NPC -> no pin from us
+    lua.execute('QPoints = { { questID = 7, x = 0.50, y = 0.40 }, { questID = 9, x = 0.52, y = 0.52 } }')
+    assert lua.eval('HogHealsQuests.Pins.Update()') == 1
+    assert lua.eval('HogHealsQuests.Pins.pool[1].quest.id') == 7
+    # far away: Blizzard shows nothing, our rim arrow stays
+    lua.execute('QPoints = { { questID = 9, x = 0.95, y = 0.95 } }')
+    assert lua.eval('HogHealsQuests.Pins.Update()') == 1
+    assert lua.eval('HogHealsQuests.Pins.pool[1].arrow:IsShown()') is True
+    # option: mark nearby turn-ins too
+    lua.execute('HogHeals.db.profile.quests.minimap.turnInInRange = true; QPoints = { { questID = 9, x = 0.52, y = 0.52 } }')
+    assert lua.eval('HogHealsQuests.Pins.Update()') == 1
