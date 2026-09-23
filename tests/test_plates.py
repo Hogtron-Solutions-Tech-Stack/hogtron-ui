@@ -276,3 +276,20 @@ def test_quest_badge_falls_back_to_drawn_square_when_art_is_refused(lua):
     assert lua.eval(f'{uf}.hh.questDrawn') is True
     assert lua.eval(f'{uf}.hh.questGlyph._text') == "!" and lua.eval(f'{uf}.hh.questGlyph:IsShown()') is True
     assert lua.eval(f'{uf}.hh.quest._color[1]') == pytest.approx(0.95)
+
+
+def test_plate_cast_bar_flattened_once(plates):
+    plates.execute("""
+      local p = MockPlate("nameplate8", { name = "Caster", class = "MAGE", health = 5, maxHealth = 5, guid = "C-80" })
+      p.UnitFrame.castBar = CreateFrame("StatusBar", nil, p.UnitFrame)
+      p.UnitFrame.castBar.Border = p.UnitFrame.castBar:CreateTexture()
+      p.UnitFrame.castBar.Text = p.UnitFrame.castBar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+      MockFire("NAME_PLATE_UNIT_ADDED", "nameplate8")
+    """)
+    uf = 'NP.nameplate8.UnitFrame'
+    assert plates.eval(f'{uf}.castBar._texture').endswith("WHITE8X8")
+    assert plates.eval(f'{uf}.castBar.Border._alpha') == 0
+    assert plates.eval(f'#{uf}.hh.castEdges') == 4
+    plates.execute('HogHealsPlates.Plates.ApplyLook(NP.nameplate8.UnitFrame)')
+    assert plates.eval(f'#{uf}.hh.castEdges') == 4                       # not re-skinned
+    assert errors(plates) == []

@@ -35,7 +35,16 @@ function Module:OnEnable()
     local ok = pcall(ev.RegisterEvent, ev, e)
     if not ok then Module.unknown[#Module.unknown + 1] = e end
   end
-  ev:SetScript("OnEvent", function(_, e, arg1)
+  ev:SetScript("OnEvent", function(_, e, arg1, arg2)
+    if e == "QUEST_ACCEPTED" and HH.db.profile.quests.tracker.autoTrack ~= false then
+      -- classic passes (questLogIndex, questID), modern (questID); the log may lag the event by a frame
+      local id = (type(arg2) == "number" and arg2) or (type(arg1) == "number" and arg1) or nil
+      local index = type(arg2) == "number" and arg1 or nil
+      if id then
+        local function watch() pcall(HHQ.Data.SetWatched, { id = id, index = index }, true) HHQ.Tracker.Schedule() end
+        if C_Timer and C_Timer.After then C_Timer.After(0.5, watch) else watch() end
+      end
+    end
     if e == "ADDON_LOADED" then
       -- Blizzard's tracker is a load-on-demand addon that can arrive after us: hide it the moment it exists
       if type(arg1) == "string" and arg1:find("ObjectiveTracker") then HHQ.Tracker.ApplyBlizzard() end

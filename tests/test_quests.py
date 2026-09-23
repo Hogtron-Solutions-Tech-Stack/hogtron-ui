@@ -318,3 +318,10 @@ def test_tracker_drags_without_unlock_unless_locked(modern):
       HogHealsQuestTracker.header:GetScript("OnDragStart")()
     """)
     assert modern.eval('HogHealsQuestTracker._moving') is False
+
+
+def test_accepted_quest_is_watched_automatically(modern):
+    modern.execute('wipe(QWatched); MockFire("QUEST_ACCEPTED", 3, 8); MockAdvance(0.6)')
+    assert modern.eval('QWatched[8]') == 1
+    modern.execute('HogHeals.db.profile.quests.tracker.autoTrack = false; MockFire("QUEST_ACCEPTED", 4, 9); MockAdvance(0.6)')
+    assert modern.eval('QWatched[9]') is None

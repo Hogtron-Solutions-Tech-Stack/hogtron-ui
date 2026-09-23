@@ -50,6 +50,34 @@ function Chat.Shorten(msg)
   return out
 end
 
+--- Turn bare URLs (http://, https://, www.) in the plain parts of a message into clickable |Hhogurl:...|h links,
+-- leaving every existing |H...|h link (items, players, channels) untouched. Pure.
+function Chat.LinkURLs(msg)
+  if type(msg) ~= "string" or isSecret(msg) then return msg end
+  local out, pos = {}, 1
+  local function linkify(plain)
+    return (plain:gsub("(%f[%S]https?://%S+)", function(u)
+      local trail = u:match("([%.,;:!%?%)]+)$") or ""
+      u = u:sub(1, #u - #trail)
+      return "|Hhogurl:" .. u .. "|h|cff21D4E0[" .. u .. "]|r|h" .. trail
+    end):gsub("(%f[%S]www%.%S+)", function(u)
+      if u:find("^www%.[^|]*|h") then return u end
+      local trail = u:match("([%.,;:!%?%)]+)$") or ""
+      u = u:sub(1, #u - #trail)
+      return "|Hhogurl:" .. u .. "|h|cff21D4E0[" .. u .. "]|r|h" .. trail
+    end))
+  end
+  while true do
+    local s, e = msg:find("|H.-|h.-|h", pos)
+    if not s then break end
+    out[#out + 1] = linkify(msg:sub(pos, s - 1))
+    out[#out + 1] = msg:sub(s, e)
+    pos = e + 1
+  end
+  out[#out + 1] = linkify(msg:sub(pos))
+  return table.concat(out)
+end
+
 local function isCombatLog(cf)
   return cf == rawget(_G, "COMBATLOG") or (cf.GetName and cf:GetName() == "ChatFrame2")
 end
@@ -73,6 +101,42 @@ local function outline(parent, anchor, pad)
     edges[i] = e
   end
   return edges
+end
+
+--- Small box with the URL selected: Ctrl+C copies it (chat text itself cannot be selected in WoW).
+function Chat.ShowURL(url)
+  local f = Chat.urlFrame
+  if not f then
+    f = CreateFrame("Frame", "HogUIURLCopy", UIParent)
+    f:SetSize(420, 52)
+    f:SetPoint("CENTER", UIParent, "CENTER", 0, 120)
+    f:SetFrameStrata("DIALOG")
+    f.bg = solid(f, "BACKGROUND", INK, 0.95)
+    f.bg:SetAllPoints(f)
+    f.edges = outline(f, f)
+    f.rule = solid(f, "ARTWORK", CYAN)
+    f.rule:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0)
+    f.rule:SetPoint("TOPRIGHT", f, "TOPRIGHT", 0, 0)
+    f.rule:SetHeight(1)
+    f.label = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    f.label:SetPoint("TOPLEFT", f, "TOPLEFT", 8, -6)
+    f.label:SetText("Ctrl+C to copy, Escape to close")
+    f.label:SetTextColor(0.55, 0.55, 0.60)
+    f.box = CreateFrame("EditBox", nil, f)
+    f.box:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 8, 6)
+    f.box:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -8, 6)
+    f.box:SetHeight(20)
+    if f.box.SetAutoFocus then f.box:SetAutoFocus(false) end
+    if f.box.SetFontObject then f.box:SetFontObject("GameFontHighlight") end
+    f.box:SetScript("OnEscapePressed", function(self) self:ClearFocus() f:Hide() end)
+    f.box:SetScript("OnEnterPressed", function(self) self:ClearFocus() f:Hide() end)
+    Chat.urlFrame = f
+  end
+  f.box:SetText(url)
+  f:Show()
+  if f.box.SetFocus then f.box:SetFocus() end
+  if f.box.HighlightText then f.box:HighlightText() end
+  return f
 end
 
 --- Clear every texture region of a Blizzard frame (tab / edit box art). Font strings and child frames are kept.
@@ -176,6 +240,10 @@ local function hookMessages(cf, s)
   cf.AddMessage = function(self, msg, ...)
     if cfg().shortChannels ~= false then
       local ok, m = pcall(Chat.Shorten, msg)
+      if ok then msg = m end
+    end
+    if cfg().urlCopy ~= false then
+      local ok, m = pcall(Chat.LinkURLs, msg)
       if ok then msg = m end
     end
     return orig(self, msg, ...)
@@ -282,6 +350,11 @@ HHC.module = Module
 
 function Module:OnEnable()
   if cfg().enabled == false then return end
+  if type(hooksecurefunc) == "function" and type(rawget(_G, "SetItemRef")) == "function" then
+    pcall(hooksecurefunc, "SetItemRef", function(link)
+      if type(link) == "string" and link:sub(1, 7) == "hogurl:" and cfg().urlCopy ~= false then Chat.ShowURL(link:sub(8)) end
+    end)
+  end
   Chat.StyleAll()
   Chat.ApplyClassNames()
   local ev = CreateFrame("Frame")

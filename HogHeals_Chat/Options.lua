@@ -35,6 +35,7 @@ function Options.Build()
         get = function() return c().backgroundAlpha end, set = function(_, v) c().backgroundAlpha = v; refresh() end },
       shortChannels = toggle("shortChannels", "Short channel names ([1], [G], [P])", 5),
       classNames = toggle("classNames", "Player names in class colours", 6),
+      urlCopy = toggle("urlCopy", "Clickable web links (click to copy)", 6.5),
       fade = toggle("fade", "Fade old messages", 7),
       hideButtons = toggle("hideButtons", "Hide the scroll buttons beside chat", 8, "Mouse wheel scrolls; Shift + wheel jumps to the top / bottom."),
       hideMenuButtons = toggle("hideMenuButtons", "Hide the chat menu / channel buttons", 9, "Needs a /reload to bring them back."),
