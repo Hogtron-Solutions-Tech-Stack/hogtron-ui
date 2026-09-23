@@ -149,6 +149,7 @@ local function pin(i)
         if not o.done then GameTooltip:AddLine("- " .. tostring(o.text), 0.96, 0.92, 0.86) end
       end
     end
+    if self.waypoint then GameTooltip:AddLine(self.waypoint, 0.13, 0.83, 0.88, true) end
     if self.yards then GameTooltip:AddLine(("%d yards"):format(self.yards), 0.55, 0.55, 0.6) end
     GameTooltip:Show()
   end)
@@ -222,6 +223,7 @@ function Pins.Update()
         n = n + 1
         local p = pin(n)
         p.quest, p.yards = q, math.floor(math.sqrt(dx * dx + dy * dy) + 0.5)
+        p.waypoint = pt.waypoint and ("Next step: " .. (pt.text or "follow the marker")) or nil
         local look = q.complete and DONE or OPEN
         local s = edge and math.floor(size * 0.85) or size
         p.kind = look.glyph

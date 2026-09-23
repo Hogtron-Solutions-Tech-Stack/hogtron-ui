@@ -53,6 +53,7 @@ end
 local function solid(parent, layer, c, a)
   local t = parent:CreateTexture(nil, layer or "BACKGROUND")
   t:SetColorTexture(c[1], c[2], c[3], a or 1)
+  t.hhOurs = true
   return t
 end
 
@@ -139,9 +140,18 @@ function Skin.Apply()
       if not pair.keep and type(parent) == "table" then banish(parent[pair[2]]) end
     end
   end
+  -- before any resize: the overlay test compares each texture with the map's CURRENT size
+  local hidden = Skin.HideOverlays()
+  if #hidden > 0 or not Skin.hiddenOverlays then Skin.hiddenOverlays = hidden end
   call(Minimap.SetMaskTexture, Minimap, "Interface\\Buttons\\WHITE8X8")
   _G.GetMinimapShape = function() return "SQUARE" end
-  local s = d.size or 180
+  local s = Skin.TargetSize()
+  if d.fill ~= false and type(MinimapCluster) == "table" then
+    -- 2026-09-22 in game: the map sat at 180 px inside a much bigger Edit Mode box. Fill the box instead, under our
+    -- header, leaving FOOTER px for the client's coordinates line below the map.
+    call(Minimap.ClearAllPoints, Minimap)
+    call(Minimap.SetPoint, Minimap, "TOP", MinimapCluster, "TOP", 0, -(Skin.TOP_OFFSET + HEADER_H))
+  end
   call(Minimap.SetSize, Minimap, s, s)
   -- a resized minimap only redraws its map after a zoom change
   local z = Minimap:GetZoom() or 0
@@ -157,8 +167,92 @@ function Skin.Apply()
     end
   end
   Skin.UpdateZone()
+  Skin.DockButtons()
+  Skin.HookCluster()
   Skin.missing = missing
   return missing
+end
+
+Skin.TOP_OFFSET = 24   -- room above our header for the clock / mail / tracking row the client keeps there
+Skin.FOOTER = 18       -- room below the map for the client's coordinates text
+
+--- Map edge length: the whole cluster box when fill is on (default), the size slider otherwise.
+function Skin.TargetSize()
+  local d = cfg()
+  if d.fill ~= false and type(MinimapCluster) == "table" and MinimapCluster.GetWidth then
+    local w, h = MinimapCluster:GetWidth() or 0, MinimapCluster:GetHeight() or 0
+    local s = math.floor(math.min(w - 12, h - Skin.TOP_OFFSET - HEADER_H - Skin.FOOTER - 8))
+    if s >= 100 then return s end
+  end
+  return d.size or 180
+end
+
+--- Follow Edit Mode: resizing the minimap box re-fits the map.
+function Skin.HookCluster()
+  if Skin.clusterHooked or type(MinimapCluster) ~= "table" or not MinimapCluster.HookScript then return end
+  Skin.clusterHooked = true
+  MinimapCluster:HookScript("OnSizeChanged", function()
+    if cfg().enabled ~= false and cfg().fill ~= false then
+      local s = Skin.TargetSize()
+      call(Minimap.SetSize, Minimap, s, s)
+    end
+  end)
+end
+
+-- Round buttons that sat ON the map (2026-09-22: the Looking-for-Group eye, the day/night sun). Docked into the
+-- header strip at header height instead. Several names per button: client generations call them differently.
+Skin.DOCK = {
+  { side = "LEFT", names = { "GameTimeFrame" } },
+  { side = "RIGHT", names = { "QueueStatusButton", "MiniMapLFGFrame", "LFGMinimapFrame", "MiniMapBattlefieldFrame" } },
+}
+
+function Skin.DockButtons()
+  local f = Skin.frame
+  if not f or cfg().dockButtons == false then return end
+  Skin.docked = {}
+  for _, slot in ipairs(Skin.DOCK) do
+    for _, n in ipairs(slot.names) do
+      local b = rawget(_G, n)
+      if type(b) == "table" and b.ClearAllPoints then
+        HH:RunOutOfCombat(function()
+          local bw = (b.GetWidth and b:GetWidth()) or 32
+          local scale = (HEADER_H - 2) / math.max(bw, 1)
+          call(b.SetScale, b, scale)
+          call(b.ClearAllPoints, b)
+          if slot.side == "LEFT" then call(b.SetPoint, b, "LEFT", f.header, "LEFT", 2 / scale, 0)
+          else call(b.SetPoint, b, "RIGHT", f.header, "RIGHT", -2 / scale, 0) end
+          call(b.SetFrameLevel, b, f.header:GetFrameLevel() + 3)
+        end)
+        Skin.docked[#Skin.docked + 1] = n
+        break
+      end
+    end
+  end
+end
+
+--- Big textures lying over the map (the round white ring seen 2026-09-22, name unknown): any texture region of the
+-- Minimap or MinimapBackdrop that is not ours and covers most of the map. Blips and terrain are not regions, so
+-- they cannot be caught by this. Returns "name|texture" of each one hidden, for diag.
+function Skin.HideOverlays()
+  local out = {}
+  if cfg().hideDecor == false then return out end
+  local mw = (Minimap.GetWidth and Minimap:GetWidth()) or 0
+  for _, owner in ipairs({ Minimap, rawget(_G, "MinimapBackdrop") }) do
+    if type(owner) == "table" and owner.GetRegions then
+      for _, r in ipairs({ owner:GetRegions() }) do
+        if r and not r.hhOurs and r.GetObjectType and r:GetObjectType() == "Texture" then
+          local w = (r.GetWidth and r:GetWidth()) or 0
+          if w >= mw * 0.8 and mw > 0 then
+            local tex = call(r.GetTexture, r) or call(r.GetAtlas, r) or "?"
+            out[#out + 1] = tostring(r.GetName and r:GetName() or "?") .. "|" .. tostring(tex)
+            call(r.SetAlpha, r, 0)
+            call(r.Hide, r)
+          end
+        end
+      end
+    end
+  end
+  return out
 end
 
 function Skin.Refresh()
@@ -176,6 +270,21 @@ function Skin.Probe()
     local parent = rawget(_G, pair[1])
     names[#names + 1] = pair[1] .. "." .. pair[2] .. "=" .. ((type(parent) == "table" and parent[pair[2]]) and "y" or "n")
   end
+  local regions = {}
+  for _, owner in ipairs({ Minimap, rawget(_G, "MinimapBackdrop"), rawget(_G, "MinimapCluster") }) do
+    if type(owner) == "table" and owner.GetRegions then
+      for _, r in ipairs({ owner:GetRegions() }) do
+        if r and r.GetObjectType and r:GetObjectType() == "Texture" and not r.hhOurs then
+          regions[#regions + 1] = tostring(r.GetName and r:GetName() or "?") .. "|" .. tostring(call(r.GetTexture, r) or call(r.GetAtlas, r))
+            .. "|" .. tostring(math.floor((r.GetWidth and r:GetWidth() or 0) + 0.5)) .. "|" .. tostring(r.IsShown and r:IsShown())
+        end
+        if #regions >= 30 then break end
+      end
+    end
+  end
   return { names = table.concat(names, ","), mask = (Minimap and Minimap.SetMaskTexture) and "fn" or "nil",
+    regions = table.concat(regions, " ; "), hidden = table.concat(Skin.hiddenOverlays or {}, " ; "),
+    docked = table.concat(Skin.docked or {}, ","),
+    cluster = (type(MinimapCluster) == "table" and MinimapCluster.GetWidth) and (math.floor(MinimapCluster:GetWidth()) .. "x" .. math.floor(MinimapCluster:GetHeight())) or "nil",
     size = Minimap and (tostring(Minimap:GetWidth()) .. "x" .. tostring(Minimap:GetHeight())) or "nil" }
 end

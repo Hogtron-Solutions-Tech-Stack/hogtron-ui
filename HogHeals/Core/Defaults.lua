@@ -82,7 +82,7 @@ HH.defaults = {
         point = "TOPRIGHT", x = -80, y = -260,
       },
       minimap = { enabled = true, edge = true, watchedOnly = false, size = 16 },   -- Forever draws areas only, not points
-      map = { enabled = true, size = 180, zoneText = true, wheelZoom = true, hideDecor = true },
+      map = { enabled = true, fill = true, size = 180, zoneText = true, wheelZoom = true, hideDecor = true, dockButtons = true },
     },
     chat = {
       enabled = true, backgroundAlpha = 0.6, fontSize = nil, outline = false,   -- fontSize nil = keep Blizzard's size

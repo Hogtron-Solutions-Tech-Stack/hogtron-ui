@@ -46,7 +46,11 @@ function Options.Build()
         look = { type = "group", inline = true, name = "Look", order = 1, args = {
           about = { type = "description", order = 0, name = "Square minimap in the HogHeals frame, zone name on top (click it for the world map), mouse wheel zooms. Turning it off fully undoes it after a /reload." },
           enabled = toggle(mp, "enabled", "HogHeals minimap", 1, sr),
-          size = range(mp, "size", "Size", 2, 120, 360, 5, sr),
+          fill = toggle(mp, "fill", "Fill the whole minimap box (resize it in Edit Mode)", 1.5, sr),
+          size = { type = "range", name = "Size (when not filling the box)", order = 2, min = 120, max = 400, step = 5,
+            disabled = function() return mp().fill ~= false end,
+            get = function() return mp().size end, set = function(_, v) mp().size = v; sr() end },
+          dockButtons = toggle(mp, "dockButtons", "Move the LFG eye and day/night button into the header", 2.5, sr),
           zoneText = toggle(mp, "zoneText", "Zone name on top", 3, sr),
           wheelZoom = toggle(mp, "wheelZoom", "Mouse wheel zoom", 4, sr),
           hideDecor = toggle(mp, "hideDecor", "Hide Blizzard's round border and zoom buttons", 5, sr),
