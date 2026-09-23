@@ -196,13 +196,13 @@ function Module:OnEnable()
   if Skin.cfg().enabled == false then return end
   Skin.ApplyAll("enable")
   local ev = CreateFrame("Frame")
-  for _, e in ipairs({ "PLAYER_ENTERING_WORLD", "BAG_UPDATE", "BAG_UPDATE_DELAYED", "ACTIONBAR_PAGE_CHANGED", "UPDATE_BINDINGS", "PLAYER_REGEN_ENABLED" }) do
+  for _, e in ipairs({ "PLAYER_ENTERING_WORLD", "BAG_UPDATE", "BAG_UPDATE_DELAYED", "ACTIONBAR_PAGE_CHANGED", "UPDATE_BINDINGS", "PLAYER_REGEN_ENABLED", "MERCHANT_SHOW", "ADDON_LOADED" }) do
     pcall(ev.RegisterEvent, ev, e)
   end
-  ev:SetScript("OnEvent", function(_, e)
+  ev:SetScript("OnEvent", function(_, e, arg1)
     for _, part in ipairs(Skin.parts) do
       if part.OnEvent then
-        local ok, err = xpcall(part.OnEvent, HH.Trace, e)
+        local ok, err = xpcall(part.OnEvent, HH.Trace, e, arg1)
         if not ok and err ~= Skin.lastError then Skin.lastError = err HH:LogError("skin " .. part.name .. " " .. e .. ": " .. tostring(err)) end
       end
     end

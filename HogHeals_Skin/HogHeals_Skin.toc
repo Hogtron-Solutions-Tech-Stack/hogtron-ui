@@ -13,4 +13,6 @@ Bags.lua
 Tooltip.lua
 InfoBar.lua
 Extras.lua
+Panels.lua
+Auto.lua
 Options.lua

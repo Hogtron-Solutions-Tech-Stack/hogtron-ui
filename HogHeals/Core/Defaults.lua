@@ -90,7 +90,9 @@ HH.defaults = {
     },
     skin = {
       enabled = true, font = "Friz Quadrata TT", backgroundAlpha = 0.75,
-      actionBars = { enabled = true, hideArt = true, hotkeySize = 10, hideNames = true },
+      actionBars = { enabled = true, hideArt = true, hotkeySize = 10, hideNames = true, cooldownNumbers = true },
+      panels = { enabled = true, alpha = 0.9, titleSize = 13, skip = { WorldMapFrame = true } },
+      auto = { sellJunk = true, repair = true, guildRepair = false },
       micro = { enabled = true, scale = 1 },
       bagBar = { enabled = true },
       bags = { enabled = true, qualityMin = 2, fontSize = 12, backgroundAlpha = 0.85 },
