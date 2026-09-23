@@ -89,6 +89,10 @@ function UnitButton.Setup(button)
   button.bg:SetColorTexture(0.07, 0.07, 0.09, 0.6)
 
   button.health = CreateFrame("StatusBar", nil, button)
+  -- Texture FIRST: the incoming-heal overlays below anchor to the fill texture. Anchoring to it before the bar had
+  -- one left the bar at 0x0 in game (2026-09-22, /hh framediag: "bar 0.00x0.00 (button 151.00x80.00) points=2"),
+  -- an empty grey frame; a bar built texture-first (/hh healthfix) filled at once.
+  button.health:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
   button.health:SetPoint("TOPLEFT", button, "TOPLEFT", 1, -1)
   button.health:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -1, 1)
   button.health:SetMinMaxValues(0, 1)
@@ -128,6 +132,15 @@ function UnitButton.Setup(button)
   button.dispelIcon:SetSize(14, 14)
   button.dispelIcon:SetPoint("CENTER", button, "CENTER", 0, 0)
   button.dispelIcon:Hide()
+  -- Secret-aura path: one icon per harmful aura slot, shown/hidden by the client from a secret boolean.
+  button.dispelIcons = { button.dispelIcon }
+  for i = 2, 3 do
+    local t = mkTexture(button.overlay, "OVERLAY", 3)
+    t:SetSize(14, 14)
+    t:SetPoint("CENTER", button, "CENTER", (i - 2) * 16 + 16, 0)
+    t:Hide()
+    button.dispelIcons[i] = t
+  end
   button.priorityIcon = mkTexture(button.overlay, "OVERLAY", 4)
   button.priorityIcon:SetSize(18, 18)
   button.priorityIcon:SetPoint("CENTER", button, "CENTER", 0, 0)

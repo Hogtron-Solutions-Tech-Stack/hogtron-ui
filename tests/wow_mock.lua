@@ -82,7 +82,7 @@ function IsInRaid() return MockState.inRaid end
 function IsInGroup() return MockState.numGroup > 1 end
 function GetNumGroupMembers() return MockState.numGroup end
 function GetNumSubgroupMembers() return math.max(0, math.min(4, MockState.numGroup - 1)) end
-function IsAddOnLoaded(n) return n == "Clique" and MockState.cliqueLoaded end
+function IsAddOnLoaded(n) if n == "Clique" then return MockState.cliqueLoaded end return MockState.loadedAddons ~= nil and MockState.loadedAddons[n] == true end
 C_AddOns = { IsAddOnLoaded = IsAddOnLoaded, GetAddOnMetadata = function(_, k) return k == "Version" and "0.1.0-test" or nil end,
              GetNumAddOns = function() return 0 end }
 function GetAddOnMetadata(_, k) return C_AddOns.GetAddOnMetadata(_, k) end
@@ -220,6 +220,21 @@ function UnitLevel(u) local m = U(u) return m and (m.level or 60) or 0 end
 function UnitGetIncomingHeals(u, src) local m = U(u) if not m then return 0 end
   if src == "player" then return S(m.incomingMine or 0) end return S((m.incomingMine or 0) + (m.incomingOthers or 0)) end
 function UnitGetTotalAbsorbs(u) local m = U(u) return m and m.absorbs or 0 end
+-- Modern aura API (Forever beta shape, measured 2026-09-17): a table with canActivePlayerDispel. Switch on with
+-- MockState.modernAuras; MockState.secretAuras wraps the fields as secrets and makes ShouldAurasBeSecret() true.
+function MockEnableModernAuras(secret)
+  MockState.modernAuras = true
+  MockState.secretAuras = secret and true or false
+  C_UnitAuras = { GetAuraDataByIndex = function(u, i, filter)
+    local name, icon, count, dtype, duration, expires, source, _, _, spellId = UnitAura(u, i, filter)
+    if not name then return nil end
+    local can = HogHeals and HogHeals.CanDispel and HogHeals.CanDispel(MockState.playerClass, dtype) or false
+    local w = MockState.secretAuras and MockSecret or function(v) return v end
+    return { name = w(name), icon = w(icon), applications = w(count), dispelName = w(dtype), duration = duration,
+      expirationTime = expires, sourceUnit = source, spellId = spellId, canActivePlayerDispel = w(can), auraInstanceID = i }
+  end }
+  C_Secrets = { ShouldAurasBeSecret = function() return MockState.secretAuras end }
+end
 function UnitAura(u, i, filter)
   local m = U(u) if not m or not m.auras then return nil end
   local harmful = filter and filter:find("HARMFUL")
@@ -445,6 +460,7 @@ function MockReset()
   wipe(MockUnits); wipe(MockBindings.clicks); wipe(MockBindings.cleared); wipe(MockLog.attributes); wipe(MockLog.errors); wipe(MockTimers)
   MockSetSecrets(false)
   wipe(MockUnknownEvents); MockState.strictFonts = false; MockState.secretNames = false; MockState.secretRange = false
+  MockState.modernAuras = false; MockState.secretAuras = false; C_UnitAuras = nil; C_Secrets = nil
   MockState.inCombat = false; MockState.numGroup = 1; MockState.inRaid = false; MockState.time = 0; MockState.cliqueLoaded = false
   MockUnits.player = { name = "Hognificent", class = MockState.playerClass, health = 100, maxHealth = 100, guid = "Player-0" }
 end

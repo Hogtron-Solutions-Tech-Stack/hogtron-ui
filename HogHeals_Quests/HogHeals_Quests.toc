@@ -1,0 +1,14 @@
+## Interface: 20505,20506,11508,11509,16001
+## Title: |cffF5EBDCHog|r|cff21D4E0UI|r Quests & Map
+## Notes: Quest tracker window, square HogHeals minimap, optional quest pins.
+## Author: HogTron Solutions (Sean Bilger)
+## Version: 0.1.0
+## Dependencies: HogHeals
+## X-License: MIT
+
+Data.lua
+Tracker.lua
+Minimap.lua
+MapSkin.lua
+Options.lua
+Quests.lua

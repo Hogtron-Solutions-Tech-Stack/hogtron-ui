@@ -88,6 +88,34 @@ HH.defaults = {
       border = true, classIcons = true,
       point = "CENTER", x = 420, y = -220,
     },
+    quests = {
+      tracker = {
+        enabled = true, hideBlizzard = true, mode = "watched",   -- "watched" (all when none) | "zone" | "all"
+        showLevels = true, hideCompleted = false, collapsed = false, lockPosition = false, autoTrack = true,
+        width = 260, maxHeight = 420, fontSize = 13, scale = 1, backgroundAlpha = 0.6,
+        point = "TOPRIGHT", x = -80, y = -260,
+      },
+      minimap = { enabled = true, edge = true, watchedOnly = false, turnInInRange = false, size = 16 },   -- Forever draws areas only, not points
+      map = { enabled = true, fill = true, size = 180, zoneText = true, wheelZoom = true, hideDecor = true, dockButtons = true },
+    },
+    chat = {
+      enabled = true, backgroundAlpha = 0.6, fontSize = nil, outline = false,   -- fontSize nil = keep Blizzard's size
+      shortChannels = true, classNames = true, fade = true, hideButtons = true, hideMenuButtons = false, urlCopy = true,
+    },
+    plates = {
+      enabled = true,                 -- restyle Blizzard's nameplates (flat bar, outline, health text)
+      font = "Friz Quadrata TT", fontSize = 10, healthText = "percent",   -- "percent" | "value" | "none"
+      border = true, classColors = true, reactionColors = true, castbar = true,
+      nameClass = "friendly",         -- player names on plates in class colour: "friendly" | "all" | "none"
+      friendlyNameOnly = true,        -- friendly plates: just the name, no health bar
+      friendlyNameSize = 14,          -- text size of that name (the overhead name is about this)
+      showLevel = false,              -- the level badge next to the bar
+      uniformScale = true, targetScale = 1.0,   -- same plate size at every distance; the target's plate scale
+      maxDistance = 60,               -- nameplateMaxDistance (yards); the client clamps to what it allows
+      target = { highlight = true, color = { 0.13, 0.83, 0.88 }, fadeOthers = true, otherAlpha = 0.6 },
+      aggro = { warn = true, color = { 0.85, 0.20, 0.20 } },   -- healer pulled threat: red outline
+      quest = { icon = true, highlight = true, progress = true, tint = false, iconSize = 16, color = { 0.95, 0.65, 0.15 } },
+    },
     hud = {
       x = 0, y = -180, width = 300, followFrames = false,
       castbarHeight = 18, manaHeight = 12, infoHeight = 14, rowSpacing = 2,
@@ -104,3 +132,7 @@ HH.defaults = {
     },
   },
 }
+
+-- Solo frame off by default since 2026-09-23: HogUI Units draws the player and pet frames; the healer frames are
+-- for party / raid. (Sean: "turn off the HogHeals solo frames".)
+HH.defaults.profile.frames.layouts.solo.showSolo = false

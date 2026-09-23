@@ -16,7 +16,7 @@ C_DamageMeter = {
   GetAvailableCombatSessions = function() return { { sessionID = 3, encounterName = "Clattering Scorpid" } } end,
   GetCombatSessionFromType = function(a, b)
     HH_calls[#HH_calls + 1] = { a, b }
-    return { sessionID = 3, encounterName = "Clattering Scorpid", combatSources = HH_sources, totalAmount = MockSecret(7501) }
+    return { sessionID = 3, encounterName = "Clattering Scorpid", combatSources = HH_sources, totalAmount = MockSecret(7501), maxAmount = MockSecret(7439), durationSeconds = 155 }
   end,
   GetSessionDurationSeconds = function() return MockSecret(155) end,
   ResetAllCombatSessions = function() HH_reset = true end,
@@ -179,3 +179,15 @@ def test_rows_carry_class_icons_and_title_carries_the_session_name(meter):
     assert "CHARACTERCREATE-CLASSES" in meter.eval(f'{r1}.icon._texture')
     assert "Clattering Scorpid" in meter.eval('HogHealsMeter.Meter.frame.title._text')
     assert meter.eval('HogHealsMeter.Meter.rows[2].icon:IsShown()') is False        # warlock has no coords in this mock
+
+
+def test_empty_session_is_no_data_not_a_shape_error(meter):
+    # measured: before any fight the session comes back with combatSources = {} (an empty table, not nil)
+    meter.execute('wipe(HogHeals.errors); HH_sources = {}; HogHealsMeter.Meter.Update()')
+    assert errors(meter) == []
+    assert meter.eval('HogHealsMeter.Meter.frame.empty:IsShown()') is True
+
+
+def test_bar_max_comes_from_the_sessions_own_maxamount(meter):
+    meter.execute('HogHealsMeter.Meter.Update()')
+    assert meter.eval('HogHealsMeter.Meter.rows[2].bar._max') == 7439

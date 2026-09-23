@@ -11,7 +11,7 @@ from pathlib import Path
 from lupa.lua51 import LuaRuntime
 
 ROOT = Path(__file__).resolve().parents[1]
-FOLDERS = ["HogHeals", "HogHeals_Frames", "HogHeals_HUD", "HogHeals_Meter"]
+FOLDERS = ["HogHeals", "HogHeals_Frames", "HogHeals_HUD", "HogHeals_Meter", "HogHeals_Quests", "HogHeals_Plates", "HogHeals_Chat"]
 
 
 def main() -> int:
