@@ -40,6 +40,17 @@ local AceAddon = LibStub("AceAddon-3.0")
 HogHeals = AceAddon:NewAddon("HogHeals", "AceConsole-3.0", "AceEvent-3.0", "AceTimer-3.0")
 local HH = HogHeals
 HH.ns = ns
+
+-- Chat prefix: the umbrella brand. (AceConsole would print "HogHeals:"; the addon object keeps that internal name
+-- because SavedVariables, junctions and every module namespace key off it.)
+HH.BRAND = "|cffF5EBDCHog|r|cff21D4E0UI|r"
+function HH:Print(...)
+  local n = select("#", ...)
+  local parts = {}
+  for i = 1, n do parts[i] = tostring((select(i, ...))) end
+  local frame = rawget(_G, "DEFAULT_CHAT_FRAME")
+  if frame and frame.AddMessage then frame:AddMessage(HH.BRAND .. ": " .. table.concat(parts, " ")) end
+end
 HH.modules = {}
 HH.errors = {}
 HH.callbacks = LibStub("CallbackHandler-1.0"):New(HH)
