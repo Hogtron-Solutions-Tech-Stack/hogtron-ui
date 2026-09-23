@@ -1,0 +1,203 @@
+# HogHeals_Skin: Blizzard action bars / bags / bag bar / micro menu / tooltips restyled, plus the info bar.
+# Every Blizzard name is looked up; the mock builds a small "client" with a few of each.
+import pytest
+
+CLIENT = r'''
+-- action bar: art + two buttons (one with a normal texture, hotkey, macro name), page arrows
+MainMenuBarTexture0 = UIParent:CreateTexture("MainMenuBarTexture0"); MainMenuBarTexture0:SetTexture("art")
+MainMenuBarLeftEndCap = UIParent:CreateTexture("MainMenuBarLeftEndCap"); MainMenuBarLeftEndCap:SetTexture("gryphon")
+MainMenuBar = CreateFrame("Frame", "MainMenuBar", UIParent)
+MainMenuBar.EndCaps = CreateFrame("Frame", nil, MainMenuBar)
+MainMenuBar.EndCaps.LeftEndCap = MainMenuBar.EndCaps:CreateTexture(); MainMenuBar.EndCaps.LeftEndCap:SetTexture("gryphon2")
+ActionBarUpButton = CreateFrame("Button", "ActionBarUpButton", UIParent)
+for i = 1, 2 do
+  local b = CreateFrame("CheckButton", "ActionButton" .. i, UIParent, "SecureActionButtonTemplate")
+  b._normal = b:CreateTexture("ActionButton" .. i .. "NormalTexture"); b._normal:SetTexture("Interface\\Buttons\\UI-Quickslot2")
+  function b:GetNormalTexture() return self._normal end
+  b.icon = b:CreateTexture("ActionButton" .. i .. "Icon"); b.icon:SetTexture("spell")
+  b.HotKey = b:CreateFontString("ActionButton" .. i .. "HotKey", "OVERLAY", "GameFontNormal")
+  b.Name = b:CreateFontString("ActionButton" .. i .. "Name", "OVERLAY", "GameFontNormal")
+  b.Border = b:CreateTexture("ActionButton" .. i .. "Border"); b.Border:SetTexture("border")
+end
+-- micro menu + bag bar
+for _, n in ipairs({ "CharacterMicroButton", "SpellbookMicroButton", "MainMenuMicroButton" }) do
+  local b = CreateFrame("Button", n, UIParent)
+  b._left = ({ CharacterMicroButton = 10, SpellbookMicroButton = 40, MainMenuMicroButton = 70 })[n]
+  function b:GetLeft() return self._left end
+  function b:GetRight() return self._left + 28 end
+end
+MicroButtonAndBagsBar = CreateFrame("Frame", "MicroButtonAndBagsBar", UIParent)
+MicroButtonAndBagsBar.MicroBagBar = MicroButtonAndBagsBar:CreateTexture(); MicroButtonAndBagsBar.MicroBagBar:SetTexture("bagbar-art")
+MainMenuBarBackpackButton = CreateFrame("CheckButton", "MainMenuBarBackpackButton", UIParent)
+MainMenuBarBackpackButton.icon = MainMenuBarBackpackButton:CreateTexture()
+function MainMenuBarBackpackButton:GetLeft() return 200 end
+function MainMenuBarBackpackButton:GetRight() return 230 end
+CharacterBag0Slot = CreateFrame("CheckButton", "CharacterBag0Slot", UIParent)
+function CharacterBag0Slot:GetLeft() return 170 end
+function CharacterBag0Slot:GetRight() return 199 end
+-- a classic-style bag with two item slots
+ContainerFrame1 = CreateFrame("Frame", "ContainerFrame1", UIParent)
+ContainerFrame1:SetID(0)
+ContainerFrame1BackgroundTop = ContainerFrame1:CreateTexture("ContainerFrame1BackgroundTop"); ContainerFrame1BackgroundTop:SetTexture("bagart")
+ContainerFrame1Name = ContainerFrame1:CreateFontString("ContainerFrame1Name", "OVERLAY", "GameFontNormal")
+ContainerFrame1CloseButton = CreateFrame("Button", "ContainerFrame1CloseButton", ContainerFrame1)
+for i = 1, 2 do
+  local it = CreateFrame("Button", "ContainerFrame1Item" .. i, ContainerFrame1)
+  it:SetID(i)
+  it.icon = it:CreateTexture()
+  it.IconBorder = it:CreateTexture(); it.IconBorder:SetTexture("qualityborder")
+end
+ContainerFrame1:Hide()
+QUALITY = { [1] = 2, [2] = 4 }
+C_Container = { GetContainerItemInfo = function(bag, slot) return { quality = QUALITY[slot] } end,
+                GetContainerNumFreeSlots = function(bag) return bag == 0 and 4 or 2 end,
+                GetContainerNumSlots = function(bag) return bag == 0 and 16 or 6 end }
+ITEM_QUALITY_COLORS = { [2] = { r = 0.12, g = 1, b = 0 }, [4] = { r = 0.64, g = 0.21, b = 0.93 } }
+function ContainerFrame_Update(frame) end
+-- tooltip with a modern NineSlice
+GameTooltip.NineSlice = CreateFrame("Frame", nil, GameTooltip)
+GameTooltip.NineSlice:CreateTexture():SetTexture("tt-border")
+GameTooltipStatusBar = CreateFrame("StatusBar", "GameTooltipStatusBar", GameTooltip)
+function GameTooltip:SetOwner(owner, anchor) self._owner, self._anchor = owner, anchor end
+function GameTooltip_SetDefaultAnchor(tt, parent) tt:SetOwner(parent, "ANCHOR_NONE") end
+-- info bar sources
+function GetMoney() return 1234567 end
+function GetFramerate() return 72 end
+function GetInventoryItemDurability(slot) if slot == 5 then return 20, 100 end if slot == 1 then return 80, 100 end return nil end
+function ToggleAllBags() TOGGLED_BAGS = (TOGGLED_BAGS or 0) + 1 end
+function IsInGuild() return true end
+function GetNumGuildMembers() return 50, 7 end
+function UnitXP() return 250 end
+function UnitXPMax() return 1000 end
+function GetXPExhaustion() return 100 end
+NUM_BAG_SLOTS = 4
+'''
+
+
+@pytest.fixture
+def skin(lua):
+    lua.execute(CLIENT)
+    lua.load_addon("HogHeals")
+    lua.load_addon("HogHeals_Skin")
+    lua.player_login()
+    lua.execute('wipe(HogHeals.errors)')
+    return lua
+
+
+def errors(lua):
+    return [e["msg"] for e in lua.eval('HogHeals.errors').values()]
+
+
+def test_action_bar_art_cleared_and_kept_clear(skin):
+    assert skin.eval('MainMenuBarTexture0._texture') is None and skin.eval('MainMenuBarTexture0._alpha') == 0
+    assert skin.eval('MainMenuBar.EndCaps.LeftEndCap._alpha') == 0
+    assert skin.eval('ActionBarUpButton:IsShown()') is False
+    skin.execute('MainMenuBarTexture0:SetTexture("art-again"); MainMenuBarTexture0:SetAlpha(1); ActionBarUpButton:Show()')
+    assert skin.eval('MainMenuBarTexture0._alpha') == 0                       # re-applied art stays invisible
+    assert skin.eval('ActionBarUpButton:IsShown()') is False
+    assert errors(skin) == []
+
+
+def test_action_buttons_flattened(skin):
+    assert skin.eval('ActionButton1.hhSkinned') is True
+    assert skin.eval('ActionButton1._normal._alpha') == 0
+    assert skin.eval('ActionButton1.Border._alpha') == 0
+    assert skin.eval('ActionButton1.icon._last.SetTexCoord[1]') == pytest.approx(0.08)
+    assert skin.eval('#ActionButton1.hh.edges') == 4
+    assert skin.eval('ActionButton1.HotKey._last.SetFont[2]') == 10
+    assert skin.eval('ActionButton1.Name._alpha') == 0                       # macro names hidden by default
+    assert skin.eval('HogHealsSkin.ActionBars.count') == 2
+    assert "ActionButton" in skin.eval('table.concat((function() local f = {} for k in pairs(HogHealsSkin.Skin.found) do f[#f+1] = k end return f end)(), ",")')
+
+
+def test_micro_and_bag_strips(skin):
+    assert skin.eval('MicroButtonAndBagsBar.MicroBagBar._alpha') == 0
+    s = 'HogHealsSkin.Micro.strips.micro'
+    assert skin.eval(f'{s}._points[1][2] == CharacterMicroButton') and skin.eval(f'{s}._points[2][2] == MainMenuMicroButton')
+    b = 'HogHealsSkin.Micro.strips.bags'
+    assert skin.eval(f'{b}._points[1][2] == CharacterBag0Slot') and skin.eval(f'{b}._points[2][2] == MainMenuBarBackpackButton')
+    assert skin.eval('MainMenuBarBackpackButton.hhSkinned') is True
+    assert errors(skin) == []
+
+
+def test_bag_styled_on_show_with_quality_outlines(skin):
+    assert skin.eval('ContainerFrame1.hh') is None                           # hidden bags are left until shown
+    skin.execute('ContainerFrame1:Show(); ContainerFrame1:GetScript("OnShow")(ContainerFrame1)')
+    assert skin.eval('ContainerFrame1BackgroundTop._alpha') == 0
+    assert skin.eval('ContainerFrame1.hh.panel.bg._color[4]') == pytest.approx(0.85)
+    assert skin.eval('ContainerFrame1CloseButton.hhX._text') == "x"
+    assert skin.eval('ContainerFrame1Item1.hh.edges[1]._color[2]') == pytest.approx(1.0)      # uncommon green
+    assert skin.eval('ContainerFrame1Item2.hh.edges[1]._color[3]') == pytest.approx(0.93)     # epic purple
+    assert skin.eval('ContainerFrame1Item1.IconBorder._alpha') == 0                            # Blizzard's quality border off
+    skin.execute('QUALITY[1] = 1; MockFire("BAG_UPDATE_DELAYED")')
+    assert skin.eval('ContainerFrame1Item1.hh.edges[1]._color[2]') == pytest.approx(0.20)     # common: plain line
+    assert errors(skin) == []
+
+
+def test_tooltip_on_ink_panel(skin):
+    assert skin.eval('GameTooltip.NineSlice._alpha') == 0
+    assert skin.eval('GameTooltip.hh.panel.bg._color[4]') == pytest.approx(0.9)
+    assert skin.eval('GameTooltipStatusBar._texture') == "Interface\\Buttons\\WHITE8X8"
+    skin.execute('GameTooltip.NineSlice:SetAlpha(1); GameTooltip:GetScript("OnShow")(GameTooltip)')
+    assert skin.eval('GameTooltip.NineSlice._alpha') == 0
+    skin.execute('HogHeals.db.profile.skin.tooltips.anchorCursor = true; GameTooltip_SetDefaultAnchor(GameTooltip, UIParent)')
+    assert skin.eval('GameTooltip._anchor') == "ANCHOR_CURSOR"
+
+
+def test_info_bar_readouts(skin):
+    skin.execute('HogHealsSkin.InfoBar.Update()')
+    texts = [skin.eval(f'HogUIInfoBar and HogHealsSkin.InfoBar.slots[{i}].text._text') for i in range(1, 7)]
+    assert "123g" in texts[0] and "45s" in texts[0]
+    assert "20%" in texts[1] and "d93636" in texts[1]                         # worst slot 20 % -> red
+    assert "12|r / 40 bags" in texts[2]                                        # 4+2+2+2+2 free of 16+6+6+6+6
+    assert "72" in texts[3] and "fps" in texts[3]
+    assert "250" in texts[4] and "ms" in texts[4]
+    assert texts[5] != "" and texts[5] != "-"
+    skin.execute('HogHealsSkin.InfoBar.slots[3]:Click()')
+    assert skin.eval('TOGGLED_BAGS') == 1
+    assert errors(skin) == []
+
+
+def test_info_bar_extra_providers_and_slot_config(skin):
+    skin.execute('HogHeals.db.profile.skin.infoBar.slots = { "guild", "xp", "coords", "none" }; HogHealsSkin.InfoBar.Refresh()')
+    assert skin.eval('HogHealsSkin.InfoBar.slots[1].text._text') == "7 guild"
+    assert skin.eval('HogHealsSkin.InfoBar.slots[2].text._text').startswith("25% xp")
+    assert skin.eval('HogHealsSkin.InfoBar.slots[5]:IsShown()') is False
+    assert errors(skin) == []
+
+
+def test_info_bar_ticks_and_drags_when_unlocked(skin):
+    skin.execute('function GetFramerate() return 20 end; MockAdvance(1.1)')
+    assert "20" in skin.eval('HogHealsSkin.InfoBar.slots[4].text._text')
+    skin.execute('HogUIInfoBar:GetScript("OnDragStart")(HogUIInfoBar)')
+    assert skin.eval('HogUIInfoBar._moving') is not True
+    skin.execute('HogHeals.db.profile.locked = false; HogUIInfoBar:GetScript("OnDragStart")(HogUIInfoBar)')
+    assert skin.eval('HogUIInfoBar._moving') is True
+
+
+def test_skin_off_leaves_blizzard_alone(lua):
+    lua.execute(CLIENT + 'HogHealsDB = { profileKeys = {}, profiles = { Default = { skin = { enabled = false } } } }')
+    lua.load_addon("HogHeals")
+    lua.load_addon("HogHeals_Skin")
+    lua.player_login()
+    assert lua.eval('MainMenuBarTexture0._texture') == "art"
+    assert lua.eval('ActionButton1.hhSkinned') is None
+    assert lua.eval('HogUIInfoBar') is None
+
+
+def test_skindiag_and_options_walk(skin):
+    skin.execute('wipe(MockLog.chat or {}); HogHeals:SlashCommand("skindiag")')
+    chat = "\n".join(skin.eval('MockLog.chat').values())
+    assert "found" in chat and "missing" in chat
+    assert "MultiBarBottomLeftButton" in skin.eval('HogHeals.db.global.diag.skin.missing')
+    skin.execute('''
+      local function walk(t)
+        for _, o in pairs(t.args or {}) do
+          if o.get and o.set and o.type ~= "execute" then o.set({}, (o.get({}))) end
+          if type(o.values) == "function" then o.values() end
+          if o.args then walk(o) end
+        end
+      end
+      walk(HogHeals.OptionsTable().args.Skin)
+    ''')
+    assert errors(skin) == []

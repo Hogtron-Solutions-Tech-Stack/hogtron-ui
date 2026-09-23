@@ -124,5 +124,16 @@ HH.defaults = {
       pacing = { enabled = true, targetLength = 300, amber = 60, red = 20, showProjection = true },
       advisor = { enabled = true, margin = 0.9, onFrame = false, spells = {} },
     },
+    skin = {
+      enabled = true, font = "Friz Quadrata TT", backgroundAlpha = 0.75,
+      actionBars = { enabled = true, hideArt = true, hotkeySize = 10, hideNames = true },
+      micro = { enabled = true, scale = 1 },
+      bagBar = { enabled = true },
+      bags = { enabled = true, qualityMin = 2, fontSize = 12, backgroundAlpha = 0.85 },
+      tooltips = { enabled = true, alpha = 0.9, fontSize = nil, anchorCursor = false },
+      infoBar = { enabled = true, width = 640, height = 18, fontSize = 11, backgroundAlpha = 0.8, refresh = 1,
+        time24 = false, serverTime = false, point = "BOTTOM", x = 0, y = 0,
+        slots = { "gold", "durability", "bags", "fps", "latency", "time" } },
+    },
   },
 }
