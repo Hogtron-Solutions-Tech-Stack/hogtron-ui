@@ -236,7 +236,7 @@ end
 function Plates.UpdateHealth(uf)
   local hh, d = uf.hh, cfg()
   if not hh or not hh.unit then return end
-  if d.enabled == false or d.healthText == "none" then hh.health:Hide() return end
+  if d.enabled == false or d.healthText == "none" or hh.nameOnly then hh.health:Hide() return end
   setFont(hh.health, math.max(7, (d.fontSize or 10) - 1))
   hh.health:SetText(Plates.HealthText(hh.unit, d.healthText or "percent"))
   hh.health:Show()
