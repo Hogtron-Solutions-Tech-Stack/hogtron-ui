@@ -130,7 +130,9 @@ HH.defaults = {
       actionBars = { enabled = true, hideArt = true, hotkeySize = 10, hideNames = true, cooldownNumbers = true },
       -- parchment windows get the parchment treatment in Panels.lua (fonts recoloured, inner art stripped);
       -- World Map and the tabard designer keep their own art
-      panels = { enabled = true, alpha = 0.9, titleSize = 13, skip = { WorldMapFrame = true, TabardFrame = true } },
+      -- skipped: World Map and the flight map draw their maps as plain textures (in game 2026-09-23 the flight
+      -- map went black); the tabard designer needs its art
+      panels = { enabled = true, alpha = 0.9, titleSize = 13, skip = { WorldMapFrame = true, TaxiFrame = true, TabardFrame = true } },
       auto = { sellJunk = true, repair = true, guildRepair = false },
       micro = { enabled = true, scale = 1 },
       bagBar = { enabled = true },
