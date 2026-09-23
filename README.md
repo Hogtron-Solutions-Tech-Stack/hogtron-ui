@@ -11,6 +11,8 @@ Opinionated, small, mouseover-first. Not another Cell/VuhDo — the one good thi
 |---|---|
 | `HogHeals` | Core: profiles, `/hh` options, group-size auto-layout, combat-safe queue |
 | `HogHeals_Frames` | Party + raid frames, **hover-bind engine** (any key + modifier while hovering), dispel-by-my-class, missing buffs, my shield, AoE-heal scope, thresholds, health-threshold fade, incoming heals, test mode, setup wizard |
+| `HogHeals_Quests` | Quest tracker window (watched / zone / all, click to open, right-click to watch) + quest pins on the minimap from the client's own quest points (rim pins for far quests). `/hh quests`, `/hh questdiag` |
+| `HogHeals_Plates` | Restyled Blizzard nameplates (flat bar, outline, health text, class / reaction colours), **quest-mob icon + progress**, outline highlight: aggro on you > target > quest mob, fade non-targets. `/hh platediag` |
 
 Roadmap: HUD (castbar/mana/FSR/rank-picker) → Bars → QoL → Pad (controller). One module ships before the next starts.
 
