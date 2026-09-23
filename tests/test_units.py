@@ -144,10 +144,10 @@ def test_blizzard_frames_hidden_and_spellbar_adopted(units):
 
 
 def test_hide_blizzard_off_leaves_them_alone(lua):
-    lua.execute(BLIZZ)
+    # seed the saved variables the way the client would (works whether the DB inits at ADDON_LOADED or at login)
+    lua.execute(BLIZZ + 'HogHealsDB = { profileKeys = {}, profiles = { Default = { units = { hideBlizzard = false } } } }')
     lua.load_addon("HogHeals")
     lua.load_addon("HogHeals_Units")
-    lua.execute('HogHeals.db.profile.units.hideBlizzard = false')   # before PLAYER_LOGIN enables the module
     lua.player_login()
     assert lua.eval('PlayerFrame:GetParent() == UIParent')
 
