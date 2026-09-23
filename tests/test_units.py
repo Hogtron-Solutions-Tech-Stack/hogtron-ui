@@ -317,7 +317,10 @@ def test_fit_name_with_a_hidden_health_text_width_estimates_instead_of_computing
 def test_adopted_castbar_parent_answers_blizzards_method_calls(units):
     # in game 2026-09-23: TargetFrame.lua:824 OnShow -> parentFrame:<mixin method>() on our frame -> nil call
     assert units.eval('TargetFrameSpellBar:GetParent() == HogUITarget') is True
-    units.execute('local p = TargetFrameSpellBar:GetParent(); p:UpdateAuras()')   # would have thrown before
+    # rawget: the mock's frame __index answers any capitalised key with a no-op, which is exactly what the client
+    # does NOT do - only a real stub on our table proves the OnShow call would resolve
+    assert units.eval('type(rawget(HogUITarget, "UpdateAuras"))') == "function"
+    units.execute('local p = TargetFrameSpellBar:GetParent(); rawget(p, "UpdateAuras")(p)')
     assert units.eval('HogUITarget.aurasUpdated') is None                        # a stub, not Blizzard's real method
     assert units.eval('type(HogUITarget.SetPoint)') == "function"                # real widget methods untouched
     assert errors(units) == []
