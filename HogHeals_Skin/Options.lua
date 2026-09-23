@@ -75,7 +75,7 @@ function Options.Build()
         xpBar = toggle(sub("extras"), "xpBar", "Flat experience / reputation bar", 3),
       } },
       panels = { type = "group", name = "Windows", order = 4.7, args = {
-        about = { type = "description", order = 0, name = "Blizzard's windows (character, spellbook, quest log, escape menu, vendor, mail, trade, bank, ...) on the HogUI panel: art and portrait off, outline, flat close button. Untick a window to leave it alone (needs a /reload to come back)." },
+        about = { type = "description", order = 0, name = "Blizzard's windows (character, spellbook, escape menu, vendor, mail, trade, bank, ...) on the HogUI panel: art and portrait off, outline, flat close button. Parchment windows (gossip, quest text, quest log, books, opened mail) are off by default: their text is black and needs the parchment. Untick a window to leave it alone (needs a /reload to come back)." },
         enabled = toggle(sub("panels"), "enabled", "Skin Blizzard's windows", 1),
         alpha = range(sub("panels"), "alpha", "Background opacity", 2, 0.3, 1, 0.05),
         titleSize = range(sub("panels"), "titleSize", "Title text size", 3, 9, 20, 1),

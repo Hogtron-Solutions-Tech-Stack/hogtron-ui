@@ -308,3 +308,15 @@ def test_vendor_classic_item_api_path(lua):
     lua.execute('wipe(MockLog.chat or {}); MockFire("MERCHANT_SHOW"); MockAdvance(0.4)')
     assert list(lua.eval('SOLD').values()) == [1]
     assert "sold 1 junk for ~40c" in "\n".join(lua.eval('MockLog.chat').values())
+
+
+def test_parchment_windows_are_left_alone_by_default(lua):
+    lua.execute(CLIENT + """
+      GossipFrame = CreateFrame("Frame", "GossipFrame", UIParent); GossipFrame:CreateTexture("GossipFrameBg"):SetTexture("parchment")
+      MerchantFrame = CreateFrame("Frame", "MerchantFrame", UIParent)
+      function ShowUIPanel(f) f:Show() end
+    """)
+    lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
+    lua.execute('ShowUIPanel(GossipFrame); ShowUIPanel(MerchantFrame)')
+    assert lua.eval('GossipFrame.hhPanel') is None and lua.eval('GossipFrameBg._texture') == "parchment"
+    assert lua.eval('MerchantFrame.hhPanel ~= nil')
