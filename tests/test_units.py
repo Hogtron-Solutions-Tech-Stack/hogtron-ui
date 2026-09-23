@@ -237,3 +237,11 @@ def test_unlock_shows_every_frame_with_a_drag_label_and_lock_restores_the_watch(
     assert units.eval('HogUITarget.dragHint:IsShown()') is False
     assert units.eval('HogUITarget:IsShown()') is False                     # no target: hidden again
     assert errors(units) == []
+
+
+def test_unitdiag_prints_every_frame(units):
+    units.execute('wipe(MockLog.chat or {}); HogHeals:SlashCommand("unitdiag")')
+    chat = "
+".join(units.eval('MockLog.chat').values())
+    assert "locked=true" in chat and "player shown=true" in chat and "targettarget shown=" in chat
+    assert errors(units) == []
