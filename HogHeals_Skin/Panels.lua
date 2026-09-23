@@ -58,6 +58,28 @@ local function isIcon(t)
   return (type(n) == "string" and (n:find("Icon") or n:find("Portrait"))) or t.hhOurs
 end
 
+--- One string: dark (black, brown, dark grey - the quest option lines were ~0.35 grey) -> cream, and hooked once so a
+-- Blizzard repaint (hover, rebuild) is lifted again. Light text (gold, white) is left alone.
+function Part.Lift(fs)
+  local cr, cg, cb = Skin.call(fs.GetTextColor, fs)
+  if not (Skin.num(cr) and Skin.num(cg) and Skin.num(cb)) then return false end
+  local lifted = false
+  if (cr + cg + cb) < 1.6 and not fs.hhLifting then
+    fs.hhLifting = true
+    Skin.call(fs.SetTextColor, fs, Skin.CREAM[1], Skin.CREAM[2], Skin.CREAM[3])
+    fs.hhLifting = false
+    lifted = true
+  end
+  if not fs.hhLiftHooked and type(hooksecurefunc) == "function" then
+    fs.hhLiftHooked = true
+    pcall(hooksecurefunc, fs, "SetTextColor", function(self)
+      if self.hhLifting or Skin.cfg().enabled == false or Skin.cfg().panels.enabled == false then return end
+      Part.Lift(self)
+    end)
+  end
+  return lifted
+end
+
 --- Dark text inside a parchment window lifted to cream. In game 2026-09-23 the gossip greeting stayed dark brown
 -- after the font objects were recoloured: that text is coloured directly by Blizzard's code, so the strings
 -- themselves are walked (light text, e.g. gold option lines, is left alone).
@@ -68,11 +90,7 @@ function Part.DeepRecolor(frame, depth)
   if frame.GetRegions then
     for _, r in ipairs({ frame:GetRegions() }) do
       if r and r.GetObjectType and r:GetObjectType() == "FontString" and r.GetTextColor and not r.hhOurs then
-        local cr, cg, cb = Skin.call(r.GetTextColor, r)
-        if Skin.num(cr) and Skin.num(cg) and Skin.num(cb) and (cr + cg + cb) < 1.2 then
-          Skin.call(r.SetTextColor, r, Skin.CREAM[1], Skin.CREAM[2], Skin.CREAM[3])
-          n = n + 1
-        end
+        if Part.Lift(r) then n = n + 1 end
       end
     end
   end
@@ -87,8 +105,11 @@ function Part.Parchment(f)
   if type(f) ~= "table" then return end
   Part.DeepKill(f)
   Part.DeepRecolor(f)
+  -- gossip / quest option lines are built by a scroll box over the next frames: keep looking for a moment
   if C_Timer and C_Timer.After then
-    C_Timer.After(0.05, function() if f:IsShown() then Part.DeepKill(f) Part.DeepRecolor(f) end end)
+    for _, delay in ipairs({ 0.05, 0.2, 0.5 }) do
+      C_Timer.After(delay, function() if f:IsShown() then Part.DeepKill(f) Part.DeepRecolor(f) end end)
+    end
   end
 end
 
