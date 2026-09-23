@@ -32,7 +32,8 @@ local function setColour(b, c) b:SetStatusBarColor(c[1], c[2], c[3]) end
 
 local function targetSuffix()
   if not cfg().showTarget then return "" end
-  if UnitExists("target") and UnitName("target") then return " → " .. UnitName("target") end
+  -- "»" is Latin-1: every Blizzard / LSM font has it. "→" is not and drew as an empty box (in game 2026-09-23).
+  if UnitExists("target") and UnitName("target") then return " » " .. UnitName("target") end
   return ""
 end
 
@@ -45,6 +46,7 @@ local function begin(state, name, texture, startMS, endMS, notInterruptible, cha
   local _, _, _, world = GetNetStats()
   state.latency = (world or 0) / 1000
   b.icon:SetTexture(texture)
+  state.texture = texture                                   -- for /hh castdiag
   b.text:SetText(name .. targetSuffix())
   local c = cfg()
   if state.notInterruptible then setColour(b, c.uninterruptibleColor)
@@ -199,3 +201,20 @@ end
 function Castbar.Refresh()
   Castbar.ApplyBlizzard()
 end
+
+--- What the last cast handed us, for the "what is that icon" question (Sean 2026-09-23).
+function Castbar.Diagnose()
+  local s, b = Castbar.state, HHD.HUD.rows.castbar
+  local secret = type(issecretvalue) == "function" and issecretvalue(s.texture) or false
+  local lines = {
+    ("last cast: %s   texture=%s (%s%s)   casting=%s channel=%s"):format(tostring(s.name), tostring(s.texture), type(s.texture), secret and ", SECRET" or "", tostring(s.casting), tostring(s.channel)),
+  }
+  if b and b.icon then
+    lines[#lines + 1] = ("icon: shown=%s size=%sx%s texture now=%s"):format(tostring(b.icon:IsShown()), tostring(b.icon:GetWidth()), tostring(b.icon:GetHeight()), tostring(b.icon.GetTexture and b.icon:GetTexture()))
+  end
+  return lines
+end
+
+HH:RegisterSlash("castdiag", function()
+  for _, l in ipairs(Castbar.Diagnose()) do HH:Print(l) end
+end, "print what the HUD cast bar was given for the last cast")

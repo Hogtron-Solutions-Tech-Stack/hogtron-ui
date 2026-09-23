@@ -1,7 +1,9 @@
-# HogHeals
+# HogUI
 
-Healer-first UI suite for **World of Warcraft: Forever** (Classic+), Anniversary (TBC) and Classic Era.
-Opinionated, small, mouseover-first. Not another Cell/VuhDo — the one good thing from each, nothing else.
+HogTron's UI suite for **World of Warcraft: Forever** (Classic+), Anniversary (TBC) and Classic Era: healer frames (HogHeals), HUD, meter, quests & map, nameplates, chat, unit frames and a skin for Blizzard's bars, bags and tooltips.
+Opinionated, small, mouseover-first. Not another ElvUI — the one good thing from each, nothing else.
+
+> Naming: **HogUI** is the umbrella; **HogHeals** is the healer-frames module it grew out of. Addon folders keep the `HogHeals_*` names until the first public release (saved variables and every module namespace key off them).
 
 **Status:** pre-release (0.1.0). Module 1 (`HogHeals_Frames`) built + unit-tested; in-game verification pending.
 
@@ -11,6 +13,8 @@ Opinionated, small, mouseover-first. Not another Cell/VuhDo — the one good thi
 |---|---|
 | `HogHeals` | Core: profiles, `/hh` options, group-size auto-layout, combat-safe queue |
 | `HogHeals_Frames` | Party + raid frames, **hover-bind engine** (any key + modifier while hovering), dispel-by-my-class, missing buffs, my shield, AoE-heal scope, thresholds, health-threshold fade, incoming heals, test mode, setup wizard |
+| `HogHeals_Quests` | Quest tracker window (watched / zone / all, click to open, right-click to watch) + quest pins on the minimap from the client's own quest points (rim pins for far quests). `/hh quests`, `/hh questdiag` |
+| `HogHeals_Plates` | Restyled Blizzard nameplates (flat bar, outline, health text, class / reaction colours), **quest-mob icon + progress**, outline highlight: aggro on you > target > quest mob, fade non-targets. `/hh platediag` |
 
 Roadmap: HUD (castbar/mana/FSR/rank-picker) → Bars → QoL → Pad (controller). One module ships before the next starts.
 

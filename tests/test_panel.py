@@ -57,7 +57,7 @@ def test_window_is_ours_and_closes_on_escape(panel):
     assert "HogHealsPanel" in names
     # two-tone wordmark: HOG cream, HEALS cyan (brand rule)
     assert panel.eval('HogHeals.Panel.frame.titleHog._text') == "HOG"
-    assert panel.eval('HogHeals.Panel.frame.titleHeals._text') == "HEALS"
+    assert panel.eval('HogHeals.Panel.frame.titleHeals._text') == "UI"          # HogUI umbrella brand
 
 
 def test_sidebar_lists_top_level_groups_in_order(panel):
@@ -146,4 +146,34 @@ def test_real_options_table_renders_every_tab_without_errors(frames):
         frames.execute(f'HogHeals.Panel.Select(HogHeals.Panel.nav[{i}].key)')
         for t in range(1, (frames.eval('#HogHeals.Panel.tabs') or 0) + 1):
             frames.execute(f'HogHeals.Panel.SelectTab(HogHeals.Panel.tabs[{t}].key)')
+    assert [e["msg"] for e in frames.eval('HogHeals.errors').values()] == []
+
+
+def test_handler_method_names_resolve_like_aceconfig(core):
+    # AceDBOptions style: handler object + string method names, inherited down the group tree.
+    core.execute("""
+    HH_h = { picked = nil, resets = 0,
+      ListProfiles = function(self, info) return { Default = "Default", Healer = "Healer" } end,
+      GetCurrent = function(self, info) return "Default" end,
+      SetProfile = function(self, info, v) self.picked = v end,
+      Reset = function(self, info) self.resets = self.resets + 1 end,
+      Title = function(self, info) return "Current: " .. self:GetCurrent(info) end }
+    HogHeals.Panel.Open(function() return { type = "group", name = "x", args = {
+      profiles = { type = "group", name = "Profiles", order = 1, handler = HH_h, args = {
+        title  = { type = "description", order = 1, name = "Title" },
+        choose = { type = "select", order = 2, name = "Existing", values = "ListProfiles", get = "GetCurrent", set = "SetProfile" },
+        reset  = { type = "execute", order = 3, name = "Reset", func = "Reset" } } } } } end)
+    wipe(HogHeals.errors)
+    HogHeals.Panel.Refresh()""")
+    assert [e["msg"] for e in core.eval('HogHeals.errors').values()] == []
+    assert core.eval('HogHeals.Panel.controls["profiles.title"].text._text') == "Title"     # text fields are never method names
+    assert core.eval('HogHeals.Panel.controls["profiles.choose"].button.label._text') == "Default"
+    core.execute('HogHeals.Panel.controls["profiles.choose"].button:Click(); HogHeals.Panel.menu.items[2]:Click()')
+    assert core.eval('HH_h.picked') == "Healer"
+    core.execute('HogHeals.Panel.controls["profiles.reset"].button:Click()')
+    assert core.eval('HH_h.resets') == 1
+
+
+def test_real_profiles_tab_renders_without_errors(frames):
+    frames.execute('wipe(HogHeals.errors); HogHeals.Panel.Open(); HogHeals.Panel.Select("Frames"); HogHeals.Panel.SelectTab("profiles")')
     assert [e["msg"] for e in frames.eval('HogHeals.errors').values()] == []

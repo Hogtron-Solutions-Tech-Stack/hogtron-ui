@@ -49,8 +49,10 @@ function Compat.Init()
   Compat.blocked = {}
   if Compat.secretValues then
     Compat.blocked.healPrediction = "needs arithmetic on incoming-heal amounts, which are secret on this client"
-    local why = "aura names / dispel types are secret on this client; needs a rebuild on Blizzard's filtered aura API"
-    Compat.blocked.dispel, Compat.blocked.missingBuffs, Compat.blocked.myShield = why, why, why
+    -- dispel is NOT blocked any more: it runs on aura.canActivePlayerDispel (measured on the Forever beta) and,
+    -- when aura fields are secret, hands the boolean to the widget (SetAlphaFromBoolean).
+    local why = "aura names are secret on this client; needs a rebuild on Blizzard's filtered aura API"
+    Compat.blocked.missingBuffs, Compat.blocked.myShield = why, why
   end
   Compat.hasGamepad = type(C_GamePad) == "table"
   Compat.hasLibHealComm = LibStub and LibStub("LibHealComm-4.0", true) ~= nil or false
@@ -85,11 +87,73 @@ function Compat.UnitAura(unit, index, filter)
   return a.name, a.icon, a.applications, a.dispelName, a.duration or 0, a.expirationTime, a.sourceUnit
 end
 
+--- One harmful/helpful aura as a table, on every client. Modern: C_UnitAuras.GetAuraDataByIndex (carries
+-- canActivePlayerDispel, measured 2026-09-17). Legacy: UnitAura, with canActivePlayerDispel derived from our
+-- class table. Returns nil past the last aura.
+function Compat.AuraData(unit, index, filter)
+  local get = C_UnitAuras and C_UnitAuras.GetAuraDataByIndex
+  if type(get) == "function" then
+    local a = get(unit, index, filter)
+    if type(a) ~= "table" then return nil end
+    if a.canActivePlayerDispel == nil and not Compat.IsSecret(a.dispelName) then
+      local _, class = UnitClass("player")
+      a.canActivePlayerDispel = HogHeals.CanDispel(class, a.dispelName)
+    end
+    return a
+  end
+  if type(UnitAura) ~= "function" then return nil end
+  local name, icon, count, dtype, duration, expires, source, _, _, spellId = UnitAura(unit, index, filter)
+  if not name then return nil end
+  local _, class = UnitClass("player")
+  return { name = name, icon = icon, applications = count, dispelName = dtype, duration = duration, expirationTime = expires,
+    sourceUnit = source, spellId = spellId, canActivePlayerDispel = HogHeals.CanDispel(class, dtype) }
+end
+
+--- True while the client is handing out SECRET aura fields (no `if` on them; widgets only).
+function Compat.AurasSecretNow()
+  if not Compat.secretValues then return false end
+  local f = C_Secrets and C_Secrets.ShouldAurasBeSecret
+  if type(f) ~= "function" then return true end
+  local ok, r = pcall(f)
+  return ok and r and true or false
+end
+
 --- True when v is a secret value (always false on clients without the restricted API).
 function Compat.IsSecret(v)
   local f = issecretvalue
   if type(f) ~= "function" then return false end
   return f(v) and true or false
+end
+
+-- Class tokens, remembered. 2026-09-22 in game (Forever beta): the player frame's class-coloured health bar went
+-- GREY in combat. The client has C_Secrets.ShouldUnitIdentityBeSecret: in combat UnitClass can come back secret or
+-- empty, and "no readable class" fell through to the grey default. A unit's class never changes, so every class we
+-- CAN read is kept (by GUID and by name - names were measured NOT secret) and handed back while it is hidden.
+Compat.classByGUID, Compat.classByName = Compat.classByGUID or {}, Compat.classByName or {}
+
+local function plainString(v)
+  if type(v) ~= "string" or Compat.IsSecret(v) or v == "" then return nil end
+  return v
+end
+
+--- Class token ("SHAMAN") for a unit, readable in combat too when we have seen it before. nil only for a unit whose
+-- class we have never been able to read.
+function Compat.ClassOf(unit)
+  if not unit then return nil end
+  local okC, _, class = pcall(UnitClass, unit)
+  class = okC and plainString(class) or nil
+  local okG, guid = pcall(UnitGUID, unit)
+  guid = okG and plainString(guid) or nil
+  local okN, name = pcall(UnitName, unit)
+  name = okN and plainString(name) or nil
+  if class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class] then
+    if guid then Compat.classByGUID[guid] = class end
+    if name then Compat.classByName[name] = class end
+    if unit == "player" then Compat.playerClass = class end
+    return class
+  end
+  if unit == "player" and Compat.playerClass then return Compat.playerClass end
+  return (guid and Compat.classByGUID[guid]) or (name and Compat.classByName[name]) or nil
 end
 
 --- Reason string when this client cannot support an element, else nil. Runtime only, never saved.

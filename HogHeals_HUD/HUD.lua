@@ -49,6 +49,7 @@ function HUD.Create()
   castbar.bg:SetColorTexture(0.07, 0.07, 0.09, 0.7)
   castbar.icon = castbar:CreateTexture(nil, "ARTWORK")
   castbar.icon:SetPoint("RIGHT", castbar, "LEFT", -2, 0)
+  castbar.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)   -- trim Blizzard's baked icon border, like the unit-frame auras
   castbar.text = castbar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   castbar.text:SetPoint("LEFT", castbar, "LEFT", 4, 0)
   castbar.time = castbar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
