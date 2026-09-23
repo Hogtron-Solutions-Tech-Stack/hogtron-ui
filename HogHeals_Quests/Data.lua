@@ -183,14 +183,35 @@ end
 --- Quest points for a map: { { id, x, y } } in 0..1 map coordinates (Blizzard's own POI: the objective area, or
 -- the turn-in once the quest is complete).
 function Data.PointsOnMap(mapID)
-  local out = {}
+  local out, have = {}, {}
   local list = mapID and try(fn(C_QuestLog, "GetQuestsOnMap"), mapID)
-  if type(list) ~= "table" then return out end
-  for _, p in ipairs(list) do
-    if type(p) == "table" then
-      local x, y = plain(p.x), plain(p.y)
-      if type(x) == "number" and type(y) == "number" then
-        out[#out + 1] = { id = plain(p.questID), x = x, y = y }
+  if type(list) == "table" then
+    for _, p in ipairs(list) do
+      if type(p) == "table" then
+        local x, y = plain(p.x), plain(p.y)
+        if type(x) == "number" and type(y) == "number" then
+          local id = plain(p.questID)
+          out[#out + 1] = { id = id, x = x, y = y }
+          if id then have[id] = true end
+        end
+      end
+    end
+  end
+  -- Quests whose objective / turn-in is on ANOTHER map have no point here (2026-09-22 in game: "Delivery to
+  -- Silverpine Forest" had no marker). The client's GetNextWaypointForMap gives the next step on THIS map (the road
+  -- out of the zone, the boat), plus a text for it.
+  local wp = fn(C_QuestLog, "GetNextWaypointForMap")
+  if mapID and wp then
+    for _, q in ipairs(Data.last or {}) do
+      if q.id and not have[q.id] then
+        local a, b = try(wp, q.id, mapID)
+        local x, y
+        if type(a) == "table" then x, y = plain(a.x), plain(a.y) else x, y = plain(a), plain(b) end
+        if type(x) == "number" and type(y) == "number" and not (x == 0 and y == 0) then
+          local text = try(fn(C_QuestLog, "GetNextWaypointText"), q.id)
+          out[#out + 1] = { id = q.id, x = x, y = y, waypoint = true, text = type(plain(text)) == "string" and text or nil }
+          have[q.id] = true
+        end
       end
     end
   end

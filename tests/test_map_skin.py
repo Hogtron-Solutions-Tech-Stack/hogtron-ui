@@ -86,3 +86,52 @@ def test_every_quests_option_getter_and_setter_runs(lua):
     ''')
     assert lua.eval('HogHeals.OptionsTable().args.Quests.args.tracker.args.fontSize.name') == "Text size"
     assert errors(lua) == []
+
+
+CLUSTER = r'''
+MinimapCluster = CreateFrame("Frame", "MinimapCluster", UIParent)
+MinimapCluster:SetSize(300, 340)
+Minimap:SetSize(140, 140)
+RING = Minimap:CreateTexture(nil, "OVERLAY")
+RING:SetSize(140, 140)
+RING:SetTexture("Interface\Minimap\Ring")
+SMALL = Minimap:CreateTexture(nil, "OVERLAY")
+SMALL:SetSize(12, 12)
+GameTimeFrame = CreateFrame("Button", "GameTimeFrame", Minimap)
+GameTimeFrame:SetSize(40, 40)
+QueueStatusButton = CreateFrame("Button", "QueueStatusButton", Minimap)
+QueueStatusButton:SetSize(36, 36)
+'''
+
+
+def test_map_fills_the_edit_mode_box_and_follows_resizes(lua):
+    lua.execute(CLUSTER)
+    boot(lua, MODERN)
+    # 340 tall box: 340 - 24 top row - 20 header - 18 coords footer - 8 = 270; 300 wide - 12 = 288 -> 270
+    assert lua.eval('Minimap._width') == 270
+    assert lua.eval('Minimap._points[1][1]') == "TOP" and lua.eval('Minimap._points[1][2] == MinimapCluster')
+    lua.execute('MinimapCluster:SetSize(260, 400); MinimapCluster:GetScript("OnSizeChanged")(MinimapCluster)')
+    assert lua.eval('Minimap._width') == 248
+    lua.execute('HogHeals.db.profile.quests.map.fill = false; HogHeals.db.profile.quests.map.size = 200; HogHealsQuests.MapSkin.Refresh()')
+    assert lua.eval('Minimap._width') == 200
+    assert errors(lua) == []
+
+
+def test_round_ring_hidden_small_regions_kept(lua):
+    lua.execute(CLUSTER)
+    boot(lua, MODERN)
+    assert lua.eval('RING:IsShown()') is False
+    assert lua.eval('SMALL:IsShown()') is True
+    assert lua.eval('HogHealsMinimapFrame.bg:IsShown()') is True          # our own panel never caught
+    assert "Ring" in lua.eval('HogHealsQuests.MapSkin.hiddenOverlays[1]')
+
+
+def test_buttons_on_the_map_are_docked_into_the_header(lua):
+    lua.execute(CLUSTER)
+    boot(lua, MODERN)
+    assert lua.eval('GameTimeFrame._points[1][1]') == "LEFT" and lua.eval('GameTimeFrame._points[1][2] == HogHealsMinimapFrame.header')
+    assert lua.eval('QueueStatusButton._points[1][1]') == "RIGHT"
+    assert lua.eval('GameTimeFrame._last.SetScale[1]') == pytest.approx(18 / 40)
+    lua.execute('HogHeals:SlashCommand("questdiag")')
+    m = lua.eval('HogHeals.db.global.diag.quests.map')
+    assert "GameTimeFrame" in m["docked"] and "Ring" in m["hidden"] and m["cluster"] == "300x340"

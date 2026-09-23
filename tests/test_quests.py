@@ -274,3 +274,21 @@ def test_more_line_stays_inside_the_panel_and_scale_applies(modern):
     assert modern.eval('HogHealsQuestTracker._calls.SetScale') >= 1
     assert modern.eval('HogHealsQuestTracker._last.SetScale[1]') == 1.5
     assert modern.eval('HogHealsQuestTracker.header._height') == 32
+
+
+def test_quest_on_another_map_gets_its_next_waypoint_here(modern):
+    modern.execute("""
+      QL[#QL + 1] = { title = "Delivery to Silverpine Forest", questID = 50, level = 10 }
+      QObj[50] = {}; QDone[50] = true
+      C_QuestLog.GetNextWaypointForMap = function(id, map) if id == 50 then return 0.52, 0.55 end end
+      C_QuestLog.GetNextWaypointText = function(id) return "Travel to Silverpine Forest" end
+      HogHealsQuests.Data.List()
+    """)
+    pts = modern.eval('HogHealsQuests.Data.PointsOnMap(1429)')
+    wp = [p for p in pts.values() if p["id"] == 50]
+    assert len(wp) == 1 and wp[0]["waypoint"] is True and wp[0]["text"] == "Travel to Silverpine Forest"
+    ids = [p["id"] for p in pts.values()]
+    assert ids.count(7) == 1                                  # quests with a real point are not doubled
+    assert modern.eval('HogHealsQuests.Pins.Update()') == 3
+    n = [i for i in range(1, 4) if modern.eval(f'HogHealsQuests.Pins.pool[{i}].quest.id') == 50][0]
+    assert modern.eval(f'HogHealsQuests.Pins.pool[{n}].waypoint') == "Next step: Travel to Silverpine Forest"
