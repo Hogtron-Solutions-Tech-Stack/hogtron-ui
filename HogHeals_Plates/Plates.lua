@@ -395,6 +395,8 @@ function Plates.FriendlyLook(uf)
   local unit = hh.unit
   local friendly = bool(call(UnitIsFriend, "player", unit))
   if friendly == nil then local r = num(call(UnitReaction, unit, "player")) friendly = r ~= nil and r >= 5 end
+  -- anything you can attack is never name-only, whatever the friend / reaction calls said (belt and braces, 2026-09-23)
+  if bool(call(UnitCanAttack, "player", unit)) == true then friendly = false end
   local nameOnly = friendly and d.friendlyNameOnly ~= false
   hh.nameOnly = nameOnly
   local pieces = { hh.bar, hh.bg, hh.health, hh.castBar, rawget(uf, "LevelFrame"), rawget(uf, "ClassificationFrame"), rawget(uf, "HealthBarsContainer") }
@@ -640,6 +642,8 @@ function Plates.Diagnose()
   out[#out + 1] = ("events seen: ADDED=%d REMOVED=%d TARGET=%d QUEST_LOG=%d"):format(seen.NAME_PLATE_UNIT_ADDED or 0, seen.NAME_PLATE_UNIT_REMOVED or 0, seen.PLAYER_TARGET_CHANGED or 0, seen.QUEST_LOG_UPDATE or 0)
   local cvar = function(n) local ok, v = pcall(GetCVar, n) return ok and tostring(v) or "?" end
   out[#out + 1] = ("cvars: nameplateShowEnemies=%s nameplateShowAll=%s nameplateShowFriends=%s"):format(cvar("nameplateShowEnemies"), cvar("nameplateShowAll"), cvar("nameplateShowFriends"))
+  if cvar("nameplateShowEnemies") == "0" then out[#out + 1] = "ENEMY NAMEPLATES ARE OFF (the V key toggles them) - what you see over heads are the engine's unit names, not plates" end
+  if cvar("nameplateShowFriends") == "0" then out[#out + 1] = "friendly nameplates are off (Shift-V toggles them)" end
   out[#out + 1] = ("distance: nameplateMaxDistance=%s (names further out are the engine's unit names: UnitNameFriendlyPlayerName=%s, not plates) scale min/max=%s/%s"):format(
     cvar("nameplateMaxDistance"), cvar("UnitNameFriendlyPlayerName"), cvar("nameplateMinScale"), cvar("nameplateMaxScale"))
   local plates = type(C_NamePlate) == "table" and call(C_NamePlate.GetNamePlates) or nil
