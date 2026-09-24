@@ -24,6 +24,7 @@ function Module.WriteProbe()
     minimap = ok2 and pins or ("probe failed: " .. tostring(pins)),
     map = (function() local ok3, m = pcall(HHQ.MapSkin.Probe) return ok3 and m or ("probe failed: " .. tostring(m)) end)(),
     mapMissing = table.concat(HHQ.MapSkin.missing or {}, ","),
+    worldMap = (function() local ok4, m = pcall(HHQ.WorldMap.Probe) return ok4 and m or ("probe failed: " .. tostring(m)) end)(),
     unknownEvents = table.concat(Module.unknown or {}, ","),
   }
 end
@@ -61,6 +62,7 @@ function Module:OnEnable()
     HHQ.Tracker.Show()
   end
   HH:SafeCall(HHQ.MapSkin, "Apply")
+  HH:SafeCall(HHQ.WorldMap, "Apply")
   HHQ.Pins.Start()
   -- position + quest data are not ready at login on every client: probe a few seconds in
   if C_Timer and C_Timer.After then C_Timer.After(5, function() HH:SafeCall(Module, "WriteProbe") end) end
@@ -70,6 +72,7 @@ function Module:OnProfileChanged()
   HHQ.Tracker.Refresh()
   HHQ.Pins.Refresh()
   HH:SafeCall(HHQ.MapSkin, "Refresh")
+  HH:SafeCall(HHQ.WorldMap, "Refresh")
 end
 
 function Module:GetOptions()
