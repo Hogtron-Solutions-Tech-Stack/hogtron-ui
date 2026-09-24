@@ -9,6 +9,7 @@ HHQ.Options = Options
 local function t() return HH.db.profile.quests.tracker end
 local function mm() return HH.db.profile.quests.minimap end
 local function mp() return HH.db.profile.quests.map end
+local function wm() return HH.db.profile.quests.worldMap end
 
 local function toggle(tbl, key, name, order, after, desc)
   return { type = "toggle", name = name, desc = desc, order = order,
@@ -25,6 +26,7 @@ function Options.Build()
   local tr = function() HHQ.Tracker.Refresh() end
   local pr = function() HHQ.Pins.Refresh() end
   local sr = function() HHQ.MapSkin.Refresh() end
+  local wr = function() HH:SafeCall(HHQ.WorldMap, "Refresh") end
   return {
     type = "group", name = "Quests", order = 35,
     args = {
@@ -43,6 +45,15 @@ function Options.Build()
         fontSize = range(t, "fontSize", "Text size", 8, 8, 28, 1, tr),
         scale = range(t, "scale", "Scale (whole window)", 8.5, 0.6, 2.5, 0.05, tr),
         backgroundAlpha = range(t, "backgroundAlpha", "Background opacity", 9, 0, 1, 0.05, tr),
+      } },
+      worldmap = { type = "group", name = "World map", order = 3, args = {
+        about = { type = "description", order = 0, name = "The map you open with M. Coordinates for you and the cursor on a strip under it, a size slider, fade while moving, Blizzard's border art off. Revealing unexplored terrain the way Leatrix Maps does needs its hand-built zone data; run Leatrix Maps alongside for that - when it is loaded, this leaves the map's look to it." },
+        enabled = toggle(wm, "enabled", "HogUI world map", 1, wr),
+        coords = toggle(wm, "coords", "Coordinates strip (you + cursor)", 2, wr),
+        scale = range(wm, "scale", "Map size", 3, 0.5, 1.5, 0.05, wr),
+        fadeWhileMoving = toggle(wm, "fadeWhileMoving", "Fade the map while moving", 4, wr),
+        skin = toggle(wm, "skin", "Ink panel instead of Blizzard's border art (needs /reload to undo)", 5, wr),
+        alpha = range(wm, "alpha", "Panel opacity", 6, 0.3, 1, 0.05, wr),
       } },
       minimap = { type = "group", name = "Minimap", order = 2, args = {
         look = { type = "group", inline = true, name = "Look", order = 1, args = {
