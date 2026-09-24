@@ -100,7 +100,9 @@ HH.defaults = {
       minimap = { enabled = true, edge = true, watchedOnly = false, turnInInRange = false, size = 16 },   -- Forever draws areas only, not points
       map = { enabled = true, fill = true, size = 180, zoneText = true, wheelZoom = true, hideDecor = true, dockButtons = true },
       -- the world map (M): coordinates strip, scale, fade while moving, border art off (skipped when Leatrix Maps runs)
-      worldMap = { enabled = true, coords = true, scale = 1.0, fadeWhileMoving = true, skin = true, alpha = 0.95 },
+      -- coords + skin OFF: in game 2026-09-23 this client's "Map & Quest Log" frame already prints the player's
+      -- coordinates, and hiding its art left holes ("this looks terrible"). Both stay as opt-ins.
+      worldMap = { enabled = true, coords = false, scale = 1.0, fadeWhileMoving = true, skin = false, alpha = 0.95 },
     },
     chat = {
       enabled = true, backgroundAlpha = 0.6, fontSize = nil, outline = false,   -- fontSize nil = keep Blizzard's size

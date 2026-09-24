@@ -23,6 +23,8 @@ function SetCVar(k, v) CV[k] = v end
 def test_strip_shows_you_and_cursor_and_the_art_is_hidden(lua):
     boot(lua, MODERN + MAP)
     assert lua.eval('CV.mapFade') == "1"
+    assert lua.eval('WMArt[1]._alpha') != 0                                      # off by default (2026-09-23 in game)
+    lua.execute('HogHeals.db.profile.quests.worldMap.coords = true; HogHeals.db.profile.quests.worldMap.skin = true; HogHealsQuests.WorldMap.Refresh()')
     assert lua.eval('HogHealsQuests.WorldMap.strip ~= nil') is True
     lua.execute('WorldMapFrame:Show()')
     p, c = lua.eval('HogHealsQuests.WorldMap.Tick()')
@@ -53,7 +55,7 @@ def test_scale_and_options_and_no_coords(lua):
 
 def test_secret_position_prints_dashes_not_errors(lua):
     boot(lua, MODERN + MAP)
-    lua.execute('MockSetSecrets(true); PPOS = { MockSecret(0.3), MockSecret(0.4) }; WorldMapFrame:Show()')
+    lua.execute('HogHeals.db.profile.quests.worldMap.coords = true; MockSetSecrets(true); PPOS = { MockSecret(0.3), MockSecret(0.4) }; WorldMapFrame:Show()')
     p, _ = lua.eval('HogHealsQuests.WorldMap.Tick()')
     assert p == "You  --"
     assert errors(lua) == []
