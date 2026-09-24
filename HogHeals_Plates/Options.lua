@@ -55,9 +55,9 @@ function Options.Build()
           get = function() return p().nameClass or "friendly" end, set = function(_, v) p().nameClass = v; refresh() end },
       } },
       highlight = { type = "group", name = "Highlight", order = 2, args = {
-        about = { type = "description", order = 0, name = "Your target: arrows beside the bar (or a glow behind it / the old outline), and its plate drawn bigger (Look tab: target plate scale). A mob on YOU gets a red outline over everything; quest mobs an amber one." },
+        about = { type = "description", order = 0, name = "Your target: an arrow above the name (or a glow behind the bar / the old outline), and its plate drawn bigger (Look tab: target plate scale). A mob on YOU gets a red outline over everything; quest mobs an amber one." },
         target = toggle(sub("target"), "highlight", "Mark my target", 1),
-        style = { type = "select", name = "Target mark", order = 1.5, values = { arrows = "Arrows beside the bar", glow = "Glow behind the bar", outline = "Outline (box)", none = "None (scale only)" },
+        style = { type = "select", name = "Target mark", order = 1.5, values = { arrows = "Arrow above the name", glow = "Glow behind the bar", outline = "Outline (box)", none = "None (scale only)" },
           get = function() return sub("target")().style or "arrows" end, set = function(_, v) sub("target")().style = v; refresh() end },
         targetColor = colour(sub("target"), "color", "Target colour", 2),
         fade = toggle(sub("target"), "fadeOthers", "Fade plates that are not my target", 3),
