@@ -324,3 +324,42 @@ def test_adopted_castbar_parent_answers_blizzards_method_calls(units):
     assert units.eval('HogUITarget.aurasUpdated') is None                        # a stub, not Blizzard's real method
     assert units.eval('type(HogUITarget.SetPoint)') == "function"                # real widget methods untouched
     assert errors(units) == []
+
+
+def test_my_debuffs_come_first_bigger_with_a_countdown(units):
+    units.execute('''
+      MockUnits.target = { name = "Kobold", class = "WARRIOR", health = 1, maxHealth = 1, guid = "C-40",
+        auras = { { name = "Sleep", type = "Magic", duration = 30, expires = 100, source = "party1", spellId = 1 },
+                  { name = "Corruption", type = "Magic", duration = 18, expires = 95, source = "player", spellId = 172 },
+                  { name = "Curse of Agony", type = "Curse", duration = 24, expires = 101, source = "player", spellId = 980 } } }
+      MockState.time = 80
+      MockFire("PLAYER_TARGET_CHANGED")
+    ''')
+    d = 'HogUITarget.auras.debuffs'
+    assert units.eval(f'#{d}') == 3
+    assert units.eval(f'{d}[1].aura.name') == "Corruption" and units.eval(f'{d}[1].aura.mine') is True
+    assert units.eval(f'{d}[2].aura.name') == "Curse of Agony" and units.eval(f'{d}[3].aura.name') == "Sleep"
+    assert units.eval(f'{d}[3].aura.mine') is None
+    assert units.eval(f'{d}[1]._width') == 28 and units.eval(f'{d}[3]._width') == 22
+    assert units.eval(f'{d}[1].timer._text') == "15" and units.eval(f'{d}[3].timer._text') == "20"
+    # mixed sizes: the third icon starts after 28 + 3 + 28 + 3
+    assert units.eval(f'{d}[3]._points[1][4]') == 62
+    # only mine
+    units.execute('HogHeals.db.profile.units.target.debuffFilter = "mine"; HogHealsUnits.Units.Refresh()')
+    assert units.eval(f'{d}[3]:IsShown()') is False and units.eval(f'{d}[2].aura.name') == "Curse of Agony"
+    # everyone's in the client's order, mine flagged
+    units.execute('HogHeals.db.profile.units.target.debuffFilter = "all"; HogHealsUnits.Units.Refresh()')
+    assert units.eval(f'{d}[1].aura.name') == "Sleep" and units.eval(f'{d}[2].aura.mine') is True
+    # the ticker is its own plain frame, never an OnUpdate on the secure button
+    assert units.eval('HogUITarget._scripts.OnUpdate') is None
+    assert units.eval('HogHealsUnits.Auras.ticker ~= nil') is True
+    assert units.eval('HogHealsUnits.Auras.TimerText(59.2)') == "60" and units.eval('HogHealsUnits.Auras.TimerText(125)') == "2m"
+    assert errors(units) == []
+
+
+def test_secret_expiry_shows_no_countdown(units):
+    units.execute('MockSetSecrets(true); MockUnits.target = { name = "K", class = "WARRIOR", health = 1, maxHealth = 1, guid = "C-41", auras = { { name = "Corruption", type = "Magic", duration = MockSecret(18), expires = MockSecret(95), source = "player" } } }')
+    units.execute('MockState.time = 80; MockFire("PLAYER_TARGET_CHANGED"); HogHealsUnits.Auras.Tick(80)')
+    assert units.eval('HogUITarget.auras.debuffs[1]:IsShown()') is True
+    assert units.eval('HogUITarget.auras.debuffs[1].timer._text') == ""
+    assert errors(units) == []

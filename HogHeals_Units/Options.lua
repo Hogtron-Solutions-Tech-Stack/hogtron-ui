@@ -57,6 +57,11 @@ local function unitTab(unit, order)
     t.args.castbar = toggle(u(unit), "castbar", "Cast bar above the frame (Blizzard's, restyled)", 11)
     t.args.castbarHeight = range(u(unit), "castbarHeight", "Cast bar height", 12, 8, 30, 1)
     t.args.debuffs = toggle(u(unit), "debuffs", "Debuffs under the frame", 13)
+    t.args.debuffFilter = { type = "select", name = "Which debuffs", order = 13.1,
+      values = { ["mine-first"] = "Mine first (bigger), then everyone's", mine = "Only mine", all = "Everyone's, mine flagged" },
+      get = function() return u(unit)().debuffFilter or "mine-first" end, set = function(_, v) u(unit)().debuffFilter = v; refresh() end }
+    t.args.myDebuffSize = range(u(unit), "myDebuffSize", "My debuff icon size", 13.2, 12, 48, 1)
+    t.args.auraTimers = toggle(u(unit), "auraTimers", "Seconds left on the icons", 13.3)
     t.args.buffs = { type = "toggle", name = "Buffs under the debuffs (off: Blizzard's buff area keeps them)", order = 14,
       get = function() return u(unit)().buffs == true end, set = function(_, v) u(unit)().buffs = v and true or false; refresh() end }
     t.args.auraSize = range(u(unit), "auraSize", "Aura icon size", 15, 12, 40, 1)

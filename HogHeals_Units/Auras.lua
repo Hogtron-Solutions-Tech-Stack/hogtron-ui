@@ -29,11 +29,47 @@ function Auras.Get(unit, i, filter)
   if type(C_UnitAuras) == "table" and type(C_UnitAuras.GetAuraDataByIndex) == "function" then
     local a = call(C_UnitAuras.GetAuraDataByIndex, unit, i, filter)
     if type(a) ~= "table" then return nil end
-    return { icon = a.icon, count = a.applications, dispel = a.dispelName, duration = a.duration, expires = a.expirationTime, name = a.name }
+    return { icon = a.icon, count = a.applications, dispel = a.dispelName, duration = a.duration, expires = a.expirationTime, name = a.name,
+      id = a.auraInstanceID, source = a.sourceUnit }
   end
-  local name, icon, count, dispel, duration, expires = call(UnitAura, unit, i, filter)
+  local name, icon, count, dispel, duration, expires, source = call(UnitAura, unit, i, filter)
   if name == nil then return nil end
-  return { icon = icon, count = count, dispel = dispel, duration = duration, expires = expires, name = name }
+  return { icon = icon, count = count, dispel = dispel, duration = duration, expires = expires, name = name, source = source }
+end
+
+--- A key that tells two readings of the same aura apart without touching a secret: the instance id, else name+icon.
+local function auraKey(a)
+  local id = num(a.id)
+  if id then return "#" .. id end
+  local n, ic = str(a.name), a.icon
+  if n then return n .. "|" .. tostring(type(ic) == "number" and not isSecret(ic) and ic or "") end
+  return nil
+end
+
+--- Debuffs for a frame by mode (Sean 2026-09-23, Warlock: "track my debuffs better"):
+--   mine-first  mine (HARMFUL|PLAYER) first and flagged, then everyone else's       (default)
+--   mine        only mine
+--   all         the client's order, mine flagged
+function Auras.Debuffs(unit, d)
+  local mode, max = d.debuffFilter or "mine-first", d.maxDebuffs or 16
+  local mine = Auras.Read(unit, "HARMFUL|PLAYER", max)
+  for _, a in ipairs(mine) do a.mine = true end
+  if mode == "mine" then return mine end
+  local all = Auras.Read(unit, "HARMFUL", max)
+  local seen = {}
+  for _, a in ipairs(mine) do local k = auraKey(a) if k then seen[k] = true end end
+  if mode == "all" then
+    for _, a in ipairs(all) do local k = auraKey(a) if k and seen[k] then a.mine = true end end
+    return all
+  end
+  local out = {}
+  for _, a in ipairs(mine) do out[#out + 1] = a end
+  for _, a in ipairs(all) do
+    local k = auraKey(a)
+    if not (k and seen[k]) then out[#out + 1] = a end
+    if #out >= max then break end
+  end
+  return out
 end
 
 function Auras.Read(unit, filter, max)
@@ -66,6 +102,11 @@ local function newIcon(parent, unit)
   b.count = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   b.count:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 1, 0)
   b.count:SetJustifyH("RIGHT")
+  -- seconds left, our own text (Blizzard's countdown numbers were too big for these icons); only when the times are
+  -- plain numbers - a secret expiry keeps the swipe and no text
+  b.timer = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  b.timer:SetPoint("CENTER", b, "CENTER", 0, 0)
+  b.timer:SetTextColor(0.96, 0.92, 0.86)
   b:SetScript("OnEnter", function(self)
     if not GameTooltip or not self.aura then return end
     GameTooltip:SetOwner(self, "ANCHOR_BOTTOMRIGHT")
@@ -78,6 +119,7 @@ end
 
 local function paint(b, a, size)
   b.aura = a
+  b.size = size
   b:SetSize(size, size)
   b.icon:SetTexture(a.icon)
   local n = num(a.count)
@@ -94,7 +136,55 @@ local function paint(b, a, size)
   else
     b.cd:Hide()
   end
+  b.expires = (dur and exp and dur > 0) and exp or nil
+  if b.timer.SetFont then call(b.timer.SetFont, b.timer, STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", math.max(8, math.floor(size * 0.5)), "OUTLINE") end
+  b.timer:SetText("")
   b:Show()
+end
+
+--- "12", "1m", "" - what the countdown shows for a remaining time.
+function Auras.TimerText(remaining)
+  if remaining == nil then return "" end
+  if remaining <= 0 then return "" end
+  if remaining < 60 then return string.format("%d", math.ceil(remaining)) end
+  if remaining < 3600 then return string.format("%dm", math.floor(remaining / 60 + 0.5)) end
+  return string.format("%dh", math.floor(remaining / 3600))
+end
+
+--- Countdown text on every icon with a plain expiry. Driven by a plain ticker frame (never an OnUpdate on the secure
+-- unit buttons) at 5 Hz, only while any icon has a time to count.
+function Auras.Tick(now)
+  local any = false
+  for _, f in pairs(HHU.Units.frames or {}) do
+    if f.auras and f:IsShown() then
+      local d = ucfg(f.unit)
+      for _, key in ipairs({ "debuffs", "buffs" }) do
+        for _, b in ipairs(f.auras[key]) do
+          if b:IsShown() and b.expires and d.auraTimers ~= false then
+            any = true
+            b.timer:SetText(Auras.TimerText(b.expires - now))
+          elseif b.timer then
+            b.timer:SetText("")
+          end
+        end
+      end
+    end
+  end
+  return any
+end
+
+function Auras.StartTicker()
+  if Auras.ticker then return Auras.ticker end
+  local t = CreateFrame("Frame")
+  local acc = 0
+  t:SetScript("OnUpdate", function(_, elapsed)
+    acc = acc + (elapsed or 0)
+    if acc < 0.2 then return end
+    acc = 0
+    Auras.Tick(GetTime())
+  end)
+  Auras.ticker = t
+  return t
 end
 
 --- Rows of icons under the frame: debuffs first (what a healer looks for), buffs below. Returns counts (tests).
@@ -109,10 +199,11 @@ function Auras.Update(f)
   f.auras = f.auras or { buffs = {}, debuffs = {} }
   local shownD, shownB = 0, 0
   if d.debuffs ~= false and f:IsShown() then
-    for i, a in ipairs(Auras.Read(unit, "HARMFUL", d.maxDebuffs or 16)) do
+    local size, mineSize = d.auraSize or 22, d.myDebuffSize or ((d.auraSize or 22) + 6)
+    for i, a in ipairs(Auras.Debuffs(unit, d)) do
       local b = f.auras.debuffs[i] or newIcon(f, unit)
       f.auras.debuffs[i] = b
-      paint(b, a, d.auraSize or 22)
+      paint(b, a, a.mine and mineSize or size)
       shownD = i
     end
   end
@@ -127,25 +218,34 @@ function Auras.Update(f)
   end
   for i = shownB + 1, #f.auras.buffs do f.auras.buffs[i]:Hide() end
   Auras.Layout(f)
+  Auras.StartTicker()
+  Auras.Tick(GetTime and GetTime() or 0)
   return shownD, shownB
 end
 
 --- Place the icons: per-row wrap, debuff rows then buff rows, growing downward from the frame's bottom edge.
+-- Icons can differ in size (my debuffs are bigger): each row is as tall as its tallest icon, x runs cumulatively.
 function Auras.Layout(f)
   if not f.auras then return end
   local d = ucfg(f.unit)
-  local size, gap, perRow = d.auraSize or 22, 3, d.aurasPerRow or 8
+  local gap, perRow = 3, d.aurasPerRow or 8
   local y = -(gap + 2)
   for _, key in ipairs({ "debuffs", "buffs" }) do
-    local n = 0
-    for i, b in ipairs(f.auras[key]) do
+    local n, x, rowH = 0, 0, 0
+    for _, b in ipairs(f.auras[key]) do
       if b:IsShown() then
+        if n > 0 and n % perRow == 0 then
+          y = y - rowH - gap
+          x, rowH = 0, 0
+        end
         n = n + 1
-        local col, row = (n - 1) % perRow, math.floor((n - 1) / perRow)
+        local size = b.size or d.auraSize or 22
         b:ClearAllPoints()
-        b:SetPoint("TOPLEFT", f, "BOTTOMLEFT", col * (size + gap), y - row * (size + gap))
+        b:SetPoint("TOPLEFT", f, "BOTTOMLEFT", x, y)
+        x = x + size + gap
+        if size > rowH then rowH = size end
       end
     end
-    if n > 0 then y = y - (math.floor((n - 1) / perRow) + 1) * (size + gap) - gap end
+    if n > 0 then y = y - rowH - gap - gap end
   end
 end
