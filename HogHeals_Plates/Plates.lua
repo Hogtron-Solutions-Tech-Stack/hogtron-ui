@@ -20,7 +20,6 @@ HHP.Plates = Plates
 
 local FLAT = "Interface\\Buttons\\WHITE8X8"
 local QUEST_ART = "Interface\\AddOns\\HogHeals\\Media\\quest_open"
-local ARROW_ART = "Interface\\AddOns\\HogHeals\\Media\\target_arrow"   -- white, points right; tinted in code
 local LINE = { 0.05, 0.05, 0.06 }
 
 local function cfg() return HH.db.profile.plates end
@@ -87,17 +86,10 @@ function Plates.Skin(uf)
   end
   hh.health = hh.overlay:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   hh.health:SetPoint("CENTER", anchor, "CENTER", 0, 0)
-  -- Target mark (Sean 2026-09-23: "I don't like ... just drawing a box around the name tag"; side arrows sat under
-  -- the quest badge): one arrow ABOVE the name pointing down at it, or a soft glow behind the bar. The art is white
-  -- (points right) so the target colour tints it; the 8-value tex coords turn it 90 degrees clockwise = down.
+  -- Target mark (Sean 2026-09-23: no box, no arrows - "magnify their health bar"): the target's plate is scaled up
+  -- (UnitFrame:SetScale, ours to set; the nameplateSelectedScale cvar did nothing visible on this client), or a
+  -- soft glow behind the bar. hh.arrows stays an empty table for the code paths that iterate it.
   hh.arrows = {}
-  local a = hh.overlay:CreateTexture(nil, "OVERLAY")
-  a:SetTexture(ARROW_ART)
-  a:SetTexCoord(0, 1, 1, 1, 0, 0, 1, 0)
-  a:SetPoint("BOTTOM", uf.name or anchor, "TOP", 0, 1)
-  a:SetSize(18, 18)
-  a:Hide()
-  hh.arrows[1] = a
   hh.glow = uf:CreateTexture(nil, "BACKGROUND")   -- on the UnitFrame, so it draws under the bar's own frame
   hh.glow:SetTexture(FLAT)
   hh.glow:SetPoint("TOPLEFT", anchor, "TOPLEFT", -5, 5)
@@ -283,21 +275,24 @@ function Plates.UpdateQuest(uf)
 end
 
 --- Target / aggro / quest marks. Outline colour by priority: aggro on you (red, thick) beats a quest mob (amber)
--- beats plain. The target is marked by style (target.style): "arrows" (default) beside the bar, "glow" behind it,
--- "outline" (the old cyan box), "none" (the target plate's bigger scale is the only cue). Aggro and target combine.
+-- beats plain. The target is marked by style (target.style): "scale" (default) - the whole plate magnified,
+-- "glow" behind the bar, "outline" (the old cyan box), "none". Aggro and target combine.
 -- Returns the reason it chose (tests read it): aggro > target > quest > plain.
 function Plates.UpdateHighlight(uf)
   local hh, d = uf.hh, cfg()
   if not hh or not hh.unit then return end
   local function marks(show)
-    for _, a in ipairs(hh.arrows or {}) do if show == "arrows" then a:Show() else a:Hide() end end
     if hh.glow then if show == "glow" then hh.glow:Show() else hh.glow:Hide() end end
   end
-  if hh.nameOnly then for _, e in ipairs(hh.edges) do e:Hide() end marks(nil) uf:SetAlpha(1) return "nameonly" end
   local unit = hh.unit
   local isTarget = bool(call(UnitIsUnit, unit, "target")) or false
+  local style = d.target.highlight ~= false and (d.target.style or "scale") or "none"
+  if style == "arrows" then style = "scale" end   -- older profiles
+  -- magnify the target (every style but "none" grows it; "scale" is the one that ONLY grows it)
+  local grow = (isTarget and style ~= "none") and (d.target.scale or 1.25) or 1
+  if uf.SetScale and hh.scale ~= grow then hh.scale = grow call(uf.SetScale, uf, grow) end
+  if hh.nameOnly then for _, e in ipairs(hh.edges) do e:Hide() end marks(nil) uf:SetAlpha(1) return "nameonly" end
   local threat = num(call(UnitThreatSituation, "player", unit))
-  local style = d.target.highlight ~= false and (d.target.style or "arrows") or "none"
   local tc = d.target.color or { 0.13, 0.83, 0.88 }
   local color, why, thick
   if d.aggro.warn and threat and threat >= 2 then color, why, thick = d.aggro.color, "aggro", 2
@@ -314,11 +309,9 @@ function Plates.UpdateHighlight(uf)
       e:Hide()
     end
   end
-  if isTarget and (style == "arrows" or style == "glow") then
-    local size = (d.barHeight or 14) + 4
-    for _, a in ipairs(hh.arrows or {}) do a:SetSize(size, size) a:SetVertexColor(tc[1], tc[2], tc[3], 1) end
+  if isTarget and style == "glow" then
     if hh.glow then hh.glow:SetVertexColor(tc[1], tc[2], tc[3], 0.45) end
-    marks(style)
+    marks("glow")
   else
     marks(nil)
   end
@@ -482,10 +475,10 @@ function Plates.Reset(uf)
     if type(p) == "table" and p.Show then call(p.Show, p) end
   end
   if hh.health then hh.health:Hide() end
-  for _, a in ipairs(hh.arrows or {}) do a:Hide() end
   if hh.glow then hh.glow:Hide() end
   if hh.questFrame then hh.questFrame:Hide() end
   if uf.name then setFont(uf.name, d.fontSize or 13) end
+  if uf.SetScale and hh.scale ~= 1 then hh.scale = 1 call(uf.SetScale, uf, 1) end
   uf:SetAlpha(1)
 end
 
@@ -668,6 +661,47 @@ function Plates.Diagnose()
   out[#out + 1] = "skipped: " .. (#sk > 0 and table.concat(sk, "; ") or "none")
   return out
 end
+
+--- Why is / isn't my target a quest mob: its tooltip lines with types, both detectors' answers, the open objectives.
+function Plates.QuestMobReport(unit)
+  unit = unit or "target"
+  local QM = HHP.QuestMobs
+  local out = {}
+  if not bool(call(UnitExists, unit)) then out[1] = "no target" return out end
+  out[#out + 1] = ("target: %s  player=%s  guid=%s"):format(tostring(call(UnitName, unit)), tostring(call(UnitIsPlayer, unit)), tostring(call(UnitGUID, unit)))
+  local lines = QM.TooltipLines(unit)
+  if not lines then out[#out + 1] = "tooltip: no C_TooltipInfo data"
+  else
+    for i, l in ipairs(lines) do if i <= 10 then out[#out + 1] = ("  line %d type=%s: %s"):format(i, tostring(l.type), l.text) end end
+  end
+  local e = Enum and Enum.TooltipDataLineType
+  out[#out + 1] = ("line types: QuestObjective=%s QuestTitle=%s QuestPlayer=%s"):format(tostring(e and e.QuestObjective), tostring(e and e.QuestTitle), tostring(e and e.QuestPlayer))
+  local fromLines = QM.FromLines(lines, nil)
+  out[#out + 1] = "from tooltip: " .. (fromLines and (tostring(fromLines.progress) .. " " .. tostring(fromLines.title)) or "nil")
+  local HHQ = rawget(_G, "HogHealsQuests")
+  local Data = type(HHQ) == "table" and HHQ.Data
+  if Data and Data.OpenObjectives then
+    local ok, open = pcall(Data.OpenObjectives)
+    local keys = {}
+    if ok and type(open) == "table" then for k in pairs(open) do keys[#keys + 1] = k end end
+    table.sort(keys)
+    out[#out + 1] = ("open objective names (%d): %s"):format(#keys, table.concat(keys, " | "):sub(1, 400))
+    local byName = ok and QM.FromName(call(UnitName, unit), open)
+    out[#out + 1] = "from name: " .. (byName and (tostring(byName.progress) .. " " .. tostring(byName.title)) or "nil")
+  else
+    out[#out + 1] = "quest log data: HogHeals_Quests not loaded"
+  end
+  QM.Invalidate()
+  local info = QM.Check(unit)
+  out[#out + 1] = "Check() now: " .. (info and (tostring(info.source) .. " " .. tostring(info.progress)) or "nil")
+  return out
+end
+
+HH:RegisterSlash("questmob", function()
+  local ok, lines = pcall(Plates.QuestMobReport, "target")
+  if not ok then HH:Print("questmob failed: " .. tostring(lines)) return end
+  for _, l in ipairs(lines) do HH:Print(l) end
+end, "why my target is / is not marked as a quest mob")
 
 HH:RegisterSlash("platediag", function()
   local ok, lines = pcall(Plates.Diagnose)
