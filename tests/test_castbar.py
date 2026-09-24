@@ -88,3 +88,17 @@ def test_castdiag_reports_the_texture_the_cast_handed_us(cb):
     start_cast(cb)
     lines = cb.eval('table.concat(HogHealsHUD.Castbar.Diagnose(), "\\n")')
     assert "last cast: Greater Heal" in lines and "texture=" in lines and "icon: shown=" in lines
+
+
+def test_opening_a_chest_reads_opening_with_a_chest_icon(cb):
+    cb.execute('''
+      UnitCastingInfo = function() return "Opening - No Text", "Opening - No Text", 136235, 100000, 102500, false, "id", false end
+      MockFire("UNIT_SPELLCAST_START", "player", 1, 6478)
+    ''')
+    assert cb.eval('HH_cb.text:GetText()').startswith("Opening")
+    assert "No Text" not in cb.eval('HH_cb.text:GetText()')
+    assert cb.eval('HH_cb.icon._texture') == "Interface\Icons\INV_Box_01"
+    n, tex = cb.eval('HogHealsHUD.Castbar.Pretty("Herb Gathering - No Text", 136235)')
+    assert n == "Herb Gathering" and tex == "Interface\Icons\Trade_Engineering"
+    n, tex = cb.eval('HogHealsHUD.Castbar.Pretty("Greater Heal", 135913)')
+    assert n == "Greater Heal" and tex == 135913

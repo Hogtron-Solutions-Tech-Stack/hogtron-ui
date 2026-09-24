@@ -37,8 +37,24 @@ local function targetSuffix()
   return ""
 end
 
+--- Internal cast names / placeholder art made presentable (in game 2026-09-23: opening a chest showed
+-- "Opening - No Text" with the WoW-logo temp icon). " - No Text" is dropped from any name; "Opening" gets a
+-- chest icon; the temp icon (file 136235) becomes a plain gear.
+Castbar.TEMP_ICON = 136235
+Castbar.OPEN_ICON = "Interface\\Icons\\INV_Box_01"
+Castbar.GENERIC_ICON = "Interface\\Icons\\Trade_Engineering"
+function Castbar.Pretty(name, texture)
+  if type(name) == "string" then
+    name = name:gsub("%s*%-%s*No Text$", "")
+    if name:match("^Opening") then return "Opening", Castbar.OPEN_ICON end
+  end
+  if texture == Castbar.TEMP_ICON or texture == "Interface\\Icons\\Temp" then texture = Castbar.GENERIC_ICON end
+  return name, texture
+end
+
 local function begin(state, name, texture, startMS, endMS, notInterruptible, channel)
   local b = bar()
+  name, texture = Castbar.Pretty(name, texture)
   state.casting, state.channel = true, channel and true or false
   state.name = name
   state.startTime, state.endTime = startMS / 1000, endMS / 1000
