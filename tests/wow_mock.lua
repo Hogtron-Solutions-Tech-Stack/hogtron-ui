@@ -238,10 +238,11 @@ end
 function UnitAura(u, i, filter)
   local m = U(u) if not m or not m.auras then return nil end
   local harmful = filter and filter:find("HARMFUL")
+  local mineOnly = filter and filter:find("PLAYER")          -- client: PLAYER = cast by me (or my pet)
   local n = 0
   for _, a in ipairs(m.auras) do
     local isDebuff = a.type ~= nil or a.debuff
-    if (harmful and isDebuff) or (not harmful and not isDebuff) then
+    if ((harmful and isDebuff) or (not harmful and not isDebuff)) and (not mineOnly or a.source == "player") then
       n = n + 1
       if n == i then
         return a.name, a.icon or "icon", a.count or 0, a.type, a.duration or 0, a.expires or 0, a.source or "unknown", false, false, a.spellId or 0
