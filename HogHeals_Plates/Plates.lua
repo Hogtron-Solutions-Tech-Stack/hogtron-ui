@@ -90,11 +90,19 @@ function Plates.Skin(uf)
   -- (UnitFrame:SetScale, ours to set; the nameplateSelectedScale cvar did nothing visible on this client), or a
   -- soft glow behind the bar. hh.arrows stays an empty table for the code paths that iterate it.
   hh.arrows = {}
-  hh.glow = uf:CreateTexture(nil, "BACKGROUND")   -- on the UnitFrame, so it draws under the bar's own frame
-  hh.glow:SetTexture(FLAT)
-  hh.glow:SetPoint("TOPLEFT", anchor, "TOPLEFT", -5, 5)
-  hh.glow:SetPoint("BOTTOMRIGHT", anchor, "BOTTOMRIGHT", 5, -5)
-  hh.glow:Hide()
+  -- Glow: three nested rectangles fading outward (a feathered edge without any texture file that could fail to
+  -- load), on the UnitFrame so they draw under the bar's own frame. hh.glow is the innermost; hh.glows all three.
+  hh.glows = {}
+  for i, spec in ipairs({ { 3, 0.55 }, { 7, 0.30 }, { 12, 0.14 } }) do
+    local g = uf:CreateTexture(nil, "BACKGROUND", nil, -i)
+    g:SetTexture(FLAT)
+    g:SetPoint("TOPLEFT", anchor, "TOPLEFT", -spec[1], spec[1])
+    g:SetPoint("BOTTOMRIGHT", anchor, "BOTTOMRIGHT", spec[1], -spec[1])
+    g.hhAlpha = spec[2]
+    g:Hide()
+    hh.glows[i] = g
+  end
+  hh.glow = hh.glows[1]
   -- Quest badge on the LEFT of the bar: the right side belongs to Blizzard's level badge (in-game 2026-09-22 our
   -- icon sat on top of it). Art = HogHeals/Media/quest_open.tga (dev/icons/build_icons.py). If the client refuses
   -- the file (SetTexture returns false), fall back to a drawn amber square + "!" glyph: the GossipFrame icon we used
@@ -282,14 +290,14 @@ function Plates.UpdateHighlight(uf)
   local hh, d = uf.hh, cfg()
   if not hh or not hh.unit then return end
   local function marks(show)
-    if hh.glow then if show == "glow" then hh.glow:Show() else hh.glow:Hide() end end
+    for _, g in ipairs(hh.glows or {}) do if show == "glow" then g:Show() else g:Hide() end end
   end
   local unit = hh.unit
   local isTarget = bool(call(UnitIsUnit, unit, "target")) or false
-  local style = d.target.highlight ~= false and (d.target.style or "scale") or "none"
-  if style == "arrows" then style = "scale" end   -- older profiles
-  -- magnify the target (every style but "none" grows it; "scale" is the one that ONLY grows it)
-  local grow = (isTarget and style ~= "none") and (d.target.scale or 1.25) or 1
+  local style = d.target.highlight ~= false and (d.target.style or "glow") or "none"
+  if style == "arrows" then style = "glow" end   -- older profiles
+  -- magnify only when asked (Sean 2026-09-23: "don't like ... making it slightly bigger")
+  local grow = (isTarget and style == "scale") and (d.target.scale or 1.25) or 1
   if uf.SetScale and hh.scale ~= grow then hh.scale = grow call(uf.SetScale, uf, grow) end
   if hh.nameOnly then for _, e in ipairs(hh.edges) do e:Hide() end marks(nil) uf:SetAlpha(1) return "nameonly" end
   local threat = num(call(UnitThreatSituation, "player", unit))
@@ -310,7 +318,7 @@ function Plates.UpdateHighlight(uf)
     end
   end
   if isTarget and style == "glow" then
-    if hh.glow then hh.glow:SetVertexColor(tc[1], tc[2], tc[3], 0.45) end
+    for _, g in ipairs(hh.glows or {}) do g:SetVertexColor(tc[1], tc[2], tc[3], g.hhAlpha) end
     marks("glow")
   else
     marks(nil)
@@ -475,7 +483,7 @@ function Plates.Reset(uf)
     if type(p) == "table" and p.Show then call(p.Show, p) end
   end
   if hh.health then hh.health:Hide() end
-  if hh.glow then hh.glow:Hide() end
+  for _, g in ipairs(hh.glows or {}) do g:Hide() end
   if hh.questFrame then hh.questFrame:Hide() end
   if uf.name then setFont(uf.name, d.fontSize or 13) end
   if uf.SetScale and hh.scale ~= 1 then hh.scale = 1 call(uf.SetScale, uf, 1) end

@@ -119,7 +119,7 @@ HH.defaults = {
       showLevel = false,              -- the level badge next to the bar
       uniformScale = true, targetScale = 1.15,  -- same plate size at every distance; the target's plate scale
       maxDistance = 60,               -- nameplateMaxDistance (yards); the client clamps to what it allows
-      target = { highlight = true, style = "scale", scale = 1.25, color = { 0.13, 0.83, 0.88 }, fadeOthers = false, otherAlpha = 0.6 },   -- style: scale | glow | outline | none
+      target = { highlight = true, style = "glow", scale = 1.25, color = { 0.13, 0.83, 0.88 }, fadeOthers = false, otherAlpha = 0.6 },   -- style: scale | glow | outline | none
       aggro = { warn = true, color = { 0.85, 0.20, 0.20 } },   -- healer pulled threat: red outline
       quest = { icon = true, highlight = true, progress = true, tint = false, iconSize = 16, color = { 0.95, 0.65, 0.15 } },
     },
