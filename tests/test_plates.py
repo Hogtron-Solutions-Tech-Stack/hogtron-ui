@@ -405,7 +405,9 @@ def test_recycled_plate_goes_back_to_a_full_plate(plates):
 def test_target_mark_styles_and_size_cvars(plates):
     uf = add(plates, "nameplate21", '{ name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-21" }')
     plates.execute('TARGET = "nameplate21"; MockFire("PLAYER_TARGET_CHANGED")')
-    assert plates.eval(f'{uf}.hh.arrows[2]:IsShown()') is True and plates.eval(f'{uf}.hh.glow:IsShown()') is False
+    assert plates.eval(f'{uf}.hh.arrows[1]:IsShown()') is True and plates.eval(f'{uf}.hh.glow:IsShown()') is False
+    assert plates.eval(f'{uf}.hh.arrows[1]._points[1][1]') == "BOTTOM" and plates.eval(f'{uf}.hh.arrows[1]._points[1][2] == {uf}.name') is True   # above the name
+    assert plates.eval(f'{uf}.name._points[1][1]') == "BOTTOM" and plates.eval(f'{uf}.name._points[1][3]') == "TOP"       # name centred over the bar
     plates.execute('HogHeals.db.profile.plates.target.style = "glow"; HogHealsPlates.Plates.Refresh()')
     assert plates.eval(f'{uf}.hh.glow:IsShown()') is True and plates.eval(f'{uf}.hh.arrows[1]:IsShown()') is False
     plates.execute('HogHeals.db.profile.plates.target.style = "outline"; HogHealsPlates.Plates.Refresh()')

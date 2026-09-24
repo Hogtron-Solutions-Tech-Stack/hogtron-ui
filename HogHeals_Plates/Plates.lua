@@ -87,18 +87,17 @@ function Plates.Skin(uf)
   end
   hh.health = hh.overlay:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   hh.health:SetPoint("CENTER", anchor, "CENTER", 0, 0)
-  -- Target marks (Sean 2026-09-23: "I don't like ... just drawing a box around the name tag"): a pair of arrows
-  -- pointing at the bar, or a soft glow behind it. The art is white so the target colour tints it.
+  -- Target mark (Sean 2026-09-23: "I don't like ... just drawing a box around the name tag"; side arrows sat under
+  -- the quest badge): one arrow ABOVE the name pointing down at it, or a soft glow behind the bar. The art is white
+  -- (points right) so the target colour tints it; the 8-value tex coords turn it 90 degrees clockwise = down.
   hh.arrows = {}
-  for i, side in ipairs({ "LEFT", "RIGHT" }) do
-    local a = hh.overlay:CreateTexture(nil, "OVERLAY")
-    a:SetTexture(ARROW_ART)
-    if side == "LEFT" then a:SetPoint("RIGHT", anchor, "LEFT", -3, 0) a:SetTexCoord(0, 1, 0, 1)
-    else a:SetPoint("LEFT", anchor, "RIGHT", 3, 0) a:SetTexCoord(1, 0, 0, 1) end
-    a:SetSize(18, 18)
-    a:Hide()
-    hh.arrows[i] = a
-  end
+  local a = hh.overlay:CreateTexture(nil, "OVERLAY")
+  a:SetTexture(ARROW_ART)
+  a:SetTexCoord(0, 1, 1, 1, 0, 0, 1, 0)
+  a:SetPoint("BOTTOM", uf.name or anchor, "TOP", 0, 1)
+  a:SetSize(18, 18)
+  a:Hide()
+  hh.arrows[1] = a
   hh.glow = uf:CreateTexture(nil, "BACKGROUND")   -- on the UnitFrame, so it draws under the bar's own frame
   hh.glow:SetTexture(FLAT)
   hh.glow:SetPoint("TOPLEFT", anchor, "TOPLEFT", -5, 5)
@@ -316,7 +315,7 @@ function Plates.UpdateHighlight(uf)
     end
   end
   if isTarget and (style == "arrows" or style == "glow") then
-    local size = (d.barHeight or 14) + 6
+    local size = (d.barHeight or 14) + 4
     for _, a in ipairs(hh.arrows or {}) do a:SetSize(size, size) a:SetVertexColor(tc[1], tc[2], tc[3], 1) end
     if hh.glow then hh.glow:SetVertexColor(tc[1], tc[2], tc[3], 0.45) end
     marks(style)
@@ -344,7 +343,11 @@ function Plates.ApplyLook(uf)
   end
   if uf.name then
     setFont(uf.name, d.fontSize or 13)
-    -- width 0 = as wide as the text: "Ferocious Grizzled Be..." was Blizzard's fixed name width (2026-09-23)
+    -- width 0 = as wide as the text: "Ferocious Grizzled Be..." was Blizzard's fixed name width (2026-09-23);
+    -- and centred over the bar: with width 0 it hung off Blizzard's left anchor (in game, "Mottled Worg")
+    call(uf.name.ClearAllPoints, uf.name)
+    call(uf.name.SetPoint, uf.name, "BOTTOM", hh.bar or uf, "TOP", 0, 3)
+    if uf.name.SetJustifyH then call(uf.name.SetJustifyH, uf.name, "CENTER") end
     call(uf.name.SetWidth, uf.name, 0)
     if uf.name.SetWordWrap then call(uf.name.SetWordWrap, uf.name, false) end
   end
