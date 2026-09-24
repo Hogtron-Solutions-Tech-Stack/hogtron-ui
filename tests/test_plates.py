@@ -157,10 +157,9 @@ def test_highlight_priority_aggro_over_target_over_quest(plates):
     assert plates.eval(f'{uf}.hh.why') == "quest"
     plates.execute('TARGET = "nameplate3"; MockFire("PLAYER_TARGET_CHANGED")')
     assert plates.eval(f'{uf}.hh.why') == "target"
-    assert plates.eval(f'{uf}.hh.arrows[1]:IsShown()') is True                     # arrows, not a box
-    assert plates.eval(f'{uf}.hh.arrows[1]._color[2]') == pytest.approx(0.83)
+    assert plates.eval(f'{uf}._last.SetScale[1]') == 1.25                          # magnified, not a box
     assert plates.eval(f'{uf}.hh.edges[1]._color[2]') == pytest.approx(0.65)        # outline stays the quest amber
-    assert plates.eval(f'{other}.hh.arrows[1]:IsShown()') is False
+    assert plates.eval(f'{other}.hh.scale') == 1
     assert plates.eval(f'{other}._alpha') == pytest.approx(0.6) and plates.eval(f'{uf}._alpha') == 1
     plates.execute('THREAT.nameplate3 = 3; MockFire("UNIT_THREAT_SITUATION_UPDATE", "nameplate3")')
     assert plates.eval(f'{uf}.hh.why') == "aggro"
@@ -405,20 +404,20 @@ def test_recycled_plate_goes_back_to_a_full_plate(plates):
 def test_target_mark_styles_and_size_cvars(plates):
     uf = add(plates, "nameplate21", '{ name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-21" }')
     plates.execute('TARGET = "nameplate21"; MockFire("PLAYER_TARGET_CHANGED")')
-    assert plates.eval(f'{uf}.hh.arrows[1]:IsShown()') is True and plates.eval(f'{uf}.hh.glow:IsShown()') is False
-    assert plates.eval(f'{uf}.hh.arrows[1]._points[1][1]') == "BOTTOM" and plates.eval(f'{uf}.hh.arrows[1]._points[1][2] == {uf}.name') is True   # above the name
+    assert plates.eval(f'{uf}.hh.scale') == 1.25 and plates.eval(f'{uf}.hh.glow:IsShown()') is False
     assert plates.eval(f'{uf}.name._points[1][1]') == "BOTTOM" and plates.eval(f'{uf}.name._points[1][3]') == "TOP"       # name centred over the bar
     plates.execute('HogHeals.db.profile.plates.target.style = "glow"; HogHealsPlates.Plates.Refresh()')
-    assert plates.eval(f'{uf}.hh.glow:IsShown()') is True and plates.eval(f'{uf}.hh.arrows[1]:IsShown()') is False
+    assert plates.eval(f'{uf}.hh.glow:IsShown()') is True and plates.eval(f'{uf}.hh.scale') == 1.25
     plates.execute('HogHeals.db.profile.plates.target.style = "outline"; HogHealsPlates.Plates.Refresh()')
     assert plates.eval(f'{uf}.hh.edges[1]._color[2]') == pytest.approx(0.83) and plates.eval(f'{uf}.hh.glow:IsShown()') is False
     plates.execute('HogHeals.db.profile.plates.target.style = "none"; HogHealsPlates.Plates.Refresh()')
     assert plates.eval(f'{uf}.hh.why') == "target" and plates.eval(f'{uf}.hh.edges[1]._color[2]') == pytest.approx(0.05)
-    plates.execute('TARGET = nil; MockFire("PLAYER_TARGET_CHANGED")')
-    assert plates.eval(f'{uf}.hh.arrows[1]:IsShown()') is False
+    assert plates.eval(f'{uf}.hh.scale') == 1
+    plates.execute('HogHeals.db.profile.plates.target.style = "scale"; HogHealsPlates.Plates.Refresh(); TARGET = nil; MockFire("PLAYER_TARGET_CHANGED")')
+    assert plates.eval(f'{uf}.hh.scale') == 1                                        # back to normal when untargeted
     # aggro outline sits on top of the target mark
-    plates.execute('HogHeals.db.profile.plates.target.style = "arrows"; TARGET = "nameplate21"; THREAT.nameplate21 = 3; MockFire("UNIT_THREAT_SITUATION_UPDATE", "nameplate21")')
-    assert plates.eval(f'{uf}.hh.why') == "aggro" and plates.eval(f'{uf}.hh.arrows[1]:IsShown()') is True
+    plates.execute('TARGET = "nameplate21"; THREAT.nameplate21 = 3; MockFire("UNIT_THREAT_SITUATION_UPDATE", "nameplate21")')
+    assert plates.eval(f'{uf}.hh.why') == "aggro" and plates.eval(f'{uf}.hh.scale') == 1.25
     assert plates.eval(f'{uf}.hh.edges[1]._color[1]') == pytest.approx(0.85)
     plates.execute('CV = {}; function SetCVar(k, v) CV[k] = v end; HogHealsPlates.Plates.ApplyCVars()')
     assert plates.eval('CV.nameplateHorizontalScale') == "1.3" and plates.eval('CV.nameplateSelectedScale') == "1.15"
@@ -430,3 +429,13 @@ def test_a_failing_plate_piece_is_named_and_the_rest_still_runs(plates):
     uf = add(plates, "nameplate22", '{ name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-22" }')
     assert plates.eval(f'{uf}.hh.health:IsShown()') is True                         # health piece still ran
     assert any("plates highlight" in e for e in errors(plates))
+
+
+def test_questmob_report_explains_a_target(plates):
+    add(plates, "nameplate30", '{ name = "Vile Fin Shredder", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-30" }')
+    plates.execute('TARGET = "nameplate30"; MockUnits.target = MockUnits.nameplate30; TT.target = { { leftText = "Vile Fin Shredder", type = 2 } }')
+    lines = plates.eval('table.concat(HogHealsPlates.Plates.QuestMobReport("target"), "\\n")')
+    assert "target: Vile Fin Shredder" in lines and "from tooltip: nil" in lines and "from name:" in lines and "Check() now:" in lines
+    plates.execute('TT.target = { { leftText = "Vile Fin Shredder", type = 2 }, { leftText = "Wild Eyes", type = 17 }, { leftText = " - Murloc Eye: 1/3", type = 8 } }')
+    lines = plates.eval('table.concat(HogHealsPlates.Plates.QuestMobReport("target"), "\\n")')
+    assert "from tooltip: 1/3" in lines
