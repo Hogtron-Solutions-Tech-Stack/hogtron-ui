@@ -159,7 +159,9 @@ def test_highlight_priority_aggro_over_target_over_quest(plates):
     assert plates.eval(f'{uf}.hh.why') == "target"
     assert plates.eval(f'{uf}.hh.glows[3]:IsShown()') is True                     # glow, not a box, not bigger
     assert plates.eval(f'{uf}.hh.scale') == 1
-    assert plates.eval(f'{uf}.hh.edges[1]._color[2]') == pytest.approx(0.65)        # outline stays the quest amber
+    # the glow owns the target's edge: plain dark line, no amber inside the cyan (2026-09-24); the ! badge stays
+    assert plates.eval(f'{uf}.hh.edges[1]._color[2]') == pytest.approx(0.05)
+    assert plates.eval(f'{uf}.hh.questFrame:IsShown()') is True
     assert plates.eval(f'{other}.hh.glows[1]:IsShown()') is False
     assert plates.eval(f'{other}._alpha') == pytest.approx(0.6) and plates.eval(f'{uf}._alpha') == 1
     plates.execute('THREAT.nameplate3 = 3; MockFire("UNIT_THREAT_SITUATION_UPDATE", "nameplate3")')
@@ -406,7 +408,7 @@ def test_target_mark_styles_and_size_cvars(plates):
     uf = add(plates, "nameplate21", '{ name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-21" }')
     plates.execute('TARGET = "nameplate21"; MockFire("PLAYER_TARGET_CHANGED")')
     assert plates.eval(f'{uf}.hh.glow:IsShown()') is True and plates.eval(f'{uf}.hh.scale') == 1
-    assert plates.eval(f'{uf}.hh.glows[2]._color[4]') == pytest.approx(0.30)       # feathered: outer layers fainter
+    assert plates.eval(f'#{uf}.hh.glows') == 8                                      # 9-slice: 4 corners + 4 edges
     assert plates.eval(f'{uf}.name._points[1][1]') == "BOTTOM" and plates.eval(f'{uf}.name._points[1][3]') == "TOP"       # name centred over the bar
     plates.execute('HogHeals.db.profile.plates.target.style = "scale"; HogHealsPlates.Plates.Refresh()')
     assert plates.eval(f'{uf}.hh.glow:IsShown()') is False and plates.eval(f'{uf}.hh.scale') == 1.25
@@ -441,3 +443,133 @@ def test_questmob_report_explains_a_target(plates):
     plates.execute('TT.target = { { leftText = "Vile Fin Shredder", type = 2 }, { leftText = "Wild Eyes", type = 17 }, { leftText = " - Murloc Eye: 1/3", type = 8 } }')
     lines = plates.eval('table.concat(HogHealsPlates.Plates.QuestMobReport("target"), "\\n")')
     assert "from tooltip: 1/3" in lines
+
+
+# ------------------------------------------------------------------------------------------------ target glow v2
+# Sean 2026-09-24: the three stacked flat rectangles "look terrible". Now one soft texture in a 9-slice around the
+# bar, additive, that locks on (wide + faint -> tight + bright in 0.3 s) and then breathes.
+def tick(lua, sec):
+    lua.execute(f'MockAdvance({sec}); local d = HogHealsPlates.Plates.driver; if d and d:IsShown() then d._scripts.OnUpdate(d, {sec}) end')
+
+
+def test_target_glow_is_a_soft_9slice_that_locks_on_then_breathes(plates):
+    uf = add(plates, "nameplate40", '{ name = "Moonrage Glutton", class = "WARRIOR", health = 4, maxHealth = 10, guid = "C-40" }')
+    plates.execute('TARGET = "nameplate40"; MockFire("PLAYER_TARGET_CHANGED")')
+    g = f'{uf}.hh.glows'
+    assert plates.eval(f'#{g}') == 8
+    for i in range(1, 9):
+        assert plates.eval(f'{g}[{i}]:IsShown()') is True
+        assert plates.eval(f'{g}[{i}]._texture').endswith("Media\\target_glow")
+        assert plates.eval(f'{g}[{i}]._blend') == "ADD"
+        assert plates.eval(f'{g}[{i}]._layer') == "BACKGROUND"                     # under the bar's own frame + the name
+    assert list(plates.eval(f'{g}[1]._texCoord').values()) == [0, 0.5, 0, 0.5]      # top-left corner = top-left quadrant
+    assert plates.eval(f'{g}[5]._texCoord[1]') == pytest.approx(31.5 / 64)        # top edge = the centre column
+    assert plates.eval(f'{uf}.hh.glowArt') == "ok"
+    # lock-on: starts wide and invisible ...
+    assert plates.eval(f'{uf}.hh.glowSpread') == pytest.approx(9 * 2.2)
+    assert plates.eval(f'{uf}.hh.glowAlpha') == pytest.approx(0)
+    assert plates.eval('HogHealsPlates.Plates.driver:IsShown()') is True
+    tick(plates, 0.15)
+    mid_spread = plates.eval(f'{uf}.hh.glowSpread')
+    assert 9 < mid_spread < 9 * 2.2 and plates.eval(f'{uf}.hh.glowAlpha') > 0
+    # ... lands on the bar at full strength ...
+    tick(plates, 0.15)
+    assert plates.eval(f'{uf}.hh.glowSpread') == pytest.approx(9)
+    assert plates.eval(f'{uf}.hh.glowAlpha') == pytest.approx(0.8)
+    assert plates.eval(f'{g}[1]._width') == pytest.approx(9) and plates.eval(f'{g}[5]._height') == pytest.approx(9)
+    assert plates.eval(f'{g}[7]._width') == pytest.approx(9)
+    c = list(plates.eval(f'{g}[3]._color').values())
+    assert c[:3] == pytest.approx([0.13, 0.83, 0.88])
+    # ... then breathes: dimmest + slightly tighter half a period later, back to full a period later
+    tick(plates, 1.2)
+    assert plates.eval(f'{uf}.hh.glowAlpha') == pytest.approx(0.55 * 0.8)
+    assert plates.eval(f'{uf}.hh.glowSpread') == pytest.approx(9 * 0.88)
+    tick(plates, 1.2)
+    assert plates.eval(f'{uf}.hh.glowAlpha') == pytest.approx(0.8)
+    # a threat / quest update while targeted must not restart the lock-on
+    t0 = plates.eval(f'{uf}.hh.glowT0')
+    plates.execute('MockFire("UNIT_THREAT_SITUATION_UPDATE", "nameplate40")')
+    assert plates.eval(f'{uf}.hh.glowT0') == t0 and plates.eval(f'{uf}.hh.glowAlpha') == pytest.approx(0.8)
+    # untarget: dark, driver parked (an idle plate costs nothing)
+    plates.execute('TARGET = nil; MockFire("PLAYER_TARGET_CHANGED")')
+    assert plates.eval(f'{g}[1]:IsShown()') is False and plates.eval(f'{g}[8]:IsShown()') is False
+    assert plates.eval('HogHealsPlates.Plates.driver:IsShown()') is False
+    assert plates.eval('next(HogHealsPlates.Plates.lit) == nil') is True
+    # retarget = a fresh lock-on
+    tick(plates, 5)
+    plates.execute('TARGET = "nameplate40"; MockFire("PLAYER_TARGET_CHANGED")')
+    assert plates.eval(f'{uf}.hh.glowSpread') == pytest.approx(9 * 2.2)
+    assert errors(plates) == []
+
+
+def test_glow_curve_is_continuous_and_bounded(plates):
+    at = 'HogHealsPlates.Plates.GlowAt'
+    s0, a0 = plates.eval(f'{{{at}(0, true)}}').values()
+    assert s0 == pytest.approx(2.2) and a0 == pytest.approx(0)
+    s1, a1 = plates.eval(f'{{{at}(0.2999, true)}}').values()
+    s2, a2 = plates.eval(f'{{{at}(0.3, true)}}').values()
+    assert s1 == pytest.approx(s2, abs=1e-3) and a1 == pytest.approx(a2, abs=1e-3)   # no jump where lock-on hands over
+    for i in range(200):
+        s, a = plates.eval(f'{{{at}({0.3 + i * 0.037}, true)}}').values()
+        assert 0.88 - 1e-9 <= s <= 1 + 1e-9 and 0.55 - 1e-9 <= a <= 1 + 1e-9
+    assert list(plates.eval(f'{{{at}(9, false)}}').values()) == [1, pytest.approx(0.85)]   # still: no motion
+
+
+def test_still_glow_when_animation_is_off_and_live_option_changes(plates):
+    uf = add(plates, "nameplate41", '{ name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-41" }')
+    plates.execute('HogHeals.db.profile.plates.target.animate = false')
+    plates.execute('TARGET = "nameplate41"; MockFire("PLAYER_TARGET_CHANGED")')
+    assert plates.eval(f'{uf}.hh.glowSpread') == pytest.approx(9) and plates.eval(f'{uf}.hh.glowAlpha') == pytest.approx(0.85 * 0.8)
+    assert plates.eval('HogHealsPlates.Plates.driver == nil or not HogHealsPlates.Plates.driver:IsShown()') is True
+    plates.execute('local t = HogHeals.db.profile.plates.target; t.glowSize = 11; t.color = { 1, 0.5, 0 }; HogHealsPlates.Plates.Refresh()')
+    assert plates.eval(f'{uf}.hh.glowSpread') == pytest.approx(11)
+    assert plates.eval(f'{uf}.hh.glows[2]._width') == pytest.approx(11)
+    assert list(plates.eval(f'{uf}.hh.glows[6]._color').values())[:3] == pytest.approx([1, 0.5, 0])
+    # animation back on mid-target: the driver starts
+    plates.execute('HogHeals.db.profile.plates.target.animate = true; HogHealsPlates.Plates.Refresh()')
+    assert plates.eval('HogHealsPlates.Plates.driver:IsShown()') is True
+    assert errors(plates) == []
+
+
+def test_target_glow_quiets_blizzards_selection_highlight(plates):
+    uf = add(plates, "nameplate42", '{ name = "Kobold Tunneler", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-42" }',
+             '{ { leftText = "Kobold Tunneler", type = 2 }, { leftText = " - Kobold Tunneler slain: 1/5", type = 8 } }')
+    plates.execute(f'local u = {uf}; u.selectionHighlight = u:CreateTexture(nil, "ARTWORK"); u.selectionHighlight:SetAlpha(1); u.selectionHighlight:Show()')
+    assert plates.eval(f'{uf}.hh.edges[1]._color[2]') == pytest.approx(0.65)        # quest amber when not targeted
+    plates.execute('TARGET = "nameplate42"; MockFire("PLAYER_TARGET_CHANGED")')
+    assert plates.eval(f'{uf}.selectionHighlight._alpha') == 0
+    pieces = "\n".join(plates.eval('HogHeals.db.global.diag.plateTarget.pieces').values())
+    assert "selectionHighlight shown=true" in pieces                                # diag names what Blizzard drew
+    plates.execute('TARGET = nil; MockFire("PLAYER_TARGET_CHANGED")')
+    assert plates.eval(f'{uf}.selectionHighlight._alpha') == 1
+    assert plates.eval(f'{uf}.hh.edges[1]._color[2]') == pytest.approx(0.65)        # amber back once it is not the target
+    plates.execute('HogHeals.db.profile.plates.target.hideBlizzard = false; TARGET = "nameplate42"; MockFire("PLAYER_TARGET_CHANGED")')
+    assert plates.eval(f'{uf}.selectionHighlight._alpha') == 1
+    lines = "\n".join(plates.eval('HogHealsPlates.Plates.Diagnose()').values())
+    assert "target glow: art=ok lit=true driver=true" in lines and "blizzard selectionHighlight" in lines
+    assert errors(plates) == []
+
+
+def test_glow_paint_error_stops_the_animation_once_not_every_frame(plates):
+    uf = add(plates, "nameplate43", '{ name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-43" }')
+    plates.execute('TARGET = "nameplate43"; MockFire("PLAYER_TARGET_CHANGED")')
+    plates.execute('HogHealsPlates.Plates.PaintGlow = function() error("boom glow") end')
+    tick(plates, 0.02)
+    tick(plates, 0.02)
+    assert sum("plates glow" in e for e in errors(plates)) == 1
+    assert plates.eval('HogHealsPlates.Plates.driver:IsShown()') is False
+    assert plates.eval(f'{uf}.hh.glows[1]:IsShown()') is True                       # still marked, just not moving
+    # stays stopped: the next highlight update must not restart a driver that throws every frame
+    plates.execute('MockFire("UNIT_THREAT_SITUATION_UPDATE", "nameplate43")')
+    tick(plates, 0.02)
+    tick(plates, 0.02)
+    assert sum("plates glow" in e for e in errors(plates)) == 1
+    assert plates.eval('HogHealsPlates.Plates.driver:IsShown()') is False
+
+
+def test_recycled_plate_drops_the_glow(plates):
+    uf = add(plates, "nameplate44", '{ name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-44" }')
+    plates.execute('TARGET = "nameplate44"; MockFire("PLAYER_TARGET_CHANGED")')
+    plates.execute('MockFire("NAME_PLATE_UNIT_REMOVED", "nameplate44")')
+    assert plates.eval(f'{uf}.hh.glows[4]:IsShown()') is False and plates.eval(f'{uf}.hh.lit') is False
+    assert plates.eval('HogHealsPlates.Plates.driver:IsShown()') is False

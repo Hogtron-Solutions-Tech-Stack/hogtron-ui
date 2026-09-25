@@ -8,6 +8,8 @@
 --             Blizzard re-colours the bar on its own updates, so SetStatusBarColor is hooked and our colour re-applied
 --   highlight outline colour by priority: aggro on you (red) > your target (cyan) > quest mob (amber);
 --             optional fade of every plate that is not your target
+--   target    a soft light around the target's bar (9-slice of Media/target_glow.tga) that locks on when you
+--             pick the target and then breathes slowly; one OnUpdate driver, running only while a glow is lit
 --   quest     "!" icon + progress ("3/8") beside quest mobs (QuestMobs.lua)
 -- Health on this client can be SECRET in combat: text goes through UnitHealthPercent / format / AbbreviateNumbers,
 -- never through our own arithmetic.
@@ -20,7 +22,9 @@ HHP.Plates = Plates
 
 local FLAT = "Interface\\Buttons\\WHITE8X8"
 local QUEST_ART = "Interface\\AddOns\\HogHeals\\Media\\quest_open"
+local GLOW_ART = "Interface\\AddOns\\HogHeals\\Media\\target_glow"
 local LINE = { 0.05, 0.05, 0.06 }
+local TARGET_COLOR = { 0.13, 0.83, 0.88 }
 
 local function cfg() return HH.db.profile.plates end
 local function isSecret(v) return type(issecretvalue) == "function" and issecretvalue(v) and true or false end
@@ -86,23 +90,10 @@ function Plates.Skin(uf)
   end
   hh.health = hh.overlay:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   hh.health:SetPoint("CENTER", anchor, "CENTER", 0, 0)
-  -- Target mark (Sean 2026-09-23: no box, no arrows - "magnify their health bar"): the target's plate is scaled up
-  -- (UnitFrame:SetScale, ours to set; the nameplateSelectedScale cvar did nothing visible on this client), or a
-  -- soft glow behind the bar. hh.arrows stays an empty table for the code paths that iterate it.
+  -- Target mark (Sean 2026-09-23: no box, no arrows, no magnify). hh.arrows stays an empty table for the code paths
+  -- that iterate it.
   hh.arrows = {}
-  -- Glow: three nested rectangles fading outward (a feathered edge without any texture file that could fail to
-  -- load), on the UnitFrame so they draw under the bar's own frame. hh.glow is the innermost; hh.glows all three.
-  hh.glows = {}
-  for i, spec in ipairs({ { 3, 0.55 }, { 7, 0.30 }, { 12, 0.14 } }) do
-    local g = uf:CreateTexture(nil, "BACKGROUND", nil, -i)
-    g:SetTexture(FLAT)
-    g:SetPoint("TOPLEFT", anchor, "TOPLEFT", -spec[1], spec[1])
-    g:SetPoint("BOTTOMRIGHT", anchor, "BOTTOMRIGHT", spec[1], -spec[1])
-    g.hhAlpha = spec[2]
-    g:Hide()
-    hh.glows[i] = g
-  end
-  hh.glow = hh.glows[1]
+  Plates.MakeGlow(uf, anchor)
   -- Quest badge on the LEFT of the bar: the right side belongs to Blizzard's level badge (in-game 2026-09-22 our
   -- icon sat on top of it). Art = HogHeals/Media/quest_open.tga (dev/icons/build_icons.py). If the client refuses
   -- the file (SetTexture returns false), fall back to a drawn amber square + "!" glyph: the GossipFrame icon we used
@@ -282,16 +273,178 @@ function Plates.UpdateQuest(uf)
   end
 end
 
+-- ------------------------------------------------------------------------------------------------ target glow
+-- Sean 2026-09-24 on the first glow (three stacked flat rectangles): "looks terrible ... that light blue outline".
+-- Stacked flat boxes read as hard bands, not light. Now: one soft white texture (dev/icons/build_glow.py, radial
+-- fall-off) cut into a 9-slice hugging the bar - four quadrants for rounded corners, the centre row / column
+-- stretched for the edges - so the bar edge is the brightest line and the light fades out evenly on every side.
+-- Additive blend = it reads as light on the ground, not paint. Animated: it LOCKS ON when you pick the target (starts
+-- wide and faint, snaps in to the bar in 0.3 s) and then breathes slowly (brightness, plus a slight tighten).
+-- Corners: texcoord quadrants; edges: the middle texel pair (31|32 of 64, symmetric) stretched along the bar.
+local C0, C1 = 31.5 / 64, 32.5 / 64
+local GLOW_SLICES = {   -- { piece point, bar point, [second piece point, second bar point], l, r, t, b, kind }
+  { "BOTTOMRIGHT", "TOPLEFT", nil, nil, 0, 0.5, 0, 0.5, "corner" },
+  { "BOTTOMLEFT", "TOPRIGHT", nil, nil, 0.5, 1, 0, 0.5, "corner" },
+  { "TOPRIGHT", "BOTTOMLEFT", nil, nil, 0, 0.5, 0.5, 1, "corner" },
+  { "TOPLEFT", "BOTTOMRIGHT", nil, nil, 0.5, 1, 0.5, 1, "corner" },
+  { "BOTTOMLEFT", "TOPLEFT", "BOTTOMRIGHT", "TOPRIGHT", C0, C1, 0, 0.5, "h" },       -- above the bar
+  { "TOPLEFT", "BOTTOMLEFT", "TOPRIGHT", "BOTTOMRIGHT", C0, C1, 0.5, 1, "h" },       -- below
+  { "TOPRIGHT", "TOPLEFT", "BOTTOMRIGHT", "BOTTOMLEFT", 0, 0.5, C0, C1, "w" },       -- left
+  { "TOPLEFT", "TOPRIGHT", "BOTTOMLEFT", "BOTTOMRIGHT", 0.5, 1, C0, C1, "w" },       -- right
+}
+Plates.GLOW_SLICES = GLOW_SLICES
+
+-- Motion. t = seconds since the plate became the target. Returns (spread multiplier, alpha 0..1).
+Plates.GLOW = { lockOn = 0.3, from = 2.2, period = 2.4, low = 0.55, shrink = 0.12, intensity = 0.8, still = 0.85 }
+function Plates.GlowAt(t, animate)
+  local G = Plates.GLOW
+  if not animate then return 1, G.still end
+  t = math.max(0, t or 0)
+  if t < G.lockOn then
+    local p = t / G.lockOn
+    local ease = 1 - (1 - p) ^ 3                            -- fast in, soft landing
+    return G.from + (1 - G.from) * ease, math.min(1, p / 0.35)
+  end
+  local u = ((t - G.lockOn) % G.period) / G.period
+  local w = (1 - math.cos(2 * math.pi * u)) / 2            -- 0 at the top of a breath, 1 halfway through
+  return 1 - G.shrink * w, 1 - (1 - G.low) * w
+end
+
+--- Eight textures on the UnitFrame (BACKGROUND, so the bar's own frame and the name draw over them).
+function Plates.MakeGlow(uf, anchor)
+  local hh = uf.hh
+  hh.glows = {}
+  local refused = false
+  for i, s in ipairs(GLOW_SLICES) do
+    local g = uf:CreateTexture(nil, "BACKGROUND", nil, -7)
+    if g:SetTexture(GLOW_ART) == false then refused = true end
+    call(g.SetTexCoord, g, s[5], s[6], s[7], s[8])
+    call(g.SetBlendMode, g, "ADD")
+    -- fractional sizes while it breathes: no 1 px stepping (APIs of the modern engine; absent = no-op)
+    call(g.SetSnapToPixelGrid, g, false)
+    call(g.SetTexelSnappingBias, g, 0)
+    g:SetPoint(s[1], anchor, s[2], 0, 0)
+    if s[3] then g:SetPoint(s[3], anchor, s[4], 0, 0) end
+    g.hhKind = s[9]
+    g:Hide()
+    hh.glows[i] = g
+  end
+  hh.glow = hh.glows[1]
+  hh.glowArt = refused and "refused" or "ok"
+  Plates.glowArt = hh.glowArt
+end
+
+--- Size + colour of a lit glow at time t (see GlowAt); still = the resting look, no motion.
+function Plates.PaintGlow(uf, t, still)
+  local hh, d = uf.hh, cfg()
+  if not hh or not hh.glows then return end
+  local s, a = Plates.GlowAt(t, not still and d.target.animate ~= false)
+  local R = math.max(1, (d.target.glowSize or 9) * s)
+  local tc = d.target.color or TARGET_COLOR
+  local alpha = a * Plates.GLOW.intensity
+  for _, g in ipairs(hh.glows) do
+    if g.hhKind == "corner" then g:SetSize(R, R) elseif g.hhKind == "h" then g:SetHeight(R) else g:SetWidth(R) end
+    g:SetVertexColor(tc[1], tc[2], tc[3], alpha)
+  end
+  hh.glowSpread, hh.glowAlpha = R, alpha
+end
+
+-- One driver for every lit glow (normally just the target): OnUpdate only while something is lit and animated,
+-- hidden otherwise, so an idle plate costs nothing. A paint error stops the animation (logged once) rather than
+-- throwing every frame; the glow stays up, just still.
+Plates.lit = {}
+function Plates.GlowDriver()
+  if Plates.driver then return Plates.driver end
+  local f = CreateFrame("Frame")
+  f:Hide()
+  f:SetScript("OnUpdate", function(self)
+    local now = GetTime()
+    for uf in pairs(Plates.lit) do
+      local ok, err = xpcall(Plates.PaintGlow, HH.Trace or tostring, uf, now - ((uf.hh and uf.hh.glowT0) or now))
+      if not ok then
+        Plates.glowStopped = tostring(err)
+        HH:LogError("plates glow: " .. tostring(err))
+        self:Hide()
+        return
+      end
+    end
+  end)
+  Plates.driver = f
+  return f
+end
+
+function Plates.Light(uf, on)
+  local hh = uf.hh
+  if not hh or not hh.glows then return end
+  local animate = cfg().target.animate ~= false and not Plates.glowStopped
+  if on then
+    if not hh.lit then
+      hh.lit = true
+      hh.glowT0 = GetTime and GetTime() or 0
+      Plates.lit[uf] = true
+      for _, g in ipairs(hh.glows) do g:Show() end
+      Plates.NoteTarget(uf)
+      Plates.PaintGlow(uf, 0, not animate)
+    elseif not animate then
+      Plates.PaintGlow(uf, 0, true)     -- still glow: colour / size changes land now (animated: the driver repaints)
+    end
+  elseif hh.lit then
+    hh.lit = false
+    Plates.lit[uf] = nil
+    for _, g in ipairs(hh.glows) do g:Hide() end
+  end
+  if next(Plates.lit) ~= nil and animate then Plates.GlowDriver():Show()
+  elseif Plates.driver then Plates.driver:Hide() end
+end
+
+-- Blizzard's own marks on a plate (measured children, 2026-09-18). In game 2026-09-24 a thin yellow box sat a few px
+-- outside the target's bar on top of our marks - not ours, source unproven. NoteTarget writes what is showing on the
+-- target plate to diag.plateTarget so the next SavedVariables read names it.
+local BLIZZ_PIECES = { "selectionHighlight", "aggroHighlight", "aggroHighlightAdditive", "aggroHighlightBase", "aggroFlash",
+  "SoftTargetFrame", "overAbsorbGlow" }
+function Plates.BlizzPieces(uf)
+  local out = {}
+  local function one(label, r)
+    if type(r) ~= "table" or not r.IsShown then return end
+    local shown = call(r.IsShown, r)
+    local vis = call(r.IsVisible, r)
+    local a = call(r.GetAlpha, r)
+    local cr, cg, cb, ca = call(r.GetVertexColor, r)
+    out[#out + 1] = ("%s shown=%s visible=%s alpha=%s colour=%s,%s,%s,%s"):format(label, tostring(shown), tostring(vis),
+      tostring(a), tostring(cr), tostring(cg), tostring(cb), tostring(ca))
+  end
+  for _, k in ipairs(BLIZZ_PIECES) do one(k, rawget(uf, k)) end
+  local hb = uf.hh and uf.hh.bar
+  if type(hb) == "table" then one("healthBar.border", rawget(hb, "border")) one("healthBar.selectedBorder", rawget(hb, "selectedBorder")) end
+  local hc = rawget(uf, "HealthBarsContainer")
+  if type(hc) == "table" then one("HealthBarsContainer.border", rawget(hc, "border")) end
+  return out
+end
+
+function Plates.NoteTarget(uf)
+  local g = HH.db and HH.db.global
+  if not g then return end
+  local ok, pieces = pcall(Plates.BlizzPieces, uf)
+  g.diag = g.diag or {}
+  g.diag.plateTarget = { at = date and date("%H:%M:%S") or "?", glowArt = uf.hh.glowArt, pieces = ok and pieces or { tostring(pieces) } }
+end
+
+--- Blizzard's selection highlight goes quiet while our target mark is on (two marks fighting on one plate).
+function Plates.QuietBlizzard(uf, quiet)
+  local sh = rawget(uf, "selectionHighlight")
+  if type(sh) ~= "table" or not sh.SetAlpha then return end
+  if quiet then call(sh.SetAlpha, sh, 0) uf.hh.blizzQuiet = true
+  elseif uf.hh.blizzQuiet then call(sh.SetAlpha, sh, 1) uf.hh.blizzQuiet = nil end
+end
+
 --- Target / aggro / quest marks. Outline colour by priority: aggro on you (red, thick) beats a quest mob (amber)
--- beats plain. The target is marked by style (target.style): "scale" (default) - the whole plate magnified,
--- "glow" behind the bar, "outline" (the old cyan box), "none". Aggro and target combine.
+-- beats plain. The target is marked by style (target.style): "glow" (default) - the animated light around the bar,
+-- "scale" - the whole plate magnified, "outline" (the old cyan box), "none". Aggro and target combine.
 -- Returns the reason it chose (tests read it): aggro > target > quest > plain.
 function Plates.UpdateHighlight(uf)
   local hh, d = uf.hh, cfg()
   if not hh or not hh.unit then return end
-  local function marks(show)
-    for _, g in ipairs(hh.glows or {}) do if show == "glow" then g:Show() else g:Hide() end end
-  end
+  local function marks(show) Plates.Light(uf, show == "glow") end
   local unit = hh.unit
   local isTarget = bool(call(UnitIsUnit, unit, "target")) or false
   local style = d.target.highlight ~= false and (d.target.style or "glow") or "none"
@@ -299,13 +452,16 @@ function Plates.UpdateHighlight(uf)
   -- magnify only when asked (Sean 2026-09-23: "don't like ... making it slightly bigger")
   local grow = (isTarget and style == "scale") and (d.target.scale or 1.25) or 1
   if uf.SetScale and hh.scale ~= grow then hh.scale = grow call(uf.SetScale, uf, grow) end
-  if hh.nameOnly then for _, e in ipairs(hh.edges) do e:Hide() end marks(nil) uf:SetAlpha(1) return "nameonly" end
+  if hh.nameOnly then for _, e in ipairs(hh.edges) do e:Hide() end marks(nil) Plates.QuietBlizzard(uf, false) uf:SetAlpha(1) return "nameonly" end
   local threat = num(call(UnitThreatSituation, "player", unit))
-  local tc = d.target.color or { 0.13, 0.83, 0.88 }
+  local tc = d.target.color or TARGET_COLOR
+  local glowing = isTarget and style == "glow"
   local color, why, thick
   if d.aggro.warn and threat and threat >= 2 then color, why, thick = d.aggro.color, "aggro", 2
   elseif isTarget and style == "outline" then color, why, thick = tc, "target", 2
-  elseif d.quest.highlight and hh.questInfo then color, why, thick = d.quest.color, "quest", 1
+  -- the target's glow owns its edge: an amber line inside cyan light read as clutter (2026-09-24); the ! badge
+  -- beside the bar still says "quest mob"
+  elseif d.quest.highlight and hh.questInfo and not glowing then color, why, thick = d.quest.color, "quest", 1
   elseif d.enabled ~= false and d.border ~= false then color, why, thick = LINE, "plain", 1 end
   if isTarget and why ~= "aggro" then why = "target" end
   for i, e in ipairs(hh.edges) do
@@ -317,12 +473,8 @@ function Plates.UpdateHighlight(uf)
       e:Hide()
     end
   end
-  if isTarget and style == "glow" then
-    for _, g in ipairs(hh.glows or {}) do g:SetVertexColor(tc[1], tc[2], tc[3], g.hhAlpha) end
-    marks("glow")
-  else
-    marks(nil)
-  end
+  marks(glowing and "glow" or nil)
+  Plates.QuietBlizzard(uf, isTarget and style ~= "none" and d.target.hideBlizzard ~= false)
   local hasTarget = bool(call(UnitExists, "target")) or false
   if d.target.fadeOthers and hasTarget and not isTarget then uf:SetAlpha(d.target.otherAlpha or 0.6) else uf:SetAlpha(1) end
   hh.why = why
@@ -483,7 +635,8 @@ function Plates.Reset(uf)
     if type(p) == "table" and p.Show then call(p.Show, p) end
   end
   if hh.health then hh.health:Hide() end
-  for _, g in ipairs(hh.glows or {}) do g:Hide() end
+  Plates.Light(uf, false)
+  Plates.QuietBlizzard(uf, false)
   if hh.questFrame then hh.questFrame:Hide() end
   if uf.name then setFont(uf.name, d.fontSize or 13) end
   if uf.SetScale and hh.scale ~= 1 then hh.scale = 1 call(uf.SetScale, uf, 1) end
@@ -664,6 +817,11 @@ function Plates.Diagnose()
     end
     out[#out + 1] = ("  #%d unit=%s name=%s -> %s%s"):format(i, tostring(unit), tostring(unit and call(UnitName, unit)), uf and ("ok, skinned=" .. tostring(uf.hh ~= nil) .. " nameOnly=" .. tostring(uf.hh and uf.hh.nameOnly)) or tostring(why), nameInfo)
   end
+  local tgt
+  for _, uf in pairs(Plates.active) do if uf.hh and uf.hh.lit then tgt = uf end end
+  out[#out + 1] = ("target glow: art=%s lit=%s driver=%s stopped=%s"):format(tostring(Plates.glowArt), tostring(tgt ~= nil),
+    tostring(Plates.driver and call(Plates.driver.IsShown, Plates.driver)), tostring(Plates.glowStopped or "no"))
+  if tgt then for _, l in ipairs(Plates.BlizzPieces(tgt)) do out[#out + 1] = "  blizzard " .. l end end
   local sk = {}
   for k, v in pairs(Plates.skips or {}) do sk[#sk + 1] = k .. " x" .. v end
   out[#out + 1] = "skipped: " .. (#sk > 0 and table.concat(sk, "; ") or "none")
