@@ -1,6 +1,6 @@
 # HogHeals_Units: player / target / target-of-target / pet / focus frames. Secure buttons, unit watch, secret-safe
-# health / power / level text, class + reaction colours, auras under the target, Blizzard's frames hidden and its
-# target cast bar adopted.
+# health / power / level text, class + reaction colours, auras under the target, Blizzard's frames hidden.
+# The cast bar has its own file: test_units_castbar.py.
 import pytest
 
 BLIZZ = '''
@@ -135,17 +135,12 @@ def test_secret_aura_fields_are_shown_not_computed(units):
     assert errors(units) == []
 
 
-def test_blizzard_frames_hidden_and_spellbar_adopted(units):
+def test_blizzard_frames_hidden_and_kept_hidden(units):
     assert units.eval('PlayerFrame:GetParent() == HogHealsHiddenParent')
     assert units.eval('TargetFrame:GetParent() == HogHealsHiddenParent')
     assert units.eval('PetFrame:GetParent() == HogHealsHiddenParent')
-    assert units.eval('TargetFrameSpellBar:GetParent() == HogUITarget')
-    assert units.eval('TargetFrameSpellBar._points[1][3]') == "TOPLEFT"       # sits above our target frame
-    assert units.eval('TargetFrameSpellBar._texture') == "Interface\\Buttons\\WHITE8X8"
     units.execute('TargetFrame:Show()')
     assert units.eval('TargetFrame:IsShown()') is False                       # Blizzard re-show undone
-    units.execute('TargetFrameSpellBar:SetPoint("TOP", TargetFrame, "BOTTOM", 0, 0)')
-    assert units.eval('TargetFrameSpellBar._points[1][2] == HogUITarget')     # re-anchored under ours
 
 
 def test_hide_blizzard_off_leaves_them_alone(lua):
@@ -312,18 +307,6 @@ def test_fit_name_with_a_hidden_health_text_width_estimates_instead_of_computing
     size = units.eval('HogHeals.db.profile.units.fontSize')
     tot_w = units.eval('HogHeals.db.profile.units.targettarget.width')
     assert units.eval('HogUITargetOfTarget.name._width') == max(20, tot_w - (11 * size * 0.6) - 8 - 6)
-
-
-def test_adopted_castbar_parent_answers_blizzards_method_calls(units):
-    # in game 2026-09-23: TargetFrame.lua:824 OnShow -> parentFrame:<mixin method>() on our frame -> nil call
-    assert units.eval('TargetFrameSpellBar:GetParent() == HogUITarget') is True
-    # rawget: the mock's frame __index answers any capitalised key with a no-op, which is exactly what the client
-    # does NOT do - only a real stub on our table proves the OnShow call would resolve
-    assert units.eval('type(rawget(HogUITarget, "UpdateAuras"))') == "function"
-    units.execute('local p = TargetFrameSpellBar:GetParent(); rawget(p, "UpdateAuras")(p)')
-    assert units.eval('HogUITarget.aurasUpdated') is None                        # a stub, not Blizzard's real method
-    assert units.eval('type(HogUITarget.SetPoint)') == "function"                # real widget methods untouched
-    assert errors(units) == []
 
 
 def test_my_debuffs_come_first_bigger_with_a_countdown(units):
