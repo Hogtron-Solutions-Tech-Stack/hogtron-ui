@@ -3,6 +3,7 @@
 -- Same panel language as the rest of HogUI (ink body, 1 px outline, flat bars): a class / reaction coloured health
 -- bar, a thin power bar under it, name and level on top, health and power text on the right. Blizzard's own frames
 -- are hidden while ours are on (ours on = theirs off; they come back with a /reload after the option is turned off).
+-- Blizzard's frames are only ever hidden: never re-parented onto ours, never given stub methods (see cast bars).
 --
 -- Secure: each frame is a SecureUnitButton (left click targets, right click opens the unit menu) and target / pet /
 -- focus / target-of-target show and hide through RegisterUnitWatch, so combat never blocks them. Everything the
@@ -288,6 +289,7 @@ function Units.Build(unit)
 
   if unit ~= "player" and type(RegisterUnitWatch) == "function" then call(RegisterUnitWatch, f) end
   Units.frames[unit] = f
+  Units.BuildCastbar(f)
   Units.ApplyLook(f)
   return f
 end
@@ -481,6 +483,7 @@ function Units.UpdateAll(f)
   piece("name/level", Units.UpdateInfo, f)
   piece("status", Units.UpdateStatus, f)
   if HHU.Auras and HHU.Auras.Update then piece("auras", HHU.Auras.Update, f) end
+  if f.castbar then piece("castbar", Units.UpdateCastbar, f) end
 end
 
 function Units.ForEach(fn)
@@ -516,68 +519,170 @@ Units.BLIZZARD = {
   player = { "PlayerFrame" }, target = { "TargetFrame" }, targettarget = { "TargetFrameToT" }, pet = { "PetFrame" }, focus = { "FocusFrame", "FocusFrameToT" },
 }
 
---- Blizzard's target / focus cast bars are children of the frames we hide: adopt them first (they read cast timings
--- the client may keep secret, so re-using them beats rebuilding them).
-Units.SPELLBAR = { target = "TargetFrameSpellBar", focus = "FocusFrameSpellBar" }
+-- ------------------------------------------------------------------------------------------------ cast bars
+-- Our OWN bar for target / focus. Blizzard's TargetFrameSpellBar is left exactly where it is (a child of the
+-- TargetFrame we hide, so it is never seen). In game 2026-09-26 the bar we used to adopt threw on every cast:
+-- "attempt to perform boolean test on local 'notInterruptible' (a secret boolean value, while execution tainted
+-- by 'HogHeals_Units')". Re-parenting it onto our frame made Blizzard's cast code read our table and call the
+-- stub methods we put there; that taints its execution, and tainted code may not test a secret.
+-- RULE: never re-parent, stub, or write fields on a Blizzard frame whose own code handles secrets.
+--
+-- Secret-safe by construction: the cast's start / end go to SetMinMaxValues (widgets take secrets), the value is
+-- our own clock, name and icon go straight to widgets, "cannot be interrupted" goes through SetAlphaFromBoolean.
+-- Nothing here tests, compares or does arithmetic on a value the client handed us.
+Units.CASTBAR_UNITS = { target = true, focus = true }
+Units.CAST_EVENTS = {
+  UNIT_SPELLCAST_START = true, UNIT_SPELLCAST_STOP = true, UNIT_SPELLCAST_FAILED = true, UNIT_SPELLCAST_INTERRUPTED = true,
+  UNIT_SPELLCAST_DELAYED = true, UNIT_SPELLCAST_CHANNEL_START = true, UNIT_SPELLCAST_CHANNEL_UPDATE = true,
+  UNIT_SPELLCAST_CHANNEL_STOP = true, UNIT_SPELLCAST_INTERRUPTIBLE = true, UNIT_SPELLCAST_NOT_INTERRUPTIBLE = true,
+}
+Units.CAST_POLL = 0.25
 
-function Units.AdoptCastbar(f)
-  local name = Units.SPELLBAR[f.unit]
-  local sb = name and rawget(_G, name)
-  if not sb or f.castbar then return f.castbar end
-  -- Blizzard's bar talks to its parent as if it were TargetFrame (in game 2026-09-23, TargetFrame.lua:824 OnShow:
-  -- parentFrame:<method>() -> "attempt to call a nil value" on our frame). Every method the old parent has that we
-  -- lack becomes a no-op on ours: its aura / layout bookkeeping is about a frame that is hidden anyway.
-  local oldParent = call(sb.GetParent, sb)
-  if type(oldParent) == "table" then
-    -- widget methods (SetPoint, Show...) live in the frame metatable's __index table: never shadow one of those
-    local mt = getmetatable(f)
-    local widget = type(mt) == "table" and type(mt.__index) == "table" and mt.__index or {}
-    for k, v in pairs(oldParent) do
-      if type(v) == "function" and rawget(f, k) == nil and widget[k] == nil then f[k] = function() end end
-    end
-  end
-  call(sb.SetParent, sb, f)
-  f.castbar = sb
-  if sb.SetStatusBarTexture then call(sb.SetStatusBarTexture, sb, FLAT) end
-  for _, k in ipairs({ "Border", "BorderShield", "Flash", "Background", "TextBorder" }) do
-    local r = rawget(sb, k) or rawget(_G, name .. k)
-    if type(r) == "table" and r.SetAlpha then call(r.SetAlpha, r, 0) end
-  end
-  if not sb.hhBg then
-    sb.hhBg = solid(sb, "BACKGROUND", INK, 0.85)
-    sb.hhBg:SetPoint("TOPLEFT", sb, "TOPLEFT", -1, 1)
-    sb.hhBg:SetPoint("BOTTOMRIGHT", sb, "BOTTOMRIGHT", 1, -1)
-    sb.hhEdges = outline(sb, sb.hhBg)
-  end
-  -- Blizzard re-anchors its spell bar on every cast; put it back under ours each time
-  if not sb.hhAnchorHooked and type(hooksecurefunc) == "function" and sb.SetPoint then
-    sb.hhAnchorHooked = true
-    pcall(hooksecurefunc, sb, "SetPoint", function(self)
-      if self.hhPlacing then return end
-      Units.PlaceCastbar(f)
-    end)
-  end
+--- True when the client returned something, secret or not. Never `v ~= nil` on a secret: that comparison throws.
+local function present(v)
+  if isSecret(v) then return true end
+  return v ~= nil
+end
+
+--- name, texture, startMS, endMS, 7th, 8th return of UnitCastingInfo / UnitChannelInfo (nil when not casting).
+-- "cannot be interrupted" is the 8th return of a cast and the 7th of a channel.
+local function castInfo(fn, unit)
+  if type(fn) ~= "function" then return nil end
+  local ok, name, _, texture, startMS, endMS, _, r7, r8 = pcall(fn, unit)
+  if not ok then return nil end
+  return name, texture, startMS, endMS, r7, r8
+end
+
+local function castDiag(bar, name, startMS, notInt)
+  if Units.castDiagDone then return end
+  Units.castDiagDone = true
+  local g = HH.db and HH.db.global
+  if not g then return end
+  g.diag = g.diag or {}
+  g.diag.unitsCast = {
+    secretName = isSecret(name), secretTimes = isSecret(startMS), secretLock = isSecret(notInt),
+    alphaFromBoolean = type(bar.locked.SetAlphaFromBoolean) == "function", unit = bar.owner.unit,
+  }
+end
+
+function Units.BuildCastbar(f)
+  if f.castbar or not Units.CASTBAR_UNITS[f.unit] then return f.castbar end
+  local bar = CreateFrame("StatusBar", nil, f)
+  bar.owner = f
+  bar:SetStatusBarTexture(barTexture())     -- texture first, anchors after (see header)
+  bar:SetStatusBarColor(CYAN[1], CYAN[2], CYAN[3])
+  bar:SetMinMaxValues(0, 1)
+  bar:SetValue(0)
+  bar:SetFrameLevel(f:GetFrameLevel() + 1)
+  bar.bg = solid(bar, "BACKGROUND", INK, 0.85)
+  bar.bg:SetPoint("TOPLEFT", bar, "TOPLEFT", -1, 1)
+  bar.bg:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT", 1, -1)
+  bar.edges = outline(bar, bar.bg)
+  -- grey over the fill while the cast cannot be interrupted; its alpha is the only thing that boolean ever drives
+  bar.locked = solid(bar, "ARTWORK", GREY, 1)
+  if bar.locked.SetDrawLayer then call(bar.locked.SetDrawLayer, bar.locked, "ARTWORK", 1) end
+  local fill = call(bar.GetStatusBarTexture, bar)
+  bar.locked:SetAllPoints(type(fill) == "table" and fill or bar)
+  bar.locked:SetAlpha(0)
+  bar.icon = bar:CreateTexture(nil, "ARTWORK")
+  bar.icon:SetPoint("RIGHT", bar, "LEFT", -3, 0)
+  if bar.icon.SetTexCoord then bar.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92) end
+  bar.text = text(bar, CREAM, "LEFT")
+  bar.text:SetPoint("LEFT", bar, "LEFT", 4, 0)
+  bar.text:SetPoint("RIGHT", bar, "RIGHT", -4, 0)
+  bar:SetScript("OnUpdate", Units.CastbarTick)
+  bar:Hide()
+  f.castbar = bar
   Units.PlaceCastbar(f)
-  return sb
+  return bar
 end
 
 function Units.PlaceCastbar(f)
-  local sb = f.castbar
-  if not sb then return end
+  local bar = f.castbar
+  if not bar then return end
   local d = ucfg(f.unit)
-  if d.castbar == false then call(sb.Hide, sb) return end
-  sb.hhPlacing = true
-  call(sb.ClearAllPoints, sb)
-  call(sb.SetPoint, sb, "BOTTOMLEFT", f, "TOPLEFT", 0, 6)
-  call(sb.SetPoint, sb, "BOTTOMRIGHT", f, "TOPRIGHT", 0, 6)
-  call(sb.SetHeight, sb, d.castbarHeight or 16)
-  sb.hhPlacing = false
+  if d.castbar == false then bar.casting = nil bar:Hide() return end
+  local h = d.castbarHeight or 16
+  bar:ClearAllPoints()
+  bar:SetPoint("BOTTOMLEFT", f, "TOPLEFT", 0, 6)
+  bar:SetPoint("BOTTOMRIGHT", f, "TOPRIGHT", 0, 6)
+  bar:SetHeight(h)
+  bar.icon:SetSize(h, h)
+  bar:SetStatusBarTexture(barTexture())
+  setFont(bar.text, math.max(7, (d.fontSize or cfg().fontSize or 12) - 1))
+end
+
+local function castbarLock(bar, notInt)
+  if isSecret(notInt) then
+    -- the widget resolves the secret itself; without that method the marker stays off rather than guess
+    if type(bar.locked.SetAlphaFromBoolean) == "function" then
+      if not pcall(bar.locked.SetAlphaFromBoolean, bar.locked, notInt, 1, 0) then bar.locked:SetAlpha(0) end
+    else
+      bar.locked:SetAlpha(0)
+    end
+  else
+    bar.locked:SetAlpha(notInt and 1 or 0)
+  end
+end
+
+--- Where the fill stands now. Casts grow with our clock between the client's (maybe secret) start and end.
+-- A channel drains, which needs start + end - now: only done when both are plain numbers, else it grows too.
+local function castbarValue(bar)
+  local now = (call(GetTime) or 0) * 1000
+  if bar.channel and bar.plainStart and bar.plainEnd then return bar.plainStart + bar.plainEnd - now end
+  return now
+end
+
+function Units.UpdateCastbar(f)
+  local bar = f.castbar
+  if not bar then return end
+  local d = ucfg(f.unit)
+  if d.enabled == false or d.castbar == false or bar.broken then bar.casting = nil bar:Hide() return end
+  local name, texture, startMS, endMS, r7, r8 = castInfo(rawget(_G, "UnitCastingInfo"), f.unit)
+  local notInt, channel = r8, false
+  if not present(name) then
+    name, texture, startMS, endMS, r7 = castInfo(rawget(_G, "UnitChannelInfo"), f.unit)
+    notInt, channel = r7, true
+  end
+  if not (present(name) and present(startMS) and present(endMS)) then
+    bar.casting = nil
+    bar:Hide()
+    return
+  end
+  bar.casting, bar.channel = true, channel
+  bar.plainStart, bar.plainEnd = num(startMS), num(endMS)
+  bar:SetMinMaxValues(startMS, endMS)
+  bar:SetValue(castbarValue(bar))
+  bar.text:SetText(name)
+  call(bar.icon.SetTexture, bar.icon, texture)
+  castbarLock(bar, notInt)
+  castDiag(bar, name, startMS, notInt)
+  bar:Show()
+end
+
+--- OnUpdate of a shown bar: move the fill, and ask the client again every CAST_POLL seconds so a cast whose
+-- stop event never reached us (unit out of range, target swapped mid-cast) still ends. A failure latches the
+-- bar off instead of throwing every frame.
+function Units.CastbarTick(bar, elapsed)
+  if bar.broken then return end
+  local ok, err = xpcall(function()
+    bar:SetValue(castbarValue(bar))
+    bar.poll = (bar.poll or 0) + (num(elapsed) or 0)
+    if bar.poll >= Units.CAST_POLL then
+      bar.poll = 0
+      Units.UpdateCastbar(bar.owner)
+    end
+  end, HH.Trace)
+  if not ok then
+    bar.broken = true
+    bar:Hide()
+    HH:LogError("units castbar " .. tostring(bar.owner.unit) .. ": " .. tostring(err))
+  end
 end
 
 function Units.HideBlizzard()
   if cfg().enabled == false or cfg().hideBlizzard == false then return end
   HH:RunOutOfCombat(function()
-    Units.ForEach(Units.AdoptCastbar)
     for _, names in pairs(Units.BLIZZARD) do
       for _, n in ipairs(names) do banish(rawget(_G, n)) end
     end
@@ -600,6 +705,11 @@ local function refresh(unit)
 end
 
 function Units.OnEvent(_, e, arg1)
+  if Units.CAST_EVENTS[e] then
+    local f = type(arg1) == "string" and Units.frames[arg1]
+    if f and f.castbar then Units.UpdateCastbar(f) end
+    return
+  end
   local kind = UNIT_EVENTS[e]
   if kind then
     local f = type(arg1) == "string" and Units.frames[arg1]
@@ -636,6 +746,7 @@ function Module:OnEnable()
   Module.unknown = {}
   for e in pairs(UNIT_EVENTS) do if not pcall(ev.RegisterEvent, ev, e) then Module.unknown[#Module.unknown + 1] = e end end
   for _, e in ipairs(OTHER_EVENTS) do if not pcall(ev.RegisterEvent, ev, e) then Module.unknown[#Module.unknown + 1] = e end end
+  for e in pairs(Units.CAST_EVENTS) do if not pcall(ev.RegisterEvent, ev, e) then Module.unknown[#Module.unknown + 1] = e end end
   ev:SetScript("OnEvent", function(self, e, ...)
     local ok, err = xpcall(Units.OnEvent, HH.Trace, self, e, ...)
     if not ok and err ~= Units.lastError then
