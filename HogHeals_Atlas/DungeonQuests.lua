@@ -11,12 +11,28 @@ local A = HogHealsAtlas
 local DQ = {}
 A.DungeonQuests = DQ
 
-local function logList()
+-- Reading the quest log walks every entry and its objectives. One repaint of the window asks about 28 dungeons:
+-- the log is read once and kept for a moment, not once per dungeon.
+DQ.KEEP = 1.0   -- seconds
+local function clock() return (type(GetTime) == "function" and GetTime()) or 0 end
+
+local function readLog()
   local q = rawget(_G, "HogHealsQuests")
   if type(q) ~= "table" or type(q.Data) ~= "table" or type(q.Data.List) ~= "function" then return nil end
   local ok, list = pcall(q.Data.List)
   if ok and type(list) == "table" then return list end
 end
+
+local function logList()
+  local now = clock()
+  if DQ.cache and (now - DQ.cacheAt) < DQ.KEEP then return DQ.cache.list end
+  DQ.reads = (DQ.reads or 0) + 1
+  DQ.cache, DQ.cacheAt = { list = readLog() }, now
+  return DQ.cache.list
+end
+
+--- Forget the kept log: the next question reads it again (quest events call this).
+function DQ.Invalidate() DQ.cache = nil end
 
 --- Does a log header belong to this dungeon? "Scarlet Monastery" covers all four wings.
 function DQ.HeaderMatches(header, dungeon)

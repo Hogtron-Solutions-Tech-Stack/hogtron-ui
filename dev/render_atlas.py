@@ -218,7 +218,7 @@ class Painter:
             if right:
                 self.text(d, bx[0] + bx[2] - 6, y + rh / 2, right, self.rgb(r["rightColor"], (140, 140, 153)), anchor="rm")
             mid_x = lst["opts"]["midX"]
-            if mid_x and r["mid"] and not r["header"]:
+            if mid_x and r["mid"] is not None and not r["header"]:
                 self.text(d, bx[0] + mid_x, y + rh / 2, r["mid"], self.rgb(r["midColor"], (140, 140, 153)),
                           max_w=bx[2] - mid_x - rw - 16)
         if not data and lst["emptyText"]:

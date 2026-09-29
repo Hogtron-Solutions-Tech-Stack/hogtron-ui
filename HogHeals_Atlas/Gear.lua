@@ -142,6 +142,20 @@ function Gear.Compare(item, role)
     name = info.name, link = info.link }
 end
 
+--- How many of these items are upgrades you can wear now, and the best gain among them. Items the client
+-- cannot describe yet are skipped (and asked for).
+function Gear.CountUpgrades(ids, role)
+  local n, best = 0, 0
+  for _, id in ipairs(ids or {}) do
+    local ok, c = pcall(Gear.Compare, id, role)
+    if ok and c and not c.worn and c.usable and not c.later and c.delta and c.delta > 0 then
+      n = n + 1
+      if c.delta > best then best = c.delta end
+    end
+  end
+  return n, best
+end
+
 --- The line for a tooltip / chat: "+12.3 for healer, over Plain Hood (Head)". nil when there is nothing to say.
 function Gear.CompareText(c)
   if not c or c.worn or not c.usable or not c.delta then return nil end

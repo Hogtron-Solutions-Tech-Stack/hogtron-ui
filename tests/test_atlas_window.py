@@ -391,3 +391,48 @@ def test_item_probe_names_a_secret_link_and_touches_nothing(atlas):
     assert ip["link"] == "SECRET(userdata)" and ip["parsed"] is None
     atlas.execute("function GetInventoryItemLink() return nil end")
     assert atlas.eval(f"{A}.Diag.ItemProbe().slot") == "nothing worn"
+
+
+# ------------------------------------------------------------------------------------------------ browsing with your gear in mind
+def test_loot_rows_mark_what_is_better_than_what_you_wear(atlas):
+    atlas.execute(f"""
+      MockUnits.player.level = 30; WORN[1] = 1002; WORN[11] = 1004
+      for _, id in ipairs({{ 1001, 1003, 1004, 1007, 1002 }}) do {S}.Record("vc", "Cookie", id, "seen") end
+      HogHeals:SlashCommand("atlas"); {W}.dungeon = "vc"; {W}.boss = "Cookie"; {W}.Refresh()
+    """)
+    rows = {r["item"]: r for r in vals(atlas.eval(f"{W}.lists.detail.data"))}
+    assert rows[1001]["mid"] == "+31.9" and list(rows[1001]["midColor"].values()) == pytest.approx([0.25, 0.80, 0.35])
+    assert rows[1007]["mid"] == "+55.7 at 45" and list(rows[1007]["midColor"].values()) == pytest.approx([0.95, 0.65, 0.15])
+    assert rows[1002]["mid"] == "worn" and rows[1004]["mid"] == "worn"
+    assert rows[1003]["mid"] is None                                                # plate: not for a shaman, nothing said
+    assert atlas.eval(f"{W}.lists.detail.rows[1].mid:IsShown()") is True
+    atlas.execute(f"{W}.detailButtons.guide:Click()")
+    guide = {r["text"]: r["right"] for r in vals(atlas.eval(f"{W}.lists.detail.data"))}
+    assert guide["Drops known"] == "5" and guide["Upgrades for you here"] == "1  (best +31.9)"
+    atlas.execute(f'{W}.dungeon = "wc"; {W}.Refresh()')
+    assert "Upgrades for you here" not in [r["text"] for r in vals(atlas.eval(f"{W}.lists.detail.data"))]   # nothing known: no line
+
+
+def test_dungeon_items_lists_each_item_once(atlas):
+    atlas.execute(f"""
+      {A}.Data.Curated.vc = {{ Cookie = {{ 1004, 1001 }} }}
+      {S}.Record("vc", "Cookie", 1001, "seen"); {S}.Record("vc", "Gilnid", 1001, "seen"); {S}.Record("vc", "Gilnid", 1002, "seen")
+    """)
+    assert vals(atlas.eval(f'{S}.DungeonItems("vc")')) == [1001, 1002, 1004]
+    assert vals(atlas.eval(f'{S}.DungeonItems("wc")')) == []
+
+
+def test_the_quest_log_is_read_once_per_repaint_not_once_per_dungeon(lua):
+    boot(lua, quests=True, extra=LOG)
+    lua.execute("HogHealsQuests.Data.List = FakeLog")
+    reads = lambda: lua.eval(f"{DQ}.reads or 0")                                   # Atlas's own reads (HogUI Quests reads too)
+    before = reads()
+    lua.execute('HogHeals:SlashCommand("atlas")')
+    assert lua.eval(f"#{W}.lists.dungeons.data") >= 28
+    assert reads() - before == 1
+    lua.execute(f"{W}.Refresh(); {W}.detailButtons.quests:Click(); {W}.detailButtons.guide:Click()")
+    assert reads() - before == 1                                                    # same moment: still the one read
+    lua.execute(f"MockAdvance(2); {W}.Refresh()")
+    assert reads() - before == 2                                                    # a moment later: read again
+    lua.execute(f'MockFire("QUEST_LOG_UPDATE"); {W}.Refresh()')
+    assert reads() - before == 3                                                    # the log changed: read again at once

@@ -215,6 +215,19 @@ function Store.SourceText(itemID)
   return text, list
 end
 
+--- Every item id known to drop in one dungeon (each once).
+function Store.DungeonItems(dkey)
+  local out, seen = {}, {}
+  for _, items in pairs(Store.db().loot[dkey] or {}) do
+    for id in pairs(items) do if not seen[id] then seen[id] = true out[#out + 1] = id end end
+  end
+  for _, items in pairs(A.Data.Curated[dkey] or {}) do
+    for _, id in ipairs(items) do if not seen[id] then seen[id] = true out[#out + 1] = id end end
+  end
+  table.sort(out)
+  return out
+end
+
 --- Every item id Atlas knows a source for.
 function Store.AllItems()
   Store.index = Store.index or buildIndex()
