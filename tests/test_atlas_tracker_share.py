@@ -310,7 +310,7 @@ def test_launcher_tooltip_names_dungeons_for_your_level_and_bag_upgrades(atlas):
 
 def test_minimap_button_can_be_hidden(atlas):
     atlas.execute(f"OPT = {A}.module:GetOptions()")
-    assert atlas.eval("OPT.args.minimap.get()") is True
-    atlas.execute("OPT.args.minimap.set(nil, false)")
+    assert atlas.eval("OPT.args.general.args.minimap.get()") is True
+    atlas.execute("OPT.args.general.args.minimap.set(nil, false)")
     assert atlas.eval(f"{A}.cfg().minimap.hide") is True
     assert errors(atlas) == []
