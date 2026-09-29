@@ -2,7 +2,8 @@
 -- is created once and repainted from a data array; the mouse wheel moves the offset. No scroll-frame templates:
 -- they differ per client generation, a plain offset does not.
 --
--- A data row is a table: text, right (right-aligned text), color / rightColor = { r, g, b }, icon (texture),
+-- A data row is a table: text, right (right-aligned text), mid (middle column, lists made with opts.midX),
+-- color / rightColor / midColor = { r, g, b }, icon (texture),
 -- header (true = section title), selected, indent (px), item (item id: gives the row an item tooltip).
 local A = HogHealsAtlas
 
@@ -81,6 +82,11 @@ function List.New(parent, opts)
     r.left = text(r, C.cream, "LEFT")
     r.right = text(r, C.grey, "RIGHT")
     r.right:SetPoint("RIGHT", r, "RIGHT", -6, 0)
+    if opts.midX then
+      r.mid = text(r, C.grey, "LEFT")
+      r.mid:SetPoint("LEFT", r, "LEFT", opts.midX, 0)
+      r.mid:SetPoint("RIGHT", r.right, "LEFT", -8, 0)
+    end
     r:SetScript("OnClick", function(row, btn)
       if row.data and not row.data.header and opts.onClick then opts.onClick(row.data, btn, row) end
     end)
@@ -132,7 +138,16 @@ function List:Render()
       end
       r.left:ClearAllPoints()
       r.left:SetPoint("LEFT", r, "LEFT", x, 0)
-      r.left:SetPoint("RIGHT", r.right, "LEFT", -6, 0)
+      if r.mid and d.mid and not d.header then
+        r.left:SetPoint("RIGHT", r, "LEFT", o.midX - 8, 0)
+        r.mid:SetText(d.mid)
+        local mc = d.midColor or C.grey
+        r.mid:SetTextColor(mc[1], mc[2], mc[3])
+        r.mid:Show()
+      else
+        r.left:SetPoint("RIGHT", r.right, "LEFT", -6, 0)
+        if r.mid then r.mid:Hide() end
+      end
       r.left:SetText(d.text or "")
       local c = d.color or (d.header and C.cyan) or C.cream
       r.left:SetTextColor(c[1], c[2], c[3])

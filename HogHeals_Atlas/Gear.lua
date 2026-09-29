@@ -254,6 +254,8 @@ function Gear.ClearSlot(index, slot)
 end
 
 --- Totals of a set: stats summed, score for the role, how many pieces you already own, what is still missing.
+-- gain = what finishing the set is worth: the set as you would wear it (your current item stays in every slot
+-- the set leaves empty) against what you wear now. A half-filled set is not judged as if you went naked.
 function Gear.SetSummary(index, role)
   local set = sets()[index]
   if not set then return nil end
@@ -262,9 +264,16 @@ function Gear.SetSummary(index, role)
   for _, b in ipairs(Gear.BagItems()) do carried[b.id] = true end
   for _, s in ipairs(Gear.SLOTS) do local e = Gear.Equipped(s.id) if e and e.id then carried[e.id] = true end end
   local total, pieces, owned, rows, unknown = {}, 0, 0, {}, 0
+  local worn, wornTotal = {}, {}
   for _, s in ipairs(Gear.SLOTS) do
     local id = set.items[s.id]
     local row = { slot = s.id, slotName = s.name, id = id }
+    local e = Gear.Equipped(s.id)
+    for k, v in pairs(e and e.stats or {}) do
+      wornTotal[k] = (wornTotal[k] or 0) + v
+      if not id then worn[k] = (worn[k] or 0) + v end
+    end
+    row.worn = e and e.info and e.info.name or nil
     if id then
       pieces = pieces + 1
       row.info = A.ItemInfo(id)
@@ -278,8 +287,13 @@ function Gear.SetSummary(index, role)
     end
     rows[#rows + 1] = row
   end
-  return { name = set.name, rows = rows, stats = total, score = A.Stats.Score(total, weights), pieces = pieces,
-    owned = owned, unknown = unknown }
+  local asWorn = {}
+  for k, v in pairs(total) do asWorn[k] = v end
+  for k, v in pairs(worn) do asWorn[k] = (asWorn[k] or 0) + v end
+  local score, now = A.Stats.Score(total, weights), A.Stats.Score(wornTotal, weights)
+  local gain = math.floor((A.Stats.Score(asWorn, weights) - now) * 10 + 0.5) / 10
+  return { name = set.name, rows = rows, stats = total, score = score, pieces = pieces,
+    owned = owned, unknown = unknown, gain = gain, wornScore = now }
 end
 
 --- Score of what you wear now, for comparing against a set.

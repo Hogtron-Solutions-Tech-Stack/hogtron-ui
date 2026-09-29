@@ -152,7 +152,7 @@ function Stats.Score(stats, weights)
   return math.floor(total * 10 + 0.5) / 10
 end
 
---- "+12 Int, +9 Spi" for a tooltip / row.
+--- "12 Intellect, 9 Spirit" for a tooltip / row. Second return: the pieces, for wrapping between stats.
 function Stats.Text(stats, max)
   local parts = {}
   for _, k in ipairs(Stats.ORDER) do
@@ -161,5 +161,17 @@ function Stats.Text(stats, max)
       parts[#parts + 1] = ("%s %s"):format(v % 1 == 0 and ("%d"):format(v) or ("%.1f"):format(v), Stats.NAMES[k])
     end
   end
-  return table.concat(parts, ", ")
+  return table.concat(parts, ", "), parts
+end
+
+--- Stat pieces packed into lines of at most width characters, never breaking inside a stat.
+function Stats.Lines(stats, width, max)
+  local _, parts = Stats.Text(stats, max or 99)
+  local lines, line = {}, ""
+  for _, p in ipairs(parts) do
+    if line ~= "" and #line + #p + 2 > width then lines[#lines + 1] = line line = p
+    else line = (line == "" and p) or (line .. ", " .. p) end
+  end
+  if line ~= "" then lines[#lines + 1] = line end
+  return lines
 end

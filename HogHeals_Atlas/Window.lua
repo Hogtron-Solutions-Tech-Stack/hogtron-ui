@@ -236,12 +236,15 @@ function Window.UpgradeRows()
   for _, u in ipairs(list) do
     if u.header then
       local cur = u.current and u.current.info and u.current.info.name or "empty"
-      rows[#rows + 1] = { header = true, text = ("%s   -   now: %s"):format(u.text, cur), right = ("%.1f"):format(u.score) }
+      rows[#rows + 1] = { header = true, text = ("%s   -   now: %s"):format(u.text, cur), right = ("score %.1f"):format(u.score) }
     else
       local right = ("+%.1f"):format(u.delta)
       if u.later then right = right .. ("  at %d"):format(u.later) end
+      local st = A.Stats.Text(u.stats, 3)
       rows[#rows + 1] = Window.ItemRow(u.id, { right = right, rightColor = u.later and C.amber or C.green, indent = 10,
-        tip = (u.source or "source unknown") .. "\n" .. A.Stats.Text(u.stats, 6) })
+        mid = (u.source or "source unknown") .. (st ~= "" and ("   |   " .. st) or ""),
+        midColor = u.where == "bag" and C.green or C.grey,
+        tip = (u.source or "source unknown") .. "\n" .. A.Stats.Text(u.stats, 8) })
     end
   end
   return rows, unknown
@@ -260,20 +263,21 @@ function Window.SetRows()
   local rows = {}
   local sum = A.Gear.SetSummary(Window.setIndex)
   if not sum then return rows end
-  local mine = A.Gear.EquippedScore()
-  local diff = sum.score - mine
   rows[#rows + 1] = { header = true, text = sum.name, right = ("score %.1f"):format(sum.score) }
-  rows[#rows + 1] = { text = "Against what you wear now", right = ("%+.1f"):format(diff), color = C.grey, rightColor = diff >= 0 and C.green or C.red }
+  rows[#rows + 1] = { text = "Finishing it is worth (empty slots keep what you wear)", right = ("%+.1f"):format(sum.gain), color = C.grey,
+    rightColor = sum.gain >= 0 and C.green or C.red }
   rows[#rows + 1] = { text = "Pieces you already own", right = ("%d of %d"):format(sum.owned, sum.pieces), color = C.grey }
-  local st = A.Stats.Text(sum.stats, 8)
-  for _, l in ipairs(wrap(st ~= "" and st or "No stats known yet.", 70)) do rows[#rows + 1] = { text = l, color = C.cream } end
+  local lines = A.Stats.Lines(sum.stats, 84)
+  if #lines == 0 then lines = { "No stats known yet." } end
+  for _, l in ipairs(lines) do rows[#rows + 1] = { text = l, color = C.cream } end
   rows[#rows + 1] = { text = "" }
   for _, r in ipairs(sum.rows) do
     if r.id then
       rows[#rows + 1] = Window.ItemRow(r.id, { right = r.have and "owned" or (r.source or "source unknown"),
-        rightColor = r.have and C.green or C.grey, setSlot = r.slot, tip = r.slotName })
+        rightColor = r.have and C.green or C.grey, setSlot = r.slot, tip = r.slotName, mid = r.slotName, midColor = C.cyan })
     else
-      rows[#rows + 1] = { text = r.slotName .. ": empty", color = C.grey, setSlot = r.slot }
+      rows[#rows + 1] = { text = r.worn and ("(keeps " .. r.worn .. ")") or "(empty)", color = C.grey, setSlot = r.slot,
+        mid = r.slotName, midColor = C.grey, indent = 18 }
     end
   end
   return rows
@@ -282,7 +286,8 @@ end
 function Window.WishRows()
   local rows = {}
   for _, w in ipairs(A.Gear.WishRows()) do
-    rows[#rows + 1] = Window.ItemRow(w.id, { right = w.have and "you have it" or w.source, rightColor = w.have and C.green or C.grey })
+    rows[#rows + 1] = Window.ItemRow(w.id, { right = w.have and "you have it" or w.source, rightColor = w.have and C.green or C.grey,
+      mid = A.Stats.Text(A.Stats.Of(w.id), 4) })
   end
   return rows
 end
@@ -320,8 +325,8 @@ local function pane(f, name)
   return p
 end
 
-local function column(parent, x, width, rows, onClick, y)
-  local l = A.List.New(parent, { width = width, rowHeight = ROW, rows = rows, onClick = onClick })
+local function column(parent, x, width, rows, onClick, y, midX)
+  local l = A.List.New(parent, { width = width, rowHeight = ROW, rows = rows, onClick = onClick, midX = midX })
   l.frame:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y or 0)
   return l
 end
@@ -434,7 +439,7 @@ function Window.Build()
     b:SetPoint("TOPLEFT", p, "TOPLEFT", (i - 1) * 84, 0)
     Window.roleButtons[r] = b
   end
-  Window.lists.upgrades = column(p, 0, 880, BODY_ROWS - 2, itemClick, -24)
+  Window.lists.upgrades = column(p, 0, 880, BODY_ROWS - 2, itemClick, -24, 300)
 
   -- Sets
   p = pane(f, "sets")
@@ -457,11 +462,11 @@ function Window.Build()
     -- right-click a piece: take it out of the set (the wishlist is one tab over)
     if btn == "RightButton" and row.setSlot then A.Gear.ClearSlot(Window.setIndex, row.setSlot) Window.Refresh()
     elseif row.item then Window.ItemClick(row.item, btn) end
-  end, -24)
+  end, -24, 270)
 
   -- Wishlist
   p = pane(f, "wish")
-  Window.lists.wish = column(p, 0, 880, BODY_ROWS, itemClick)
+  Window.lists.wish = column(p, 0, 880, BODY_ROWS, itemClick, nil, 300)
 
   -- Loot log
   p = pane(f, "log")

@@ -203,8 +203,11 @@ def test_upgrades_tab_roles_and_status(atlas):
     atlas.execute(f'MockUnits.player.level = 30; WORN[1] = 1002; {S}.Record("vc", "Cookie", 1001, "journal"); {S}.Record("vc", "Cookie", 1003, "journal")')
     atlas.execute('HogHeals:SlashCommand("gear")')
     rows = vals(atlas.eval(f"{W}.lists.upgrades.data"))
-    assert rows[0]["header"] is True and rows[0]["text"] == "Head   -   now: Plain Hood" and rows[0]["right"] == "2.9"
+    assert rows[0]["header"] is True and rows[0]["text"] == "Head   -   now: Plain Hood" and rows[0]["right"] == "score 2.9"
     assert rows[1]["text"] == "Seer's Cowl" and rows[1]["right"] == "+31.9" and "Cookie (The Deadmines)" in rows[1]["tip"]
+    assert rows[1]["mid"] == "Cookie (The Deadmines)   |   22 Healing, 10 Intellect, 5 Spirit"      # where it drops, in the row
+    assert atlas.eval(f"{W}.lists.upgrades.rows[2].mid:GetText()") == rows[1]["mid"]
+    assert atlas.eval(f"{W}.lists.upgrades.rows[1].mid:IsShown()") is False                        # headers have no middle column
     assert len(rows) == 2
     assert "Scored for: healer" in atlas.eval("HogUIAtlasWindow.status:GetText()")
     assert atlas.eval(f"{W}.roleButtons.auto.on") is True
@@ -252,9 +255,10 @@ def test_sets_tab_buttons_and_removing_a_piece(atlas):
     rows = vals(atlas.eval(f"{W}.lists.set.data"))
     assert rows[0]["text"] == "Healing" and rows[0]["right"] == "score 47.7"
     assert rows[1]["right"] == "+0.0" and rows[2]["right"] == "2 of 2"
+    assert rows[3]["text"] == "22 Healing, 16 Intellect, 5 Spirit, 3 Mana per 5 sec, 30 Armor"
     items = [r for r in rows if r["item"]]
-    assert [(r["text"], r["right"]) for r in items] == [("Seer's Cowl", "owned"), ("Band of Waves", "owned")]
-    assert "Chest: empty" in [r["text"] for r in rows]
+    assert [(r["text"], r["mid"], r["right"]) for r in items] == [("Seer's Cowl", "Head", "owned"), ("Band of Waves", "Ring 1", "owned")]
+    assert ("(empty)", "Chest") in [(r["text"], r["mid"]) for r in rows]
     idx = [r["item"] for r in rows].index(1004) + 1
     click(atlas, "set", idx, "RightButton")
     assert atlas.eval(f"{G}.Sets()[1].items[11]") is None and atlas.eval(f"{G}.IsWished(1004)") is False

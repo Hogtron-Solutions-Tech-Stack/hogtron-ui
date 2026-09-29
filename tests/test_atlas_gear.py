@@ -227,6 +227,19 @@ def test_set_from_what_you_wear_and_its_summary(atlas):
     rows = {r["slot"]: r for r in vals(s["rows"])}
     assert rows[1]["id"] == 1001 and rows[1]["source"] == "Cookie (The Deadmines)" and rows[5]["id"] is None
     assert atlas.eval(f"({G}.EquippedScore())") == pytest.approx(34.8 + 12.9)
+    assert s["gain"] == 0 and s["wornScore"] == pytest.approx(47.7)            # the set IS what you wear
+
+
+def test_a_half_filled_set_is_judged_as_you_would_wear_it(atlas):
+    atlas.execute("WORN[1] = 1002; WORN[11] = 1004")                              # Plain Hood 2.9, Band of Waves 12.9
+    atlas.execute(f'{G}.NewSet("Plan"); {G}.SetItem(1, 1001)')                     # only a better hat: 34.8
+    s = atlas.eval(f"{G}.SetSummary(1)")
+    assert s["score"] == pytest.approx(34.8)                                      # the set's own pieces
+    assert s["gain"] == pytest.approx(34.8 - 2.9)                                 # the ring stays on: only the hat changes
+    rows = {r["slot"]: r for r in vals(s["rows"])}
+    assert rows[11]["id"] is None and rows[11]["worn"] == "Band of Waves" and rows[5]["worn"] is None
+    atlas.execute(f'{G}.SetItem(1, 1005, 11)')                                     # a worse ring in the plan
+    assert atlas.eval(f"{G}.SetSummary(1).gain") == pytest.approx((34.8 + 0.5) - (2.9 + 12.9))
 
 
 def test_set_item_picks_the_empty_slot_and_checks_the_fit(atlas):
