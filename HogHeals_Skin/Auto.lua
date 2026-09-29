@@ -33,34 +33,41 @@ local function itemInfo(bag, slot)
   end
 end
 
+--- Vendor price of one item, or nil when the client cannot say (item not cached, no item API).
+-- Forever and other modern-engine clients have NO global GetItemInfo (measured: nil), only C_Item.GetItemInfo.
 local function sellPrice(link)
-  if not link or type(GetItemInfo) ~= "function" then return 0 end
-  -- the vendor price is GetItemInfo's 11th return; Skin.call only hands back the first four
-  local ok, price = pcall(function() return (select(11, GetItemInfo(link))) end)
-  return ok and num(price) or 0
+  if not link then return nil end
+  local f = (type(C_Item) == "table" and C_Item.GetItemInfo) or rawget(_G, "GetItemInfo")
+  if type(f) ~= "function" then return nil end
+  -- the vendor price is the 11th return; Skin.call only hands back the first four
+  local ok, price = pcall(function() return (select(11, f(link))) end)
+  if ok then return num(price) end
 end
+Part.SellPrice = sellPrice
 
---- Sell every grey (quality 0) item with a value. Returns items sold, copper earned (estimated from item info).
+--- Sell every grey (quality 0) item with a value. Returns items sold, copper earned (estimated from item info),
+-- and how many sold items had no known price (so the caller never prints a made-up total).
 function Part.SellJunk()
   local d = cfg()
-  if not d or d.sellJunk == false then return 0, 0 end
+  if not d or d.sellJunk == false then return 0, 0, 0 end
   local nSlots = (type(C_Container) == "table" and C_Container.GetContainerNumSlots) or rawget(_G, "GetContainerNumSlots")
   local use = (type(C_Container) == "table" and C_Container.UseContainerItem) or rawget(_G, "UseContainerItem")
-  if type(nSlots) ~= "function" or type(use) ~= "function" then return 0, 0 end
-  local sold, copper = 0, 0
+  if type(nSlots) ~= "function" or type(use) ~= "function" then return 0, 0, 0 end
+  local sold, copper, unpriced = 0, 0, 0
   for bag = 0, (rawget(_G, "NUM_BAG_SLOTS") or 4) do
     local n = num(call(nSlots, bag)) or 0
     for slot = 1, n do
-      if sold >= Part.MAX_SELL then return sold, copper end
+      if sold >= Part.MAX_SELL then return sold, copper, unpriced end
       local quality, count, link, noValue = itemInfo(bag, slot)
       if quality == 0 and not noValue then
         call(use, bag, slot)
         sold = sold + 1
-        copper = copper + sellPrice(link) * count
+        local price = sellPrice(link)
+        if price then copper = copper + price * count else unpriced = unpriced + 1 end
       end
     end
   end
-  return sold, copper
+  return sold, copper, unpriced
 end
 
 --- Repair everything if the merchant can and we can afford it. Returns copper spent (0 = nothing done).
@@ -80,10 +87,15 @@ end
 function Part.OnMerchant()
   local d = cfg()
   if not d or (d.sellJunk == false and d.repair == false) then return end
-  local sold, earned = Part.SellJunk()
+  local sold, earned, unpriced = Part.SellJunk()
   local cost, guild = Part.Repair()
   local parts = {}
-  if sold > 0 then parts[#parts + 1] = ("sold %d junk for ~%s"):format(sold, money(earned)) end
+  if sold > 0 then
+    -- no known price = say so by leaving the amount out; never print "~0c" for items that had a value
+    if earned > 0 and unpriced == 0 then parts[#parts + 1] = ("sold %d junk for ~%s"):format(sold, money(earned))
+    elseif earned > 0 then parts[#parts + 1] = ("sold %d junk for at least %s"):format(sold, money(earned))
+    else parts[#parts + 1] = ("sold %d junk"):format(sold) end
+  end
   if cost and cost > 0 then parts[#parts + 1] = ("repaired for %s%s"):format(money(cost), guild and " (guild)" or "")
   elseif cost and cost < 0 then parts[#parts + 1] = ("repair costs %s, not enough gold"):format(money(-cost)) end
   if #parts > 0 then HH:Print(table.concat(parts, ", ") .. ".") end

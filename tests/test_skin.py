@@ -395,3 +395,44 @@ def test_late_built_gossip_option_lines_lifted_and_kept_through_hover_repaint(lu
     assert lua.eval('OPT._color[1]') == pytest.approx(0.96)
     lua.execute('OPT:SetTextColor(1, 0.82, 0)')                               # gold stays gold
     assert lua.eval('OPT._color[2]') == pytest.approx(0.82)
+
+
+FOREVER_BAGS = """
+  SOLD = {}
+  GetItemInfo = nil                                   -- measured on Forever: the global is gone
+  C_Container.GetContainerNumSlots = function(bag) return bag == 0 and 3 or 0 end
+  C_Container.GetContainerItemInfo = function(bag, slot)
+    if bag ~= 0 then return nil end
+    return { quality = 0, stackCount = 4, hyperlink = "item" .. slot, hasNoValue = false }
+  end
+  C_Container.UseContainerItem = function(bag, slot) SOLD[#SOLD + 1] = slot end
+  function CanMerchantRepair() return false end
+"""
+
+
+def test_vendor_price_from_c_item_when_global_is_gone(lua):
+    # in game 2026-09-28: "sold 4 junk for ~0c" - price was read from a global that does not exist on Forever
+    lua.execute(CLIENT + FOREVER_BAGS + """
+      C_Item = C_Item or {}
+      C_Item.GetItemInfo = function(link) return "n", link, 0, 5, 0, "t", "s", 20, "", 1, 46 end
+    """)
+    lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
+    lua.execute('wipe(MockLog.chat or {}); MockFire("MERCHANT_SHOW"); MockAdvance(0.4)')
+    assert list(lua.eval('SOLD').values()) == [1, 2, 3]
+    chat = "\n".join(lua.eval('MockLog.chat').values())
+    assert "sold 3 junk for ~5s 52c" in chat                         # 3 stacks x 4 x 46c
+    assert [e["msg"] for e in lua.eval('HogHeals.errors').values()] == []
+
+
+def test_vendor_never_prints_zero_copper_for_unknown_prices(lua):
+    lua.execute(CLIENT + FOREVER_BAGS + """
+      C_Item = C_Item or {}
+      C_Item.GetItemInfo = function(link) if link == "item2" then return nil end return "n", link, 0, 5, 0, "t", "s", 20, "", 1, 10 end
+    """)
+    lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
+    lua.execute('wipe(MockLog.chat or {}); MockFire("MERCHANT_SHOW"); MockAdvance(0.4)')
+    chat = "\n".join(lua.eval('MockLog.chat').values())
+    assert "sold 3 junk for at least 80c" in chat                    # one stack uncached: 2 x 4 x 10c known
+    lua.execute('C_Item.GetItemInfo = nil; wipe(SOLD); wipe(MockLog.chat); MockFire("MERCHANT_SHOW"); MockAdvance(0.4)')
+    chat = "\n".join(lua.eval('MockLog.chat').values())
+    assert "sold 3 junk." in chat and "0c" not in chat               # no item API at all: count only
