@@ -452,6 +452,8 @@ function Plates.Bracket(uf, on, color)
     tex:SetColorTexture(color[1], color[2], color[3], 1)
     tex:Show()
   end
+  -- first time lit on this unit: write what Blizzard is drawing on the plate to diag.plateTarget
+  if not hh.bracketed then pcall(Plates.NoteTarget, uf) end
   hh.bracketed, hh.bracketArmH, hh.bracketArmV, hh.bracketOut = true, armH, armV, out
 end
 
@@ -520,6 +522,7 @@ function Plates.UpdateHighlight(uf)
   elseif isTarget and style == "outline" then color, why, thick = tc, "target", 2
   -- the target's glow owns its edge: an amber line inside cyan light read as clutter (2026-09-24); the ! badge
   -- beside the bar still says "quest mob"
+  -- off by default (Sean 2026-09-28: "that yellow outline ... remove for a cleaner look"); the ! badge marks quest mobs
   elseif d.quest.highlight and hh.questInfo and not glowing then color, why, thick = d.quest.color, "quest", 1
   elseif d.enabled ~= false and d.border ~= false then color, why, thick = LINE, "plain", 1 end
   if isTarget and why ~= "aggro" then why = "target" end
