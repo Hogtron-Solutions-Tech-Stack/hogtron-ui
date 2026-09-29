@@ -28,6 +28,8 @@ A.QUALITY = {
 A.DEFAULTS = {
   enabled = true,
   tooltip = true,            -- "Drops from" line on item tooltips
+  tooltipScore = true,       -- upgrade score on item tooltips
+  upgradeAlerts = true,      -- chat line when you loot something better than what you wear
   wishAlerts = true,         -- chat line when a wishlist item drops
   share = true,              -- tell party / guild about new drops, take theirs
   tracker = { enabled = true, point = "RIGHT", x = -40, y = 120 },   -- the on-screen panel inside dungeons

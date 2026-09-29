@@ -305,14 +305,15 @@ def test_window_position_is_saved_on_drag(atlas):
 # ------------------------------------------------------------------------------------------------ tooltip
 def test_tooltip_lines_for_known_wished_and_unknown_items(atlas):
     T = f"{A}.Tooltip"
+    atlas.execute(f"{A}.cfg().tooltipScore = false")                                # this test is about the drop lines
     atlas.execute(f'{S}.Record("vc", "Cookie", 1001, "seen")')
-    assert vals(atlas.eval(f"{T}.Lines(1001)")) == ["Drops from: Cookie (The Deadmines)"]
+    assert vals(atlas.eval(f"({T}.Lines(1001))")) == ["Drops from: Cookie (The Deadmines)"]
     atlas.execute(f"{G}.ToggleWish(1001); {G}.ToggleWish(1004)")
-    assert vals(atlas.eval(f"{T}.Lines(1001)")) == ["Drops from: Cookie (The Deadmines)", "On your wishlist"]
-    assert vals(atlas.eval(f"{T}.Lines(1004)")) == ["On your wishlist"]
-    assert vals(atlas.eval(f"{T}.Lines(1002)")) == [] and vals(atlas.eval(f"{T}.Lines(nil)")) == []
+    assert vals(atlas.eval(f"({T}.Lines(1001))")) == ["Drops from: Cookie (The Deadmines)", "On your wishlist"]
+    assert vals(atlas.eval(f"({T}.Lines(1004))")) == ["On your wishlist"]
+    assert vals(atlas.eval(f"({T}.Lines(1002))")) == [] and vals(atlas.eval(f"({T}.Lines(nil))")) == []
     atlas.execute(f"{A}.cfg().tooltip = false")
-    assert vals(atlas.eval(f"{T}.Lines(1001)")) == []
+    assert vals(atlas.eval(f"({T}.Lines(1001))")) == []
 
 
 def test_tooltip_uses_the_modern_processor_when_the_client_has_it(lua):
@@ -323,6 +324,7 @@ def test_tooltip_uses_the_modern_processor_when_the_client_has_it(lua):
       TooltipDataProcessor = { AddTooltipPostCall = function(kind, fn) POST[#POST + 1] = { kind = kind, fn = fn } end }
     ''')
     assert lua.eval(f"{A}.module.tooltipPath") == "processor" and lua.eval("#POST") == 1 and lua.eval("POST[1].kind") == 0
+    lua.execute(f"{A}.cfg().tooltipScore = false")
     lua.execute(f'{S}.Record("vc", "Cookie", 1001, "seen"); GameTooltip:ClearLines(); POST[1].fn(GameTooltip, {{ id = 1001 }})')
     assert vals(lua.eval("GameTooltip._lines")) == ["Drops from: Cookie (The Deadmines)"]
     lua.execute('GameTooltip:ClearLines(); POST[1].fn(GameTooltip, { hyperlink = ItemLink(1001) }); POST[1].fn(GameTooltip, nil); POST[1].fn(GameTooltip, { id = 5 })')

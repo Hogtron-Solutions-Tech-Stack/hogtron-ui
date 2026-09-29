@@ -19,6 +19,8 @@ function Options.Build()
     scan = { type = "execute", name = "Read the game's journal", order = 2, func = function() A.Journal.Scan("options") refresh() end },
     enabled = toggle("enabled", "Record drops in dungeons", 3),
     tooltip = toggle("tooltip", "\"Drops from\" line on item tooltips", 4),
+    tooltipScore = toggle("tooltipScore", "Upgrade score on item tooltips (for the role below)", 4.1),
+    upgradeAlerts = toggle("upgradeAlerts", "Chat line when you loot something better than what you wear", 4.2),
     wishAlerts = toggle("wishAlerts", "Chat line and sound when a wishlist item drops", 5),
     share = toggle("share", "Share new drops with party and guild, and take theirs", 5.1),
     tracker = { type = "toggle", name = "On-screen tracker inside dungeons (bosses, quests, wanted items)", order = 5.2,

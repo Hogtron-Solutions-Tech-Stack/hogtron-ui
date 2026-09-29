@@ -284,3 +284,75 @@ def test_random_suffix_items_share_an_id_but_not_their_stats(atlas):
     assert table(atlas, f"{ST}.Of(BEAR)") == {"sta": 5, "str": 5}
     assert table(atlas, f"{ST}.Of(EAGLE)") == {"sta": 5, "int": 5}
     assert table(atlas, f"{ST}.Of(4000)") == {}                                    # the bare id knows no suffix: says nothing
+
+
+# ------------------------------------------------------------------------------------------------ one item against your gear
+def test_compare_one_item_against_what_you_wear(atlas):
+    atlas.execute("WORN[1] = 1002")
+    c = atlas.eval(f"{G}.Compare(1001)")
+    assert c["delta"] == pytest.approx(31.9) and c["slotName"] == "Head" and c["against"] == "Plain Hood" and c["role"] == "healer"
+    assert atlas.eval(f"({G}.CompareText({G}.Compare(1001)))") == "+31.9 for healer, over Plain Hood (Head)"
+    assert atlas.eval(f"({G}.CompareText({G}.Compare(1002)))") is None              # you wear it
+    assert atlas.eval(f"{G}.Compare(1002).worn") is True
+    atlas.execute("WORN[1] = 1001")
+    assert atlas.eval(f"({G}.CompareText({G}.Compare(1002)))") == "-31.9 for healer, against Seer's Cowl (Head)"
+    assert atlas.eval(f"({G}.CompareText({G}.Compare(1004)))") == "+12.9 for healer, over an empty slot (Ring 1)"
+    assert atlas.eval(f"({G}.CompareText({G}.Compare(1007)))") == "+23.8 for healer, over Seer's Cowl (Head), from level 45"
+    assert atlas.eval(f"{G}.Compare(1011)") is None                                 # cloth scrap: not gear
+    assert atlas.eval(f"({G}.CompareText({G}.Compare(1003)))") is None              # plate: you cannot wear it
+    assert atlas.eval(f"{G}.Compare(99999)") is None
+    assert atlas.eval(f"({G}.CompareText({G}.Compare(1001, 'melee')))") is None     # worn, whatever the role
+    assert atlas.eval(f"({G}.CompareText({G}.Compare(1002, 'tank')))").startswith("-1.2 for tank")   # 20 armour against 30, at 0.12 a point
+
+
+def test_a_two_hander_is_measured_against_both_hands(atlas):
+    atlas.execute("""
+      ITEMS[5001] = { "Short Sword", 2, 20, 15, "Weapon", "One-Handed Swords", "INVTYPE_WEAPONMAINHAND", 2, 7, { "(10.0 damage per second)", "+5 Strength" } }
+      ITEMS[5002] = { "Buckler", 2, 20, 15, "Armor", "Shields", "INVTYPE_SHIELD", 4, 6, { "200 Armor", "+8 Strength" } }
+      ITEMS[5003] = { "Orb of Holding", 2, 20, 15, "Armor", "Miscellaneous", "INVTYPE_HOLDABLE", 4, 0, { "+9 Intellect" } }
+      WORN[16], WORN[17] = 5001, 5002
+    """)
+    atlas.execute(f'{A}.cfg().role = "melee"')
+    c = atlas.eval(f"{G}.Compare(1009)")                                            # Great Maul: 25 dps * 3 + 12 str = 87
+    worn = (10 * 3 + 5) + (8 + 200 * 0.01)                                          # sword 35 + buckler 10
+    assert c["slot"] == 16 and c["delta"] == pytest.approx(87 - worn)
+    assert atlas.eval(f"({G}.CompareText({G}.Compare(1009)))") == "+42.0 for melee, over Short Sword + Buckler (Main hand)"
+    up = atlas.eval(f"({G}.Upgrades({{ futureLevels = 0 }}))")                       # the finder follows the same rule
+    atlas.execute(f'{S}.Record("vc", "Cookie", 1009, "journal")')
+    up = atlas.eval(f"({G}.Upgrades({{ futureLevels = 0 }}))")
+    assert [(u["id"], u["delta"]) for u in vals(up[16]["list"])] == [(1009, pytest.approx(42.0))]
+    atlas.execute("WORN[16], WORN[17] = 1009, nil")                                 # now holding the two-hander
+    assert atlas.eval(f"{G}.Compare(5003)") is None                                 # an off-hand has nowhere to go
+    assert atlas.eval(f"{G}.Compare(5001).slot") == 16
+
+
+def test_tooltip_carries_the_upgrade_score(atlas):
+    T = f"{A}.Tooltip"
+    atlas.execute(f'WORN[1] = 1002; {S}.Record("vc", "Cookie", 1001, "seen")')
+    lines, good = atlas.eval(f"{T}.Lines(1001)")
+    assert vals(lines) == ["Drops from: Cookie (The Deadmines)", "+31.9 for healer, over Plain Hood (Head)"]
+    assert good[2] is True and good[1] is None
+    atlas.execute("WORN[1] = 1001")
+    lines, good = atlas.eval(f"{T}.Lines(1002)")
+    assert vals(lines) == ["-31.9 for healer, against Seer's Cowl (Head)"] and good[1] is False
+    assert vals(atlas.eval(f"({T}.Lines(1001))")) == ["Drops from: Cookie (The Deadmines)"]        # worn: no score line
+    atlas.execute(f"{A}.cfg().tooltipScore = false")
+    assert vals(atlas.eval(f"({T}.Lines(1002))")) == []
+    atlas.execute(f"{A}.cfg().tooltipScore = true; {A}.cfg().tooltip = false")
+    assert vals(atlas.eval(f"({T}.Lines(1002))")) == ["-31.9 for healer, against Seer's Cowl (Head)"]
+
+
+def test_looting_an_upgrade_says_so_once_and_only_for_upgrades(atlas):
+    atlas.execute("WORN[1] = 1002; MockLog.chat = {}")
+    atlas.execute('MockFire("CHAT_MSG_LOOT", "You receive loot: " .. ItemLink(1001) .. ".", "Hog"); MockAdvance(1)')
+    chat = [c for c in vals(atlas.eval("MockLog.chat")) if "Upgrade in your bags" in c]
+    assert len(chat) == 1 and "Seer's Cowl" in chat[0] and "+31.9 for healer, over Plain Hood (Head)" in chat[0]
+    atlas.execute("MockLog.chat = {}")
+    for item in (1002, 1003, 1007, 1011, 1010):                                     # worn, plate, too high, not gear, grey rag
+        atlas.execute('MockFire("CHAT_MSG_LOOT", "You receive loot: " .. ItemLink(%d) .. ".", "Hog"); MockAdvance(1)' % item)
+    atlas.execute('MockFire("CHAT_MSG_LOOT", "Thrall receives loot: " .. ItemLink(1001) .. ".", "Thrall"); MockAdvance(1)')
+    assert [c for c in vals(atlas.eval("MockLog.chat")) if "Upgrade in your bags" in c] == []
+    atlas.execute(f'{A}.cfg().upgradeAlerts = false')
+    atlas.execute('MockFire("CHAT_MSG_LOOT", "You receive loot: " .. ItemLink(1001) .. ".", "Hog"); MockAdvance(1)')
+    assert [c for c in vals(atlas.eval("MockLog.chat")) if "Upgrade in your bags" in c] == []
+    assert errors(atlas) == []
