@@ -29,6 +29,8 @@ A.DEFAULTS = {
   enabled = true,
   tooltip = true,            -- "Drops from" line on item tooltips
   wishAlerts = true,         -- chat line when a wishlist item drops
+  share = true,              -- tell party / guild about new drops, take theirs
+  tracker = { enabled = true, point = "RIGHT", x = -40, y = 120 },   -- the on-screen panel inside dungeons
   forMeNow = false,          -- dungeon list: only dungeons for my level
   minQuality = 2,            -- discovery records green and better
   futureLevels = 3,          -- upgrade finder: include items up to this many levels above me
@@ -50,7 +52,11 @@ function A.cfg()
   local p = HH.db and HH.db.profile
   if not p then return fill({}, A.DEFAULTS) end
   p.atlas = p.atlas or {}
-  if not p.atlas._filled then fill(p.atlas, A.DEFAULTS) p.atlas._filled = true end
+  if A.filled ~= p.atlas then
+    p.atlas._filled = nil   -- written by the first build, never read again
+    fill(p.atlas, A.DEFAULTS)
+    A.filled = p.atlas
+  end
   return p.atlas
 end
 

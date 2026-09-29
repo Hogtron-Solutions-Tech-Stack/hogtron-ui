@@ -11,6 +11,8 @@ function Module:OnEnable()
   HH:SafeCall(A.Capture, "Start")
   local ok, path = pcall(A.Tooltip.Start)
   Module.tooltipPath = ok and path or ("failed: " .. tostring(path))
+  HH:SafeCall(A.Share, "Start")
+  HH:SafeCall(A.Tracker, "Start")
   -- Group Finder and the journal are not ready at login: ask a few seconds in. One scan per session on its own;
   -- the button in the window asks again.
   local function late()
@@ -29,7 +31,9 @@ function Module.Build()
 end
 
 function Module:OnProfileChanged()
+  A.filled = nil
   if A.Window.Refresh then A.Window.Refresh() end
+  if A.Tracker.Refresh then A.Tracker.Refresh() end
 end
 
 function Module:GetOptions()
@@ -52,9 +56,11 @@ HH:RegisterSlash("gear", function() A.Window.Toggle("upgrades") end, "gear upgra
 HH:RegisterSlash("sets", function() A.Window.Toggle("sets") end, "saved gear sets")
 HH:RegisterSlash("wish", function() A.Window.Toggle("wish") end, "your wishlist")
 HH:RegisterSlash("lootlog", function() A.Window.Toggle("log") end, "loot from your last dungeon runs")
+HH:RegisterSlash("dungeon", function() A.Tracker.Toggle() end, "the on-screen dungeon tracker (bosses, quests, wanted items)")
 HH:RegisterSlash("atlasinfo", function()
   for _, l in ipairs(A.Journal.Report()) do HH:Print(l) end
   for _, l in ipairs(A.Capture.Report()) do HH:Print(l) end
+  HH:Print(A.Share.Report())
   HH:Print(("atlas: %d drops known, tooltip path %s, role %s, level ranges from the game: %s"):format(
     A.Store.db().count, tostring(Module.tooltipPath), A.Stats.Role(), tostring(A.Levels.found or 0)))
 end, "what Atlas could read on this client")

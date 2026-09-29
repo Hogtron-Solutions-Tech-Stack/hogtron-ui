@@ -54,7 +54,6 @@ local function scanInstance(jid, name, out)
           local id = lootAt(n)
           if id then
             if A.Store.Record(dkey, bname, id, "journal") then items = items + 1 end
-            A.ItemInfo(id)   -- asks the server for the item so the window has a name when opened
           end
         end
       end
