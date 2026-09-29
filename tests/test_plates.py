@@ -150,6 +150,7 @@ def test_secret_health_still_prints(plates):
 
 
 def test_highlight_priority_aggro_over_target_over_quest(plates):
+    plates.execute('HogHeals.db.profile.plates.target.style = "glow"')   # the default is brackets since 2026-09-28
     uf = add(plates, "nameplate3", '{ name = "Kobold Tunneler", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-3" }',
              '{ { leftText = "Kobold Tunneler", type = 2 }, { leftText = " - Kobold Tunneler slain: 1/5", type = 8 } }')
     other = add(plates, "nameplate9", '{ name = "Rabbit", class = "WARRIOR", health = 1, maxHealth = 1, guid = "C-9" }')
@@ -343,9 +344,9 @@ def test_friendly_plates_are_name_only_by_default_and_full_when_off(plates):
     assert errors(plates) == []
 
 
-def test_level_badge_hidden_by_default_kept_hidden_and_friendly_name_bigger(plates):
+def test_blizzard_level_badge_stays_hidden_and_friendly_name_bigger(plates):
     plates.execute("""
-      local p = MockPlate("nameplate16", { name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-16" })
+      local p = MockPlate("nameplate16", { name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-16", level = 7 })
       p.UnitFrame.LevelFrame = CreateFrame("Frame", nil, p.UnitFrame)
       MockFire("NAME_PLATE_UNIT_ADDED", "nameplate16")
     """)
@@ -353,17 +354,20 @@ def test_level_badge_hidden_by_default_kept_hidden_and_friendly_name_bigger(plat
     assert plates.eval(f'{uf}.LevelFrame:IsShown()') is False
     plates.execute(f'{uf}.LevelFrame:Show()')                                       # Blizzard re-show
     assert plates.eval(f'{uf}.LevelFrame:IsShown()') is False
-    plates.execute('HogHeals.db.profile.plates.showLevel = true; HogHealsPlates.Plates.Refresh()')
-    assert plates.eval(f'{uf}.LevelFrame:IsShown()') is True                        # hostile plate, option on
+    assert plates.eval(f'{uf}.hh.level:IsShown()') is True                          # ours carries the level instead
+    plates.execute('HogHeals.db.profile.plates.enabled = false; HogHealsPlates.Plates.Refresh()')
+    plates.execute(f'{uf}.LevelFrame:Show()')
+    assert plates.eval(f'{uf}.LevelFrame:IsShown()') is True                        # restyle off: Blizzard's badge is theirs
+    plates.execute('HogHeals.db.profile.plates.enabled = true; HogHealsPlates.Plates.Refresh()')
     plates.execute("""
       local p = MockPlate("nameplate17", { name = "Friend", class = "MAGE", health = 1, maxHealth = 1, isPlayer = true, friendly = true, guid = "P-17" })
       p.UnitFrame.LevelFrame = CreateFrame("Frame", nil, p.UnitFrame)
       MockFire("NAME_PLATE_UNIT_ADDED", "nameplate17")
     """)
     assert plates.eval('NP.nameplate17.UnitFrame.LevelFrame:IsShown()') is False   # never on name-only plates
+    assert plates.eval('NP.nameplate17.UnitFrame.hh.level:IsShown()') is False
     assert plates.eval('NP.nameplate17.UnitFrame.name._last.SetFont[2]') == 14      # bigger friendly name
     assert plates.eval(f'{uf}.name._last.SetFont[2]') == 13                          # hostile keeps the normal font
-    assert errors(plates) == []
 
 
 def test_uniform_plate_scale_cvars(plates):
@@ -405,6 +409,7 @@ def test_recycled_plate_goes_back_to_a_full_plate(plates):
 
 
 def test_target_mark_styles_and_size_cvars(plates):
+    plates.execute('HogHeals.db.profile.plates.target.style = "glow"')   # the default is brackets since 2026-09-28
     uf = add(plates, "nameplate21", '{ name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-21" }')
     plates.execute('TARGET = "nameplate21"; MockFire("PLAYER_TARGET_CHANGED")')
     assert plates.eval(f'{uf}.hh.glow:IsShown()') is True and plates.eval(f'{uf}.hh.scale') == 1
@@ -453,6 +458,7 @@ def tick(lua, sec):
 
 
 def test_target_glow_is_a_soft_9slice_that_locks_on_then_breathes(plates):
+    plates.execute('HogHeals.db.profile.plates.target.style = "glow"')   # the default is brackets since 2026-09-28
     uf = add(plates, "nameplate40", '{ name = "Moonrage Glutton", class = "WARRIOR", health = 4, maxHealth = 10, guid = "C-40" }')
     plates.execute('TARGET = "nameplate40"; MockFire("PLAYER_TARGET_CHANGED")')
     g = f'{uf}.hh.glows'
@@ -516,6 +522,7 @@ def test_glow_curve_is_continuous_and_bounded(plates):
 
 
 def test_still_glow_when_animation_is_off_and_live_option_changes(plates):
+    plates.execute('HogHeals.db.profile.plates.target.style = "glow"')   # the default is brackets since 2026-09-28
     uf = add(plates, "nameplate41", '{ name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-41" }')
     plates.execute('HogHeals.db.profile.plates.target.animate = false')
     plates.execute('TARGET = "nameplate41"; MockFire("PLAYER_TARGET_CHANGED")')
@@ -532,6 +539,7 @@ def test_still_glow_when_animation_is_off_and_live_option_changes(plates):
 
 
 def test_target_glow_quiets_blizzards_selection_highlight(plates):
+    plates.execute('HogHeals.db.profile.plates.target.style = "glow"')   # the default is brackets since 2026-09-28
     uf = add(plates, "nameplate42", '{ name = "Kobold Tunneler", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-42" }',
              '{ { leftText = "Kobold Tunneler", type = 2 }, { leftText = " - Kobold Tunneler slain: 1/5", type = 8 } }')
     plates.execute(f'local u = {uf}; u.selectionHighlight = u:CreateTexture(nil, "ARTWORK"); u.selectionHighlight:SetAlpha(1); u.selectionHighlight:Show()')
@@ -551,6 +559,7 @@ def test_target_glow_quiets_blizzards_selection_highlight(plates):
 
 
 def test_glow_paint_error_stops_the_animation_once_not_every_frame(plates):
+    plates.execute('HogHeals.db.profile.plates.target.style = "glow"')   # the default is brackets since 2026-09-28
     uf = add(plates, "nameplate43", '{ name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-43" }')
     plates.execute('TARGET = "nameplate43"; MockFire("PLAYER_TARGET_CHANGED")')
     plates.execute('HogHealsPlates.Plates.PaintGlow = function() error("boom glow") end')
@@ -568,8 +577,108 @@ def test_glow_paint_error_stops_the_animation_once_not_every_frame(plates):
 
 
 def test_recycled_plate_drops_the_glow(plates):
+    plates.execute('HogHeals.db.profile.plates.target.style = "glow"')   # the default is brackets since 2026-09-28
     uf = add(plates, "nameplate44", '{ name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-44" }')
     plates.execute('TARGET = "nameplate44"; MockFire("PLAYER_TARGET_CHANGED")')
     plates.execute('MockFire("NAME_PLATE_UNIT_REMOVED", "nameplate44")')
     assert plates.eval(f'{uf}.hh.glows[4]:IsShown()') is False and plates.eval(f'{uf}.hh.lit') is False
     assert plates.eval('HogHealsPlates.Plates.driver:IsShown()') is False
+
+
+# ------------------------------------------------------------------------------------------------ level next to the bar
+# Sean 2026-09-28: "I need the npc level next to their health bar".
+def test_level_text_sits_right_of_the_bar_by_default(plates):
+    uf = add(plates, "nameplate50", '{ name = "Mottled Worg", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-50", level = 12 }')
+    lv = f'{uf}.hh.level'
+    assert plates.eval(f'{lv}:IsShown()') is True and plates.eval(f'{lv}:GetText()') == "12"
+    pt = plates.eval(f'{lv}._points[1]')
+    assert pt[1] == "LEFT" and pt[3] == "RIGHT" and pt[4] == 9                      # right of the bar, clear of the brackets
+    plates.execute('HogHeals.db.profile.plates.showLevel = false; HogHealsPlates.Plates.Refresh()')
+    assert plates.eval(f'{lv}:IsShown()') is False
+    assert errors(plates) == []
+
+
+def test_level_text_marks_elites_rares_skulls_and_bosses(plates):
+    P = 'HogHealsPlates.Plates'
+    plates.execute("""
+      MockUnits.e = { name = "E", level = 20, classification = "elite" }
+      MockUnits.r = { name = "R", level = 9, classification = "rare" }
+      MockUnits.re = { name = "RE", level = 30, classification = "rareelite" }
+      MockUnits.s = { name = "S", level = -1 }
+      MockUnits.b = { name = "B", level = -1, classification = "worldboss" }
+    """)
+    got = [plates.eval(f'({P}.LevelText("{u}"))') for u in ("e", "r", "re", "s", "b")]
+    assert got == ["20+", "9R", "30R+", "??", "Boss"]
+    assert list(plates.eval(f'{{ {P}.LevelColor(-1) }}').values()) == pytest.approx([0.85, 0.20, 0.20])   # skull = red
+    assert list(plates.eval(f'{{ {P}.LevelColor(nil) }}').values()) == pytest.approx([0.96, 0.92, 0.86])  # unreadable = cream
+
+
+def test_level_colour_steps_without_the_clients_helper(plates):
+    P = 'HogHealsPlates.Plates'
+    plates.execute('GetCreatureDifficultyColor = nil; GetQuestDifficultyColor = nil; MockUnits.player = MockUnits.player or {}; MockUnits.player.level = 20')
+    col = lambda n: list(plates.eval(f'{{ {P}.LevelColor({n}) }}').values())
+    assert col(26) == pytest.approx([0.85, 0.20, 0.20])     # +6 red
+    assert col(23) == pytest.approx([1.00, 0.50, 0.25])     # +3 orange
+    assert col(20) == pytest.approx([1.00, 0.82, 0.00])     # even: yellow
+    assert col(15) == pytest.approx([0.25, 0.75, 0.25])     # -5 green
+    assert col(5) == pytest.approx([0.55, 0.55, 0.55])      # trivial: grey
+
+
+def test_recycled_plate_drops_the_level_until_the_next_unit(plates):
+    uf = add(plates, "nameplate51", '{ name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-51", level = 3 }')
+    plates.execute('MockFire("NAME_PLATE_UNIT_REMOVED", "nameplate51")')
+    assert plates.eval(f'{uf}.hh.level:IsShown()') is False
+
+
+# ------------------------------------------------------------------------------------------------ target brackets
+# Sean 2026-09-28 on the glow: "it is blurry" -> four hard corners (his pick), the default target mark.
+def test_target_brackets_are_the_default_mark_and_stay_sharp(plates):
+    uf = add(plates, "nameplate60", '{ name = "Mottled Worg", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-60" }')
+    other = add(plates, "nameplate61", '{ name = "Rabbit", class = "WARRIOR", health = 1, maxHealth = 1, guid = "C-61" }')
+    b = f'{uf}.hh.brackets'
+    assert plates.eval(f'#{b}') == 8                                                # 4 corners x 2 arms
+    assert plates.eval(f'{b}[1]:IsShown()') is False                                # nothing until targeted
+    plates.execute('TARGET = "nameplate60"; MockFire("PLAYER_TARGET_CHANGED")')
+    assert plates.eval(f'{uf}.hh.why') == "target" and plates.eval(f'{uf}.hh.bracketed') is True
+    for i in range(1, 9):
+        assert plates.eval(f'{b}[{i}]:IsShown()') is True
+        assert plates.eval(f'{b}[{i}]._texture') is None                            # flat colour: no art file to blur
+        assert list(plates.eval(f'{b}[{i}]._color').values())[:4] == pytest.approx([0.13, 0.83, 0.88, 1])   # solid, no fade
+    assert plates.eval(f'{uf}.hh.lit') is not True                                  # the glow is off
+    assert plates.eval(f'{uf}.hh.glows[1]:IsShown()') is False
+    assert plates.eval(f'{uf}.hh.scale') == 1                                       # not magnified
+    assert plates.eval(f'{uf}.hh.edges[1]._color[2]') == pytest.approx(0.05)        # bar edge stays the plain dark line: no box
+    assert plates.eval(f'{other}.hh.bracketed') is not True
+    # horizontal arm 10 x 2, vertical arm 2 x 10, anchored 5 px outside the bar's corner
+    assert (plates.eval(f'{b}[1]._width'), plates.eval(f'{b}[1]._height')) == (10, 2)
+    assert (plates.eval(f'{b}[2]._width'), plates.eval(f'{b}[2]._height')) == (2, 10)
+    tl, br = plates.eval(f'{b}[1]._points[1]'), plates.eval(f'{b}[8]._points[1]')
+    assert (tl[1], tl[4], tl[5]) == ("TOPLEFT", -5, 5) and (br[1], br[4], br[5]) == ("BOTTOMRIGHT", 5, -5)
+    plates.execute('TARGET = "nameplate61"; MockFire("PLAYER_TARGET_CHANGED")')
+    assert plates.eval(f'{b}[1]:IsShown()') is False and plates.eval(f'{other}.hh.bracketed') is True
+    assert errors(plates) == []
+
+
+def test_bracket_arms_never_close_into_a_box(plates):
+    uf = add(plates, "nameplate62", '{ name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-62" }')
+    plates.execute('local p = HogHeals.db.profile.plates; p.barHeight = 8; p.target.bracketSize = 30; TARGET = "nameplate62"; MockFire("PLAYER_TARGET_CHANGED")')
+    arm_v = plates.eval(f'{uf}.hh.bracketArmV')
+    assert plates.eval(f'{uf}.hh.bracketArmH') == 30
+    assert 2 * arm_v <= (8 + 2 * 5) - 2                                             # 2 px of air between the vertical arms
+
+
+def test_brackets_follow_colour_options_aggro_and_recycling(plates):
+    uf = add(plates, "nameplate63", '{ name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-63" }')
+    plates.execute('HogHeals.db.profile.plates.target.color = { 1, 0.5, 0 }; TARGET = "nameplate63"; MockFire("PLAYER_TARGET_CHANGED")')
+    assert list(plates.eval(f'{uf}.hh.brackets[3]._color').values())[:3] == pytest.approx([1, 0.5, 0])
+    plates.execute('THREAT.nameplate63 = 3; MockFire("UNIT_THREAT_SITUATION_UPDATE", "nameplate63")')
+    assert plates.eval(f'{uf}.hh.why') == "aggro" and plates.eval(f'{uf}.hh.bracketed') is True   # red edge + brackets
+    assert plates.eval(f'{uf}.hh.edges[1]._color[1]') == pytest.approx(0.85)
+    plates.execute('HogHeals.db.profile.plates.target.style = "arrows"; HogHealsPlates.Plates.Refresh()')       # older profiles
+    assert plates.eval(f'{uf}.hh.bracketed') is True
+    plates.execute('HogHeals.db.profile.plates.target.style = "none"; HogHealsPlates.Plates.Refresh()')
+    assert plates.eval(f'{uf}.hh.bracketed') is False and plates.eval(f'{uf}.hh.brackets[1]:IsShown()') is False
+    plates.execute('HogHeals.db.profile.plates.target.style = "brackets"; HogHealsPlates.Plates.Refresh()')
+    plates.execute('MockFire("NAME_PLATE_UNIT_REMOVED", "nameplate63")')
+    assert plates.eval(f'{uf}.hh.bracketed') is False and plates.eval(f'{uf}.hh.brackets[5]:IsShown()') is False
+    assert errors(plates) == []

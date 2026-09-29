@@ -94,6 +94,12 @@ function Plates.Skin(uf)
   -- that iterate it.
   hh.arrows = {}
   Plates.MakeGlow(uf, anchor)
+  Plates.MakeBrackets(uf, anchor)
+  -- Level: right of the bar, clear of the target brackets (they reach gap + thick = 5 px out)
+  hh.level = hh.overlay:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  hh.level:SetPoint("LEFT", anchor, "RIGHT", 9, 0)
+  hh.level:SetJustifyH("LEFT")
+  hh.level:Hide()
   -- Quest badge on the LEFT of the bar: the right side belongs to Blizzard's level badge (in-game 2026-09-22 our
   -- icon sat on top of it). Art = HogHeals/Media/quest_open.tga (dev/icons/build_icons.py). If the client refuses
   -- the file (SetTexture returns false), fall back to a drawn amber square + "!" glyph: the GossipFrame icon we used
@@ -397,6 +403,58 @@ function Plates.Light(uf, on)
   elseif Plates.driver then Plates.driver:Hide() end
 end
 
+-- ------------------------------------------------------------------------------------------------ target brackets
+-- Sean 2026-09-28 on the glow: "it is blurry". Picked: four hard corners hugging the bar. Flat colour textures (no
+-- art file, so nothing to filter or stretch), whole-pixel sizes, on the overlay so they draw over the bar. The arms
+-- never meet: a closed box around the bar is what he turned down on 2026-09-23.
+Plates.BRACKET = { gap = 3, size = 10, thick = 2 }
+local BRACKET_CORNERS = { { "TOPLEFT", -1, 1 }, { "TOPRIGHT", 1, 1 }, { "BOTTOMLEFT", -1, -1 }, { "BOTTOMRIGHT", 1, -1 } }
+
+function Plates.MakeBrackets(uf, anchor)
+  local hh = uf.hh
+  hh.brackets = {}
+  for _, c in ipairs(BRACKET_CORNERS) do
+    for arm = 1, 2 do   -- 1 = the horizontal arm, 2 = the vertical arm
+      local t = hh.overlay:CreateTexture(nil, "OVERLAY", nil, 2)
+      t:SetColorTexture(TARGET_COLOR[1], TARGET_COLOR[2], TARGET_COLOR[3], 1)
+      t.hhCorner, t.hhArm, t.hhAnchor = c, arm, anchor
+      t:Hide()
+      hh.brackets[#hh.brackets + 1] = t
+    end
+  end
+  return hh.brackets
+end
+
+local function whole(v, low) return math.max(low or 0, math.floor((num(v) or 0) + 0.5)) end
+
+--- Show / hide the corners; sizes and colour are re-read on every call, so option changes land at once.
+function Plates.Bracket(uf, on, color)
+  local hh, d = uf.hh, cfg()
+  if not hh or not hh.brackets then return end
+  if not on then
+    if hh.bracketed then for _, t in ipairs(hh.brackets) do t:Hide() end end
+    hh.bracketed = false
+    return
+  end
+  local B, t = Plates.BRACKET, d.target
+  local gap, thick = whole(t.bracketGap or B.gap, 0), whole(t.bracketThick or B.thick, 1)
+  local armH = whole(t.bracketSize or B.size, thick + 1)
+  -- the vertical arms stop short of each other whatever the bar height: at least 2 px of air between them
+  local barH = whole(d.barHeight or 14, 1)
+  local armV = math.max(thick + 1, math.min(armH, math.floor((barH + 2 * (gap + thick)) / 2) - 1))
+  local out = gap + thick
+  color = color or TARGET_COLOR
+  for _, tex in ipairs(hh.brackets) do
+    local c = tex.hhCorner
+    tex:ClearAllPoints()
+    tex:SetPoint(c[1], tex.hhAnchor, c[1], c[2] * out, c[3] * out)
+    if tex.hhArm == 1 then tex:SetSize(armH, thick) else tex:SetSize(thick, armV) end
+    tex:SetColorTexture(color[1], color[2], color[3], 1)
+    tex:Show()
+  end
+  hh.bracketed, hh.bracketArmH, hh.bracketArmV, hh.bracketOut = true, armH, armV, out
+end
+
 -- Blizzard's own marks on a plate (measured children, 2026-09-18). In game 2026-09-24 a thin yellow box sat a few px
 -- outside the target's bar on top of our marks - not ours, source unproven. NoteTarget writes what is showing on the
 -- target plate to diag.plateTarget so the next SavedVariables read names it.
@@ -438,17 +496,18 @@ function Plates.QuietBlizzard(uf, quiet)
 end
 
 --- Target / aggro / quest marks. Outline colour by priority: aggro on you (red, thick) beats a quest mob (amber)
--- beats plain. The target is marked by style (target.style): "glow" (default) - the animated light around the bar,
+-- beats plain. The target is marked by style (target.style): "brackets" (default) - four hard corners around the
+-- bar, "glow" - the animated light around the bar,
 -- "scale" - the whole plate magnified, "outline" (the old cyan box), "none". Aggro and target combine.
 -- Returns the reason it chose (tests read it): aggro > target > quest > plain.
 function Plates.UpdateHighlight(uf)
   local hh, d = uf.hh, cfg()
   if not hh or not hh.unit then return end
-  local function marks(show) Plates.Light(uf, show == "glow") end
+  local function marks(show, color) Plates.Light(uf, show == "glow") Plates.Bracket(uf, show == "brackets", color) end
   local unit = hh.unit
   local isTarget = bool(call(UnitIsUnit, unit, "target")) or false
-  local style = d.target.highlight ~= false and (d.target.style or "glow") or "none"
-  if style == "arrows" then style = "glow" end   -- older profiles
+  local style = d.target.highlight ~= false and (d.target.style or "brackets") or "none"
+  if style == "arrows" then style = "brackets" end   -- older profiles
   -- magnify only when asked (Sean 2026-09-23: "don't like ... making it slightly bigger")
   local grow = (isTarget and style == "scale") and (d.target.scale or 1.25) or 1
   if uf.SetScale and hh.scale ~= grow then hh.scale = grow call(uf.SetScale, uf, grow) end
@@ -473,7 +532,7 @@ function Plates.UpdateHighlight(uf)
       e:Hide()
     end
   end
-  marks(glowing and "glow" or nil)
+  marks(isTarget and (style == "glow" or style == "brackets") and style or nil, tc)
   Plates.QuietBlizzard(uf, isTarget and style ~= "none" and d.target.hideBlizzard ~= false)
   local hasTarget = bool(call(UnitExists, "target")) or false
   if d.target.fadeOthers and hasTarget and not isTarget then uf:SetAlpha(d.target.otherAlpha or 0.6) else uf:SetAlpha(1) end
@@ -577,26 +636,69 @@ function Plates.FriendlyLook(uf)
   return nameOnly
 end
 
---- Level badge (and the classification / level-diff badges next to it): off by default, kept off through
--- Blizzard's re-shows (in game 2026-09-23 "(20)" stayed on name-only plates); the option brings it back on plates
--- that are not name-only.
+--- The unit's level as text ("12", "12+" elite, "12R" rare, "??" skull, "Boss"), the plain number when the client
+-- lets us read it, and whether the level came back secret (then: drawn, never compared).
+function Plates.LevelText(unit)
+  local lvl = call(UnitLevel, unit)
+  if lvl == nil then return "", nil, false end
+  local n = num(lvl)
+  local text = (n and n < 0) and "??" or tostring(lvl)
+  local class = call(UnitClassification, unit)
+  if isSecret(class) or type(class) ~= "string" then class = nil end
+  if class == "elite" then text = text .. "+"
+  elseif class == "rareelite" then text = text .. "R+"
+  elseif class == "rare" then text = text .. "R"
+  elseif class == "worldboss" then text = "Boss" end
+  return text, n, isSecret(lvl)
+end
+
+local CREAM = { 0.96, 0.92, 0.86 }
+--- Colour for a level against yours: the client's own difficulty colours when it has them, else the classic steps.
+function Plates.LevelColor(n)
+  if not n then return CREAM[1], CREAM[2], CREAM[3] end
+  if n < 0 then return 0.85, 0.20, 0.20 end
+  local f = rawget(_G, "GetCreatureDifficultyColor") or rawget(_G, "GetQuestDifficultyColor")
+  local c = type(f) == "function" and call(f, n) or nil
+  if type(c) == "table" and num(c.r) and num(c.g) and num(c.b) then return c.r, c.g, c.b end
+  local me = num(call(UnitLevel, "player"))
+  if not me then return CREAM[1], CREAM[2], CREAM[3] end
+  local diff = n - me
+  if diff >= 5 then return 0.85, 0.20, 0.20
+  elseif diff >= 3 then return 1.00, 0.50, 0.25
+  elseif diff >= -2 then return 1.00, 0.82, 0.00
+  elseif diff >= -8 then return 0.25, 0.75, 0.25 end
+  return 0.55, 0.55, 0.55
+end
+
+--- Level next to the bar (Sean 2026-09-28: "I need the npc level next to their health bar"): our own text to the
+-- right of the bar, coloured by difficulty. Blizzard's level / classification / level-diff badges stay hidden while
+-- we restyle (kept off through Blizzard's re-shows; in game 2026-09-23 "(20)" stayed on name-only plates) - two
+-- level marks on one plate would be clutter. Never on name-only plates.
 function Plates.ApplyLevel(uf)
   local hh, d = uf.hh, cfg()
   if not hh then return end
-  local want = d.showLevel == true and not hh.nameOnly
+  local ours = d.enabled ~= false
   for _, k in ipairs({ "LevelFrame", "ClassificationFrame", "PlayerLevelDiffFrame" }) do
     local fr = rawget(uf, k)
     if type(fr) == "table" and fr.Hide then
-      if want then call(fr.Show, fr) else call(fr.Hide, fr) end
+      if ours then call(fr.Hide, fr) else call(fr.Show, fr) end
       if not fr.hhLevelHooked and type(hooksecurefunc) == "function" then
         fr.hhLevelHooked = true
         pcall(hooksecurefunc, fr, "Show", function(self)
-          local dd = cfg()
-          if dd.enabled ~= false and (dd.showLevel ~= true or (uf.hh and uf.hh.nameOnly)) then call(self.Hide, self) end
+          if cfg().enabled ~= false then call(self.Hide, self) end
         end)
       end
     end
   end
+  if not hh.level then return end
+  if not ours or d.showLevel == false or hh.nameOnly or not hh.unit then hh.level:Hide() return end
+  local text, n, secret = Plates.LevelText(hh.unit)
+  setFont(hh.level, math.max(7, (d.fontSize or 13) - 2))
+  hh.level:SetText(text)
+  hh.level:SetTextColor(Plates.LevelColor(n))
+  hh.level:Show()
+  hh.levelSecret = secret
+  Plates.levelSeen = { secret = secret, plain = n ~= nil }
 end
 
 --- Each piece on its own: one throwing (a secret in combat) must not leave the plate half-dressed - in game
@@ -636,6 +738,8 @@ function Plates.Reset(uf)
   end
   if hh.health then hh.health:Hide() end
   Plates.Light(uf, false)
+  Plates.Bracket(uf, false)
+  if hh.level then hh.level:Hide() end
   Plates.QuietBlizzard(uf, false)
   if hh.questFrame then hh.questFrame:Hide() end
   if uf.name then setFont(uf.name, d.fontSize or 13) end
@@ -819,6 +923,12 @@ function Plates.Diagnose()
   end
   local tgt
   for _, uf in pairs(Plates.active) do if uf.hh and uf.hh.lit then tgt = uf end end
+  local braced
+  for _, uf in pairs(Plates.active) do if uf.hh and uf.hh.bracketed then braced = uf end end
+  out[#out + 1] = ("target mark: style=%s brackets=%s arms=%sx%s"):format(tostring(cfg().target.style), tostring(braced ~= nil),
+    tostring(braced and braced.hh.bracketArmH), tostring(braced and braced.hh.bracketArmV))
+  local ls = Plates.levelSeen
+  out[#out + 1] = ("level text: shown=%s last level secret=%s readable=%s"):format(tostring(cfg().showLevel ~= false), tostring(ls and ls.secret), tostring(ls and ls.plain))
   out[#out + 1] = ("target glow: art=%s lit=%s driver=%s stopped=%s"):format(tostring(Plates.glowArt), tostring(tgt ~= nil),
     tostring(Plates.driver and call(Plates.driver.IsShown, Plates.driver)), tostring(Plates.glowStopped or "no"))
   if tgt then for _, l in ipairs(Plates.BlizzPieces(tgt)) do out[#out + 1] = "  blizzard " .. l end end
