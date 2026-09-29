@@ -700,3 +700,29 @@ def test_quest_mob_has_no_amber_outline_by_default_but_keeps_its_badge(plates):
     plates.execute('HogHeals.db.profile.plates.quest.highlight = true; HogHealsPlates.Plates.Refresh()')
     assert plates.eval(f'{uf}.hh.edges[1]._color[2]') == pytest.approx(0.65)        # opt-in brings it back
     assert errors(plates) == []
+
+
+# Sean 2026-09-28, second screenshot (plain wolf, no quest): "Yellow line is still there" -> Blizzard's own bar border.
+def test_blizzards_bar_borders_go_quiet_and_come_back_with_the_restyle_off(plates):
+    plates.execute("""
+      local p = MockPlate("nameplate80", { name = "Prairie Wolf", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-80", level = 6 })
+      local uf = p.UnitFrame
+      uf.HealthBarsContainer = CreateFrame("Frame", nil, uf)
+      uf.HealthBarsContainer.border = CreateFrame("Frame", nil, uf.HealthBarsContainer)
+      uf.healthBar.selectedBorder = uf.healthBar:CreateTexture(nil, "OVERLAY")
+      uf.healthBar.bgTexture = uf.healthBar:CreateTexture(nil, "BACKGROUND")
+      MockFire("NAME_PLATE_UNIT_ADDED", "nameplate80")
+    """)
+    uf = 'NP.nameplate80.UnitFrame'
+    assert plates.eval(f'{uf}.HealthBarsContainer.border._alpha') == 0
+    assert plates.eval(f'{uf}.healthBar.selectedBorder._alpha') == 0
+    assert plates.eval(f'{uf}.healthBar.bgTexture._alpha') == 1                     # not a border: left alone
+    assert plates.eval(f'{uf}.hh.edges[1]:IsShown()') is True                       # our dark edge stays
+    assert plates.eval('HogHealsPlates.Plates.bordersFound') == "HealthBarsContainer.border,healthBar.selectedBorder"
+    plates.execute('TARGET = "nameplate80"; MockFire("PLAYER_TARGET_CHANGED")')
+    assert plates.eval(f'{uf}.healthBar.selectedBorder._alpha') == 0                # still off on the target
+    note = plates.eval('HogHeals.db.global.diag.plateTarget')
+    assert "selectedBorder" in note["bordersHidden"] and len(list(note["bar"].values())) >= 1
+    plates.execute('HogHeals.db.profile.plates.hideBorders = false; HogHealsPlates.Plates.Refresh()')
+    assert plates.eval(f'{uf}.HealthBarsContainer.border._alpha') == 1 and plates.eval(f'{uf}.healthBar.selectedBorder._alpha') == 1
+    assert errors(plates) == []

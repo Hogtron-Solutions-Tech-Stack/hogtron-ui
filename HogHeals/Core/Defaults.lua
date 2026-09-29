@@ -106,6 +106,7 @@ HH.defaults = {
       enabled = true,                 -- restyle Blizzard's nameplates (flat bar, outline, health text)
       font = "Friz Quadrata TT", fontSize = 13, healthText = "percent",   -- "percent" | "value" | "none"
       barHeight = 14, widthScale = 1.3,   -- bar height in px; plate width as a multiple of Blizzard's (cvar)
+      hideBorders = true,             -- Blizzard's own bar border / selection line off (ours is the dark 1 px edge)
       border = true, classColors = true, reactionColors = true, castbar = true,
       nameClass = "friendly",         -- player names on plates in class colour: "friendly" | "all" | "none"
       friendlyNameOnly = true,        -- friendly plates: just the name, no health bar
