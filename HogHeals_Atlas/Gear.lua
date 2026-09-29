@@ -81,6 +81,79 @@ function Gear.BagItems()
   return out
 end
 
+-- ------------------------------------------------------------------------------------------------ one item
+local function round1(v) return math.floor(v * 10 + 0.5) / 10 end
+
+--- What the item would replace, as a score: the weaker of two slots for rings / trinkets / one-handers, both hands
+-- together for a two-hander. nil = it cannot be compared (an off-hand while you hold a two-hander). worn = you
+-- wear this very item.
+function Gear.Against(info, weights, worn)
+  local slots = Gear.EQUIP[info.equipLoc or ""]
+  if not slots then return nil end
+  worn = worn or {}
+  local function cur(sid)
+    if worn[sid] == nil then worn[sid] = Gear.Equipped(sid) or false end
+    return worn[sid] or nil
+  end
+  local function score(sid) local c = cur(sid) return c and A.Stats.Score(c.stats, weights) or 0 end
+  for _, sid in ipairs(slots) do
+    local c = cur(sid)
+    if c and c.id == info.id then return { worn = true, slot = sid } end
+  end
+  local main = cur(16)
+  local twoHanded = main and main.info and main.info.equipLoc == "INVTYPE_2HWEAPON"
+  if info.equipLoc == "INVTYPE_2HWEAPON" then
+    local off = cur(17)
+    return { slot = 16, score = round1(score(16) + score(17)), name = main and main.info and main.info.name or nil,
+      also = off and off.info and off.info.name or nil }
+  end
+  local best
+  for _, sid in ipairs(slots) do
+    -- an off-hand cannot be held next to a two-hander: that slot is not on offer
+    if not (sid == 17 and twoHanded) then
+      local s = score(sid)
+      if not best or s < best.score then
+        local c = cur(sid)
+        best = { slot = sid, score = s, name = c and c.info and c.info.name or nil }
+      end
+    end
+  end
+  return best
+end
+
+--- One item against what you wear: { delta, slot, slotName, against, score, role, later, usable } or nil when the
+-- item is not gear, not known yet, or has no stats the client will show. worn = true when you wear it.
+function Gear.Compare(item, role)
+  local info = A.ItemInfo(item)
+  if not info or info.partial or not Gear.EQUIP[info.equipLoc or ""] then return nil end
+  local class, level = A.playerClass(), A.playerLevel()
+  local usable, why = Gear.Usable(info, class, level)
+  local link = (A.str(item) and item:find("item:", 1, true)) and item or info.link or info.id
+  local stats = A.Stats.Of(link)
+  if next(stats) == nil then return nil end
+  role = role or A.Stats.Role()
+  local weights = A.Stats.Weights(role)
+  local vs = Gear.Against(info, weights)
+  if not vs then return nil end
+  if vs.worn then return { worn = true, slot = vs.slot, role = role } end
+  local score = A.Stats.Score(stats, weights)
+  return { delta = round1(score - vs.score), slot = vs.slot, slotName = Gear.SLOT_NAME[vs.slot], against = vs.name,
+    also = vs.also, score = score, role = role, usable = usable, why = why, later = info.minLevel > level and info.minLevel or nil,
+    name = info.name, link = info.link }
+end
+
+--- The line for a tooltip / chat: "+12.3 for healer, over Plain Hood (Head)". nil when there is nothing to say.
+function Gear.CompareText(c)
+  if not c or c.worn or not c.usable or not c.delta then return nil end
+  local what = c.against and (c.against .. (c.also and (" + " .. c.also) or "")) or "an empty slot"
+  local text
+  if c.delta > 0 then text = ("+%.1f for %s, over %s (%s)"):format(c.delta, c.role, what, c.slotName)
+  elseif c.delta < 0 then text = ("%.1f for %s, against %s (%s)"):format(c.delta, c.role, what, c.slotName)
+  else text = ("same as %s for %s (%s)"):format(what, c.role, c.slotName) end
+  if c.later then text = text .. (", from level %d"):format(c.later) end
+  return text, c.delta > 0
+end
+
 -- ------------------------------------------------------------------------------------------------ upgrade finder
 --- Upgrades per slot, best first: { [slotId] = { current = {...}|nil, currentScore, list = { { id, info, score,
 -- delta, source, where = "bag"|"drop", level } } } }. opts: role, futureLevels, perSlot.
@@ -90,10 +163,11 @@ function Gear.Upgrades(opts)
   local weights = A.Stats.Weights(opts.role)
   local future = opts.futureLevels or A.cfg().futureLevels or 0
   local perSlot = opts.perSlot or 8
-  local out, unknown = {}, 0
+  local out, unknown, worn = {}, 0, {}
 
   for _, s in ipairs(Gear.SLOTS) do
     local cur = Gear.Equipped(s.id)
+    worn[s.id] = cur or false
     out[s.id] = { slot = s.id, name = s.name, current = cur, currentScore = cur and A.Stats.Score(cur.stats, weights) or 0, list = {} }
   end
 
@@ -112,17 +186,11 @@ function Gear.Upgrades(opts)
     elseif Gear.Usable(info, class, level) and info.minLevel <= level + future then
       local stats = A.Stats.Of(c.link or info.link or c.id)
       local score = A.Stats.Score(stats, weights)
-      local slots = Gear.EQUIP[info.equipLoc]
-      -- two slots (rings, trinkets, one-handers): measured against the weaker of the two
-      local target
-      for _, sid in ipairs(slots) do
-        local row = out[sid]
-        local wearing = row.current and row.current.id == info.id
-        if not wearing and (not target or row.currentScore < out[target].currentScore) then target = sid end
-        if wearing then target = nil break end
-      end
+      -- two slots (rings, trinkets, one-handers): against the weaker of the two; a two-hander: against both hands
+      local vs = Gear.Against(info, weights, worn)
+      local target = vs and not vs.worn and vs.slot or nil
       if target then
-        local delta = math.floor((score - out[target].currentScore) * 10 + 0.5) / 10
+        local delta = round1(score - vs.score)
         if delta > 0 then
           table.insert(out[target].list, { id = info.id, info = info, stats = stats, score = score, delta = delta,
             where = c.where, source = c.where == "bag" and "In your bags" or A.Store.SourceText(info.id),

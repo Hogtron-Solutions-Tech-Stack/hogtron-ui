@@ -6,34 +6,48 @@ local HH = HogHeals
 local Tooltip = {}
 A.Tooltip = Tooltip
 
---- The lines to add for an item id: { "Drops from: ...", "On your wishlist" }. Pure.
-function Tooltip.Lines(id)
-  local out = {}
-  if A.cfg().tooltip == false or not id then return out end
-  local text = A.Store.SourceText(id)
-  if text then out[#out + 1] = "Drops from: " .. text end
-  if A.Gear.IsWished(id) then out[#out + 1] = "On your wishlist" end
-  return out
+--- The lines to add for an item: { "Drops from: ...", "On your wishlist", "+12.3 for healer, over ..." }.
+-- Second return: per line, true = good news (drawn green). link = the full item link when the tooltip has one
+-- (random-suffix items need it for their stats).
+function Tooltip.Lines(id, link)
+  local out, good = {}, {}
+  if not id then return out, good end
+  local c = A.cfg()
+  if c.tooltip ~= false then
+    local text = A.Store.SourceText(id)
+    if text then out[#out + 1] = "Drops from: " .. text end
+    if A.Gear.IsWished(id) then out[#out + 1] = "On your wishlist" end
+  end
+  if c.tooltipScore ~= false then
+    local ok, cmp = pcall(A.Gear.Compare, link or id)
+    local text, up = A.Gear.CompareText(ok and cmp or nil)
+    if text then out[#out + 1] = text good[#out] = up end
+  end
+  return out, good
 end
 
-local function add(tip, id)
+local function add(tip, id, link)
   if type(tip) ~= "table" or type(tip.AddLine) ~= "function" then return end
-  local c = A.COLORS.cyan
-  for _, line in ipairs(Tooltip.Lines(id)) do tip:AddLine(line, c[1], c[2], c[3]) end
+  local lines, good = Tooltip.Lines(id, link)
+  for i, line in ipairs(lines) do
+    local c = (good[i] == true and A.COLORS.green) or (good[i] == false and A.COLORS.grey) or A.COLORS.cyan
+    tip:AddLine(line, c[1], c[2], c[3])
+  end
 end
 
 function Tooltip.OnData(tip, data)
   if type(data) ~= "table" then return end
   local id = A.num(data.id)
-  if not id and A.str(data.hyperlink) then id = A.ItemIDFromLink(data.hyperlink) end
-  if id then add(tip, id) end
+  local link = A.str(data.hyperlink)
+  if not id and link then id = A.ItemIDFromLink(link) end
+  if id then add(tip, id, link) end
 end
 
 function Tooltip.OnLegacy(tip)
   if type(tip.GetItem) ~= "function" then return end
   local _, link = A.call(tip.GetItem, tip)
   local id = A.ItemIDFromLink(link)
-  if id then add(tip, id) end
+  if id then add(tip, id, A.str(link)) end
 end
 
 function Tooltip.Start()

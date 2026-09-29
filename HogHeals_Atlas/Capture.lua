@@ -71,6 +71,23 @@ local function wishAlert(id, boss, link)
   if type(play) == "function" then pcall(play, 8959) end   -- raid warning sound
 end
 
+--- You looted something: if it beats what you wear, say so once. Anywhere, not only in dungeons.
+function Capture.UpgradeAlert(link)
+  if not link or A.cfg().upgradeAlerts == false then return end
+  local function check()
+    local ok, c = pcall(A.Gear.Compare, link)
+    if not ok or not c or c.worn or not c.usable or c.later or not c.delta or c.delta <= 0 then return end
+    -- grey junk with 5 armour beats an empty slot on paper; nobody wants to hear about it
+    local info = A.ItemInfo(link)
+    if not info or (info.quality or 0) < 1 then return end
+    local text = A.Gear.CompareText(c)
+    HH:Print(("Upgrade in your bags: %s  %s."):format(link, text))
+    Capture.alerts = (Capture.alerts or 0) + 1
+  end
+  -- the item's data may be a moment behind the chat line
+  if C_Timer and C_Timer.After then C_Timer.After(0.5, check) else check() end
+end
+
 -- ------------------------------------------------------------------------------------------------ filing a drop
 --- File one drop. key = what makes this sighting unique (corpse + item), so reopening a corpse counts once.
 function Capture.File(link, sourceGUID, who, src)
@@ -180,6 +197,7 @@ function Capture.OnEvent(_, e, a1, a2, a3, a4, a5)
     local msg = A.str(a1)
     if msg and msg:find("item:", 1, true) then
       local mine = msg:find("^You ") ~= nil
+      if mine then Capture.UpgradeAlert(msg:match("(|c.-|Hitem:.-|h.-|h|r)")) end
       -- my own drops came through the loot window already; chat adds what the others picked up
       local link = msg:match("(|c.-|Hitem:.-|h.-|h|r)") or msg
       if not mine then Capture.File(link, nil, A.str(a2) or A.str(a5) or "group", "group") end
