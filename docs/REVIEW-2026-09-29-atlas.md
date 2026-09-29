@@ -22,6 +22,8 @@ BUILT-UNVERIFIED. Everything below runs in the test harness; nothing has been se
 | Tooltip lines, loot alert | `Tooltip.lua`, `Capture.lua` | built, tested |
 | Sharing with party / guild | `Share.lua` | built, tested |
 | State recorder for disk reads | `Diag.lua` | built, tested |
+| Minimap button | `Launcher.lua` | built, tested |
+| Upgrade score on tooltips, loot alert | `Gear.lua`, `Tooltip.lua`, `Capture.lua` | built, tested |
 | Curated import tool | `dev/atlas_import.py` | built, tested |
 | Preview renderer | `dev/render_atlas.py` | built, run |
 
@@ -56,6 +58,8 @@ file ships empty.
 | code review | a journal listing hundreds of instances could freeze login | 60 instances and 120 ms per scan, carries on next time |
 | code review | defaults added later would never reach a saved profile | filled once per session |
 | code review | the journal scan asked the server for every item at login | items are asked for when shown |
+| code review | one window repaint read the whole quest log once per dungeon (28 times) | read once, kept for a second |
+| test | a two-hander was compared against the main hand only | against both hands |
 
 Two of my own test expectations were wrong arithmetic (the code was right): corrected, noted here for honesty.
 
@@ -64,7 +68,7 @@ Two of my own test expectations were wrong arithmetic (the code was right): corr
 - Sixty Upgrades' own item data. Their API refuses unsigned requests (`403 Missing Authentication Token`). Using it
   means signing in as their web app does; that is a decision about their terms, not a technical one. Left alone.
 - Raids in the dungeon list.
-- A button on the micro menu or minimap. Slash commands and the options window only.
+- A button on the micro menu (there is a minimap button).
 - Non-English clients.
 - Weapon skill checks in the upgrade finder.
 
@@ -73,7 +77,8 @@ Two of my own test expectations were wrong arithmetic (the code was right): corr
 1. Start the game fresh (new addon folder). On the AddOns screen, HogUI Atlas ticked.
 2. `/hh atlas` : window opens, a dungeon for your level is selected.
 3. `/hh atlas scan` : read the chat line.
-4. `/hh gear` : anything in your bags that beats what you wear lists at once.
+4. Minimap button: hover it, click it.
+5. `/hh gear` : anything in your bags that beats what you wear lists at once.
 5. Hover any gear item: an upgrade line at the bottom of the tooltip.
 6. Walk into a dungeon: the tracker appears on the right. Kill a boss, loot: boss ticks off, `/hh lootlog` has the drop.
 7. `/hh atlasinfo`, then `/reload`. The answers to the five unknowns are then on disk.

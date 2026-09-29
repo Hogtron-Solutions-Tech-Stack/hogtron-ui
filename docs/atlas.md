@@ -18,6 +18,8 @@ Previews (drawn from the real code with sample items, not screenshots): `docs/mo
 | `/hh atlas scan` | reads the game's own dungeon journal again |
 | `/hh atlasinfo` | what Atlas could read on this client |
 
+Settings: `/hh` > Atlas (two tabs: General, Stat weights).
+
 ## The window
 
 **Dungeons.** Left: every dungeon with its level range, coloured for your level: red = too low, orange = hard,
@@ -40,6 +42,9 @@ Item rows everywhere: hover = tooltip, shift-click = link in chat, ctrl-click = 
 wishlist, alt-click = into the selected set.
 
 ## Outside the window
+
+- **Minimap button.** Left-click: the window. Right-click: upgrades. Shift-click: the dungeon tracker. Its tooltip
+  lists the dungeons for your level and says when something in your bags beats what you wear.
 
 - **Tracker.** Inside a dungeon a small panel shows the bosses (ticked off as they die), your dungeon quests with
   progress, and wishlist items that drop there. Click its title for the full window. Closing it lasts for that run.

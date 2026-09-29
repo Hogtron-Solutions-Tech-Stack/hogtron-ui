@@ -340,8 +340,8 @@ def test_tooltip_falls_back_to_the_script_hook(atlas):
 def test_options_table_reads_and_writes_the_settings(atlas):
     atlas.execute(f"OPT = {A}.module:GetOptions()")
     assert atlas.eval("OPT.type") == "group" and atlas.eval("OPT.name") == "Atlas"
-    assert atlas.eval("OPT.args.tooltip.get()") is True
-    atlas.execute("OPT.args.tooltip.set(nil, false); OPT.args.futureLevels.set(nil, 5); OPT.args.role.set(nil, 'caster')")
+    assert atlas.eval("OPT.args.general.args.tooltip.get()") is True
+    atlas.execute("OPT.args.general.args.tooltip.set(nil, false); OPT.args.general.args.futureLevels.set(nil, 5); OPT.args.general.args.role.set(nil, 'caster')")
     c = atlas.eval(f"{A}.cfg()")
     assert c["tooltip"] is False and c["futureLevels"] == 5 and c["role"] == "caster"
     assert atlas.eval("OPT.args.weights.args.spelldmg.get()") == 1.0
@@ -436,3 +436,17 @@ def test_the_quest_log_is_read_once_per_repaint_not_once_per_dungeon(lua):
     assert reads() - before == 2                                                    # a moment later: read again
     lua.execute(f'MockFire("QUEST_LOG_UPDATE"); {W}.Refresh()')
     assert reads() - before == 3                                                    # the log changed: read again at once
+
+
+def test_the_real_options_window_draws_both_atlas_tabs(atlas):
+    atlas.execute('HogHeals:SlashCommand(""); HogHeals.Panel.Select("Atlas")')
+    assert atlas.eval("HogHeals.Panel.selected") == "Atlas"
+    assert [b["key"] for b in vals(atlas.eval("HogHeals.Panel.tabs"))] == ["general", "weights"]
+    drawn = set(atlas.eval("HogHeals.Panel.controls").keys())
+    for key in ("about", "open", "scan", "enabled", "tooltip", "tooltipScore", "upgradeAlerts", "wishAlerts", "share",
+                "tracker", "minimap", "forMeNow", "minQuality", "futureLevels", "role", "scale"):
+        assert "Atlas.general." + key in drawn, key
+    atlas.execute('HogHeals.Panel.SelectTab("weights")')
+    drawn = set(atlas.eval("HogHeals.Panel.controls").keys())
+    assert "Atlas.weights.healing" in drawn and "Atlas.weights.reset" in drawn and "Atlas.general.tooltip" not in drawn
+    assert errors(atlas) == []

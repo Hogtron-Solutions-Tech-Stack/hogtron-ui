@@ -42,7 +42,7 @@ function Options.Build()
     scale = { type = "range", name = "Window scale", order = 10, min = 0.6, max = 1.4, step = 0.05,
       get = function() return A.cfg().scale or 1 end,
       set = function(_, v) A.cfg().scale = v if A.Window.frame then A.Window.frame:SetScale(v) end end },
-    weights = { type = "group", name = "Stat weights", order = 20, args = {
+    weights = { type = "group", name = "Stat weights", order = 2, args = {
       about = { type = "description", order = 0, name = "Points per 1 of each stat, for the role gear is scored for now. Change the role above to edit another set. 0 = the stat does not count." },
       reset = { type = "execute", name = "Back to the starting weights", order = 1, func = function()
         A.cfg().weights[A.Stats.Role()] = nil
@@ -61,5 +61,11 @@ function Options.Build()
         refresh()
       end }
   end
-  return { type = "group", name = "Atlas", args = args }
+  -- two tabs: everyday switches, and the stat weights (a long page of sliders nobody needs every day)
+  local weights = args.weights
+  args.weights = nil
+  return { type = "group", name = "Atlas", args = {
+    general = { type = "group", name = "General", order = 1, args = args },
+    weights = weights,
+  } }
 end
