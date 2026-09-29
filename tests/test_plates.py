@@ -97,6 +97,7 @@ def test_enemy_player_class_colour(plates):
 
 
 def test_quest_mob_from_tooltip_lines(plates):
+    plates.execute('HogHeals.db.profile.plates.quest.highlight = true')    # the amber outline is opt-in since 2026-09-28
     uf = add(plates, "nameplate3", '{ name = "Kobold Tunneler", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-3" }',
              '{ { leftText = "Kobold Tunneler", type = 2 }, { leftText = "Kobold Camp Cleanup", type = 17 }, { leftText = " - Kobold Tunneler slain: 1/5", type = 8 } }')
     assert plates.eval(f'{uf}.hh.questFrame:IsShown()') is True
@@ -150,6 +151,7 @@ def test_secret_health_still_prints(plates):
 
 
 def test_highlight_priority_aggro_over_target_over_quest(plates):
+    plates.execute('HogHeals.db.profile.plates.quest.highlight = true')    # the amber outline is opt-in since 2026-09-28
     plates.execute('HogHeals.db.profile.plates.target.style = "glow"')   # the default is brackets since 2026-09-28
     uf = add(plates, "nameplate3", '{ name = "Kobold Tunneler", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-3" }',
              '{ { leftText = "Kobold Tunneler", type = 2 }, { leftText = " - Kobold Tunneler slain: 1/5", type = 8 } }')
@@ -539,6 +541,7 @@ def test_still_glow_when_animation_is_off_and_live_option_changes(plates):
 
 
 def test_target_glow_quiets_blizzards_selection_highlight(plates):
+    plates.execute('HogHeals.db.profile.plates.quest.highlight = true')    # the amber outline is opt-in since 2026-09-28
     plates.execute('HogHeals.db.profile.plates.target.style = "glow"')   # the default is brackets since 2026-09-28
     uf = add(plates, "nameplate42", '{ name = "Kobold Tunneler", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-42" }',
              '{ { leftText = "Kobold Tunneler", type = 2 }, { leftText = " - Kobold Tunneler slain: 1/5", type = 8 } }')
@@ -681,4 +684,19 @@ def test_brackets_follow_colour_options_aggro_and_recycling(plates):
     plates.execute('HogHeals.db.profile.plates.target.style = "brackets"; HogHealsPlates.Plates.Refresh()')
     plates.execute('MockFire("NAME_PLATE_UNIT_REMOVED", "nameplate63")')
     assert plates.eval(f'{uf}.hh.bracketed') is False and plates.eval(f'{uf}.hh.brackets[5]:IsShown()') is False
+    assert errors(plates) == []
+
+
+# Sean 2026-09-28 (screenshot, quest mob targeted): "I don't like the yellow outline ... remove for a cleaner look".
+def test_quest_mob_has_no_amber_outline_by_default_but_keeps_its_badge(plates):
+    uf = add(plates, "nameplate70", '{ name = "Chakuyak", class = "WARRIOR", health = 6, maxHealth = 10, guid = "C-70", level = 6 }',
+             '{ { leftText = "Chakuyak", type = 2 }, { leftText = " - Chakuyak slain: 0/1", type = 8 } }')
+    dark = lambda: [plates.eval(f'{uf}.hh.edges[{i}]._color[2]') for i in range(1, 5)]
+    assert dark() == pytest.approx([0.05] * 4) and plates.eval(f'{uf}.hh.why') == "plain"
+    assert plates.eval(f'{uf}.hh.questFrame:IsShown()') is True                     # the ! badge still says quest mob
+    plates.execute('TARGET = "nameplate70"; MockFire("PLAYER_TARGET_CHANGED")')
+    assert dark() == pytest.approx([0.05] * 4) and plates.eval(f'{uf}.hh.bracketed') is True
+    assert plates.eval('HogHeals.db.global.diag.plateTarget') is not None           # Blizzard's pieces recorded for the next disk read
+    plates.execute('HogHeals.db.profile.plates.quest.highlight = true; HogHealsPlates.Plates.Refresh()')
+    assert plates.eval(f'{uf}.hh.edges[1]._color[2]') == pytest.approx(0.65)        # opt-in brings it back
     assert errors(plates) == []

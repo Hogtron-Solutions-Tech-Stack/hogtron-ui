@@ -117,7 +117,7 @@ HH.defaults = {
         glowSize = 9, animate = true, hideBlizzard = true, bracketSize = 10,
       },   -- style: brackets | glow | scale | outline | none; brackets = hard corners, glow = lock on + breathe
       aggro = { warn = true, color = { 0.85, 0.20, 0.20 } },   -- healer pulled threat: red outline
-      quest = { icon = true, highlight = true, progress = true, tint = false, iconSize = 16, color = { 0.95, 0.65, 0.15 } },
+      quest = { icon = true, highlight = false, progress = true, tint = false, iconSize = 16, color = { 0.95, 0.65, 0.15 } },
     },
     hud = {
       x = 0, y = -180, width = 300, followFrames = false,

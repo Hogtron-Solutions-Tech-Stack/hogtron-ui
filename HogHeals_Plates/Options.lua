@@ -76,7 +76,7 @@ function Options.Build()
         about = { type = "description", order = 0, name = "Marks mobs you still need for a quest: a ! icon with your progress beside the plate. Read from the mob's tooltip, or matched by name against your quest log when the tooltip has no quest lines (that needs the HogHeals Quests addon on)." },
         icon = toggle(sub("quest"), "icon", "Quest icon", 1),
         progress = toggle(sub("quest"), "progress", "Progress next to the icon (3/8)", 2),
-        highlight = toggle(sub("quest"), "highlight", "Outline quest mobs", 3),
+        highlight = toggle(sub("quest"), "highlight", "Amber outline on quest mobs (off = cleaner)", 3),
         tint = toggle(sub("quest"), "tint", "Tint the health bar too", 4),
         color = colour(sub("quest"), "color", "Quest colour", 5),
         iconSize = range(sub("quest"), "iconSize", "Icon size", 6, 10, 28, 1),
