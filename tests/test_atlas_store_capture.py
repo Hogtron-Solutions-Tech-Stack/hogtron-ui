@@ -297,3 +297,31 @@ def test_late_loot_data_rescans_a_bounded_number_of_times(lua):
     for _ in range(10):
         lua.execute('MockFire("EJ_LOOT_DATA_RECIEVED", 1001); MockAdvance(3)')
     assert lua.eval("SCANS") == 3
+
+
+def test_a_journal_listing_hundreds_of_instances_stops_at_its_caps(lua):
+    boot(lua, extra=JOURNAL + """
+      EJ = {}
+      for i = 1, 150 do EJ[i] = { id = 1000 + i, name = "Instance " .. i, bosses = { { "Boss " .. i, 5000 + i, { 1001 } } } } end
+    """)
+    lua.execute(f"{A}.Journal.MAX_INSTANCES = 40")
+    r = lua.eval(f'{A}.Journal.Scan("t")')
+    assert r["instances"] == 40 and r["status"].startswith("stopped early (instance cap)")
+    assert len(vals(lua.eval(f"{S}.ExtraDungeons()"))) == 40
+    r = lua.eval(f'{A}.Journal.Scan("again")')                                       # carries on where it stopped
+    assert r["instances"] == 40 and len(vals(lua.eval(f"{S}.ExtraDungeons()"))) == 60   # the dungeon cap holds
+    lua.execute(f"{A}.Journal.Scan('more'); {A}.Journal.Scan('more')")
+    assert len(vals(lua.eval(f"{S}.ExtraDungeons()"))) == 60
+    assert lua.eval(f'{A}.Journal.Scan("last").status') == "ok"                      # everything listed was read
+    assert errors(lua) == []
+
+
+def test_a_slow_journal_stops_on_its_time_budget(lua):
+    boot(lua, extra=JOURNAL + """
+      NOW = 0
+      function debugprofilestop() NOW = NOW + 50 return NOW end                      -- every look at the clock costs 50 ms
+    """)
+    r = lua.eval(f'{A}.Journal.Scan("t")')
+    assert r["status"].startswith("stopped early (time budget)") and 1 <= r["instances"] < 3
+    assert lua.eval("HogHeals.db.global.diag.atlasJournal.listed") >= 1
+    assert lua.eval(f"{S}.db().journalBuild") is None                               # not marked as done

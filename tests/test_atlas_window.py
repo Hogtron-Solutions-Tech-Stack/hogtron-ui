@@ -363,3 +363,29 @@ def test_atlasinfo_prints_what_was_read(atlas):
     chat = "\n".join(vals(atlas.eval("MockLog.chat")))
     assert "journal:" in chat and "capture:" in chat and "drops known" in chat and "role healer" in chat
     assert errors(atlas) == []
+
+
+# ------------------------------------------------------------------------------------------------ diag
+def test_state_is_written_for_the_next_read_off_disk(atlas):
+    atlas.execute(f'WORN[1] = 1001; {S}.Record("vc", "Cookie", 1001, "seen"); MockAdvance(7)')
+    assert atlas.eval("HogHeals.db.global.diag.atlasState.reason") == "login"
+    atlas.execute('MockLog.chat = {}; HogHeals:SlashCommand("atlasinfo")')
+    st = atlas.eval("HogHeals.db.global.diag.atlasState")
+    assert st["reason"] == "slash" and st["role"] == "healer" and st["store"]["drops"] == 1
+    assert st["api"]["GetItemStats"] == "nil" and st["api"]["C_TooltipInfo.GetHyperlink"] == "function"
+    assert st["journal"] == "no journal functions on this client"
+    ip = st["itemProbe"]
+    assert ip["slot"] == "Head" and ip["parsed"] == "armor=30 healing=22 int=10 spi=5"
+    assert vals(ip["tooltipLines"])[4] == '"+10 Intellect"'
+    assert "item reading: slot Head, stat table no, tooltip lines 7" in "\n".join(vals(atlas.eval("MockLog.chat")))
+    atlas.execute('MockFire("PLAYER_LOGOUT")')
+    assert atlas.eval("HogHeals.db.global.diag.atlasState.reason") == "logout"
+    assert errors(atlas) == []
+
+
+def test_item_probe_names_a_secret_link_and_touches_nothing(atlas):
+    atlas.execute("MockSetSecrets(true); function GetInventoryItemLink() return MockSecret(ItemLink(1001)) end")
+    ip = atlas.eval(f"{A}.Diag.ItemProbe()")
+    assert ip["link"] == "SECRET(userdata)" and ip["parsed"] is None
+    atlas.execute("function GetInventoryItemLink() return nil end")
+    assert atlas.eval(f"{A}.Diag.ItemProbe().slot") == "nothing worn"

@@ -107,8 +107,10 @@ end
 function Stats.Of(item)
   local id = A.ItemIDFromLink(item)
   if not id then return {} end
-  if Stats.cache[id] then return Stats.cache[id] end
   local link = (A.str(item) and item:find("item:", 1, true)) and item or ("item:" .. id)
+  -- cached by the whole item string: "of the Eagle" and "of the Bear" are one item id with different stats
+  local key = link:match("(item:[%-%d:]+)") or ("item:" .. id)
+  if Stats.cache[key] then return Stats.cache[key] end
   local out, complete = {}, false
   local lines = tooltipLines(link)
   if lines and #lines > 0 then
@@ -123,7 +125,7 @@ function Stats.Of(item)
       if key and A.num(v) then out[key] = v complete = true end
     end
   end
-  if complete then Stats.cache[id] = out end
+  if complete then Stats.cache[key] = out end
   return out
 end
 

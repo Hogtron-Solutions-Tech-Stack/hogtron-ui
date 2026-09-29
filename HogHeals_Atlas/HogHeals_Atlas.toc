@@ -24,4 +24,5 @@ List.lua
 Window.lua
 Tracker.lua
 Options.lua
+Diag.lua
 Module.lua
