@@ -42,6 +42,8 @@ function Options.Build()
         barHeight = range(p, "barHeight", "Bar height", 6.1, 6, 30, 1),
         widthScale = range(p, "widthScale", "Plate width (x)", 6.2, 0.6, 2.0, 0.05),
         castbar = toggle(p, "castbar", "Flatten the cast bar under the plate", 7),
+        hideBorders = { type = "toggle", name = "Hide Blizzard's bar border (the yellow line)", order = 7.1,
+          get = function() return p().hideBorders ~= false end, set = function(_, v) p().hideBorders = v and true or false; refresh() end },
         friendlyNameOnly = toggle(p, "friendlyNameOnly", "Friendly plates: name only (no health bar)", 7.5),
         friendlyNameSize = range(p, "friendlyNameSize", "Friendly name text size", 7.6, 8, 24, 1),
         uniformScale = toggle(p, "uniformScale", "Same plate size at every distance (no shrink / fade)", 7.8),

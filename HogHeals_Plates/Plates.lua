@@ -403,6 +403,77 @@ function Plates.Light(uf, on)
   elseif Plates.driver then Plates.driver:Hide() end
 end
 
+-- ------------------------------------------------------------------------------------------------ Blizzard's borders
+-- In game 2026-09-28: a thin yellow line hugged the bar of a plain (non-quest) target with our quest outline already
+-- off - so it is Blizzard's, not ours. The plate draws its own border / selection pieces on the health bar and on
+-- HealthBarsContainer; ours is the dark 1 px edge. They are found by key name (border / select / highlight) instead
+-- of a fixed list, because the names differ per client generation, and only their alpha is touched: no re-parenting,
+-- no fields written on them (that taints Blizzard's secret handling, 2026-09-26).
+local BORDER_WORDS = { "border", "select", "highlight" }
+local function borderish(key)
+  if type(key) ~= "string" then return false end
+  local k = key:lower()
+  for _, w in ipairs(BORDER_WORDS) do if k:find(w, 1, true) then return true end end
+  return false
+end
+
+--- Every border-like piece Blizzard hangs on the bar and its container: { { label, region }, ... }.
+function Plates.BlizzBorders(uf)
+  local out, seen = {}, {}
+  local function scan(owner, label)
+    if type(owner) ~= "table" or seen[owner] then return end
+    seen[owner] = true
+    for k, v in pairs(owner) do
+      if borderish(k) and type(v) == "table" and not seen[v] and type(v.SetAlpha) == "function" then
+        seen[v] = true
+        out[#out + 1] = { label .. "." .. k, v }
+      end
+    end
+  end
+  scan(uf.hh and uf.hh.bar, "healthBar")
+  scan(rawget(uf, "HealthBarsContainer"), "HealthBarsContainer")
+  table.sort(out, function(a, b) return a[1] < b[1] end)
+  return out
+end
+
+--- Blizzard's bar borders off while we restyle (plates.hideBorders, default on), back on when the restyle is off.
+function Plates.QuietBorders(uf)
+  local hh, d = uf.hh, cfg()
+  if not hh then return end
+  local quiet = d.enabled ~= false and d.hideBorders ~= false
+  if not quiet and not hh.bordersQuiet then return end
+  local names = {}
+  for _, b in ipairs(Plates.BlizzBorders(uf)) do
+    call(b[2].SetAlpha, b[2], quiet and 0 or 1)
+    names[#names + 1] = b[1]
+  end
+  hh.bordersQuiet = quiet or nil
+  Plates.bordersFound = table.concat(names, ",")
+  return names
+end
+
+--- What is drawn on the bar and its container, named or not: for the disk read when a line we cannot name shows up.
+function Plates.DescribeBar(uf)
+  local out = {}
+  local function one(owner, label)
+    if type(owner) ~= "table" then return end
+    local named = {}
+    for k, v in pairs(owner) do if type(k) == "string" and type(v) == "table" then named[v] = k end end
+    local function line(kind, r)
+      if type(r) ~= "table" or #out >= 40 then return end
+      local cr, cg, cb, ca = call(r.GetVertexColor, r)
+      out[#out + 1] = ("%s %s key=%s type=%s shown=%s alpha=%s atlas=%s tex=%s colour=%s,%s,%s,%s"):format(label, kind,
+        tostring(named[r]), tostring(call(r.GetObjectType, r)), tostring(call(r.IsShown, r)), tostring(call(r.GetAlpha, r)),
+        tostring(call(r.GetAtlas, r)), tostring(call(r.GetTexture, r)), tostring(cr), tostring(cg), tostring(cb), tostring(ca))
+    end
+    if type(owner.GetRegions) == "function" then for _, r in ipairs({ owner:GetRegions() }) do line("region", r) end end
+    if type(owner.GetChildren) == "function" then for _, r in ipairs({ owner:GetChildren() }) do line("child", r) end end
+  end
+  one(uf.hh and uf.hh.bar, "healthBar")
+  one(rawget(uf, "HealthBarsContainer"), "HealthBarsContainer")
+  return out
+end
+
 -- ------------------------------------------------------------------------------------------------ target brackets
 -- Sean 2026-09-28 on the glow: "it is blurry". Picked: four hard corners hugging the bar. Flat colour textures (no
 -- art file, so nothing to filter or stretch), whole-pixel sizes, on the overlay so they draw over the bar. The arms
@@ -486,7 +557,9 @@ function Plates.NoteTarget(uf)
   if not g then return end
   local ok, pieces = pcall(Plates.BlizzPieces, uf)
   g.diag = g.diag or {}
-  g.diag.plateTarget = { at = date and date("%H:%M:%S") or "?", glowArt = uf.hh.glowArt, pieces = ok and pieces or { tostring(pieces) } }
+  local okBar, bar = pcall(Plates.DescribeBar, uf)
+  g.diag.plateTarget = { at = date and date("%H:%M:%S") or "?", glowArt = uf.hh.glowArt, pieces = ok and pieces or { tostring(pieces) },
+    bordersHidden = Plates.bordersFound or "", bar = okBar and bar or { tostring(bar) } }
 end
 
 --- Blizzard's selection highlight goes quiet while our target mark is on (two marks fighting on one plate).
@@ -721,6 +794,7 @@ end
 
 function Plates.Update(uf)
   piece("look", Plates.ApplyLook, uf)
+  piece("borders", Plates.QuietBorders, uf)
   piece("colour", Plates.Color, uf)
   piece("name colour", Plates.ColorName, uf)
   piece("friendly", Plates.FriendlyLook, uf)
@@ -928,6 +1002,7 @@ function Plates.Diagnose()
   for _, uf in pairs(Plates.active) do if uf.hh and uf.hh.lit then tgt = uf end end
   local braced
   for _, uf in pairs(Plates.active) do if uf.hh and uf.hh.bracketed then braced = uf end end
+  out[#out + 1] = ("blizzard bar borders hidden: %s"):format(tostring(Plates.bordersFound or "none found"))
   out[#out + 1] = ("target mark: style=%s brackets=%s arms=%sx%s"):format(tostring(cfg().target.style), tostring(braced ~= nil),
     tostring(braced and braced.hh.bracketArmH), tostring(braced and braced.hh.bracketArmV))
   local ls = Plates.levelSeen
