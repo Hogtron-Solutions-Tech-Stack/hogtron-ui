@@ -436,20 +436,63 @@ function Plates.BlizzBorders(uf)
   return out
 end
 
---- Blizzard's bar borders off while we restyle (plates.hideBorders, default on), back on when the restyle is off.
-function Plates.QuietBorders(uf)
+--- Blizzard's art on the bar, off while we restyle. One pass decides for every piece, so the two options can never
+-- undo each other:
+--   plates.flatBar (default on)      every piece of Blizzard art on the health bar and its container - backing,
+--                                    border, overlays, named or not (Sean 2026-09-28, a pale bar showing behind the
+--                                    red at both ends: "I just want a plain, flat color for their health bar")
+--   plates.hideBorders (default on)  with flatBar off: only the border / selection pieces, found by key name
+-- Kept always: the fill, our own dark backing, the heal / absorb pieces (information, not decoration). Alpha only;
+-- the alpha a piece had when first seen is remembered and put back when it is no longer wanted hidden.
+function Plates.QuietArt(uf)
   local hh, d = uf.hh, cfg()
   if not hh then return end
-  local quiet = d.enabled ~= false and d.hideBorders ~= false
-  if not quiet and not hh.bordersQuiet then return end
-  local names = {}
-  for _, b in ipairs(Plates.BlizzBorders(uf)) do
-    call(b[2].SetAlpha, b[2], quiet and 0 or 1)
-    names[#names + 1] = b[1]
+  local on = d.enabled ~= false
+  local flat = on and d.flatBar ~= false and hh.bar ~= nil
+  local borders = on and d.hideBorders ~= false
+  hh.artAlpha = hh.artAlpha or {}
+  local want, names = {}, {}
+  if borders or flat then
+    for _, p in ipairs(Plates.BlizzBorders(uf)) do want[p[2]] = true names[#names + 1] = p[1] end
   end
-  hh.bordersQuiet = quiet or nil
+  if flat then
+    local keep = { [hh.bar] = true }
+    if hh.bg then keep[hh.bg] = true end
+    local fill = call(hh.bar.GetStatusBarTexture, hh.bar)
+    if type(fill) == "table" then keep[fill] = true end
+    for k, v in pairs(uf) do
+      if type(k) == "string" and type(v) == "table" then
+        local lk = k:lower()
+        if lk:find("heal", 1, true) or lk:find("absorb", 1, true) then keep[v] = true end
+      end
+    end
+    local function sweep(owner)
+      if type(owner) ~= "table" then return end
+      local list = {}
+      if type(owner.GetRegions) == "function" then for _, r in ipairs({ owner:GetRegions() }) do list[#list + 1] = r end end
+      if type(owner.GetChildren) == "function" then for _, r in ipairs({ owner:GetChildren() }) do list[#list + 1] = r end end
+      for _, r in ipairs(list) do
+        if type(r) == "table" and type(r.SetAlpha) == "function" then
+          if keep[r] then want[r] = nil else want[r] = true end
+        end
+      end
+    end
+    sweep(hh.bar)
+    sweep(rawget(uf, "HealthBarsContainer"))
+    for r in pairs(keep) do want[r] = nil end
+  end
+  for r, was in pairs(hh.artAlpha) do
+    if not want[r] then call(r.SetAlpha, r, was) hh.artAlpha[r] = nil end
+  end
+  local n = 0
+  for r in pairs(want) do
+    if hh.artAlpha[r] == nil then hh.artAlpha[r] = num(call(r.GetAlpha, r)) or 1 end
+    call(r.SetAlpha, r, 0)
+    n = n + 1
+  end
+  hh.flatCount, Plates.flatCount = n, n
   Plates.bordersFound = table.concat(names, ",")
-  return names
+  return n
 end
 
 --- What is drawn on the bar and its container, named or not: for the disk read when a line we cannot name shows up.
@@ -794,7 +837,7 @@ end
 
 function Plates.Update(uf)
   piece("look", Plates.ApplyLook, uf)
-  piece("borders", Plates.QuietBorders, uf)
+  piece("bar art", Plates.QuietArt, uf)
   piece("colour", Plates.Color, uf)
   piece("name colour", Plates.ColorName, uf)
   piece("friendly", Plates.FriendlyLook, uf)
@@ -1002,6 +1045,7 @@ function Plates.Diagnose()
   for _, uf in pairs(Plates.active) do if uf.hh and uf.hh.lit then tgt = uf end end
   local braced
   for _, uf in pairs(Plates.active) do if uf.hh and uf.hh.bracketed then braced = uf end end
+  out[#out + 1] = ("flat bar: %s, blizzard art pieces hidden on the last plate: %s"):format(tostring(cfg().flatBar ~= false), tostring(Plates.flatCount))
   out[#out + 1] = ("blizzard bar borders hidden: %s"):format(tostring(Plates.bordersFound or "none found"))
   out[#out + 1] = ("target mark: style=%s brackets=%s arms=%sx%s"):format(tostring(cfg().target.style), tostring(braced ~= nil),
     tostring(braced and braced.hh.bracketArmH), tostring(braced and braced.hh.bracketArmV))

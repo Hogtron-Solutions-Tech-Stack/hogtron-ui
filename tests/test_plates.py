@@ -703,7 +703,8 @@ def test_quest_mob_has_no_amber_outline_by_default_but_keeps_its_badge(plates):
 
 
 # Sean 2026-09-28, second screenshot (plain wolf, no quest): "Yellow line is still there" -> Blizzard's own bar border.
-def test_blizzards_bar_borders_go_quiet_and_come_back_with_the_restyle_off(plates):
+def test_blizzards_bar_borders_go_quiet_and_come_back_with_the_option_off(plates):
+    plates.execute('HogHeals.db.profile.plates.flatBar = false')                   # borders only: the narrower option
     plates.execute("""
       local p = MockPlate("nameplate80", { name = "Prairie Wolf", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-80", level = 6 })
       local uf = p.UnitFrame
@@ -725,4 +726,41 @@ def test_blizzards_bar_borders_go_quiet_and_come_back_with_the_restyle_off(plate
     assert "selectedBorder" in note["bordersHidden"] and len(list(note["bar"].values())) >= 1
     plates.execute('HogHeals.db.profile.plates.hideBorders = false; HogHealsPlates.Plates.Refresh()')
     assert plates.eval(f'{uf}.HealthBarsContainer.border._alpha') == 1 and plates.eval(f'{uf}.healthBar.selectedBorder._alpha') == 1
+    assert errors(plates) == []
+
+
+# Sean 2026-09-28, third screenshot: a pale bar behind the red, visible at both ends. "I just want a plain, flat color".
+def test_flat_bar_hides_blizzards_bar_art_named_or_not_and_keeps_what_informs(plates):
+    plates.execute("""
+      local p = MockPlate("nameplate81", { name = "Bael'dun Digger", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-81", level = 7 })
+      local uf = p.UnitFrame
+      local hb = uf.healthBar
+      ART_BACK = hb:CreateTexture(nil, "BACKGROUND")            -- unnamed: no key anywhere
+      ART_BACK:SetAlpha(0.6)
+      hb.deselectedOverlay = hb:CreateTexture(nil, "OVERLAY")     -- border-like by name
+      hb.shine = hb:CreateTexture(nil, "OVERLAY")                 -- art, not border-like
+      uf.totalAbsorb = hb:CreateTexture(nil, "ARTWORK")
+      uf.myHealPrediction = hb:CreateTexture(nil, "ARTWORK")
+      uf.HealthBarsContainer = CreateFrame("Frame", nil, uf)
+      ART_BOX = CreateFrame("Frame", nil, uf.HealthBarsContainer)
+      MockFire("NAME_PLATE_UNIT_ADDED", "nameplate81")
+    """)
+    uf = 'NP.nameplate81.UnitFrame'
+    assert plates.eval('ART_BACK._alpha') == 0 and plates.eval(f'{uf}.healthBar.deselectedOverlay._alpha') == 0
+    assert plates.eval('ART_BOX._alpha') == 0
+    assert plates.eval(f'{uf}.totalAbsorb._alpha') == 1 and plates.eval(f'{uf}.myHealPrediction._alpha') == 1   # information stays
+    assert plates.eval(f'{uf}.hh.bg._alpha') == 1 and plates.eval(f'{uf}.hh.bg:IsShown()') is True               # our backing stays
+    assert plates.eval(f'{uf}.healthBar._alpha') == 1
+    assert plates.eval(f'{uf}.hh.flatCount') >= 3
+    plates.execute('MockFire("UNIT_HEALTH", "nameplate81"); HogHealsPlates.Plates.Refresh()')                    # repeat passes
+    plates.execute('HogHeals.db.profile.plates.flatBar = false; HogHealsPlates.Plates.Refresh()')
+    assert plates.eval('ART_BACK._alpha') == pytest.approx(0.6)                                                  # its own alpha, not 1, not 0
+    assert plates.eval(f'{uf}.healthBar.shine._alpha') == 1 and plates.eval('ART_BOX._alpha') == 1
+    assert plates.eval(f'{uf}.healthBar.deselectedOverlay._alpha') == 0            # hideBorders is still on: stays hidden
+    plates.execute('HogHeals.db.profile.plates.hideBorders = false; HogHealsPlates.Plates.Refresh()')
+    assert plates.eval(f'{uf}.healthBar.deselectedOverlay._alpha') == 1
+    plates.execute('HogHeals.db.profile.plates.flatBar = true; HogHealsPlates.Plates.Refresh()')
+    assert plates.eval(f'{uf}.healthBar.deselectedOverlay._alpha') == 0 and plates.eval('ART_BACK._alpha') == 0   # flat wins
+    plates.execute('HogHeals.db.profile.plates.enabled = false; HogHealsPlates.Plates.Refresh()')
+    assert plates.eval('ART_BACK._alpha') == pytest.approx(0.6) and plates.eval(f'{uf}.healthBar.shine._alpha') == 1   # restyle off: all back
     assert errors(plates) == []
