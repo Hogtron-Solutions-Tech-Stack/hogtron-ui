@@ -55,8 +55,10 @@ def test_parse_ignores_secrets_and_junk(atlas):
 def test_stats_of_an_item_come_from_its_tooltip_and_are_cached(atlas):
     assert table(atlas, f"{ST}.Of(1001)") == {"armor": 30, "int": 10, "spi": 5, "healing": 22}
     atlas.execute("CALLS = 0; local f = C_TooltipInfo.GetHyperlink; C_TooltipInfo.GetHyperlink = function(...) CALLS = CALLS + 1 return f(...) end")
-    atlas.execute(f"{ST}.Of(1001); {ST}.Of(ItemLink(1001))")
+    atlas.execute(f"{ST}.Of(1001); {ST}.Of(1001)")
     assert atlas.eval("CALLS") == 0
+    atlas.execute(f"{ST}.Of(ItemLink(1001)); {ST}.Of(ItemLink(1001))")
+    assert atlas.eval("CALLS") == 1                                                # a full link is its own entry, read once
     atlas.execute("ITEMS[1002].cold = true")                                       # the server has not sent it yet
     assert table(atlas, f"{ST}.Of(1002)") == {}
     atlas.execute("ITEMS[1002].cold = nil")
@@ -263,3 +265,22 @@ def test_sets_are_capped_named_and_deletable(atlas):
     assert atlas.eval(f"{G}.DeleteSet(2)") is True and atlas.eval(f"#{G}.Sets()") == 11
     assert atlas.eval(f"{G}.DeleteSet(40)") is False
     assert errors(atlas) == []
+
+
+def test_random_suffix_items_share_an_id_but_not_their_stats(atlas):
+    # "of the Eagle" and "of the Bear": one item id, different stats, told apart by the item string
+    atlas.execute("""
+      ITEMS[4000] = { "Scouting Cloak", 2, 25, 20, "Armor", "Cloth", "INVTYPE_CLOAK", 4, 1, { "Scouting Cloak" } }
+      local real = C_TooltipInfo.GetHyperlink
+      C_TooltipInfo.GetHyperlink = function(link)
+        if link:find("item:4000:0:0:0:0:0:845", 1, true) then return { lines = { { leftText = "+5 Stamina" }, { leftText = "+5 Intellect" } } } end
+        if link:find("item:4000:0:0:0:0:0:1200", 1, true) then return { lines = { { leftText = "+5 Stamina" }, { leftText = "+5 Strength" } } } end
+        return real(link)
+      end
+      EAGLE = "|cff1eff00|Hitem:4000:0:0:0:0:0:845:0:20|h[Scouting Cloak of the Eagle]|h|r"
+      BEAR = "|cff1eff00|Hitem:4000:0:0:0:0:0:1200:0:20|h[Scouting Cloak of the Bear]|h|r"
+    """)
+    assert table(atlas, f"{ST}.Of(EAGLE)") == {"sta": 5, "int": 5}
+    assert table(atlas, f"{ST}.Of(BEAR)") == {"sta": 5, "str": 5}
+    assert table(atlas, f"{ST}.Of(EAGLE)") == {"sta": 5, "int": 5}
+    assert table(atlas, f"{ST}.Of(4000)") == {}                                    # the bare id knows no suffix: says nothing

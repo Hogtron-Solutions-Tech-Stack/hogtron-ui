@@ -19,7 +19,10 @@ Stats.lua
 Gear.lua
 DungeonQuests.lua
 Tooltip.lua
+Share.lua
 List.lua
 Window.lua
+Tracker.lua
 Options.lua
+Diag.lua
 Module.lua

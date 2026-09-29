@@ -408,7 +408,7 @@ function Window.Build()
   Window.scan = A.button(p, "Read game journal", 130, 20, function()
     local r = A.Journal.Scan("button")
     HH:Print(A.Journal.Report()[1])
-    if r.status == "ok" then Window.Refresh() end
+    if r.instances > 0 then Window.Refresh() end
   end)
   Window.scan:SetPoint("TOPLEFT", p, "TOPLEFT", 116, 0)
   Window.lists.dungeons = column(p, 0, 250, BODY_ROWS - 2, function(row)

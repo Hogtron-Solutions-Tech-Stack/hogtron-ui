@@ -10,7 +10,10 @@
 local A = HogHealsAtlas
 local HH = HogHeals
 
-local Journal = { MAX_INSTANCES = 80, MAX_ENCOUNTERS = 40, MAX_LOOT = 120, passes = 0, MAX_PASSES = 3 }
+-- Bounds: nobody has seen what Forever's journal lists. If it lists every instance of every later expansion, a
+-- scan must still cost a blink, not a freeze: a cap on instances per scan and a time budget, whichever is hit
+-- first. A scan that stopped early says so and carries on from there next time.
+local Journal = { MAX_INSTANCES = 60, MAX_ENCOUNTERS = 30, MAX_LOOT = 80, BUDGET_MS = 120, passes = 0, MAX_PASSES = 3 }
 A.Journal = Journal
 
 local function g(name) local f = rawget(_G, name) if type(f) == "function" then return f end end
@@ -54,7 +57,6 @@ local function scanInstance(jid, name, out)
           local id = lootAt(n)
           if id then
             if A.Store.Record(dkey, bname, id, "journal") then items = items + 1 end
-            A.ItemInfo(id)   -- asks the server for the item so the window has a name when opened
           end
         end
       end
@@ -63,6 +65,13 @@ local function scanInstance(jid, name, out)
   out[#out + 1] = ("%s: %d bosses, %d new items"):format(name, bosses, items)
   return bosses, items
 end
+
+local function ms()
+  local f = rawget(_G, "debugprofilestop")
+  if type(f) == "function" then local ok, v = pcall(f) if ok and type(v) == "number" then return v end end
+  return ((type(GetTime) == "function" and GetTime()) or 0) * 1000
+end
+Journal.ms = ms
 
 --- Read every dungeon the journal lists. Returns a result table (also written to diag).
 function Journal.Scan(reason)
@@ -76,6 +85,7 @@ function Journal.Scan(reason)
       local lines = {}
       for i = 1, math.min(#res.lines, 40) do lines[i] = res.lines[i] end
       gl.diag.atlasJournal = { at = res.at, reason = res.reason, status = status, instances = res.instances,
+        listed = res.listed, ms = res.ms,
         bosses = res.bosses, items = res.items, lines = lines }
     end
     return res
@@ -86,12 +96,22 @@ function Journal.Scan(reason)
   if type(ej) == "table" and ej.IsShown and A.plain(A.call(ej.IsShown, ej)) then return done("journal window open, not scanned") end
 
   local tiers = A.num(A.call(g("EJ_GetNumTiers"))) or 1
+  local started, stopped = ms(), nil
+  Journal.done = Journal.done or {}          -- journal instance ids read this session: a later scan skips them
   for tier = 1, math.max(1, math.min(tiers, 12)) do
+    if stopped then break end
     if g("EJ_SelectTier") then A.call(g("EJ_SelectTier"), tier) end
-    for i = 1, Journal.MAX_INSTANCES do
+    for i = 1, 200 do
       local jid, name = A.call(g("EJ_GetInstanceByIndex"), i, false)
       jid, name = A.num(jid), A.str(name)
       if not jid or not name then break end
+      res.listed = (res.listed or 0) + 1
+      if Journal.done[jid] and reason ~= "loot data arrived" then
+        -- read before
+      elseif res.instances >= Journal.MAX_INSTANCES then stopped = "instance cap" break
+      elseif ms() - started > Journal.BUDGET_MS then stopped = "time budget" break
+      else
+      Journal.done[jid] = true
       res.instances = res.instances + 1
       local ok, b, n = pcall(scanInstance, jid, name, res.lines)
       if ok then
@@ -99,9 +119,12 @@ function Journal.Scan(reason)
       else
         res.lines[#res.lines + 1] = name .. ": ERROR " .. tostring(b):sub(1, 80)
       end
+      end
     end
   end
-  if res.instances == 0 then return done("journal is there but lists no dungeons") end
+  res.ms = math.floor(ms() - started + 0.5)
+  if (res.listed or 0) == 0 then return done("journal is there but lists no dungeons") end
+  if stopped then return done("stopped early (" .. stopped .. "): scan again for the rest") end
   return done("ok")
 end
 

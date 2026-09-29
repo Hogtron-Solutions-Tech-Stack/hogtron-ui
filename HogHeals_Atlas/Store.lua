@@ -12,7 +12,7 @@
 local A = HogHealsAtlas
 local HH = HogHeals
 
-local Store = { CAP = 5000, NPC_CAP = 500, TRASH = "Trash and chests" }
+local Store = { CAP = 5000, NPC_CAP = 500, DUNGEON_CAP = 60, TRASH = "Trash and chests" }
 A.Store = Store
 
 -- a better source replaces a weaker one on the same item; never the other way round
@@ -58,7 +58,12 @@ function Store.DungeonKey(name, inst, bossName)
   if not name and not inst then return nil end
   local key = inst and ("inst:" .. inst) or ("name:" .. name:lower())
   local db = Store.db()
-  if not db.dungeons[key] then db.dungeons[key] = { name = name or ("Instance " .. tostring(inst)), inst = inst, first = A.now() } end
+  if not db.dungeons[key] then
+    local n = 0
+    for _ in pairs(db.dungeons) do n = n + 1 end
+    if n >= Store.DUNGEON_CAP then return nil end
+    db.dungeons[key] = { name = name or ("Instance " .. tostring(inst)), inst = inst, first = A.now() }
+  end
   return key
 end
 

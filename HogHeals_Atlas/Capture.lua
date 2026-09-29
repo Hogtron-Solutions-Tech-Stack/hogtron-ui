@@ -43,7 +43,7 @@ local function currentRun(name, inst)
   local run = db.runs[1]
   if run and run.open and run.inst == inst and run.name == name then return run end
   if run then run.open = nil end
-  run = { name = name or "?", inst = inst, start = A.now(), open = true, drops = {} }
+  run = { name = name or "?", inst = inst, start = A.now(), open = true, drops = {}, killed = {} }
   table.insert(db.runs, 1, run)
   while #db.runs > Capture.RUN_CAP do table.remove(db.runs) end
   return run
@@ -114,8 +114,13 @@ function Capture.File(link, sourceGUID, who, src)
   Capture.recent[soft] = t
 
   if boss ~= A.Store.TRASH then A.Store.AddBoss(dkey, boss, { npc = npc, src = "seen" }) end
-  A.Store.Record(dkey, boss, id, src or "seen")
-  logDrop(currentRun(name, inst), id, boss, who)
+  local fresh = A.Store.Record(dkey, boss, id, src or "seen")
+  local run = currentRun(name, inst)
+  logDrop(run, id, boss, who)
+  -- loot on a boss's corpse means the boss is dead, whether or not the client said so
+  if boss ~= A.Store.TRASH then run.killed = run.killed or {} run.killed[boss] = true end
+  if fresh and src ~= "group" and A.Share then A.Share.Send(dkey, boss, id) end
+  if A.Tracker then A.Tracker.RefreshSoon() end
   wishAlert(id, boss, A.str(link))
   Capture.filed = (Capture.filed or 0) + 1
   if A.Window and A.Window.Refresh then A.Window.Refresh() end
@@ -159,6 +164,10 @@ function Capture.OnEvent(_, e, a1, a2, a3, a4, a5)
       if dkey then
         A.Store.AddBoss(dkey, boss, { enc = A.num(a1), src = "seen" })
         Capture.lastBoss = { name = boss, dungeon = dkey, t = clock() }
+        local run = currentRun(name, inst)
+        run.killed = run.killed or {}
+        run.killed[boss] = true
+        if A.Tracker then A.Tracker.RefreshSoon() end
       end
     end
   elseif e == "LOOT_OPENED" then

@@ -298,6 +298,20 @@ def main():
         path = OUT / f"atlas-{name}.png"
         img.save(path)
         print("wrote", path.relative_to(ROOT))
+    # the on-screen tracker, as it looks two bosses into a run
+    lua.execute('INST = { name = "Wailing Caverns", id = 43 }; MockFire("PLAYER_ENTERING_WORLD"); MockAdvance(1)')
+    lua.execute('MockFire("ENCOUNTER_END", 1, "Lady Anacondra", 1, 5, 1); MockFire("ENCOUNTER_END", 2, "Lord Cobrahn", 1, 5, 1); MockAdvance(1)')
+    T = lua.eval("HogHealsAtlas.Tracker")
+    tf = T["frame"]
+    tw, th = tf["_width"], tf["_height"]
+    img = Image.new("RGB", (int((tw + 40) * args.scale), int((th + 40) * args.scale)), (36, 48, 40))
+    d = ImageDraw.Draw(img)
+    p.rect(d, (20, 20, tw, 20), (28, 28, 36))
+    p.rect(d, (20, 39, tw, 1), (33, 212, 224))
+    p.text(d, 26, 30, tf["title"]["_text"], (245, 235, 220), p.bold, max_w=tw - 12)
+    p.list(d, T["list"], (20, 20, tw, th))
+    img.save(OUT / "atlas-tracker.png")
+    print("wrote", (OUT / "atlas-tracker.png").relative_to(ROOT))
     errs = [e["msg"] for e in lua.eval("HogHeals.errors").values()]
     print("addon errors:", errs or "none")
     return 1 if errs else 0
