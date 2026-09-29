@@ -269,3 +269,48 @@ def test_no_addon_message_functions_means_sharing_is_off_and_says_why(lua):
     assert lua.eval(f'{SH}.Send("vc", "Cookie", 1001)') == 0
     assert "off (this client has no addon-message functions)" in lua.eval(f"{SH}.Report()")
     assert errors(lua) == []
+
+
+# ------------------------------------------------------------------------------------------------ launcher
+L = "HogHealsAtlas.Launcher"
+
+
+def test_minimap_button_registers_and_clicks_open_the_right_thing(atlas):
+    assert atlas.eval(f"{L}.object ~= nil") is True and atlas.eval(f"{L}.object.type") == "launcher"
+    atlas.execute(f'{L}.object.OnClick(nil, "LeftButton")')
+    assert atlas.eval("HogUIAtlasWindow:IsShown()") is True and atlas.eval(f"{A}.Window.tab") == "dungeons"
+    atlas.execute(f'{L}.object.OnClick(nil, "RightButton")')
+    assert atlas.eval(f"{A}.Window.tab") == "upgrades" and atlas.eval("HogUIAtlasWindow:IsShown()") is True
+    atlas.execute(f'{L}.object.OnClick(nil, "LeftButton")')
+    assert atlas.eval(f"{A}.Window.tab") == "upgrades" and atlas.eval("HogUIAtlasWindow:IsShown()") is False
+    enter(atlas)
+    atlas.execute("function IsShiftKeyDown() return true end")
+    atlas.execute(f'{L}.object.OnClick(nil, "LeftButton")')
+    assert atlas.eval("HogUIAtlasTracker:IsShown()") is False                       # it was showing: shift-click closed it
+    assert errors(atlas) == []
+
+
+def test_launcher_tooltip_names_dungeons_for_your_level_and_bag_upgrades(atlas):
+    atlas.execute("WORN[1] = 1002; BAGS = { 1001, 1011 }")
+    lines = [list(l.values()) for l in vals(atlas.eval(f"{L}.Lines()"))]
+    texts = [l[0] for l in lines]
+    assert texts[0] == "HogUI Atlas" and texts[1] == "For level 20:"
+    assert "  The Deadmines  17-26  (other side)" in texts and "  Wailing Caverns  17-24" in texts
+    assert not any("bags" in t for t in texts)                                      # the cowl needs level 25: not an upgrade yet
+    assert not any("Scholomance" in t for t in texts)
+    atlas.execute("MockUnits.player.level = 25")
+    assert "1 upgrade in your bags (best +31.9)" in [list(l.values())[0] for l in vals(atlas.eval(f"{L}.Lines()"))]
+    atlas.execute("MockUnits.player.level = 5; BAGS = {}")
+    texts = [list(l.values())[0] for l in vals(atlas.eval(f"{L}.Lines()"))]
+    assert "No dungeon fits level 5 yet." in texts and not any("upgrade" in t and "bags" in t for t in texts)
+    atlas.execute("TT = { lines = {}, AddLine = function(self, t) self.lines[#self.lines + 1] = t end }")
+    atlas.execute(f"{L}.object.OnTooltipShow(TT)")
+    assert vals(atlas.eval("TT.lines")) == texts
+
+
+def test_minimap_button_can_be_hidden(atlas):
+    atlas.execute(f"OPT = {A}.module:GetOptions()")
+    assert atlas.eval("OPT.args.minimap.get()") is True
+    atlas.execute("OPT.args.minimap.set(nil, false)")
+    assert atlas.eval(f"{A}.cfg().minimap.hide") is True
+    assert errors(atlas) == []

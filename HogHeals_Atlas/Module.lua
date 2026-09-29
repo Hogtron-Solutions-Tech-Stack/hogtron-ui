@@ -13,6 +13,8 @@ function Module:OnEnable()
   Module.tooltipPath = ok and path or ("failed: " .. tostring(path))
   HH:SafeCall(A.Share, "Start")
   HH:SafeCall(A.Tracker, "Start")
+  HH:SafeCall(A.Launcher, "Start")
+  HH:SafeCall(A.Launcher, "Refresh")
   -- Group Finder and the journal are not ready at login: ask a few seconds in. One scan per session on its own;
   -- the button in the window asks again.
   local function late()
@@ -41,6 +43,7 @@ function Module:OnProfileChanged()
   A.filled = nil
   if A.Window.Refresh then A.Window.Refresh() end
   if A.Tracker.Refresh then A.Tracker.Refresh() end
+  if A.Launcher.Refresh then A.Launcher.Refresh() end
 end
 
 function Module:GetOptions()

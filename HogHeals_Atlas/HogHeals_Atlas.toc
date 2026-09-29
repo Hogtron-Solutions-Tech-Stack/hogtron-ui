@@ -23,6 +23,7 @@ Share.lua
 List.lua
 Window.lua
 Tracker.lua
+Launcher.lua
 Options.lua
 Diag.lua
 Module.lua

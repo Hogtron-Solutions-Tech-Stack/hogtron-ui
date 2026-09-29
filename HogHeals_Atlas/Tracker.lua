@@ -191,6 +191,7 @@ function Tracker.Start()
   f:SetScript("OnEvent", function(_, e)
     local ok, err
     if e == "QUEST_LOG_UPDATE" then
+      A.DungeonQuests.Invalidate()
       if Tracker.frame and Tracker.frame:IsShown() then ok, err = pcall(Tracker.RefreshSoon) else ok = true end
     else
       ok, err = pcall(Tracker.OnZone)

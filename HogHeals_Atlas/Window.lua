@@ -137,7 +137,16 @@ function Window.LootRows()
     for _, e in ipairs(list) do
       local tag = BADGE[e.src] or e.src
       if e.n and e.n > 1 then tag = tag .. " x" .. e.n end
-      rows[#rows + 1] = Window.ItemRow(e.id, { right = tag, rightColor = BADGE_COLOR[e.src] or C.grey })
+      local ok, cmp = pcall(A.Gear.Compare, e.id)
+      local mid, midColor
+      if ok and cmp and not cmp.worn and cmp.usable and cmp.delta then
+        if cmp.delta > 0 then
+          mid, midColor = ("+%.1f"):format(cmp.delta) .. (cmp.later and (" at " .. cmp.later) or ""), cmp.later and C.amber or C.green
+        end
+      elseif ok and cmp and cmp.worn then
+        mid, midColor = "worn", C.grey
+      end
+      rows[#rows + 1] = Window.ItemRow(e.id, { right = tag, rightColor = BADGE_COLOR[e.src] or C.grey, mid = mid, midColor = midColor })
     end
   end
   if Window.boss then bossLoot(Window.boss) else
@@ -206,6 +215,10 @@ function Window.GuideRows()
   local items = 0
   for _, b in ipairs(bosses) do items = items + b.items end
   pair("Drops known", tostring(items), items > 0 and C.cyan or C.grey)
+  if items > 0 then
+    local n, best = A.Gear.CountUpgrades(A.Store.DungeonItems(d.key))
+    pair("Upgrades for you here", n > 0 and ("%d  (best +%.1f)"):format(n, best) or "none", n > 0 and C.green or C.grey)
+  end
   local q, active, ready = A.DungeonQuests.Summary(d.key)
   pair("Quests in your log", q or "none", (ready or 0) > 0 and C.green or C.cream)
   if d.where then
@@ -428,7 +441,7 @@ function Window.Build()
     b:SetPoint("TOPLEFT", p, "TOPLEFT", 482 + (i - 1) * 84, 0)
     Window.detailButtons[t[1]] = b
   end
-  Window.lists.detail = column(p, 482, 398, BODY_ROWS - 2, itemClick, -24)
+  Window.lists.detail = column(p, 482, 398, BODY_ROWS - 2, itemClick, -24, 255)
 
   -- Upgrades
   p = pane(f, "upgrades")
@@ -515,7 +528,7 @@ function Window.Refresh()
     elseif Window.detail == "guide" then L.detail:SetData(Window.GuideRows())
     else L.detail:SetData(Window.LootRows(), EMPTY.loot) end
     local jr = A.Journal.last
-    status = ("%d dungeons, %d drops known. Level colours: red too low, orange hard, green right, grey outgrown.%s"):format(
+    status = ("%d dungeons, %d drops known. Red too low, orange hard, green right, grey outgrown. +N = better than what you wear.%s"):format(
       #rows, A.Store.db().count, jr and ("  Journal: " .. tostring(jr.status) .. ".") or "")
   elseif Window.tab == "upgrades" then
     local role = A.cfg().role or "auto"
