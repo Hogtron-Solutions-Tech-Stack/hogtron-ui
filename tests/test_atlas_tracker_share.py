@@ -314,3 +314,10 @@ def test_minimap_button_can_be_hidden(atlas):
     atlas.execute("OPT.args.general.args.minimap.set(nil, false)")
     assert atlas.eval(f"{A}.cfg().minimap.hide") is True
     assert errors(atlas) == []
+
+
+def test_the_table_of_senders_is_bounded(atlas):
+    for i in range(450):
+        atlas.execute('MockFire("CHAT_MSG_ADDON", "HHATL", "1;vc;Cookie;%d", "GUILD", "Guildie%d")' % (8000 + i, i))
+    assert sum(1 for _ in atlas.eval(f"{SH}.senders").keys()) <= 200
+    assert atlas.eval(f"{SH}.stats.got") == 450

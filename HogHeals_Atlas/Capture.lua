@@ -12,7 +12,7 @@
 local A = HogHealsAtlas
 local HH = HogHeals
 
-local Capture = { WINDOW = 30, RUN_CAP = 20, DROP_CAP = 80, recent = {}, skipped = {} }
+local Capture = { WINDOW = 30, RUN_CAP = 20, DROP_CAP = 80, RECENT_CAP = 400, recent = {}, recentN = 0, skipped = {} }
 A.Capture = Capture
 
 local EVENTS = { "ENCOUNTER_END", "LOOT_OPENED", "START_LOOT_ROLL", "CHAT_MSG_LOOT", "PLAYER_TARGET_CHANGED",
@@ -123,11 +123,22 @@ function Capture.File(link, sourceGUID, who, src)
 
   local key = tostring(A.str(sourceGUID) or who or "?") .. ":" .. id
   local t = clock()
+  -- the sightings table is memory for a few minutes, not a record: past its cap the stale half is dropped
+  if Capture.recentN >= Capture.RECENT_CAP then
+    local n = 0
+    for k, at in pairs(Capture.recent) do
+      if (t - at) >= 300 then Capture.recent[k] = nil else n = n + 1 end
+    end
+    if n >= Capture.RECENT_CAP then Capture.recent, n = {}, 0 end
+    Capture.recentN = n
+  end
   if Capture.recent[key] and (t - Capture.recent[key]) < 300 then return false end
+  if Capture.recent[key] == nil then Capture.recentN = Capture.recentN + 1 end
   Capture.recent[key] = t
   -- the same item seen in the loot window and again in chat a moment later is one drop
   local soft = "item:" .. id
   if src == "group" and Capture.recent[soft] and (t - Capture.recent[soft]) < 15 then return false end
+  if Capture.recent[soft] == nil then Capture.recentN = Capture.recentN + 1 end
   Capture.recent[soft] = t
 
   if boss ~= A.Store.TRASH then A.Store.AddBoss(dkey, boss, { npc = npc, src = "seen" }) end
