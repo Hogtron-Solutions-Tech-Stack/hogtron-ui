@@ -32,6 +32,7 @@ A.DEFAULTS = {
   upgradeAlerts = true,      -- chat line when you loot something better than what you wear
   wishAlerts = true,         -- chat line when a wishlist item drops
   share = true,              -- tell party / guild about new drops, take theirs
+  minimap = { hide = false },  -- the minimap button
   tracker = { enabled = true, point = "RIGHT", x = -40, y = 120 },   -- the on-screen panel inside dungeons
   forMeNow = false,          -- dungeon list: only dungeons for my level
   minQuality = 2,            -- discovery records green and better
