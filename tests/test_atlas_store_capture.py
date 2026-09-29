@@ -325,3 +325,14 @@ def test_a_slow_journal_stops_on_its_time_budget(lua):
     assert r["status"].startswith("stopped early (time budget)") and 1 <= r["instances"] < 3
     assert lua.eval("HogHeals.db.global.diag.atlasJournal.listed") >= 1
     assert lua.eval(f"{S}.db().journalBuild") is None                               # not marked as done
+
+
+def test_the_sightings_memory_is_bounded(atlas):
+    in_deadmines(atlas)
+    atlas.execute(f"{CAP}.RECENT_CAP = 20")
+    for i in range(60):
+        atlas.execute("MockAdvance(1)")
+        loot(atlas, ("ItemLink(1001)", "NpcGUID(%d)" % (7000 + i), 1))
+    n = sum(1 for _ in atlas.eval(f"{CAP}.recent").keys())
+    assert n <= 21 and atlas.eval(f"{CAP}.recentN") <= 21
+    assert atlas.eval(f'{S}.db().loot.vc["Trash and chests"][1001].n') == 60       # and nothing was lost to it

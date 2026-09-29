@@ -35,6 +35,12 @@ end
 
 local function allow(bucket, key, cap)
   local now = clock()
+  -- a guild is hundreds of names over a long session: the table of senders is emptied when it grows past 200
+  if bucket[key] == nil then
+    local n = 0
+    for _ in pairs(bucket) do n = n + 1 end
+    if n >= 200 then for k in pairs(bucket) do bucket[k] = nil end end
+  end
   local list = bucket[key] or {}
   local keep = {}
   for _, t in ipairs(list) do if now - t < Share.WINDOW then keep[#keep + 1] = t end end
