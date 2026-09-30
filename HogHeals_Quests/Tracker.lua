@@ -325,6 +325,13 @@ end
 
 -- ------------------------------------------------------------------------------------------------ Blizzard's tracker
 local hiddenParent
+-- What we remember about Blizzard's frames lives HERE, never as fields on the frames themselves: a field written by
+-- an addon on a Blizzard frame is tainted, and Edit Mode walks its system frames (the objective tracker is one)
+-- inside Blizzard's own layout pass. In game 2026-09-29: "Auras cannot be accessed when secret while tainted by
+-- 'HogHeals_Quests'" out of EditModeManager's anchor pass.
+local hooked = setmetatable({}, { __mode = "k" })
+local busy = setmetatable({}, { __mode = "k" })
+Tracker.blizzHooked = hooked
 -- 2026-09-22 in game: Blizzard's modern tracker ("All Objectives") was back on screen next to ours. Blizzard's
 -- tracker is its own addon and can load AFTER us (Quests.lua re-applies on its ADDON_LOADED), and its manager can
 -- re-show / re-parent it on updates, so every banished frame also gets hooks that put it back in the hidden parent.
@@ -333,17 +340,17 @@ local function banish(f)
   if f.UnregisterAllEvents then pcall(f.UnregisterAllEvents, f) end
   if f.Hide then pcall(f.Hide, f) end
   if f.SetParent then pcall(f.SetParent, f, hiddenParent) end
-  if not f.hhBanishHooked and type(hooksecurefunc) == "function" then
-    f.hhBanishHooked = true
+  if not hooked[f] and type(hooksecurefunc) == "function" then
+    hooked[f] = true
     local function again(self)
       local d = cfg()
-      if d.enabled == false or d.hideBlizzard == false or self.hhRebanishing then return end
-      self.hhRebanishing = true
+      if d.enabled == false or d.hideBlizzard == false or busy[self] then return end
+      busy[self] = true
       if not (InCombatLockdown and InCombatLockdown()) then
         if self.GetParent and self:GetParent() ~= hiddenParent and self.SetParent then pcall(self.SetParent, self, hiddenParent) end
       end
       if self.Hide then pcall(self.Hide, self) end
-      self.hhRebanishing = false
+      busy[self] = nil
     end
     if f.Show then pcall(hooksecurefunc, f, "Show", again) end
     if f.SetParent then pcall(hooksecurefunc, f, "SetParent", again) end

@@ -220,6 +220,11 @@ Skin.DOCK = {
   { side = "RIGHT", names = { "QueueStatusButton", "MiniMapLFGFrame", "LFGMinimapFrame", "MiniMapBattlefieldFrame" } },
 }
 
+-- Flags about Blizzard's buttons are kept in side tables, never written onto the buttons (see Tracker.lua).
+local docking = setmetatable({}, { __mode = "k" })
+local dockHooked = setmetatable({}, { __mode = "k" })
+Skin.dockHooked = dockHooked
+
 function Skin.DockButtons()
   local f = Skin.frame
   if not f or cfg().dockButtons == false then return end
@@ -229,7 +234,7 @@ function Skin.DockButtons()
       local b = rawget(_G, n)
       if type(b) == "table" and b.ClearAllPoints then
         HH:RunOutOfCombat(function()
-          b.hhDocking = true
+          docking[b] = true
           local bw = (b.GetWidth and b:GetWidth()) or 32
           local scale = (HEADER_H - 2) / math.max(bw, 1)
           call(b.SetScale, b, scale)
@@ -237,18 +242,18 @@ function Skin.DockButtons()
           if slot.side == "LEFT" then call(b.SetPoint, b, "LEFT", f.header, "LEFT", 2 / scale, 0)
           else call(b.SetPoint, b, "RIGHT", f.header, "RIGHT", -2 / scale, 0) end
           call(b.SetFrameLevel, b, f.header:GetFrameLevel() + 3)
-          b.hhDocking = false
+          docking[b] = nil
         end)
         Skin.docked[#Skin.docked + 1] = n
         -- 2026-09-22 in game: the day/night button was docked, then the client's layout put it back on the map
-        if not b.hhDockHooked and type(hooksecurefunc) == "function" and b.SetPoint then
-          b.hhDockHooked = true
+        if not dockHooked[b] and type(hooksecurefunc) == "function" and b.SetPoint then
+          dockHooked[b] = true
           pcall(hooksecurefunc, b, "SetPoint", function(self)
-            if self.hhDocking or cfg().enabled == false or cfg().dockButtons == false then return end
+            if docking[self] or cfg().enabled == false or cfg().dockButtons == false then return end
             if InCombatLockdown and InCombatLockdown() then return end
-            self.hhDocking = true
+            docking[self] = true
             Skin.DockButtons()
-            self.hhDocking = false
+            docking[self] = nil
           end)
         end
         break
