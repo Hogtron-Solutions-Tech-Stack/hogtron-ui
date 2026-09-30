@@ -23,6 +23,7 @@ function Module:OnEnable()
       local ok2, res = pcall(A.Journal.Scan, "login")
       -- a scan that stopped early is not a finished one: the next login carries on
       if ok2 and type(res) == "table" and res.status == "ok" then A.Store.db().journalBuild = Module.Build() end
+      Module.loginScan = ok2 and type(res) == "table" and res.status or tostring(res)
     end
     pcall(A.Diag.Write, "login")   -- not SafeCall: that passes the table as the first argument
   end

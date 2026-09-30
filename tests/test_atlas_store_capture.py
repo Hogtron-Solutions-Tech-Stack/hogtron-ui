@@ -251,6 +251,7 @@ C_EncounterJournal = { GetLootInfoByIndex = function(i) local id = enc and enc[3
 
 
 def test_journal_absent_says_so_and_changes_nothing(atlas):
+    atlas.execute("EJ_GetInstanceByIndex = nil")
     r = atlas.eval(f'{A}.Journal.Scan("test")')
     assert r["status"] == "no journal functions on this client"
     assert atlas.eval(f'{S}.db().count') == 0
@@ -336,3 +337,79 @@ def test_the_sightings_memory_is_bounded(atlas):
     n = sum(1 for _ in atlas.eval(f"{CAP}.recent").keys())
     assert n <= 21 and atlas.eval(f"{CAP}.recentN") <= 21
     assert atlas.eval(f'{S}.db().loot.vc["Trash and chests"][1001].n') == 60       # and nothing was lost to it
+
+
+# In game 2026-09-29 20:34: "journal is there but lists no dungeons". The list being empty does not prove the data is.
+BY_ID = JOURNAL + r"""
+function EJ_GetInstanceByIndex() return nil end                                     -- the list: empty, as seen in game
+BYID = {
+  [63] = { name = "Deadmines", map = 36, bosses = { { "Cookie", 2001, { 1001, 1004 } }, { "Edwin VanCleef", 2002, { 1008 } } } },
+  [316] = { name = "Scarlet Monastery", map = 189, bosses = { { "Herod", 2301, { 1003 } } } },
+  [741] = { name = "Molten Core", map = 409, raid = true, bosses = { { "Lucifron", 2401, { 1007 } } } },
+  [900] = { name = "Ruins of Lordaeron", map = 2999, bosses = { { "The Abandoned", 2101, { 1007 } } } },
+  [901] = { name = "Empty Shell", map = 1, bosses = {} },
+}
+local cur, enc
+function EJ_GetInstanceInfo(id) local e = BYID[id] if e then return e.name, "desc", 1, 2, 3, 4, 5, "link", false, e.map end end
+function EJ_SelectInstance(id) cur = BYID[id] enc = nil end
+function EJ_InstanceIsRaid() return cur and cur.raid == true end
+function EJ_GetEncounterInfoByIndex(i) local b = cur and cur.bosses[i] if b then return b[1], "desc", b[2] end end
+function EJ_SelectEncounter(id) enc = nil for _, b in ipairs(cur and cur.bosses or {}) do if b[2] == id then enc = b end end end
+function EJ_GetNumLoot() return enc and #enc[3] or 0 end
+C_EncounterJournal = { GetLootInfoByIndex = function(i) local id = enc and enc[3][i] if id then return { itemID = id, encounterID = enc[2] } end end }
+"""
+
+
+def test_an_empty_list_is_followed_by_asking_every_id(lua):
+    boot(lua, extra=BY_ID)
+    lua.execute("MockAdvance(30)")                                                  # login scan, then the sweep in slices
+    sw = lua.eval(f"{A}.Journal.sweep")
+    assert sw["finished"] is True and sw["answered"] == 5 and sw["dungeons"] == 3 and sw["raids"] == 1
+    assert sw["status"] == "done: 5 instances answered, 3 dungeons read"
+    # "Deadmines" is not the shipped name "The Deadmines": the boss and the map id file it under the right row
+    assert [(r["id"], r["src"]) for r in vals(lua.eval(f'{S}.GetBossLoot("vc", "Cookie")'))] == [(1001, "journal"), (1004, "journal")]
+    assert [r["id"] for r in vals(lua.eval(f'{S}.GetBossLoot("sm_arm", "Herod")'))] == [1003]      # the wing, by its boss
+    assert [r["name"] for r in vals(lua.eval(f'{S}.Bosses("lordaeron")'))] == ["The Abandoned"]
+    assert vals(lua.eval(f"{S}.ExtraDungeons()")) == []                             # no stray rows, no raid
+    assert lua.eval(f'{S}.SourceOf(1007)[1].boss') == "The Abandoned"               # the raid's drop was not read
+    d = lua.eval("HogHeals.db.global.diag.atlasSweep")
+    assert d["askedTo"] == 1500 and d["dungeons"] == 3 and d["bosses"] == 4 and d["items"] == 5
+    hits = vals(d["hits"])
+    assert hits[0].startswith("63:Deadmines map=36") and "901:Empty Shell (no encounters)" in hits
+    probe = lua.eval("HogHeals.db.global.diag.atlasJournal.probe")
+    assert probe["hasInstanceInfo"] == "function" and "dungeon1=nil" in probe["tier"][1]
+    assert errors(lua) == []
+
+
+def test_asking_by_id_that_finds_nothing_says_so_plainly(lua):
+    boot(lua, extra=BY_ID + "BYID = {}")
+    lua.execute("MockAdvance(30)")
+    assert lua.eval(f"{A}.Journal.sweep.status") == "asked every id: the journal holds no instances on this client"
+    assert lua.eval(f"{S}.db().count") == 0
+    report = "\n".join(vals(lua.eval(f"{A}.Journal.Report()")))
+    assert "by id: asked every id: the journal holds no instances on this client" in report
+    lua.execute(f"N = 0; local f = {A}.Journal.SweepPass; {A}.Journal.SweepPass = function() N = N + 1 return f() end")
+    lua.execute(f'{A}.Journal.Scan("again"); MockAdvance(5)')
+    assert lua.eval("N") == 0                                                       # finished is finished: not asked twice
+
+
+def test_the_sweep_is_sliced_by_time_and_stops_after_its_passes(lua):
+    boot(lua, extra=BY_ID + """
+      NOW = 0
+      function debugprofilestop() NOW = NOW + 10 return NOW end                      -- each id costs 10 ms
+    """)
+    lua.execute(f"{A}.Journal.SWEEP_PASSES = 3")
+    for _ in range(12):                                                             # the mock runs a timer set by a timer on the next advance
+        lua.execute("MockAdvance(3)")
+    sw = lua.eval(f"{A}.Journal.sweep")
+    assert sw["finished"] is True and sw["passes"] == 3 and sw["at"] < 60
+    assert sw["status"].startswith("stopped at id")
+
+
+def test_the_sweep_waits_out_combat(lua):
+    boot(lua, extra=BY_ID)
+    lua.execute("MockState.inCombat = true")
+    lua.execute(f"{A}.Journal.sweep = nil; {A}.Journal.Sweep()")
+    assert lua.eval(f"{A}.Journal.sweep.at") == 1 and lua.eval(f"{A}.Journal.sweep.status") == "waiting: in combat"
+    lua.execute("MockState.inCombat = false; MockAdvance(30)")
+    assert lua.eval(f"{A}.Journal.sweep.finished") is True and lua.eval(f"{A}.Journal.sweep.dungeons") == 3
