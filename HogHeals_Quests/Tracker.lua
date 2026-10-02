@@ -141,7 +141,11 @@ local function build()
     f:StopMovingOrSizing()
     local point, _, _, x, y = f:GetPoint(1)
     if point then local c = cfg() c.point, c.x, c.y = point, x, y end
+    Tracker.Update()   -- the fill height depends on where the top now is
   end)
+  -- mouse wheel scrolls the list (title buttons do not take the wheel, so it reaches the panel)
+  if f.EnableMouseWheel then f:EnableMouseWheel(true) end
+  f:SetScript("OnMouseWheel", function(_, delta) Tracker.Scroll(delta) end)
   header:SetScript("OnClick", function(_, button)
     if button == "RightButton" then Tracker.CycleMode() else Tracker.SetCollapsed(not cfg().collapsed) end
   end)
@@ -226,9 +230,12 @@ function Tracker.Update()
   f.empty:Hide()
 
   local y, ti, li = 0, 0, 0
-  local maxH = d.maxHeight or 420
+  local maxH = Tracker.MaxHeight(f, d, size)
   local titleH, lineH = size + 6, size + 3
   local more = 0
+  -- scroll position = index of the first quest drawn; clamped to the list (quests get turned in under it)
+  local offset = math.max(0, math.min(Tracker.offset or 0, math.max(#shown - 1, 0)))
+  Tracker.offset, Tracker.lastShown = offset, #shown
   if not d.collapsed then
     if #list == 0 then
       f.empty:SetText(HHQ.Data.Available() and "No quests in your log" or "This client does not share the quest log")
@@ -236,7 +243,8 @@ function Tracker.Update()
       f.empty:Show()
       y = lineH
     end
-    for n, q in ipairs(shown) do
+    for n = offset + 1, #shown do
+      local q = shown[n]
       local need = titleH + (q.complete and lineH or #q.objectives * lineH) + 4
       if y + need > maxH and ti > 0 then more = #shown - n + 1 break end
       ti = ti + 1
@@ -282,14 +290,19 @@ function Tracker.Update()
       end
       y = y + 4
     end
-    if more > 0 then
+    -- Sean 2026-10-01: "+7 more" is not wanted - the list runs to the bottom of the screen and the wheel scrolls it.
+    -- When it still does not fit (small screen, huge log) one quiet grey line says what is above / below.
+    if more > 0 or offset > 0 then
       li = li + 1
       local fs = objLine(li)
       fs:ClearAllPoints()
       fs:SetPoint("TOPLEFT", f.body, "TOPLEFT", 0, -y)
       fs:SetPoint("RIGHT", f.body, "RIGHT", 0, 0)   -- 2026-09-22 in game: unanchored, this line ran off the panel
-      fs:SetText(("+%d more  -  right-click header"):format(more))
-      fs:SetTextColor(AMBER[1], AMBER[2], AMBER[3])
+      local parts = {}
+      if offset > 0 then parts[#parts + 1] = ("%d above"):format(offset) end
+      if more > 0 then parts[#parts + 1] = ("%d below"):format(more) end
+      fs:SetText("scroll:  " .. table.concat(parts, "  -  "))
+      fs:SetTextColor(GREY[1], GREY[2], GREY[3])
       applyFont(fs, size - 1)
       fs:Show()
       y = y + lineH
@@ -300,6 +313,35 @@ function Tracker.Update()
   f:SetScale(d.scale or 1)
   f.bg:SetColorTexture(INK[1], INK[2], INK[3], d.backgroundAlpha or 0.6)
   Tracker.shownCount, Tracker.moreCount = ti, more
+end
+
+--- Height the list may take. fill (default): from the panel's top down to the screen's bottom edge, minus the
+-- bottomMargin option, in the panel's own units (GetTop is already in those). Otherwise the Max height slider.
+-- A client that cannot tell us where the top is (nil / 0 before the first layout) gets the slider too.
+function Tracker.MaxHeight(f, d, size)
+  if d.fill ~= false then
+    local top = f and f.GetTop and f:GetTop()
+    if type(top) == "number" and top > 0 then
+      local h = top - ((d.bottomMargin or 20) / (d.scale or 1)) - math.max(HEADER_H, size + 8) - 8
+      if h >= 60 then return h end
+    end
+  end
+  return d.maxHeight or 420
+end
+
+--- Mouse wheel: down (delta < 0) shows the next quest, up the previous. Never past either end.
+function Tracker.Scroll(delta)
+  if type(delta) ~= "number" or delta == 0 then return end
+  local o = Tracker.offset or 0
+  if delta < 0 then
+    if (Tracker.moreCount or 0) == 0 then return end
+    o = o + 1
+  else
+    if o == 0 then return end
+    o = o - 1
+  end
+  Tracker.offset = o
+  Tracker.Update()
 end
 
 --- Coalesce bursts (QUEST_LOG_UPDATE fires several times per kill) into one repaint.
