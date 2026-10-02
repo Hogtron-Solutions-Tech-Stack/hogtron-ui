@@ -131,14 +131,16 @@ HH.defaults = {
     },
     hud = {
       x = 0, y = -180, width = 300, followFrames = false,
-      castbarHeight = 18, manaHeight = 12, infoHeight = 14, rowSpacing = 2,
-      showCastbar = true, showMana = true, showInfo = true,
+      castbarHeight = 18, swingHeight = 10, manaHeight = 12, infoHeight = 14, rowSpacing = 2,
+      showCastbar = true, showSwing = true, showMana = true, showInfo = true,
       font = "Friz Quadrata TT", fontSize = 11, texture = "Solid",
       castbar = {
         icon = true, showTarget = true, latency = true, gcd = false, hideBlizzard = true, precision = 1,
         castColor = { 0.13, 0.83, 0.88 }, channelColor = { 0.25, 0.80, 0.35 }, uninterruptibleColor = { 0.6, 0.6, 0.6 },
         failColor = { 0.85, 0.2, 0.2 },
       },
+      -- swing timer (Swing.lua): auto-attack / Auto Shot bar under the cast bar; showSwing above is the on / off
+      swing = { color = { 0.96, 0.92, 0.86 }, text = true, precision = 1, hideWhenIdle = true },
       mana = { textMode = "cur", showTicks = true, showFsrText = true, fsrColor = { 0.13, 0.83, 0.88 }, tickColor = { 0.96, 0.92, 0.86 } },
       pacing = { enabled = true, targetLength = 300, amber = 60, red = 20, showProjection = true },
       advisor = { enabled = true, margin = 0.9, onFrame = false, spells = {} },
