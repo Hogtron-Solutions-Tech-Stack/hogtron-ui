@@ -104,7 +104,7 @@ HH.defaults = {
       -- coords + skin OFF: in game 2026-09-23 this client's "Map & Quest Log" frame already prints the player's
       -- coordinates, and hiding its art left holes ("this looks terrible"). Both stay as opt-ins.
       worldMap = { enabled = true, coords = false, scale = 1.0, fadeWhileMoving = true, skin = false, alpha = 0.95 },
-      buttons = { enabled = true, side = "left", columns = 4, size = 28, hover = false, autoClose = true },   -- addon minimap icons in one drawer; side: left (opens toward the screen) | right (opens down)
+      buttons = { enabled = true, side = "left", columns = 4, size = 28, alpha = 0.92, hover = false, autoClose = true },   -- addon minimap icons in one drawer; side: left (opens toward the screen) | right (opens down); point/x/y once dragged
     },
     chat = {
       enabled = true, backgroundAlpha = 0.6, fontSize = nil, outline = false,   -- fontSize nil = keep Blizzard's size
