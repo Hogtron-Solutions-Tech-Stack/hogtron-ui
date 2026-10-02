@@ -337,6 +337,38 @@ def test_parchment_windows_recoloured_and_stripped_deep_but_buttons_and_icons_ke
     assert [e["msg"] for e in lua.eval('HogHeals.errors').values()] == []
 
 
+def test_quest_reward_selection_highlight_survives_the_parchment_pass(lua):
+    # In game 2026-10-01: choosing a reward showed nothing. Blizzard marks the chosen reward with
+    # QuestInfoItemHighlight, a plain Frame holding one texture, three levels under QuestFrame.
+    lua.execute(CLIENT + """
+      QuestFont = CreateFont("QuestFont"); QuestTitleFont = CreateFont("QuestTitleFont")
+      QuestFrame = CreateFrame("Frame", "QuestFrame", UIParent)
+      QuestFrame:CreateTexture("QuestFrameBg"):SetTexture("parchment-outer")
+      local panel = CreateFrame("Frame", "QuestFrameRewardPanel", QuestFrame)
+      panel:CreateTexture("QuestFrameRewardPanelParchment"):SetTexture("parchment-inner")
+      local rewards = CreateFrame("Frame", "QuestInfoRewardsFrame", panel)
+      local item = CreateFrame("Button", "QuestInfoRewardsFrameQuestInfoItem1", rewards)
+      item:CreateTexture("QuestInfoRewardsFrameQuestInfoItem1NameFrame"):SetTexture("name-frame")
+      local hl = CreateFrame("Frame", "QuestInfoItemHighlight", rewards)
+      HL_TEX = hl:CreateTexture(nil, "BACKGROUND"); HL_TEX:SetTexture("Interface/QuestFrame/UI-QuestItemHighlight")
+      hl:Hide()
+      local check = CreateFrame("Frame", "QuestInfoRewardsFrameSomething", rewards)
+      SEL_TEX = check:CreateTexture("QuestInfoRewardsFrameSomethingSelectedTex"); SEL_TEX:SetTexture("sel-art")
+      function ShowUIPanel(f) f:Show() end
+    """)
+    lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
+    lua.execute('ShowUIPanel(QuestFrame); MockFire("QUEST_COMPLETE"); MockAdvance(0.6)')
+    assert lua.eval('QuestFrameBg._alpha') == 0 and lua.eval('QuestFrameRewardPanelParchment._alpha') == 0   # parchment gone
+    assert lua.eval('QuestInfoRewardsFrameQuestInfoItem1NameFrame._texture') == "name-frame"                   # buttons untouched
+    assert lua.eval('HL_TEX._texture') == "Interface/QuestFrame/UI-QuestItemHighlight"                   # the selection mark stays
+    assert lua.eval('HL_TEX._alpha') == 1 and lua.eval('HL_TEX.hhKilled') is None
+    assert lua.eval('SEL_TEX._texture') == "sel-art"
+    # the player picks a reward: Blizzard shows the highlight frame; nothing of ours fights it
+    lua.execute('QuestInfoItemHighlight:Show(); HL_TEX:SetAlpha(1)')
+    assert lua.eval('HL_TEX._alpha') == 1
+    assert [e["msg"] for e in lua.eval('HogHeals.errors').values()] == []
+
+
 def test_world_map_still_skipped_by_default(lua):
     lua.execute(CLIENT + """
       WorldMapFrame = CreateFrame("Frame", "WorldMapFrame", UIParent); WorldMapFrame:CreateTexture("WorldMapFrameBg"):SetTexture("map-art")
