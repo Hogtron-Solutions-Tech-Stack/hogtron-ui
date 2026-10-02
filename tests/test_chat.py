@@ -83,12 +83,15 @@ def test_addmessage_is_never_replaced_prefixes_shortened_through_blizzards_forma
     assert errors(chat) == []
 
 
-def test_event_filter_links_urls_and_cuts_channel_numbers_but_leaves_secret_text_alone(chat):
+def test_event_filter_links_urls_never_touches_the_channel_string_and_leaves_secret_text_alone(chat):
     assert chat.eval('FILTERS.CHAT_MSG_SAY ~= nil and FILTERS.CHAT_MSG_CHANNEL ~= nil and FILTERS.CHAT_MSG_GUILD ~= nil')
     chat.execute('F, M, A2, A3, CH = FILTERS.CHAT_MSG_SAY(ChatFrame1, "CHAT_MSG_SAY", "look https://a.b/c", "Bob", "", "")')
     assert chat.eval('F') is False and "|Hhogurl:https://a.b/c|h" in chat.eval('M') and chat.eval('A2') == "Bob"
-    chat.execute('F, M, A2, A3, CH = FILTERS.CHAT_MSG_CHANNEL(ChatFrame1, "CHAT_MSG_CHANNEL", "wts linen", "Bob", "", "1. General - Elwynn")')
-    assert chat.eval('F') is False and chat.eval('CH') == "1" and chat.eval('M') == "wts linen"
+    # the channel string is NEVER rewritten (in game 2026-10-01: "1" instead of "1. General - Elwynn" made Blizzard drop
+    # every channel line - its window test is strlen(arg4) > strlen(channel name))
+    assert chat.eval('FILTERS.CHAT_MSG_CHANNEL(ChatFrame1, "CHAT_MSG_CHANNEL", "wts linen", "Bob", "", "1. General - Elwynn")') is None
+    chat.execute('F, M, A2, A3, CH = FILTERS.CHAT_MSG_CHANNEL(ChatFrame1, "CHAT_MSG_CHANNEL", "see https://a.b", "Bob", "", "1. General - Elwynn")')
+    assert chat.eval('F') is False and chat.eval('CH') == "1. General - Elwynn" and "|Hhogurl:" in chat.eval('M')
     # nothing to change: no return at all (Blizzard keeps its arguments)
     assert chat.eval('FILTERS.CHAT_MSG_SAY(ChatFrame1, "CHAT_MSG_SAY", "plain words", "Bob")') is None
     # secret text (restricted client): untouched, no error

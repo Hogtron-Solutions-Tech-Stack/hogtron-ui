@@ -241,7 +241,7 @@ end
 --   * prefixes: Blizzard builds "[Guild] Name:" from plain global format strings; we shorten the bracket there
 --     (a global string, no frame touched, no secret involved);
 --   * URLs: a message event filter rewrites the text of each chat event when it is a plain string (secret text is
---     left alone). Numbered channels get their bare number the same way.
+--     left alone). The channel string (arg4) is never touched - see Chat.Filter.
 Chat.FORMATS = { CHAT_GUILD_GET = "G", CHAT_OFFICER_GET = "O", CHAT_PARTY_GET = "P", CHAT_PARTY_LEADER_GET = "PL",
   CHAT_PARTY_GUIDE_GET = "PG", CHAT_RAID_GET = "R", CHAT_RAID_LEADER_GET = "RL", CHAT_RAID_WARNING_GET = "RW",
   CHAT_INSTANCE_CHAT_GET = "I", CHAT_INSTANCE_CHAT_LEADER_GET = "IL" }
@@ -271,19 +271,16 @@ function Chat.ApplyFormats()
   return n
 end
 
---- The event filter: URLs linked in plain text; a numbered channel's display string cut to its number. Secret
--- values pass untouched (no change returned). Signature per Blizzard: (frame, event, ...) -> filter?, args...
-function Chat.Filter(_, event, msg, a2, a3, chan, ...)
-  local changed = false
+--- The event filter: URLs linked in plain text. Secret values pass untouched (no change returned).
+-- Signature per Blizzard: (frame, event, ...) -> filter?, args...
+-- NEVER rewrite arg4 (the channel string) here: in game 2026-10-01 cutting "1. General - Durotar" to "1" made
+-- Blizzard's handler drop EVERY channel message - it decides whether a channel line belongs to the window with
+-- strlen(arg4) > strlen(channelName), and "1" fails that. Numbered channels keep Blizzard's own display.
+function Chat.Filter(_, _, msg, ...)
   if cfg().urlCopy ~= false and type(msg) == "string" and not isSecret(msg) then
     local ok, m = pcall(Chat.LinkURLs, msg)
-    if ok and m ~= msg then msg, changed = m, true end
+    if ok and m ~= msg then return false, m, ... end
   end
-  if event == "CHAT_MSG_CHANNEL" and cfg().shortChannels ~= false and type(chan) == "string" and not isSecret(chan) then
-    local num = chan:match("^(%d+)%. ")
-    if num then chan, changed = num, true end
-  end
-  if changed then return false, msg, a2, a3, chan, ... end
 end
 
 function Chat.InstallFilters()
