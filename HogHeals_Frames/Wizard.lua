@@ -6,7 +6,10 @@ local HH = HogHeals
 local Wizard = {}
 HHF.Wizard = Wizard
 
-local STEPS = { "class", "layout", "bindings", "done" }
+local STEPS = { "class", "layout", "bindings", "gear", "done" }
+-- gear: what HogUI Atlas scores items for. "auto" follows the class (priest / shaman / druid / paladin = healer, mage /
+-- warlock = caster, warrior / rogue = melee, hunter = ranged); Sean 2026-10-01: "default to auto, make it part of setup".
+Wizard.GEAR_ROLES = { auto = "Auto - by my class (recommended)", healer = "Healer", caster = "Caster", melee = "Melee", ranged = "Ranged", tank = "Tank" }
 
 Wizard.PRESETS = {
   default = { label = "Default", desc = "Balanced sizes for party and raid." },
@@ -98,6 +101,12 @@ function Wizard.Finish(w)
     HHF.ClickCast.SetBindings(HHF.ClickCast.Defaults(class))
   end
 
+  -- Atlas gear scoring role (Atlas may not be loaded yet; the profile table is shared)
+  local role = w.answers.gear or "auto"
+  if not Wizard.GEAR_ROLES[role] then role = "auto" end
+  HH.db.profile.atlas = HH.db.profile.atlas or {}
+  HH.db.profile.atlas.role = role
+
   HH.db.profile.wizardDone = true
   w.step = "done"
   HHF.module:ApplyProfile(HH:CurrentBucket())
@@ -115,7 +124,7 @@ function Wizard.Show()
 
   local frame = AceGUI:Create("Frame")
   frame:SetTitle("HogHeals setup")
-  frame:SetStatusText("Three quick choices. You can change everything later in /hh.")
+  frame:SetStatusText("Four quick choices. You can change everything later in /hh.")
   frame:SetLayout("Flow")
   frame:SetWidth(460); frame:SetHeight(360)
   frame:SetCallback("OnClose", function(widget) AceGUI:Release(widget) end)
@@ -136,14 +145,23 @@ function Wizard.Show()
   bindDrop:SetFullWidth(true)
   frame:AddChild(bindDrop)
 
+  local gearDrop = AceGUI:Create("Dropdown")
+  gearDrop:SetLabel("Score gear for (Atlas upgrades)")
+  gearDrop:SetList(Wizard.GEAR_ROLES)
+  gearDrop:SetValue("auto")
+  gearDrop:SetFullWidth(true)
+  frame:AddChild(gearDrop)
+
   local go = AceGUI:Create("Button")
   go:SetText("Finish")
   go:SetFullWidth(true)
   go:SetCallback("OnClick", function()
     local preset = presetDrop.GetValue and presetDrop:GetValue() or "default"
     local bindings = bindDrop.GetValue and bindDrop:GetValue() or "default"
+    local gear = gearDrop.GetValue and gearDrop:GetValue() or "auto"
     Wizard.Next(w, { preset = preset })
     Wizard.Next(w, { bindings = bindings })
+    Wizard.Next(w, { gear = gear })
     Wizard.Finish(w)
     HH:Print("Setup done. /hh to fine-tune, /hh test 10 to preview, /hh unlock to move.")
     frame:Hide()
