@@ -143,7 +143,7 @@ function Module:OnEnable()
   if HH.db.profile.quests.tracker.enabled ~= false then
     HHQ.Tracker.ApplyBlizzard()
     HHQ.Tracker.Show()
-    HH:SafeCall(HHQ.Tracker, "SetUnlocked", HH.db.profile.locked == false)
+    pcall(HHQ.Tracker.SetUnlocked, HH.db.profile.locked == false)
   end
   HH:SafeCall(HHQ.MapSkin, "Apply")
   HH:SafeCall(HHQ.WorldMap, "Apply")
@@ -155,7 +155,9 @@ end
 
 --- /hh unlock | lock: the tracker shows its resize grip and cyan edges while unlocked.
 function Module:SetLocked(locked)
-  HH:SafeCall(HHQ.Tracker, "SetUnlocked", not locked)
+  -- plain pcall: SafeCall would pass the Tracker table as the first argument (dot-style function)
+  local ok, err = pcall(HHQ.Tracker.SetUnlocked, not locked)
+  if not ok then HH:LogError("tracker SetUnlocked: " .. tostring(err)) end
 end
 
 function Module:OnProfileChanged()
