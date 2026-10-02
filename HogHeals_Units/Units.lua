@@ -221,7 +221,7 @@ function Units.Build(unit)
   f:SetAttribute("unit", unit)
   f:SetAttribute("*type1", "target")
   f:SetAttribute("*type2", "togglemenu")
-  if f.RegisterForClicks then f:RegisterForClicks("AnyUp") end   -- like Blizzard's unit frames; down+up would fire twice
+  if f.RegisterForClicks then f:RegisterForClicks(HH.SecureClick()) end   -- the edge this client acts on (cvar); down+up would fire twice, "AnyUp" alone is dead on Mainline-engine clients
   f:SetSize(d.width or 240, d.height or 42)
   f:SetPoint(d.point or "BOTTOM", UIParent, d.point or "BOTTOM", d.x or 0, d.y or 230)
   f:SetFrameStrata("MEDIUM")

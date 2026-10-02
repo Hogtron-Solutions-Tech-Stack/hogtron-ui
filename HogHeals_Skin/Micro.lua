@@ -247,7 +247,7 @@ local function cell(i, bar)
   if c then return c end
   c = CreateFrame("Button", "HogHealsMicroBarButton" .. i, bar, "SecureActionButtonTemplate")
   c.hhOurs = true
-  if c.RegisterForClicks then c:RegisterForClicks("AnyUp") end
+  if c.RegisterForClicks then c:RegisterForClicks(HH.SecureClick()) end   -- the edge this client acts on (cvar); "AnyUp" alone was dead on Forever
   c.bg = Skin.Solid(c, "BACKGROUND", { 0.10, 0.10, 0.12 }, 0.9)
   c.bg:SetAllPoints(c)
   c.edges = Skin.Outline(c, c)

@@ -719,3 +719,18 @@ def test_hh_under_names_what_blizzard_draws_at_the_cursor(skin):
     assert all(not l.startswith(("Elsewhere", "Hidden", "HogHeals")) for l in lines)
     assert any(l.startswith("MicroMenu [Frame") and "no textures" in l for l in lines)   # its art is killed, so nothing drawn
     assert errors(skin) == []
+
+
+def test_glyph_clicks_listen_on_the_edge_this_client_acts_on(skin):
+    # in game 2026-10-02 (Forever, Mainline engine): "the buttons don't work" - the secure OnClick drops any click that
+    # does not match ActionButtonUseKeyDown (default 1 = press); the cells listened on release only
+    bar = 'HogHealsMicroBar'
+    assert skin.eval('HogHeals.SecureClick()') == "AnyUp"                                  # mock cvar "0": release
+    assert skin.eval(f'{bar}.cells[1]._last.RegisterForClicks[1]') == "AnyUp"
+    skin.execute('GetCVar = function(n) if n == "ActionButtonUseKeyDown" then return "1" end return "0" end')
+    assert skin.eval('HogHeals.SecureClick()') == "AnyDown"
+    skin.execute('HogHealsSkin.Micro.bar.cells[1] = nil; HogHealsSkin.Micro.Strip()')       # a fresh cell registers for the press
+    assert skin.eval(f'{bar}.cells[1]._last.RegisterForClicks[1]') == "AnyDown" and skin.eval(f'{bar}.cells[1]._last.RegisterForClicks[2]') is None
+    skin.execute('GetCVar = function() return nil end')
+    assert skin.eval('HogHeals.SecureClick()') == "AnyUp"                                  # no such cvar: classic release
+    assert errors(skin) == []
