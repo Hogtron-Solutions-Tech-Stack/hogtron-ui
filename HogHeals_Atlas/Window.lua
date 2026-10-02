@@ -446,10 +446,13 @@ function Window.Build()
   -- Upgrades
   p = pane(f, "upgrades")
   Window.roleButtons = {}
+  -- Sean 2026-10-01: "tough to see what your default is" - Auto is the default and says what it resolved to
+  -- ("Auto: healer"); it is wider and the first tab, the role it stands for is the only other one lit, dimly.
   local roles = { "auto", "healer", "caster", "melee", "ranged", "tank" }
   for i, r in ipairs(roles) do
-    local b = A.button(p, r:sub(1, 1):upper() .. r:sub(2), 80, 20, function() A.cfg().role = r Window.Refresh() end)
-    b:SetPoint("TOPLEFT", p, "TOPLEFT", (i - 1) * 84, 0)
+    local w = r == "auto" and 118 or 80
+    local b = A.button(p, r == "auto" and "Auto" or (r:sub(1, 1):upper() .. r:sub(2)), w, 20, function() A.cfg().role = r Window.Refresh() end)
+    b:SetPoint("TOPLEFT", p, "TOPLEFT", r == "auto" and 0 or (118 + 10 + (i - 2) * 84), 0)
     Window.roleButtons[r] = b
   end
   Window.lists.upgrades = column(p, 0, 880, BODY_ROWS - 2, itemClick, -24, 300)
@@ -532,11 +535,17 @@ function Window.Refresh()
       #rows, A.Store.db().count, jr and ("  Journal: " .. tostring(jr.status) .. ".") or "")
   elseif Window.tab == "upgrades" then
     local role = A.cfg().role or "auto"
-    for name, b in pairs(Window.roleButtons) do b:SetOn(name == role) end
+    local effective = A.Stats.Role()
+    for name, b in pairs(Window.roleButtons) do
+      b:SetOn(name == role)
+      if name == "auto" then b.label:SetText(role == "auto" and ("Auto: " .. effective) or "Auto") end
+      if role == "auto" and name == effective then b.label:SetTextColor(0.13 * 0.7 + 0.3, 0.83 * 0.7 + 0.3, 0.88 * 0.7 + 0.3) end   -- the role Auto picked, dim cyan
+    end
     local rows, unknown = Window.UpgradeRows()
     L.upgrades:SetData(rows, EMPTY.upgrades)
-    status = ("Scored for: %s. Number = points better than what you wear. Amber = needs a higher level.%s"):format(
-      A.Stats.Role(), (unknown or 0) > 0 and ("  %d items still loading."):format(unknown) or "")
+    status = ("Scored for: %s%s. Number = points better than what you wear. Amber = needs a higher level.%s"):format(
+      A.Stats.Role(), (A.cfg().role or "auto") == "auto" and " (auto, by class)" or "",
+      (unknown or 0) > 0 and ("  %d items still loading."):format(unknown) or "")
   elseif Window.tab == "sets" then
     local sets = A.Gear.Sets()
     if Window.setIndex > #sets then Window.setIndex = math.max(1, #sets) end
