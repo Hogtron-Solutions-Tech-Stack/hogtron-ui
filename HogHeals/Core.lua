@@ -79,6 +79,16 @@ function HH.IsSecret(v)
 end
 
 --- xpcall handler: keep the stack, a bare pcall message is useless from a tester's machine.
+--- "AnyDown" or "AnyUp": the ONE click edge a secure button should answer on this client. Since 10.0 the secure
+-- OnClick skips any click that does not match the ActionButtonUseKeyDown cvar (default 1 = act on press); a
+-- button registered for the other edge never acts. Seen in game 2026-10-02 on Forever: the menu bar glyphs did
+-- nothing (registered "AnyUp"). Registering both edges would fire twice on clients without the cvar check.
+function HH.SecureClick()
+  local v = type(GetCVar) == "function" and GetCVar("ActionButtonUseKeyDown") or nil
+  if v == nil then return "AnyUp" end
+  return (v == "1" or v == 1 or v == true) and "AnyDown" or "AnyUp"
+end
+
 function HH.Trace(err)
   local stack = type(debugstack) == "function" and debugstack(2, 12, 0) or ""
   return tostring(err) .. (stack ~= "" and (string.char(10) .. stack) or "")
