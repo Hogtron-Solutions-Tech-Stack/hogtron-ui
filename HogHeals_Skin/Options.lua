@@ -56,7 +56,10 @@ function Options.Build()
       micro = { type = "group", name = "Menu & bag bar", order = 3, args = {
         about = { type = "description", order = 0, name = "The bottom menu buttons and the bag slots: Blizzard's backdrop art removed, one HogUI strip behind each group, bag slots flattened." },
         microEnabled = toggle(sub("micro"), "enabled", "Skin the menu buttons", 1),
+        strip = toggle(sub("micro"), "strip", "HogUI letter buttons instead of Blizzard's art (C S T A Q G L J E ? M); /hh unlock to drag the bar", 1.5),
+        size = range(sub("micro"), "size", "Letter button size", 1.7, 14, 36, 1),
         scale = range(sub("micro"), "scale", "Menu buttons scale", 2, 0.5, 1.5, 0.05),
+        resetPos = { type = "execute", name = "Reset menu bar position", order = 2.5, func = function() local m = sub("micro")() m.point, m.x, m.y = nil, nil, nil; HHS.Skin.ApplyAll("options") end },
         bagBarEnabled = toggle(sub("bagBar"), "enabled", "Skin the bag slots", 3),
       } },
       tooltips = { type = "group", name = "Tooltips", order = 4, args = {
