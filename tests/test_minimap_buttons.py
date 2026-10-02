@@ -41,9 +41,14 @@ def test_collects_addon_buttons_and_leaves_blizzard_alone(lua):
     assert lua.eval('BuffButton3:GetParent() == Minimap')
     skipped = lua.eval('table.concat(HogHealsQuests.Buttons.skipped, ",")')
     assert "MiniMapTracking:blizzard" in skipped and "ProtMinimapButton:protected" in skipped and "BuffButton3:numbered" in skipped
-    # the launcher hangs under the ink minimap frame; the drawer starts closed
+    # the launcher sits left of the ink minimap frame's top corner; the drawer opens leftward from it and starts closed
     assert lua.eval('HogHealsMinimapButtons._points[1][2] == HogHealsMinimapFrame')
-    assert lua.eval('HogHealsMinimapButtons._points[1][1]') == "TOPRIGHT"
+    assert lua.eval('HogHealsMinimapButtons._points[1][1]') == "TOPRIGHT" and lua.eval('HogHealsMinimapButtons._points[1][3]') == "TOPLEFT"
+    assert lua.eval('HogHealsMinimapDrawer._points[1][1]') == "TOPRIGHT" and lua.eval('HogHealsMinimapDrawer._points[1][3]') == "TOPLEFT"
+    assert lua.eval('HogHealsMinimapDrawer._points[1][2] == HogHealsMinimapButtons')
+    # the logo: two cream uprights and a cyan crossbar
+    assert lua.eval('#HogHealsMinimapButtons.logo') == 2 and lua.eval('HogHealsMinimapButtons.logo[1]._color[1]') == pytest.approx(0.96)
+    assert lua.eval('HogHealsMinimapButtons.cross._color[2]') == pytest.approx(0.83)
     assert lua.eval('HogHealsMinimapButtons:IsShown()') is True
     assert lua.eval('HogHealsMinimapDrawer:IsShown()') is False
     assert errors(lua) == []
@@ -55,12 +60,14 @@ def test_grid_lays_out_shown_buttons_only_and_follows_show_hide(lua):
     assert lua.eval('HogHealsQuests.Buttons.Layout()') == 3          # HogHeals' own icon is hidden by default
     scale = lua.eval('LibDBIcon10_Bagnon._last.SetScale[1]')
     assert scale == pytest.approx(28 / 31)
+    # the drawer opens leftward: cells fill from the TOP RIGHT, so x offsets run negative
     # sorted by name: Bagnon (0,0), Details (1,0), Old (0,1) - offsets are in the button's own scaled units
-    assert lua.eval('LibDBIcon10_Bagnon._points[1][4]') * scale == pytest.approx(4)
-    assert lua.eval('LibDBIcon10_Details._points[1][4]') * scale == pytest.approx(4 + 32)
+    assert lua.eval('LibDBIcon10_Bagnon._points[1][1]') == "TOPRIGHT"
+    assert lua.eval('LibDBIcon10_Bagnon._points[1][4]') * scale == pytest.approx(-4)
+    assert lua.eval('LibDBIcon10_Details._points[1][4]') * scale == pytest.approx(-(4 + 32))
     old_scale = lua.eval('OldAddonMinimapButton._last.SetScale[1]')
     assert old_scale == pytest.approx(28 / 33)
-    assert lua.eval('OldAddonMinimapButton._points[1][4]') * old_scale == pytest.approx(4)
+    assert lua.eval('OldAddonMinimapButton._points[1][4]') * old_scale == pytest.approx(-4)
     assert lua.eval('OldAddonMinimapButton._points[1][5]') * old_scale == pytest.approx(-(4 + 32))
     assert lua.eval('HogHealsMinimapDrawer:GetWidth()') == 4 + 2 * 32
     assert lua.eval('HogHealsMinimapDrawer:GetHeight()') == 4 + 2 * 32
@@ -68,9 +75,9 @@ def test_grid_lays_out_shown_buttons_only_and_follows_show_hide(lua):
     lua.execute('LibStub("LibDBIcon-1.0"):Show("HogHeals")')
     assert lua.eval('HogHealsQuests.Buttons.shown') == 4
     # sorted again: Bagnon, Details, HogHeals, Old -> HogHeals takes (0,1) and Old moves to (1,1)
-    assert lua.eval('LibDBIcon10_HogHeals._points[1][4]') * scale == pytest.approx(4)
+    assert lua.eval('LibDBIcon10_HogHeals._points[1][4]') * scale == pytest.approx(-4)
     assert lua.eval('LibDBIcon10_HogHeals._points[1][5]') * scale == pytest.approx(-(4 + 32))
-    assert lua.eval('OldAddonMinimapButton._points[1][4]') * old_scale == pytest.approx(4 + 32)
+    assert lua.eval('OldAddonMinimapButton._points[1][4]') * old_scale == pytest.approx(-(4 + 32))
     assert errors(lua) == []
 
 
@@ -78,7 +85,7 @@ def test_owner_moving_or_reparenting_its_button_is_put_back_on_the_grid(lua):
     boot(lua, MINIMAP)
     # LibDBIcon re-anchors to the minimap rim on login / Refresh
     lua.execute('LibDBIcon10_Bagnon:ClearAllPoints(); LibDBIcon10_Bagnon:SetPoint("CENTER", Minimap, "CENTER", 50, 50)')
-    assert lua.eval('LibDBIcon10_Bagnon._points[1][1]') == "TOPLEFT"
+    assert lua.eval('LibDBIcon10_Bagnon._points[1][1]') == "TOPRIGHT"
     assert lua.eval('LibDBIcon10_Bagnon._points[1][2] == HogHealsMinimapDrawer')
     lua.execute('OldAddonMinimapButton:SetParent(Minimap)')
     assert lua.eval('OldAddonMinimapButton:GetParent() == HogHealsMinimapDrawer')
@@ -157,6 +164,18 @@ def test_without_the_minimap_skin_the_launcher_hangs_under_the_bare_minimap(lua)
     lua.execute('HogHeals.OptionsTable().args.Quests.args.minimap.args.look.args.enabled.set({}, false)')
     assert lua.eval('HogHealsMinimapButtons._points[1][2] == Minimap')
     assert lua.eval('HogHealsQuests.Buttons.anchoredTo') == "minimap"
+    assert errors(lua) == []
+
+
+def test_right_side_puts_the_launcher_under_the_map_and_opens_down(lua):
+    boot(lua, MINIMAP)
+    lua.execute('HogHeals.OptionsTable().args.Quests.args.minimap.args.buttons.args.side.set({}, "right")')
+    assert lua.eval('HogHealsMinimapButtons._points[1][1]') == "TOPRIGHT" and lua.eval('HogHealsMinimapButtons._points[1][3]') == "BOTTOMRIGHT"
+    assert lua.eval('HogHealsMinimapDrawer._points[1][3]') == "BOTTOMRIGHT"
+    scale = lua.eval('LibDBIcon10_Bagnon._last.SetScale[1]')
+    assert lua.eval('LibDBIcon10_Bagnon._points[1][1]') == "TOPLEFT"
+    assert lua.eval('LibDBIcon10_Details._points[1][4]') * scale == pytest.approx(4 + 32)
+    assert lua.eval('HogHealsQuests.Buttons.Probe().side') == "right"
     assert errors(lua) == []
 
 

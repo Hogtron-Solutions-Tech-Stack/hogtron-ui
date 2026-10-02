@@ -68,8 +68,10 @@ function Options.Build()
           size = range(mm, "size", "Pin size", 4, 8, 32, 1, pr),
         } },
         buttons = { type = "group", inline = true, name = "Addon buttons", order = 3, args = {
-          about = { type = "description", order = 0, name = "Every addon's minimap icon (Atlas, Details, Bagnon, ...) gathered into one drawer under the minimap - click the three-dot button to open it. Blizzard's own buttons (tracking, mail, clock, LFG) stay where they are. Turning this off hands the icons back." },
+          about = { type = "description", order = 0, name = "Every addon's minimap icon (Atlas, Details, Bagnon, ...) gathered into one drawer - click the small H beside the minimap to open it. Blizzard's own buttons (tracking, mail, clock, LFG) stay where they are. Turning this off hands the icons back." },
           enabled = toggle(bt, "enabled", "Gather addon buttons into a drawer", 1, br),
+          side = { type = "select", name = "Where", order = 1.5, values = { left = "Left of the map, opens toward the screen", right = "Under the map, opens down" },
+            get = function() return bt().side == "right" and "right" or "left" end, set = function(_, v) bt().side = v; br() end },
           columns = range(bt, "columns", "Columns", 2, 1, 10, 1, br),
           size = range(bt, "size", "Icon size", 3, 16, 40, 2, br),
           hover = toggle(bt, "hover", "Open on mouse-over", 4, br),

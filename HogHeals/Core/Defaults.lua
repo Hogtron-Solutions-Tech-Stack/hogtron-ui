@@ -97,7 +97,7 @@ HH.defaults = {
       },
       minimap = { enabled = true, edge = true, watchedOnly = false, turnInInRange = false, size = 16 },   -- Forever draws areas only, not points
       map = { enabled = true, fill = true, size = 180, zoneText = true, wheelZoom = true, hideDecor = true, dockButtons = true },
-      buttons = { enabled = true, columns = 4, size = 28, hover = false, autoClose = true },   -- addon minimap icons gathered into one drawer
+      buttons = { enabled = true, side = "left", columns = 4, size = 28, hover = false, autoClose = true },   -- addon minimap icons in one drawer; side: left (opens toward the screen) | right (opens down)
     },
     chat = {
       enabled = true, backgroundAlpha = 0.6, fontSize = nil, outline = false,   -- fontSize nil = keep Blizzard's size

@@ -1,5 +1,6 @@
 -- Addon buttons: every third-party minimap icon (LibDBIcon ones and the old hand-named kind) gathered into one ink
--- drawer under the minimap, opened from a single three-dot HogUI button. Blizzard's own buttons (tracking, mail,
+-- drawer beside the minimap, opened from a single small HogUI "H" button (Sean 2026-10-01: left of the map, opening
+-- toward the middle of the screen, a colour-themed H for a logo). Blizzard's own buttons (tracking, mail,
 -- clock, LFG eye) are never touched: MapSkin docks the ones that sat on the map, and they keep handling their own
 -- secrets (LANDMINE 2026-09-26: adopting a Blizzard frame taints it).
 --
@@ -20,7 +21,7 @@ local CYAN = { 0.13, 0.83, 0.88 }
 local CREAM = { 0.96, 0.92, 0.86 }
 local GREY = { 0.55, 0.55, 0.60 }
 local PAD = 4          -- gap between cells and to the drawer edge
-local LAUNCHER = 16    -- the three-dot button, px
+local LAUNCHER = 18    -- the H button, px (the minimap header is 20)
 local AWAY = 1.0       -- seconds the cursor must be off the drawer before it closes itself
 
 local function cfg() return HH.db.profile.quests.buttons end
@@ -113,14 +114,18 @@ local function build()
   b.bg = solid(b, "BACKGROUND", INK, 0.92)
   b.bg:SetAllPoints(b)
   b.edges = outline(b)
-  -- three cyan dots: no font involved, so it draws the same on every client
-  b.dots = {}
-  for i = -1, 1 do
-    local d = solid(b, "ARTWORK", CYAN)
-    d:SetSize(2, 2)
-    d:SetPoint("CENTER", b, "CENTER", i * 4, 0)
-    b.dots[#b.dots + 1] = d
+  -- the logo: an H drawn from three bars (cream uprights, cyan crossbar - the HOG / UI two-tone rule). No font
+  -- involved, so it draws the same on every client.
+  b.logo = {}
+  for _, x in ipairs({ -3.5, 3.5 }) do
+    local bar = solid(b, "ARTWORK", CREAM)
+    bar:SetSize(3, 10)
+    bar:SetPoint("CENTER", b, "CENTER", x, 0)
+    b.logo[#b.logo + 1] = bar
   end
+  b.cross = solid(b, "ARTWORK", CYAN)
+  b.cross:SetSize(8, 2)
+  b.cross:SetPoint("CENTER", b, "CENTER", 0, 0)
   b:SetScript("OnClick", function(_, button)
     if button == "RightButton" then
       if HH.OpenOptions then HH:OpenOptions() end
@@ -155,7 +160,6 @@ local function build()
   local d = CreateFrame("Frame", "HogHealsMinimapDrawer", b)
   d:SetFrameStrata("MEDIUM")
   d:SetFrameLevel(b:GetFrameLevel() + 1)
-  d:SetPoint("TOPRIGHT", b, "BOTTOMRIGHT", 0, -2)
   d.bg = solid(d, "BACKGROUND", INK, 0.92)
   d.bg:SetAllPoints(d)
   d.edges = outline(d)
@@ -168,15 +172,28 @@ local function build()
   return b
 end
 
---- The launcher sits under the minimap's bottom-right corner: under our ink frame when the skin is on, under the
--- bare Minimap otherwise. Re-run after the skin is toggled.
+--- Where the launcher sits, against our ink frame when the skin is on, against the bare Minimap otherwise:
+--   side = "left"  (default): beside the map's top-left corner; the drawer opens leftward, toward the middle of the screen
+--   side = "right": under the map's bottom-right corner; the drawer opens downward
+-- Re-run after the skin or the side is changed.
+function Drawer.Side() return cfg().side == "right" and "right" or "left" end
+
 function Drawer.Anchor()
-  local b = Drawer.launcher
+  local b, f = Drawer.launcher, Drawer.frame
   if not b then return end
   local skin = HHQ.MapSkin and HHQ.MapSkin.frame
   local to = (skin and HH.db.profile.quests.map.enabled ~= false) and skin or Minimap
+  local side = Drawer.Side()
   b:ClearAllPoints()
-  b:SetPoint("TOPRIGHT", to, "BOTTOMRIGHT", 0, -3)
+  f:ClearAllPoints()
+  if side == "left" then
+    b:SetPoint("TOPRIGHT", to, "TOPLEFT", -3, 0)
+    f:SetPoint("TOPRIGHT", b, "TOPLEFT", -2, 0)
+  else
+    b:SetPoint("TOPRIGHT", to, "BOTTOMRIGHT", 0, -3)
+    f:SetPoint("TOPRIGHT", b, "BOTTOMRIGHT", 0, -2)
+  end
+  Drawer.side = side
   Drawer.anchoredTo = (to == skin) and "skin" or "minimap"
 end
 
@@ -275,7 +292,8 @@ function Drawer.Scan()
   return added
 end
 
---- Grid: shown buttons only, `columns` across, every one scaled to `size` px. Returns how many are on the grid.
+--- Grid: shown buttons only, `columns` across, every one scaled to `size` px. Cells fill from the edge nearest the
+-- launcher (top-right when the drawer opens leftward, top-left when it opens downward). Returns how many are placed.
 function Drawer.Layout()
   local f = Drawer.frame
   if not f or Drawer.laying then return 0 end
@@ -283,6 +301,8 @@ function Drawer.Layout()
   local d = cfg()
   local cols = math.max(1, math.floor(d.columns or 4))
   local size = d.size or 28
+  local corner = Drawer.Side() == "left" and "TOPRIGHT" or "TOPLEFT"
+  local dir = corner == "TOPRIGHT" and -1 or 1
   local shown = {}
   for _, b in ipairs(Drawer.list) do if call(b.IsShown, b) then shown[#shown + 1] = b end end
   for i, b in ipairs(shown) do
@@ -294,7 +314,7 @@ function Drawer.Layout()
     if call(b.GetParent, b) ~= f then call(b.SetParent, b, f) end
     call(b.SetScale, b, scale)
     call(b.ClearAllPoints, b)
-    call(b.SetPoint, b, "TOPLEFT", f, "TOPLEFT", (PAD + col * (size + PAD)) / scale, -(PAD + row * (size + PAD)) / scale)
+    call(b.SetPoint, b, corner, f, corner, dir * (PAD + col * (size + PAD)) / scale, -(PAD + row * (size + PAD)) / scale)
     placing[b] = nil
   end
   local n = #shown
@@ -418,6 +438,6 @@ end
 function Drawer.Probe()
   local n, shown = Drawer.Count()
   return { collected = table.concat(Drawer.Names(), ","), count = n, shown = shown,
-    skipped = table.concat(Drawer.skipped or {}, ","), anchor = Drawer.anchoredTo or "none",
+    skipped = table.concat(Drawer.skipped or {}, ","), anchor = Drawer.anchoredTo or "none", side = Drawer.side or "?",
     open = (Drawer.frame and Drawer.frame:IsShown()) and "1" or "0" }
 end
