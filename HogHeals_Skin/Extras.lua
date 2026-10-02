@@ -62,15 +62,50 @@ Part.XP_ART = { "MainMenuXPBarTexture0", "MainMenuXPBarTexture1", "MainMenuXPBar
   "ReputationWatchBarTexture0", "ReputationWatchBarTexture1", "ReputationWatchBarTexture2", "ReputationWatchBarTexture3",
   "ReputationXPBarTexture0", "ReputationXPBarTexture1", "ReputationXPBarTexture2", "ReputationXPBarTexture3" }
 
+-- Blizzard's XP colours, used when a bar's own colour reads white (its colour was baked into the atlas we removed).
+Part.XP_PURPLE = { 0.58, 0.0, 0.55 }
+Part.RESTED_BLUE = { 0.0, 0.39, 0.88, 0.35 }
+local reflat = setmetatable({}, { __mode = "k" })
+
+--- The fill texture flat again, after Blizzard put its own back. Modern bars re-apply their fill atlas on every
+-- update (the XP bar swaps rested / normal fills, both with a rounded end - in game 2026-10-01, "that rounded edge").
+local function reflatten(bar)
+  if reflat[bar] then return end
+  reflat[bar] = true
+  Skin.call(bar.SetStatusBarTexture, bar, Skin.FLAT)
+  local r, g, b = Skin.call(bar.GetStatusBarColor, bar)
+  if r == 1 and g == 1 and b == 1 then Skin.call(bar.SetStatusBarColor, bar, Part.XP_PURPLE[1], Part.XP_PURPLE[2], Part.XP_PURPLE[3]) end
+  reflat[bar] = nil
+end
+
 local function flattenBar(bar)
   if type(bar) ~= "table" or bar.hhFlat then return false end
   if not bar.SetStatusBarTexture then return false end
   bar.hhFlat = true
-  Skin.call(bar.SetStatusBarTexture, bar, Skin.FLAT)
+  reflatten(bar)
   for _, k in ipairs({ "Background", "Overlay", "OverlayFrame", "Border" }) do
     local r = rawget(bar, k)
     if type(r) == "table" then
       if r.GetObjectType and r:GetObjectType() == "Texture" then Skin.Kill(r) else Skin.KillRegions(r) end
+    end
+  end
+  -- the rested-XP extent is its own rounded fill: a flat translucent blue block instead
+  local rested = rawget(bar, "ExhaustionLevelFillBar")
+  if type(rested) == "table" and rested.SetTexture then
+    Skin.call(rested.SetTexture, rested, Skin.FLAT)
+    Skin.call(rested.SetVertexColor, rested, Part.RESTED_BLUE[1], Part.RESTED_BLUE[2], Part.RESTED_BLUE[3], Part.RESTED_BLUE[4])
+  end
+  -- rounded ends drawn through a mask on the fill: take the masks off
+  local fill = bar.GetStatusBarTexture and Skin.call(bar.GetStatusBarTexture, bar)
+  if type(fill) == "table" and fill.RemoveMaskTexture and bar.GetRegions then
+    for _, r in ipairs({ bar:GetRegions() }) do
+      if r ~= fill and r.GetObjectType and r:GetObjectType() == "MaskTexture" then pcall(fill.RemoveMaskTexture, fill, r) end
+    end
+  end
+  -- and stay flat: Blizzard's next SetStatusBarTexture / SetStatusBarAtlas is undone on the spot
+  if type(hooksecurefunc) == "function" then
+    for _, m in ipairs({ "SetStatusBarTexture", "SetStatusBarAtlas" }) do
+      if type(bar[m]) == "function" then pcall(hooksecurefunc, bar, m, reflatten) end
     end
   end
   bar.hhBg = Skin.Solid(bar, "BACKGROUND", { 0.13, 0.13, 0.16 }, 0.9, -8)
@@ -93,16 +128,51 @@ local function skinContainer(c)
   if type(bars) == "table" then
     for _, b in ipairs(bars) do
       local sb = rawget(b, "StatusBar")
+      if type(sb) == "table" then Skin.KillRegions(b) end   -- the bar frame's own art (texture regions only)
       if flattenBar(type(sb) == "table" and sb or b) then n = n + 1 end
     end
   end
   if c.GetChildren then
     for _, ch in ipairs({ c:GetChildren() }) do
       local sb = type(ch) == "table" and rawget(ch, "StatusBar")
+      if type(sb) == "table" then Skin.KillRegions(ch) end
       if type(sb) == "table" and flattenBar(sb) then n = n + 1 end
     end
   end
   return n
+end
+
+--- Every texture on the XP containers and their bars, for /hh skindiag (name | atlas or file | shown): the next
+-- rounded edge gets named instead of guessed.
+function Part.ProbeXP()
+  local out = {}
+  local function dump(label, f)
+    if type(f) ~= "table" or not f.GetRegions then return end
+    for _, r in ipairs({ f:GetRegions() }) do
+      if r and r.GetObjectType then
+        local kind = r:GetObjectType()
+        if kind == "Texture" or kind == "MaskTexture" then
+          local tex = (r.GetAtlas and Skin.call(r.GetAtlas, r)) or (r.GetTexture and Skin.call(r.GetTexture, r))
+          out[#out + 1] = ("%s:%s|%s|%s%s"):format(label, tostring(r.GetName and r:GetName() or "?"), tostring(tex),
+            tostring(r.IsShown and r:IsShown()), kind == "MaskTexture" and "|MASK" or "")
+        end
+      end
+    end
+  end
+  local mgr = rawget(_G, "StatusTrackingBarManager")
+  if type(mgr) == "table" then
+    for _, key in ipairs(Part.XP_CONTAINERS) do
+      local c = rawget(mgr, key)
+      dump(key, c)
+      local bars = type(c) == "table" and rawget(c, "bars") or nil
+      for i, b in ipairs(type(bars) == "table" and bars or {}) do
+        dump(key .. ".bar" .. i, b)
+        dump(key .. ".bar" .. i .. ".StatusBar", rawget(b, "StatusBar"))
+      end
+    end
+  end
+  dump("MainMenuExpBar", rawget(_G, "MainMenuExpBar"))
+  return out
 end
 
 function Part.SkinXP()
