@@ -194,16 +194,23 @@ def test_unlock_shows_a_resize_grip_and_dragging_it_sets_width_and_the_fill_gap(
     assert modern.eval('HogHealsQuestTracker._width') == 320
     modern.execute('HogHealsQuestTracker.grip:GetScript("OnMouseUp")(HogHealsQuestTracker.grip)')
     assert modern.eval('HogHeals.db.profile.quests.tracker.width') == 320
-    assert modern.eval('HogHeals.db.profile.quests.tracker.bottomMargin') == 140
     assert modern.eval('HogHealsQuests.Tracker.sizing') is None
-    # fill off: the dragged height becomes the max height instead
+    # the drag means "this tall": fill off, fixed height, and the panel IS that tall even with three short quests
+    d = modern.eval('HogHeals.db.profile.quests.tracker')
+    assert d["fill"] is False and d["fixedHeight"] is True and d["maxHeight"] == 700 - 21 - 8
+    assert modern.eval('HogHealsQuestTracker._height') == 700
+    assert modern.eval('HogHealsQuestTracker._width') == 320
+    # a second drag re-sizes again
     modern.execute('''
-      HogHeals.db.profile.quests.tracker.fill = false
       HogHealsQuestTracker.grip:GetScript("OnMouseDown")(HogHealsQuestTracker.grip)
       HogHealsQuestTracker._height = 500
       HogHealsQuestTracker.grip:GetScript("OnMouseUp")(HogHealsQuestTracker.grip)
     ''')
     assert modern.eval('HogHeals.db.profile.quests.tracker.maxHeight') == 500 - 21 - 8
+    assert modern.eval('HogHealsQuestTracker._height') == 500
+    # fixed height off: back to hugging the content
+    modern.execute('HogHeals.db.profile.quests.tracker.fixedHeight = false; HogHealsQuests.Tracker.Update()')
+    assert modern.eval('HogHealsQuestTracker._height') < 300
     modern.execute('HogHeals:SlashCommand("lock")')
     assert modern.eval('HogHealsQuestTracker.grip:IsShown()') is False
     assert modern.eval('HogHealsQuestTracker.edges[1]._color[2]') == pytest.approx(0.20)
