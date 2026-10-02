@@ -233,21 +233,67 @@ local function applyFont(cf)
   end
 end
 
-local function hookMessages(cf, s)
-  if s.hooked or isCombatLog(cf) or type(cf.AddMessage) ~= "function" then return end
-  local orig = cf.AddMessage
-  s.hooked = true
-  cf.AddMessage = function(self, msg, ...)
-    if cfg().shortChannels ~= false then
-      local ok, m = pcall(Chat.Shorten, msg)
-      if ok then msg = m end
+-- ------------------------------------------------------------------------------------------------ message path
+-- NEVER replace a chat frame's AddMessage. In game 2026-10-01 (new client build, chat now served by the secure
+-- Blizzard_ChatFrameBase addon): addon prints still showed, every say / general / guild line vanished - Blizzard's
+-- secure handler calling a tainted AddMessage on its own frame drops the message, silently. The two things that
+-- hook did are done the sanctioned way instead:
+--   * prefixes: Blizzard builds "[Guild] Name:" from plain global format strings; we shorten the bracket there
+--     (a global string, no frame touched, no secret involved);
+--   * URLs: a message event filter rewrites the text of each chat event when it is a plain string (secret text is
+--     left alone). Numbered channels get their bare number the same way.
+Chat.FORMATS = { CHAT_GUILD_GET = "G", CHAT_OFFICER_GET = "O", CHAT_PARTY_GET = "P", CHAT_PARTY_LEADER_GET = "PL",
+  CHAT_PARTY_GUIDE_GET = "PG", CHAT_RAID_GET = "R", CHAT_RAID_LEADER_GET = "RL", CHAT_RAID_WARNING_GET = "RW",
+  CHAT_INSTANCE_CHAT_GET = "I", CHAT_INSTANCE_CHAT_LEADER_GET = "IL" }
+Chat.TEXT_EVENTS = { "CHAT_MSG_SAY", "CHAT_MSG_YELL", "CHAT_MSG_GUILD", "CHAT_MSG_OFFICER", "CHAT_MSG_PARTY",
+  "CHAT_MSG_PARTY_LEADER", "CHAT_MSG_RAID", "CHAT_MSG_RAID_LEADER", "CHAT_MSG_RAID_WARNING", "CHAT_MSG_INSTANCE_CHAT",
+  "CHAT_MSG_INSTANCE_CHAT_LEADER", "CHAT_MSG_WHISPER", "CHAT_MSG_WHISPER_INFORM", "CHAT_MSG_BN_WHISPER",
+  "CHAT_MSG_BN_WHISPER_INFORM", "CHAT_MSG_CHANNEL", "CHAT_MSG_EMOTE", "CHAT_MSG_SYSTEM" }
+Chat.origFormats = Chat.origFormats or {}
+
+--- "[Guild]" -> "[G]" inside Blizzard's format strings (shortChannels on), originals back when off. Returns how
+-- many strings are currently shortened.
+function Chat.ApplyFormats()
+  local on = cfg().shortChannels ~= false
+  local n = 0
+  for g, short in pairs(Chat.FORMATS) do
+    local cur = rawget(_G, g)
+    if type(cur) == "string" then
+      if on then
+        if Chat.origFormats[g] == nil then Chat.origFormats[g] = cur end
+        local out, k = Chat.origFormats[g]:gsub("%[[^%]]+%]", "[" .. short .. "]", 1)
+        if k > 0 then _G[g] = out n = n + 1 end
+      elseif Chat.origFormats[g] ~= nil then
+        _G[g] = Chat.origFormats[g]
+      end
     end
-    if cfg().urlCopy ~= false then
-      local ok, m = pcall(Chat.LinkURLs, msg)
-      if ok then msg = m end
-    end
-    return orig(self, msg, ...)
   end
+  return n
+end
+
+--- The event filter: URLs linked in plain text; a numbered channel's display string cut to its number. Secret
+-- values pass untouched (no change returned). Signature per Blizzard: (frame, event, ...) -> filter?, args...
+function Chat.Filter(_, event, msg, a2, a3, chan, ...)
+  local changed = false
+  if cfg().urlCopy ~= false and type(msg) == "string" and not isSecret(msg) then
+    local ok, m = pcall(Chat.LinkURLs, msg)
+    if ok and m ~= msg then msg, changed = m, true end
+  end
+  if event == "CHAT_MSG_CHANNEL" and cfg().shortChannels ~= false and type(chan) == "string" and not isSecret(chan) then
+    local num = chan:match("^(%d+)%. ")
+    if num then chan, changed = num, true end
+  end
+  if changed then return false, msg, a2, a3, chan, ... end
+end
+
+function Chat.InstallFilters()
+  if Chat.filtersInstalled or type(rawget(_G, "ChatFrame_AddMessageEventFilter")) ~= "function" then return 0 end
+  Chat.filtersInstalled = true
+  local n = 0
+  for _, ev in ipairs(Chat.TEXT_EVENTS) do
+    if pcall(ChatFrame_AddMessageEventFilter, ev, Chat.Filter) then n = n + 1 end
+  end
+  return n
 end
 
 -- ------------------------------------------------------------------------------------------------ tabs state
@@ -320,7 +366,6 @@ function Chat.Style(cf)
   styleTab(cf, s)
   styleEditBox(cf, s)
   applyFont(cf)
-  hookMessages(cf, s)
   if cf.SetFading then call(cf.SetFading, cf, cfg().fade ~= false) end
   local d = cfg()
   if d.hideButtons ~= false then hideForever(_G[cf:GetName() .. "ButtonFrame"]) end
@@ -343,6 +388,7 @@ end
 function Chat.Refresh()
   Chat.StyleAll()
   Chat.ApplyClassNames()
+  Chat.ApplyFormats()
 end
 
 local Module = {}
@@ -357,6 +403,8 @@ function Module:OnEnable()
   end
   Chat.StyleAll()
   Chat.ApplyClassNames()
+  Chat.ApplyFormats()
+  Chat.InstallFilters()
   local ev = CreateFrame("Frame")
   for _, e in ipairs({ "UPDATE_CHAT_WINDOWS", "UPDATE_FLOATING_CHAT_WINDOWS", "PLAYER_ENTERING_WORLD" }) do pcall(ev.RegisterEvent, ev, e) end
   ev:SetScript("OnEvent", function() Chat.StyleAll() end)

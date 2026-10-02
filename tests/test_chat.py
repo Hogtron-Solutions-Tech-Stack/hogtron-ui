@@ -26,6 +26,11 @@ end
 SELECTED_CHAT_FRAME = ChatFrame1
 CLASSED = {}
 function SetChatColorNameByClass(t, on) CLASSED[t] = on end
+ORIG_ADD = ChatFrame1.AddMessage
+CHAT_GUILD_GET = "|Hchannel:GUILD|h[Guild]|h %s:"
+CHAT_PARTY_LEADER_GET = "|Hchannel:PARTY|h[Party Leader]|h %s:"
+FILTERS = {}
+function ChatFrame_AddMessageEventFilter(ev, fn) FILTERS[ev] = fn end
 '''
 
 
@@ -62,10 +67,34 @@ def test_secret_message_passes_through_untouched(chat):
     assert errors(chat) == []
 
 
-def test_messages_shortened_but_not_in_the_combat_log(chat):
-    chat.execute('ChatFrame1:AddMessage("[1. General - Elwynn] hi"); ChatFrame2:AddMessage("[1. General - Elwynn] hi")')
-    assert chat.eval('ADDED[1].msg') == "[1] hi"
-    assert chat.eval('ADDED[2].msg') == "[1. General - Elwynn] hi"
+def test_addmessage_is_never_replaced_prefixes_shortened_through_blizzards_format_strings(chat):
+    # In game 2026-10-01: a replaced AddMessage made every say / general / guild line vanish on the new client build
+    # (secure Blizzard_ChatFrameBase calling a tainted method). The frame's method must be Blizzard's own.
+    assert chat.eval('rawget(ChatFrame1, "AddMessage") == ORIG_ADD') is True
+    chat.execute('ChatFrame1:AddMessage("[1. General - Elwynn] hi")')
+    assert chat.eval('ADDED[#ADDED].msg') == "[1. General - Elwynn] hi"          # untouched on the way in
+    assert chat.eval('CHAT_GUILD_GET') == "|Hchannel:GUILD|h[G]|h %s:"
+    assert chat.eval('CHAT_PARTY_LEADER_GET') == "|Hchannel:PARTY|h[PL]|h %s:"
+    # the option off: Blizzard's originals back
+    chat.execute('HogHeals.db.profile.chat.shortChannels = false; HogHealsChat.Chat.Refresh()')
+    assert chat.eval('CHAT_GUILD_GET') == "|Hchannel:GUILD|h[Guild]|h %s:"
+    chat.execute('HogHeals.db.profile.chat.shortChannels = true; HogHealsChat.Chat.Refresh()')
+    assert chat.eval('CHAT_GUILD_GET') == "|Hchannel:GUILD|h[G]|h %s:"
+    assert errors(chat) == []
+
+
+def test_event_filter_links_urls_and_cuts_channel_numbers_but_leaves_secret_text_alone(chat):
+    assert chat.eval('FILTERS.CHAT_MSG_SAY ~= nil and FILTERS.CHAT_MSG_CHANNEL ~= nil and FILTERS.CHAT_MSG_GUILD ~= nil')
+    chat.execute('F, M, A2, A3, CH = FILTERS.CHAT_MSG_SAY(ChatFrame1, "CHAT_MSG_SAY", "look https://a.b/c", "Bob", "", "")')
+    assert chat.eval('F') is False and "|Hhogurl:https://a.b/c|h" in chat.eval('M') and chat.eval('A2') == "Bob"
+    chat.execute('F, M, A2, A3, CH = FILTERS.CHAT_MSG_CHANNEL(ChatFrame1, "CHAT_MSG_CHANNEL", "wts linen", "Bob", "", "1. General - Elwynn")')
+    assert chat.eval('F') is False and chat.eval('CH') == "1" and chat.eval('M') == "wts linen"
+    # nothing to change: no return at all (Blizzard keeps its arguments)
+    assert chat.eval('FILTERS.CHAT_MSG_SAY(ChatFrame1, "CHAT_MSG_SAY", "plain words", "Bob")') is None
+    # secret text (restricted client): untouched, no error
+    chat.execute('MockSetSecrets(true); R = { FILTERS.CHAT_MSG_CHANNEL(ChatFrame1, "CHAT_MSG_CHANNEL", MockSecret("x https://q.r"), "Bob", "", MockSecret("1. General")) }')
+    assert chat.eval('#R') == 0
+    assert errors(chat) == []
 
 
 def test_window_tab_and_editbox_restyled(chat):
@@ -131,6 +160,6 @@ def test_clicking_a_url_opens_the_copy_box(chat):
     chat.execute('SetItemRef("hogurl:https://example.com/a", "[https://example.com/a]", "LeftButton")')
     assert chat.eval('HogUIURLCopy:IsShown()') is True
     assert chat.eval('HogUIURLCopy.box._text') == "https://example.com/a"
-    chat.execute('ChatFrame1:AddMessage("look https://a.b/c")')
-    assert "|Hhogurl:https://a.b/c|h" in chat.eval('ADDED[#ADDED].msg')
+    chat.execute('_, M = FILTERS.CHAT_MSG_SAY(ChatFrame1, "CHAT_MSG_SAY", "look https://a.b/c", "Bob")')
+    assert "|Hhogurl:https://a.b/c|h" in chat.eval('M')
     assert errors(chat) == []
