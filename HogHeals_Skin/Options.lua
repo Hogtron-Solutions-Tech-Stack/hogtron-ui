@@ -73,6 +73,7 @@ function Options.Build()
         buffs = toggle(sub("extras"), "buffs", "Skin my buff and debuff icons", 1),
         durationSize = range(sub("extras"), "durationSize", "Duration / count text size", 2, 7, 16, 1),
         xpBar = toggle(sub("extras"), "xpBar", "Flat experience / reputation bar", 3),
+        mirror = toggle(sub("extras"), "mirror", "Flat breath / fatigue timers", 4),
       } },
       panels = { type = "group", name = "Windows", order = 4.7, args = {
         about = { type = "description", order = 0, name = "Blizzard's windows (character, spellbook, escape menu, vendor, mail, trade, bank, ...) on the HogUI panel: art and portrait off, outline, flat close button. Parchment windows (gossip, quest text, quest log, books, opened mail) get their text recoloured cream / amber and the parchment stripped. Untick a window to leave it alone (needs a /reload to come back)." },
