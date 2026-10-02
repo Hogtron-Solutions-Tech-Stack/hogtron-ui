@@ -9,9 +9,10 @@ local INDICATOR_LABELS = {
   aggro = "Aggro border", raidIcon = "Raid target icon", statusIcons = "Status icons (ready/res/summon/leader)",
   missingBuffs = "Missing buff I can cast", myShield = "My shield + Weakened Soul", thresholds = "Health threshold ticks",
   aoeHealing = "AoE-heal scope highlight", requestGlow = "Dispel-request glow (/hh dispelme from others)",
+  buffs = "Buffs on the cell (Fortitude-type buffs live here, not above heads)",
 }
 local INDICATOR_ORDER = { "health", "power", "name", "healPrediction", "dispel", "priorityDebuff", "range", "aggro",
-  "raidIcon", "statusIcons", "missingBuffs", "myShield", "thresholds", "aoeHealing", "requestGlow" }
+  "raidIcon", "statusIcons", "missingBuffs", "myShield", "buffs", "thresholds", "aoeHealing", "requestGlow" }
 
 local function frames() return HH.db.profile.frames end
 local function layout() return HHF.module:LayoutFor() end
@@ -140,6 +141,13 @@ local function indicatorsGroup()
       set = function(_, v) frames().indicators[key] = v and true or false; refresh() end,
     }
   end
+  args.buffsHeader = { type = "header", name = "Buffs on the cell", order = 40 }
+  args.buffsFilter = { type = "select", name = "Which buffs", order = 41, values = { mine = "Mine only", all = "Mine first, then everyone's" },
+    get = function() return frames().buffs.filter or "mine" end, set = function(_, v) frames().buffs.filter = v; refresh() end }
+  args.buffsSize = { type = "range", name = "Icon size", order = 42, min = 8, max = 24, step = 1,
+    get = function() return frames().buffs.size or 12 end, set = function(_, v) frames().buffs.size = v; refresh() end }
+  args.buffsMax = { type = "range", name = "Most icons", order = 43, min = 1, max = 8, step = 1,
+    get = function() return frames().buffs.max or 4 end, set = function(_, v) frames().buffs.max = v; refresh() end }
   args.dispelHeader = { type = "header", name = "Dispel display", order = 50 }
   args.dispelStyle = { type = "select", name = "Style", order = 51,
     values = { icon = "Icon", color = "Health bar colour", border = "Border" },

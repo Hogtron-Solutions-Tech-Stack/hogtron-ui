@@ -20,6 +20,7 @@ Elements\StatusIcons.lua
 Elements\Dispel.lua
 Elements\MissingBuffs.lua
 Elements\MyShield.lua
+Elements\Buffs.lua
 Elements\Thresholds.lua
 Elements\AoEHealing.lua
 Elements\HealPrediction.lua

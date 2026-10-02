@@ -69,8 +69,9 @@ HH.defaults = {
         health = true, power = true, name = true, healPrediction = true,
         dispel = true, range = true, aggro = true, raidIcon = true, statusIcons = true,
         missingBuffs = true, myShield = true, thresholds = false, aoeHealing = true,
-        priorityDebuff = true, requestGlow = true,
+        priorityDebuff = true, requestGlow = true, buffs = true,
       },
+      buffs = { size = 12, max = 4, filter = "mine", offsetY = 5 },   -- row of the unit's buffs on the cell; filter: mine | all (long buffs live here, not above heads)
       dispel = { style = "icon", priorityDebuffs = {} },  -- style: "icon" | "color" | "border"
       thresholds = { 35, 50 },
       healthFade = { enabled = false, above = 90, alpha = 0.5 },
@@ -109,6 +110,7 @@ HH.defaults = {
       nameClass = "friendly",         -- player names on plates in class colour: "friendly" | "all" | "none"
       friendlyNameOnly = true,        -- friendly plates: just the name, no health bar
       friendlyNameSize = 14,          -- text size of that name (the overhead name is about this)
+      buffs = { enabled = true, maxDuration = 60, size = 18, max = 6, gap = 2 },   -- my SHORT buffs (HoTs) centred above friendly heads; Blizzard's row off; long buffs stay on the party frame
       showLevel = false,              -- the level badge next to the bar
       uniformScale = true, targetScale = 1.0,   -- same plate size at every distance; the target's plate scale
       maxDistance = 60,               -- nameplateMaxDistance (yards); the client clamps to what it allows

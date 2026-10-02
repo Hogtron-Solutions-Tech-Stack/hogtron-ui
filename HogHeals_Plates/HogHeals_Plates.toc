@@ -9,4 +9,5 @@
 
 QuestMobs.lua
 Plates.lua
+Hots.lua
 Options.lua

@@ -380,3 +380,59 @@ def test_plate_distance_cvar_and_untruncated_friendly_names(plates):
     plates.execute(f'{uf}.name:SetWidth(90); HogHealsPlates.Plates.FriendlyLook({uf})')
     assert plates.eval(f'{uf}.name._width') == 0
     assert errors(plates) == []
+
+
+FRIEND_AURAS = '''
+  MockState.time = 80
+  local p = MockPlate("nameplate1", { name = "Knut", class = "SHAMAN", health = 1, maxHealth = 1, isPlayer = true, friendly = true, guid = "P-1",
+    auras = { { name = "Power Word: Fortitude", source = "player", icon = "fort", duration = 1800, expires = 1880 },
+              { name = "Renew", source = "player", icon = "renew", duration = 15, expires = 95 },
+              { name = "Mark of the Wild", source = "party2", icon = "motw", duration = 1800, expires = 1880 },
+              { name = "Regrowth", source = "player", icon = "regrowth", duration = 21, expires = 101, count = 2 },
+              { name = "Lightning Shield", source = "player", icon = "ls", duration = 0, expires = 0 } } })
+  p.UnitFrame.BuffFrame = CreateFrame("Frame", nil, p.UnitFrame)
+  MockFire("NAME_PLATE_UNIT_ADDED", "nameplate1")
+'''
+
+
+def test_short_buffs_centred_above_friendly_heads_long_ones_kept_off(plates):
+    # Sean 2026-10-02: Renew above the head, Fortitude on the party frame only; the row centred, Blizzard's row quiet
+    plates.execute(FRIEND_AURAS)
+    uf = 'NP.nameplate1.UnitFrame'
+    assert plates.eval(f'{uf}.hh.hotCount') == 2 and plates.eval(f'{uf}.hh.hotLong') == 2   # Renew + Regrowth; Fort + the permanent shield skipped, the druid's mark never read
+    assert plates.eval(f'{uf}.hh.hots.icons[1].icon._texture') == "renew" and plates.eval(f'{uf}.hh.hots.icons[2].icon._texture') == "regrowth"
+    assert plates.eval(f'{uf}.hh.hots.icons[2].count._text') == "2"
+    assert plates.eval(f'{uf}.hh.hots.icons[1].cd._last.SetCooldown[1]') == 80 and plates.eval(f'{uf}.hh.hots.icons[1].cd._last.SetCooldown[2]') == 15
+    row = f'{uf}.hh.hots'
+    assert plates.eval(f'{row}._points[1][1]') == "BOTTOM" and plates.eval(f'{row}._points[1][2] == {uf}.name') and plates.eval(f'{row}._points[1][3]') == "TOP"
+    assert plates.eval(f'{row}._width') == 2 * 18 + 2 and plates.eval(f'{row}:IsShown()') is True
+    assert plates.eval(f'{row}.icons[2]._points[1][4]') == 20
+    assert plates.eval(f'{uf}.BuffFrame._alpha') == 0
+    plates.execute(f'{uf}.BuffFrame:SetAlpha(1)')
+    assert plates.eval(f'{uf}.BuffFrame._alpha') == 0                                       # kept quiet
+    # a HoT dropping fires UNIT_AURA on the plate unit
+    plates.execute('table.remove(MockUnits.nameplate1.auras, 2); MockFire("UNIT_AURA", "nameplate1")')
+    assert plates.eval(f'{uf}.hh.hotCount') == 1 and plates.eval(f'{row}.icons[2]:IsShown()') is False
+    # plate recycled for a mob: row off, Blizzard's row back
+    plates.execute('MockFire("NAME_PLATE_UNIT_REMOVED", "nameplate1")')
+    assert plates.eval(f'{row}:IsShown()') is False and plates.eval(f'{uf}.BuffFrame._alpha') == 1
+    assert errors(plates) == []
+
+
+def test_hots_secret_duration_is_shown_not_dropped_and_enemies_untouched(plates):
+    plates.execute('MockSetSecrets(true); MockEnableModernAuras(true)')
+    plates.execute(FRIEND_AURAS.replace("duration = 15", "duration = MockSecret(15)"))
+    uf = 'NP.nameplate1.UnitFrame'
+    assert plates.eval(f'{uf}.hh.hotCount') == 2 and plates.eval(f'{uf}.hh.hots.icons[1]:IsShown()') is True   # Renew kept on a secret duration
+    # an enemy plate: no row, Blizzard's row left alone
+    plates.execute('''
+      local p = MockPlate("nameplate2", { name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-2",
+        auras = { { name = "Renew", source = "player", icon = "renew", duration = 15, expires = 95 } } })
+      p.UnitFrame.BuffFrame = CreateFrame("Frame", nil, p.UnitFrame)
+      MockFire("NAME_PLATE_UNIT_ADDED", "nameplate2")
+    ''')
+    assert plates.eval('NP.nameplate2.UnitFrame.hh.hotCount') == 0 and plates.eval('NP.nameplate2.UnitFrame.BuffFrame._alpha') == 1
+    # option off: Blizzard's row back on the friend, ours gone
+    plates.execute('HogHeals.db.profile.plates.buffs.enabled = false; HogHealsPlates.Plates.Refresh()')
+    assert plates.eval(f'{uf}.hh.hots:IsShown()') is False and plates.eval(f'{uf}.BuffFrame._alpha') == 1
+    assert errors(plates) == []

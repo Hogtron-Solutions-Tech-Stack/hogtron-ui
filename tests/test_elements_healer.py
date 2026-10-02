@@ -135,3 +135,49 @@ def test_heal_prediction_libhealcomm_path(btn):
     btn.execute('MockUnits.party1.incomingMine = 25; HogHealsFrames.Compat.hasNativeIncoming = false; HogHeals.db.profile.frames.healPrediction.show = "all"')
     upd(btn, "healPrediction")
     assert btn.eval('HH_b.healPred:GetWidth()') == 25.0
+
+
+def test_buffs_row_on_the_cell_mine_first_with_swipe(btn):
+    # Sean 2026-10-02: Fortitude-type buffs belong on the party frame; the cell shows a short row, mine by default
+    btn.execute('''
+      MockState.time = 80
+      MockUnits.party1.auras = {
+        { name = "Mark of the Wild", source = "party2", icon = "motw", duration = 1800, expires = 1880 },
+        { name = "Renew", source = "player", icon = "renew", duration = 15, expires = 95, count = 3 },
+        { name = "Power Word: Fortitude", source = "player", icon = "fort", duration = 1800, expires = 1880 },
+        { name = "Sleep", type = "Magic" },
+      }
+    ''')
+    upd(btn, "buffs")
+    assert btn.eval('HH_b.buffCount') == 2                                                 # mine only: Renew + Fortitude
+    assert btn.eval('HH_b.buffs[1].icon._texture') == "renew" and btn.eval('HH_b.buffs[2].icon._texture') == "fort"
+    assert btn.eval('HH_b.buffs[1].count._text') == "3"
+    assert btn.eval('HH_b.buffs[1].cd._last.SetCooldown[1]') == 80 and btn.eval('HH_b.buffs[1].cd._last.SetCooldown[2]') == 15
+    assert btn.eval('HH_b.buffs[1]._last.EnableMouse[1]') is False                        # hover-cast on the cell survives
+    assert btn.eval('HH_b.buffs[1]._points[1][1]') == "BOTTOMLEFT" and btn.eval('HH_b.buffs[2]._points[1][4]') == 2 + 13
+    assert btn.eval('HH_b.buffs[1]._width') == 12
+    # everyone's: mine first (cyan edge), then the druid's mark (plain edge); never the debuff
+    btn.execute('HogHeals.db.profile.frames.buffs.filter = "all"'); upd(btn, "buffs")
+    assert btn.eval('HH_b.buffCount') == 3 and btn.eval('HH_b.buffs[3].icon._texture') == "motw"
+    assert btn.eval('HH_b.buffs[1].edge._color[2]') == pytest.approx(0.83) and btn.eval('HH_b.buffs[3].edge._color[2]') == pytest.approx(0.20)
+    # cap + size options
+    btn.execute('HogHeals.db.profile.frames.buffs.max = 2; HogHeals.db.profile.frames.buffs.size = 16'); upd(btn, "buffs")
+    assert btn.eval('HH_b.buffCount') == 2 and btn.eval('HH_b.buffs[3]:IsShown()') is False and btn.eval('HH_b.buffs[1]._width') == 16
+    # gone when the buffs go; off when the indicator is off
+    btn.execute('MockUnits.party1.auras = {}'); upd(btn, "buffs")
+    assert btn.eval('HH_b.buffCount') == 0 and btn.eval('HH_b.buffs[1]:IsShown()') is False
+    btn.execute('MockUnits.party1.auras = { { name = "Renew", source = "player" } }; HogHeals.db.profile.frames.indicators.buffs = false')
+    btn.execute('HogHealsFrames.UnitButton.UpdateAll(HH_b)')
+    assert btn.eval('HH_b.buffs[1]:IsShown()') is False
+    assert [e["msg"] for e in btn.eval('HogHeals.errors').values()] == []
+
+
+def test_buffs_row_secret_fields_drawn_not_compared(btn):
+    btn.execute('''
+      MockSetSecrets(true); MockEnableModernAuras(true)
+      MockUnits.party1.auras = { { name = "Renew", source = "player", icon = "renew", duration = 15, expires = 95, count = 2 } }
+    ''')
+    upd(btn, "buffs")
+    assert btn.eval('HH_b.buffCount') == 1 and btn.eval('HH_b.buffs[1]:IsShown()') is True
+    assert btn.eval('HH_b.buffs[1].count._text') == "2"                                   # %s on a secret, never compared
+    assert [e["msg"] for e in btn.eval('HogHeals.errors').values()] == []
