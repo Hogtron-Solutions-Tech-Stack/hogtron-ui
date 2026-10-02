@@ -210,6 +210,8 @@ function Skin.HookCluster()
       local s = Skin.TargetSize()
       call(Minimap.SetSize, Minimap, s, s)
     end
+    -- the quest tracker hangs under this box: its available height just changed
+    if HHQ.Tracker and HHQ.Tracker.Schedule then HHQ.Tracker.Schedule() end
   end)
 end
 

@@ -106,7 +106,6 @@ local function build()
   local d = cfg()
   local f = CreateFrame("Frame", "HogHealsQuestTracker", UIParent)
   f:SetSize(d.width or 260, 60)
-  f:SetPoint(d.point or "TOPRIGHT", UIParent, d.point or "TOPRIGHT", d.x or -80, d.y or -260)
   f:SetMovable(true)
   f:SetClampedToScreen(true)
   f:SetFrameStrata("LOW")
@@ -140,7 +139,8 @@ local function build()
   header:SetScript("OnDragStop", function()
     f:StopMovingOrSizing()
     local point, _, _, x, y = f:GetPoint(1)
-    if point then local c = cfg() c.point, c.x, c.y = point, x, y end
+    if point then local c = cfg() c.point, c.x, c.y = point, x, y; c.followMinimap = false end   -- dragged = detached
+    Tracker.anchoredTo = "free"
     Tracker.Update()   -- the fill height depends on where the top now is
   end)
   -- Mouse wheel scrolls the list. In game 2026-10-01 the wheel over the panel zoomed the CAMERA: a frame that is
@@ -197,7 +197,26 @@ local function build()
   f.empty:SetPoint("TOPLEFT", f.body, "TOPLEFT", 0, 0)
   f.empty:Hide()
   Tracker.frame = f
+  Tracker.Anchor()
   return f
+end
+
+--- Where the panel hangs. followMinimap (default): its top-right under the minimap box's bottom-right, `gap` px
+-- down - so it never sits on the map whatever size Edit Mode gives the box (Sean 2026-10-01: "overlapping every
+-- reload"), and it follows when the box is resized. Dragging the header detaches it (saved point); the option
+-- puts it back.
+function Tracker.Anchor()
+  local f, d = Tracker.frame, cfg()
+  if not f then return end
+  f:ClearAllPoints()
+  local under = d.followMinimap ~= false and (rawget(_G, "MinimapCluster") or rawget(_G, "Minimap")) or nil
+  if type(under) == "table" then
+    f:SetPoint("TOPRIGHT", under, "BOTTOMRIGHT", 0, -(d.gap or 8))
+    Tracker.anchoredTo = "minimap"
+  else
+    f:SetPoint(d.point or "TOPRIGHT", UIParent, d.point or "TOPRIGHT", d.x or -80, d.y or -260)
+    Tracker.anchoredTo = "free"
+  end
 end
 
 local function titleButton(i)
@@ -495,8 +514,7 @@ function Tracker.Refresh()
   local d = cfg()
   if d.enabled == false then Tracker.Hide() return end
   Tracker.ApplyBlizzard()
-  local f = build()
-  f:ClearAllPoints()
-  f:SetPoint(d.point or "TOPRIGHT", UIParent, d.point or "TOPRIGHT", d.x or -80, d.y or -260)
+  build()
+  Tracker.Anchor()
   Tracker.Show()
 end

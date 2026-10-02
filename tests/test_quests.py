@@ -385,6 +385,34 @@ def test_blizzard_tracker_loading_after_us_is_still_hidden_and_stays_hidden(lua)
     assert errors(lua) == []
 
 
+def test_tracker_hangs_under_the_minimap_box_until_dragged_away(modern):
+    # Sean 2026-10-01: "should always be right below the minimap by default - currently overlapping every reload"
+    p = modern.eval('HogHealsQuestTracker._points[1]')
+    assert p[1] == "TOPRIGHT" and p[3] == "BOTTOMRIGHT" and p[5] == -8
+    assert modern.eval('HogHealsQuestTracker._points[1][2] == Minimap')          # no cluster in this mock: the map itself
+    assert modern.eval('HogHealsQuests.Tracker.anchoredTo') == "minimap"
+    # a modern client has the Edit Mode box: hang under that instead
+    modern.execute('MinimapCluster = CreateFrame("Frame", "MinimapCluster", UIParent); HogHealsQuests.Tracker.Refresh()')
+    assert modern.eval('HogHealsQuestTracker._points[1][2] == MinimapCluster')
+    # dragging the header detaches: the dropped spot is kept and used from then on
+    modern.execute('''
+      HogHealsQuestTracker.header:GetScript("OnDragStart")()
+      HogHealsQuestTracker:ClearAllPoints(); HogHealsQuestTracker:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 40, -300)
+      HogHealsQuestTracker.header:GetScript("OnDragStop")()
+    ''')
+    d = modern.eval('HogHeals.db.profile.quests.tracker')
+    assert d["followMinimap"] is False and d["point"] == "TOPLEFT" and d["x"] == 40 and d["y"] == -300
+    modern.execute('HogHealsQuests.Tracker.Refresh()')
+    assert modern.eval('HogHealsQuestTracker._points[1][2] == UIParent') and modern.eval('HogHealsQuestTracker._points[1][4]') == 40
+    assert modern.eval('HogHealsQuests.Tracker.anchoredTo') == "free"
+    # the option puts it back under the minimap
+    modern.execute('HogHeals.OptionsTable().args.Quests.args.tracker.args.followMinimap.set({}, true)')
+    assert modern.eval('HogHealsQuestTracker._points[1][2] == MinimapCluster')
+    modern.execute('HogHeals.OptionsTable().args.Quests.args.tracker.args.gap.set({}, 20)')
+    assert modern.eval('HogHealsQuestTracker._points[1][5]') == -20
+    assert errors(modern) == []
+
+
 def test_tracker_drags_without_unlock_unless_locked(modern):
     assert modern.eval('HogHeals.db.profile.locked') is True          # HogHeals frames locked (default)
     modern.execute('HogHealsQuestTracker.header:GetScript("OnDragStart")()')
