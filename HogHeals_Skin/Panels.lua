@@ -58,6 +58,23 @@ local function isIcon(t)
   return (type(n) == "string" and (n:find("Icon") or n:find("Portrait"))) or t.hhOurs
 end
 
+-- Art that MEANS something is not decoration. In game 2026-10-01: picking a quest reward showed no selection -
+-- Blizzard's QuestInfoItemHighlight is a plain Frame holding one texture, and the parchment pass had wiped it
+-- (and Skin.Kill's hooks kept its alpha at 0 every time Blizzard showed it). Highlight / selection / check art is
+-- recognised by the texture's name, its parent's name, or the file it draws, and left alone.
+local FUNCTIONAL = { "Highlight", "Selected", "Selection", "Check", "Glow" }
+local function isFunctional(t)
+  local names = { t.GetName and t:GetName() }
+  local parent = t.GetParent and t:GetParent()
+  if type(parent) == "table" and parent.GetName then names[#names + 1] = parent:GetName() end
+  for _, n in ipairs(names) do
+    if type(n) == "string" then for _, w in ipairs(FUNCTIONAL) do if n:find(w, 1, true) then return true end end end
+  end
+  local tex = t.GetTexture and Skin.call(t.GetTexture, t)
+  if tex ~= nil and tostring(tex):lower():find("highlight", 1, true) then return true end
+  return false
+end
+
 --- One string: dark (black, brown, dark grey - the quest option lines were ~0.35 grey) -> cream, and hooked once so a
 -- Blizzard repaint (hover, rebuild) is lifted again. Light text (gold, white) is left alone.
 function Part.Lift(fs)
@@ -122,7 +139,7 @@ function Part.DeepKill(frame, depth)
   local n = 0
   if frame.GetRegions then
     for _, r in ipairs({ frame:GetRegions() }) do
-      if r and r.GetObjectType and r:GetObjectType() == "Texture" and not isIcon(r) and Skin.Kill(r) then n = n + 1 end
+      if r and r.GetObjectType and r:GetObjectType() == "Texture" and not isIcon(r) and not isFunctional(r) and Skin.Kill(r) then n = n + 1 end
     end
   end
   if frame.GetChildren then
