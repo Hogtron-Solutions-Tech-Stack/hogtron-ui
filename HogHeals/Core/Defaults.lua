@@ -156,8 +156,8 @@ HH.defaults = {
       -- map went black); the tabard designer needs its art
       panels = { enabled = true, alpha = 0.9, titleSize = 13, skip = { WorldMapFrame = true, TaxiFrame = true, TabardFrame = true } },
       auto = { sellJunk = true, repair = true, guildRepair = false },
-      micro = { enabled = true, scale = 1, strip = true, size = 24 },   -- strip: HogUI letter buttons instead of Blizzard's art; point/x/y once dragged
-      bagBar = { enabled = true },
+      micro = { enabled = true, scale = 1, strip = true, size = 30, tint = true, tintStrength = 0.6 },   -- strip: HogUI glyph buttons instead of Blizzard's art; point/x/y once dragged; tint = colour per glyph
+      bagBar = { enabled = true, scale = 1.2 },   -- scale: the bag slots, each scaled up to match the menu bar
       bags = { enabled = true, qualityMin = 2, fontSize = 12, backgroundAlpha = 0.85 },
       tooltips = { enabled = true, alpha = 0.9, fontSize = nil, anchorCursor = false },
       extras = { buffs = true, xpBar = true, mirror = true, durationSize = 10 },   -- mirror = breath / fatigue timers

@@ -29,6 +29,15 @@ function Skin.call(f, ...)
 end
 local call = Skin.call
 
+--- Every return value of a method (GetRegions / GetChildren return a list), as a table; {} when it errors.
+function Skin.all(f, ...)
+  if type(f) ~= "function" then return {} end
+  local res = { pcall(f, ...) }
+  if not res[1] then return {} end
+  table.remove(res, 1)
+  return res
+end
+
 function Skin.isSecret(v) return type(issecretvalue) == "function" and issecretvalue(v) and true or false end
 function Skin.num(v) if type(v) == "number" and not Skin.isSecret(v) then return v end end
 
@@ -94,6 +103,26 @@ function Skin.KillRegions(frame)
   return n
 end
 
+--- Every texture of `frame` AND of its plain-Frame descendants (a NineSlice border, a backdrop holder) cleared:
+-- the panel Blizzard draws around a group of buttons when we do not know its name on this client. Never descends
+-- into buttons / bars / anything that is not a plain Frame (their icons and fills are the point), never into ours
+-- (hhOurs), never into UIParent. Bounded: 3 levels, 80 textures. Returns how many it cleared.
+function Skin.KillArt(frame, depth, budget, seen)
+  depth, seen, budget = depth or 0, seen or {}, budget or { n = 80 }
+  if type(frame) ~= "table" or seen[frame] or frame == UIParent or frame.hhOurs or budget.n <= 0 or depth > 3 then return 0 end
+  seen[frame] = true
+  local kind = call(frame.GetObjectType, frame)
+  if kind ~= "Frame" then return 0 end
+  local n = 0
+  for _, r in ipairs(Skin.all(frame.GetRegions, frame)) do
+    if budget.n > 0 and Skin.Kill(r) then n, budget.n = n + 1, budget.n - 1 end
+  end
+  for _, ch in ipairs(Skin.all(frame.GetChildren, frame)) do
+    n = n + Skin.KillArt(ch, depth + 1, budget, seen)
+  end
+  return n
+end
+
 local function solid(parent, layer, c, a, sub)
   local t = parent:CreateTexture(nil, layer or "BACKGROUND", nil, sub)
   t:SetColorTexture(c[1], c[2], c[3], a or 1)
@@ -106,6 +135,7 @@ Skin.Solid = solid
 function Skin.Panel(parent, anchor, pad, alpha)
   pad = pad or 0
   local p = CreateFrame("Frame", nil, parent)
+  p.hhOurs = true
   p:SetPoint("TOPLEFT", anchor, "TOPLEFT", -pad, pad)
   p:SetPoint("BOTTOMRIGHT", anchor, "BOTTOMRIGHT", pad, -pad)
   p:SetFrameLevel(math.max(0, ((anchor.GetFrameLevel and anchor:GetFrameLevel()) or 1) - 1))
@@ -189,6 +219,72 @@ function Skin.Diag()
   return f, m
 end
 
+-- ------------------------------------------------------------------------------------------------ /hh under
+-- What Blizzard draws under the cursor: every visible frame whose rect holds the cursor, deepest first, with the
+-- textures it shows. For art we could not name (Sean 2026-10-02: a gold panel still behind the menu bar). Chat
+-- gets the top lines, diag.under on disk gets them all.
+local function describe(f)
+  local name = call(f.GetName, f)
+  if type(name) ~= "string" then
+    local p, key = call(f.GetParent, f), nil
+    if type(p) == "table" then for k, v in pairs(p) do if v == f and type(k) == "string" then key = k break end end end
+    local pn = type(p) == "table" and call(p.GetName, p)
+    name = (type(pn) == "string" and pn or "?") .. "." .. (key or "?")
+  end
+  local p = call(f.GetParent, f)
+  local pn = type(p) == "table" and call(p.GetName, p)
+  local w, h = Skin.num(call(f.GetWidth, f)) or 0, Skin.num(call(f.GetHeight, f)) or 0
+  local tex = {}
+  for _, r in ipairs(Skin.all(f.GetRegions, f)) do
+    if type(r) == "table" and call(r.GetObjectType, r) == "Texture" and not r.hhOurs and call(r.IsShown, r) and (Skin.num(call(r.GetAlpha, r)) or 1) > 0 then
+      local a = call(r.GetAtlas, r)
+      local t = call(r.GetTexture, r)
+      local s = (type(a) == "string" and ("atlas " .. a)) or (t ~= nil and tostring(t)) or "color"
+      if #tex < 6 then tex[#tex + 1] = s end
+    end
+  end
+  return ("%s [%s L%s %s %dx%d a=%.2f] < %s | %s"):format(name, tostring(call(f.GetObjectType, f)), tostring(call(f.GetFrameLevel, f)),
+    tostring(call(f.GetFrameStrata, f)), w, h, Skin.num(call(f.GetAlpha, f)) or 1, type(pn) == "string" and pn or "?",
+    #tex > 0 and table.concat(tex, ", ") or "no textures"), Skin.num(call(f.GetFrameLevel, f)) or 0
+end
+
+function Skin.Under()
+  if type(EnumerateFrames) ~= "function" or type(GetCursorPosition) ~= "function" then return nil, "no frame walk on this client" end
+  local cx, cy = GetCursorPosition()
+  if not Skin.num(cx) or not Skin.num(cy) then return nil, "no cursor position" end
+  local hits, f, n = {}, EnumerateFrames(), 0
+  while type(f) == "table" and n < 20000 do
+    n = n + 1
+    local forbidden = f.IsForbidden and call(f.IsForbidden, f)
+    if not forbidden and not f.hhOurs and call(f.IsVisible, f) then
+      local name = call(f.GetName, f)
+      if not (type(name) == "string" and name:find("^HogHeals")) then
+        local s = Skin.num(call(f.GetEffectiveScale, f)) or 1
+        local l, r, t, b = Skin.num(call(f.GetLeft, f)), Skin.num(call(f.GetRight, f)), Skin.num(call(f.GetTop, f)), Skin.num(call(f.GetBottom, f))
+        local x, y = cx / s, cy / s
+        if l and r and t and b and x >= l and x <= r and y >= b and y <= t then
+          local line, level = describe(f)
+          hits[#hits + 1] = { line = line, level = level }
+        end
+      end
+    end
+    f = EnumerateFrames(f)
+  end
+  table.sort(hits, function(a, b) return a.level > b.level end)
+  local out = {}
+  for i = 1, math.min(#hits, 60) do out[i] = hits[i].line end
+  return out
+end
+
+HH:RegisterSlash("under", function()
+  local lines, why = Skin.Under()
+  if not lines then HH:Print("under: " .. tostring(why)) return end
+  HH:Print(("under the cursor: %d frames (deepest first; all %d in diag.under)"):format(#lines, #lines))
+  for i = 1, math.min(#lines, 20) do HH:Print("  " .. lines[i]) end
+  local g = HH.db and HH.db.global
+  if g then g.diag = g.diag or {} g.diag.under = { at = date and date("%Y-%m-%d %H:%M:%S") or "?", lines = table.concat(lines, "\n") } end
+end, "which Blizzard frames and textures sit under the cursor (names the art the skin missed)")
+
 local Module = {}
 HHS.module = Module
 
@@ -223,8 +319,13 @@ HH:RegisterSlash("skindiag", function()
   local f, m = Skin.Diag()
   HH:Print(("skin: %d Blizzard pieces found, %d missing on this client"):format(#f, #m))
   if #m > 0 then HH:Print("  missing: " .. table.concat(m, ", ")) end
+  local micro = HHS.Micro
+  if micro and (micro.containerDiag or micro.bagDiag) then
+    HH:Print("  menu ancestors: " .. tostring(micro.containerDiag or "-") .. " | bag ancestors: " .. tostring(micro.bagDiag or "-"))
+  end
   local g = HH.db and HH.db.global
   local xp = (HHS.Extras and HHS.Extras.ProbeXP) and HHS.Extras.ProbeXP() or {}
-  if g then g.diag = g.diag or {} g.diag.skin = { found = table.concat(f, ","), missing = table.concat(m, ","), xp = table.concat(xp, " ; ") } end
+  if g then g.diag = g.diag or {} g.diag.skin = { found = table.concat(f, ","), missing = table.concat(m, ","), xp = table.concat(xp, " ; "),
+    micro = micro and micro.containerDiag or nil, bags = micro and micro.bagDiag or nil } end
   if #xp > 0 then HH:Print(("  xp bar textures: %d recorded (diag.skin.xp)"):format(#xp)) end
 end, "which Blizzard frames the skin found / could not find on this client")
