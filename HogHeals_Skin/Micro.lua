@@ -76,6 +76,17 @@ Part.LABELS = {
   WorldMapMicroButton = { "W", "World Map" },
 }
 
+-- Our glyphs (HogHeals/Media/micro_*.tga, drawn in dev/icons/icons.html). A client that refuses the file gets the letter.
+Part.ICONS = {
+  CharacterMicroButton = "micro_character", ProfessionMicroButton = "micro_professions", SpellbookMicroButton = "micro_spellbook",
+  PlayerSpellsMicroButton = "micro_spellbook", TalentMicroButton = "micro_talents", AchievementMicroButton = "micro_achievements",
+  QuestLogMicroButton = "micro_quests", GuildMicroButton = "micro_guild", SocialsMicroButton = "micro_social",
+  LFDMicroButton = "micro_lfg", LFGMicroButton = "micro_lfg", CollectionsMicroButton = "micro_collections", EJMicroButton = "micro_ej",
+  PVPMicroButton = "micro_pvp", StoreMicroButton = "micro_shop", HelpMicroButton = "micro_help", MainMenuMicroButton = "micro_menu",
+  WorldMapMicroButton = "micro_map",
+}
+Part.MEDIA = "Interface\\AddOns\\HogHeals\\Media\\"
+
 local silenced = setmetatable({}, { __mode = "k" })   -- Blizzard buttons we faded; weak keys, no fields on them
 local fading = setmetatable({}, { __mode = "k" })
 
@@ -161,6 +172,9 @@ local function cell(i, bar)
   c.letter = c:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   c.letter:SetPoint("CENTER", c, "CENTER", 0, 0)
   c.letter:SetTextColor(Skin.CREAM[1], Skin.CREAM[2], Skin.CREAM[3])
+  c.icon = c:CreateTexture(nil, "ARTWORK")
+  c.icon:SetPoint("CENTER", c, "CENTER", 0, 0)
+  c.icon.hhOurs = true
   c:SetScript("OnEnter", function(self)
     Skin.ColorEdges(self.edges, Skin.CYAN)
     if GameTooltip and GameTooltip.SetOwner and self.label then
@@ -186,15 +200,20 @@ function Part.AnchorBar()
     Part.barAnchor = "saved"
     return
   end
-  -- default: right above the bag strip (in game 2026-10-01 Blizzard's container sat ON the bag bar and the letters
-  -- landed across the bag slots); without a bag strip, the screen's bottom-right corner
-  local bags = Part.strips and Part.strips.bags
-  if bags and bags.placed then
-    bar:SetPoint("BOTTOMRIGHT", bags, "TOPRIGHT", 0, 4)
+  -- default: right above the rightmost bag button (in game 2026-10-01: anchored to a strip that had not been laid
+  -- out yet, the bar fell to the screen corner - under the bag slots). No placed bag button yet: above where the
+  -- bag bar lives, and OnEvent tries again after the first layout pass.
+  local right, rr
+  for _, b in ipairs(Part.BagButtons()) do
+    local r = Skin.call(b.GetRight, b)
+    if Skin.num(r) and (not rr or r > rr) then right, rr = b, r end
+  end
+  if right then
+    bar:SetPoint("BOTTOMRIGHT", right, "TOPRIGHT", 0, 8)
     Part.barAnchor = "bags"
     return
   end
-  bar:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -4, 4)
+  bar:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -4, 64)
   Part.barAnchor = "screen"
 end
 
@@ -215,6 +234,12 @@ function Part.Strip()
     c.letter:SetText(letter)
     Skin.SetFont(c.letter, math.max(9, math.floor(size * 0.5)))
     c:SetSize(size, size - 4)
+    -- the glyph when the client takes the file, the letter when it does not
+    local id = Part.ICONS[name]
+    local took = id and (c.icon:SetTexture(Part.MEDIA .. id) ~= false)
+    c.icon:SetSize(size - 6, size - 6)
+    if took then c.icon:Show() c.letter:Hide() else c.icon:Hide() c.letter:Show() end
+    c.glyph = took and id or nil
     c:ClearAllPoints()
     c:SetPoint("LEFT", bar, "LEFT", pad + (i - 1) * (size + pad), 0)
     c:SetAttribute("type", "click")
@@ -306,7 +331,7 @@ function Part.OnEvent(e)
   if e == "PLAYER_ENTERING_WORLD" or e == "PLAYER_REGEN_ENABLED" then
     -- strips anchored before the first layout pass need a second go; late micro buttons too
     local s = Part.strips
-    if not s or not (s.bags and s.bags.placed) or (Skin.cfg().micro.strip ~= false and (Part.microCount or 0) < 3) then Part.Apply() end
+    if not s or not (s.bags and s.bags.placed) or Part.barAnchor == "screen" or (Skin.cfg().micro.strip ~= false and (Part.microCount or 0) < 3) then Part.Apply() end
   end
 end
 

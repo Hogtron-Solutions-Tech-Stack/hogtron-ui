@@ -137,8 +137,18 @@ def test_hogui_letter_bar_stands_in_for_blizzards_micro_buttons(skin):
     assert skin.eval('CharacterMicroButton._alpha') == 0
     skin.execute('CharacterMicroButton:SetAlpha(1)')
     assert skin.eval('CharacterMicroButton._alpha') == 0
-    assert skin.eval(f'{bar}._points[1][2] == HogHealsSkin.Micro.strips.bags')      # above the bag strip
+    assert skin.eval(f'{bar}._points[1][2] == MainMenuBarBackpackButton')           # above the rightmost bag button
     assert skin.eval(f'{bar}._points[1][1]') == "BOTTOMRIGHT" and skin.eval(f'{bar}._points[1][3]') == "TOPRIGHT"
+    # our glyphs in the cells (letters hidden); a client refusing the file falls back to the letter
+    assert skin.eval(f'{bar}.cells[1].icon._texture').endswith("micro_character") and skin.eval(f'{bar}.cells[1].letter:IsShown()') is False
+    assert skin.eval(f'{bar}.cells[3].glyph') == "micro_menu"
+    skin.execute(f'''
+      local st = {bar}.cells[2].icon.SetTexture
+      {bar}.cells[2].icon.SetTexture = function(t, path) st(t, path) return false end
+      HogHealsSkin.Micro.Strip()
+    ''')
+    assert skin.eval(f'{bar}.cells[2].letter:IsShown()') is True and skin.eval(f'{bar}.cells[2].letter._text') == "S"
+    assert skin.eval(f'{bar}.cells[1].letter:IsShown()') is False
     assert skin.eval(f'{bar}._last.SetScale[1]') == 1                                # never the menu scale
     assert skin.eval(f'{bar}.cells[2]._points[1][4]') == 3 + 27                     # 24 px cells, 3 px apart
     # unlock: cyan edges + draggable; the dropped spot is kept; reset puts it back
@@ -150,7 +160,7 @@ def test_hogui_letter_bar_stands_in_for_blizzards_micro_buttons(skin):
     ''')
     assert skin.eval(f'{bar}._points[1][2] == UIParent') and skin.eval('HogHeals.db.profile.skin.micro.point') == "BOTTOM"
     skin.execute('HogHeals.OptionsTable().args.Skin.args.micro.args.resetPos.func()')
-    assert skin.eval(f'{bar}._points[1][2] == HogHealsSkin.Micro.strips.bags')
+    assert skin.eval(f'{bar}._points[1][2] == MainMenuBarBackpackButton')
     # option off: Blizzard's buttons back, bar gone
     skin.execute('HogHeals.db.profile.skin.micro.strip = false; HogHealsSkin.Micro.Apply()')
     assert skin.eval('CharacterMicroButton._alpha') == 1 and skin.eval(f'{bar}:IsShown()') is False
