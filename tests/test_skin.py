@@ -111,12 +111,46 @@ def test_action_buttons_flattened(skin):
 
 
 def test_micro_and_bag_strips(skin):
+    skin.execute('HogHeals.db.profile.skin.micro.strip = false; HogHealsSkin.Micro.Apply()')   # the older strip-behind look
     assert skin.eval('MicroButtonAndBagsBar.MicroBagBar._alpha') == 0
     s = 'HogHealsSkin.Micro.strips.micro'
     assert skin.eval(f'{s}._points[1][2] == CharacterMicroButton') and skin.eval(f'{s}._points[2][2] == MainMenuMicroButton')
     b = 'HogHealsSkin.Micro.strips.bags'
     assert skin.eval(f'{b}._points[1][2] == CharacterBag0Slot') and skin.eval(f'{b}._points[2][2] == MainMenuBarBackpackButton')
     assert skin.eval('MainMenuBarBackpackButton.hhSkinned') is True
+    assert errors(skin) == []
+
+
+def test_hogui_letter_bar_stands_in_for_blizzards_micro_buttons(skin):
+    # Sean 2026-10-01: the menu buttons still wore Blizzard's art (it is one atlas per button - nothing to strip).
+    bar = 'HogHealsMicroBar'
+    assert skin.eval(f'{bar}:IsShown()') is True and skin.eval('HogHealsSkin.Micro.microCount') == 3
+    letters = [skin.eval(f'{bar}.cells[{i}].letter._text') for i in (1, 2, 3)]
+    assert letters == ["C", "S", "M"]                                            # Blizzard's left-to-right order
+    # each letter is a secure click on the real Blizzard button: the client presses it, not us
+    assert skin.eval(f'{bar}.cells[1]._template') == "SecureActionButtonTemplate"
+    assert skin.eval(f'{bar}.cells[1]:GetAttribute("type")') == "click"
+    assert skin.eval(f'{bar}.cells[1]:GetAttribute("clickbutton") == CharacterMicroButton')
+    assert skin.eval(f'{bar}.cells[3]:GetAttribute("clickbutton") == MainMenuMicroButton')
+    assert skin.eval(f'{bar}.cells[1].label') == "Character"
+    # Blizzard's buttons faded out and kept out; the bar sits where their container is
+    assert skin.eval('CharacterMicroButton._alpha') == 0
+    skin.execute('CharacterMicroButton:SetAlpha(1)')
+    assert skin.eval('CharacterMicroButton._alpha') == 0
+    assert skin.eval(f'{bar}._points[1][2] == MicroButtonAndBagsBar')
+    # unlock: cyan edges + draggable; the dropped spot is kept; reset puts it back
+    skin.execute('HogHeals:SlashCommand("unlock")')
+    assert skin.eval(f'{bar}.edges[1]._color[2]') == pytest.approx(0.83)
+    skin.execute(f'''
+      {bar}:GetScript("OnDragStart")({bar}); {bar}:ClearAllPoints(); {bar}:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 60); {bar}:GetScript("OnDragStop")({bar})
+      HogHealsSkin.Micro.Apply()
+    ''')
+    assert skin.eval(f'{bar}._points[1][2] == UIParent') and skin.eval('HogHeals.db.profile.skin.micro.point') == "BOTTOM"
+    skin.execute('HogHeals.OptionsTable().args.Skin.args.micro.args.resetPos.func()')
+    assert skin.eval(f'{bar}._points[1][2] == MicroButtonAndBagsBar')
+    # option off: Blizzard's buttons back, bar gone
+    skin.execute('HogHeals.db.profile.skin.micro.strip = false; HogHealsSkin.Micro.Apply()')
+    assert skin.eval('CharacterMicroButton._alpha') == 1 and skin.eval(f'{bar}:IsShown()') is False
     assert errors(skin) == []
 
 
