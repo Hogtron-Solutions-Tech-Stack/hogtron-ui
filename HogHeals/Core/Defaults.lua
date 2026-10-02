@@ -155,7 +155,7 @@ HH.defaults = {
       -- map went black); the tabard designer needs its art
       panels = { enabled = true, alpha = 0.9, titleSize = 13, skip = { WorldMapFrame = true, TaxiFrame = true, TabardFrame = true } },
       auto = { sellJunk = true, repair = true, guildRepair = false },
-      micro = { enabled = true, scale = 1, strip = true, size = 22 },   -- strip: HogUI letter buttons instead of Blizzard's art; point/x/y once dragged
+      micro = { enabled = true, scale = 1, strip = true, size = 24 },   -- strip: HogUI letter buttons instead of Blizzard's art; point/x/y once dragged
       bagBar = { enabled = true },
       bags = { enabled = true, qualityMin = 2, fontSize = 12, backgroundAlpha = 0.85 },
       tooltips = { enabled = true, alpha = 0.9, fontSize = nil, anchorCursor = false },
