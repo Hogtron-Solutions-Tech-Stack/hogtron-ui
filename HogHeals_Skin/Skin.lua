@@ -224,5 +224,7 @@ HH:RegisterSlash("skindiag", function()
   HH:Print(("skin: %d Blizzard pieces found, %d missing on this client"):format(#f, #m))
   if #m > 0 then HH:Print("  missing: " .. table.concat(m, ", ")) end
   local g = HH.db and HH.db.global
-  if g then g.diag = g.diag or {} g.diag.skin = { found = table.concat(f, ","), missing = table.concat(m, ",") } end
+  local xp = (HHS.Extras and HHS.Extras.ProbeXP) and HHS.Extras.ProbeXP() or {}
+  if g then g.diag = g.diag or {} g.diag.skin = { found = table.concat(f, ","), missing = table.concat(m, ","), xp = table.concat(xp, " ; ") } end
+  if #xp > 0 then HH:Print(("  xp bar textures: %d recorded (diag.skin.xp)"):format(#xp)) end
 end, "which Blizzard frames the skin found / could not find on this client")

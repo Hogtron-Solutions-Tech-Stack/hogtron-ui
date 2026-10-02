@@ -411,6 +411,39 @@ def test_modern_xp_container_and_mirror_timers_flattened(lua):
     assert [e["msg"] for e in lua.eval('HogHeals.errors').values()] == []
 
 
+def test_xp_bar_stays_flat_when_blizzard_puts_its_rounded_fill_back(lua):
+    # In game 2026-10-01: the XP bar's purple fill still had a rounded right end - the modern bar re-applies its
+    # fill atlas on every update, and the rested extent is its own rounded texture.
+    lua.execute(CLIENT + """
+      StatusTrackingBarManager = CreateFrame("Frame", "StatusTrackingBarManager", UIParent)
+      local c = CreateFrame("Frame", nil, StatusTrackingBarManager)
+      StatusTrackingBarManager.MainStatusTrackingBarContainer = c
+      local xp = CreateFrame("Frame", nil, c)
+      xp.art = xp:CreateTexture(); xp.art:SetTexture("bar-frame-art")
+      xp.StatusBar = CreateFrame("StatusBar", nil, xp)
+      xp.StatusBar.ExhaustionLevelFillBar = xp.StatusBar:CreateTexture(); xp.StatusBar.ExhaustionLevelFillBar:SetTexture("rounded-rested")
+      c.bars = { xp }
+      function StatusTrackingBarManager:UpdateBarsShown() end
+    """)
+    lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
+    sb = 'StatusTrackingBarManager.MainStatusTrackingBarContainer.bars[1].StatusBar'
+    assert lua.eval(f'{sb}._texture').endswith("WHITE8X8")
+    assert lua.eval(f'{sb}.ExhaustionLevelFillBar._texture').endswith("WHITE8X8")
+    assert lua.eval(f'{sb}.ExhaustionLevelFillBar._color[4]') == pytest.approx(0.35)
+    assert lua.eval('StatusTrackingBarManager.MainStatusTrackingBarContainer.bars[1].art._alpha') == 0
+    # Blizzard's next update puts the rounded atlas back, in white: flat and purple again on the spot
+    lua.execute(f'{sb}:SetStatusBarColor(1, 1, 1); {sb}:SetStatusBarTexture("UI-HUD-ExperienceBar-Fill-Rested")')
+    assert lua.eval(f'{sb}._texture').endswith("WHITE8X8")
+    assert lua.eval(f'{sb}._color[1]') == pytest.approx(0.58)
+    # a colour Blizzard set on purpose is kept
+    lua.execute(f'{sb}:SetStatusBarColor(0.2, 0.9, 0.3); {sb}:SetStatusBarTexture("some-atlas")')
+    assert lua.eval(f'{sb}._color[2]') == pytest.approx(0.9)
+    # skindiag names every texture on the bar
+    lua.execute('HogHeals:SlashCommand("skindiag")')
+    assert "MainStatusTrackingBarContainer.bar1" in lua.eval('HogHeals.db.global.diag.skin.xp')
+    assert [e["msg"] for e in lua.eval('HogHeals.errors').values()] == []
+
+
 def test_world_map_still_skipped_by_default(lua):
     lua.execute(CLIENT + """
       WorldMapFrame = CreateFrame("Frame", "WorldMapFrame", UIParent); WorldMapFrame:CreateTexture("WorldMapFrameBg"):SetTexture("map-art")
