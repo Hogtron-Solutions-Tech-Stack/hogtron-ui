@@ -344,26 +344,30 @@ function Tracker.Update()
     end
   end
   f.body:SetHeight(math.max(y, 1))
-  f:SetSize(d.width or 260, math.max(HEADER_H, size + 8) + (d.collapsed and 0 or (y + 8)))
+  local listH = y
+  if d.fixedHeight and d.fill == false and not d.collapsed then listH = math.max(y, d.maxHeight or 420) end
+  f:SetSize(d.width or 260, math.max(HEADER_H, size + 8) + (d.collapsed and 0 or (listH + 8)))
   f:SetScale(d.scale or 1)
   f.bg:SetColorTexture(INK[1], INK[2], INK[3], d.backgroundAlpha or 0.6)
   Tracker.shownCount, Tracker.moreCount = ti, more
 end
 
---- The grip was let go: the panel's new width becomes the width option; its new bottom edge becomes the fill gap
--- (fill on) or the max height (fill off). Then a normal repaint.
+--- The grip was let go: the panel is now exactly this wide and this tall - a fixed height the list scrolls inside
+-- (empty space below when it is shorter), like any window. In game 2026-10-01: with the height following the
+-- content the drag snapped straight back, and StopMovingOrSizing had re-anchored the panel to the screen, so all
+-- Sean saw was the panel moving. Fill (run to the bottom) is switched off by a drag; the option turns it back on.
 function Tracker.TakeSize()
   local f, d = Tracker.frame, cfg()
   if not f then return end
   local w = f.GetWidth and f:GetWidth()
   if type(w) == "number" and w >= 160 then d.width = math.floor(w + 0.5) end
   local h = f.GetHeight and f:GetHeight()
-  if d.fill ~= false then
-    local bottom = f.GetBottom and f:GetBottom()
-    if type(bottom) == "number" and bottom >= 0 then d.bottomMargin = math.floor(bottom * (d.scale or 1) + 0.5) end
-  elseif type(h) == "number" and h > 80 then
+  if type(h) == "number" and h > 80 then
+    d.fill = false
+    d.fixedHeight = true
     d.maxHeight = math.floor(h - math.max(HEADER_H, (d.fontSize or 12) + 8) - 8 + 0.5)
   end
+  if Tracker.Anchor then Tracker.Anchor() end   -- back under the minimap (or the saved spot); sizing re-anchored us to the screen
   Tracker.Update()
 end
 

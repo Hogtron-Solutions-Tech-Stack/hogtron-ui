@@ -94,6 +94,7 @@ HH.defaults = {
         showLevels = true, hideCompleted = false, collapsed = false, lockPosition = false, autoTrack = true,
         width = 260, maxHeight = 420, fontSize = 13, scale = 1, backgroundAlpha = 0.6,
         fill = true, bottomMargin = 20,   -- run down to the screen's bottom edge and scroll; maxHeight only when fill is off
+        fixedHeight = false,              -- set by the resize grip: the panel keeps that height even when the list is shorter
         point = "TOPRIGHT", x = -80, y = -260,
       },
       minimap = { enabled = true, edge = true, watchedOnly = false, turnInInRange = false, size = 16 },   -- Forever draws areas only, not points
