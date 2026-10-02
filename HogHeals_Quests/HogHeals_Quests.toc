@@ -10,5 +10,6 @@ Data.lua
 Tracker.lua
 Minimap.lua
 MapSkin.lua
+Buttons.lua
 Options.lua
 Quests.lua
