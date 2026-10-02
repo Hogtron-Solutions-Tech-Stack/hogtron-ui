@@ -46,6 +46,11 @@ def test_collects_addon_buttons_and_leaves_blizzard_alone(lua):
     assert lua.eval('HogHealsMinimapButtons._points[1][1]') == "BOTTOMRIGHT" and lua.eval('HogHealsMinimapButtons._points[1][3]') == "BOTTOMLEFT"
     assert lua.eval('HogHealsMinimapDrawer._points[1][1]') == "BOTTOMRIGHT" and lua.eval('HogHealsMinimapDrawer._points[1][3]') == "BOTTOMLEFT"
     assert lua.eval('HogHealsMinimapDrawer._points[1][2] == HogHealsMinimapButtons')
+    # icons draw ABOVE the drawer: LibDBIcon pinned them at level 8, which the drawer sits over (in game 2026-10-01
+    # the cells lit up and the tooltips worked but no icon was visible)
+    assert lua.eval('LibDBIcon10_Bagnon:GetFrameLevel()') > lua.eval('HogHealsMinimapDrawer:GetFrameLevel()')
+    assert lua.eval('LibDBIcon10_Bagnon._last.SetFixedFrameLevel[1]') is False
+    assert lua.eval('LibDBIcon10_Bagnon._last.SetFixedFrameStrata[1]') is False
     # the logo: two cream uprights and a cyan crossbar
     assert lua.eval('#HogHealsMinimapButtons.logo') == 2 and lua.eval('HogHealsMinimapButtons.logo[1]._color[1]') == pytest.approx(0.96)
     assert lua.eval('HogHealsMinimapButtons.cross._color[2]') == pytest.approx(0.83)
@@ -110,6 +115,8 @@ def test_ring_art_hidden_drag_disabled_and_everything_restored_when_turned_off(l
     assert lua.eval('LibDBIcon10_Bagnon.overlay:IsShown()') is True
     assert lua.eval('LibDBIcon10_Bagnon:GetScript("OnDragStart")') is not None
     assert lua.eval('LibDBIcon10_Bagnon._last.SetScale[1]') == 1
+    assert lua.eval('LibDBIcon10_Bagnon._last.SetFixedFrameLevel[1]') is True      # pinned again, as the library had it
+    assert lua.eval('LibDBIcon10_Bagnon:GetFrameLevel()') == 8
     p = lua.eval('LibDBIcon10_Bagnon._points[1]')
     assert p[1] == "CENTER" and p[4] == 52 and p[5] == 52
     assert lua.eval('HogHealsMinimapButtons:IsShown()') is False

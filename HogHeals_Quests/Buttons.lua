@@ -242,8 +242,7 @@ function Drawer.Collect(b)
   if b.SetScript then call(b.SetScript, b, "OnDragStart", nil) call(b.SetScript, b, "OnDragStop", nil) end
   placing[b] = true
   call(b.SetParent, b, Drawer.frame)
-  call(b.SetFrameStrata, b, "MEDIUM")
-  call(b.SetFrameLevel, b, Drawer.frame:GetFrameLevel() + 2)
+  Drawer.Lift(b)
   placing[b] = nil
   if not hooked[b] and type(hooksecurefunc) == "function" then
     hooked[b] = true
@@ -261,7 +260,19 @@ function Drawer.Collect(b)
   return true
 end
 
---- Hand a button back exactly as it was (parent, points, scale, drag scripts, ring art).
+--- Above the drawer's background. LibDBIcon PINS its buttons (SetFixedFrameStrata / SetFixedFrameLevel(true), level
+-- 8), so re-parenting does not lift them: in game 2026-10-01 the cells were lit and the tooltips worked but the icons
+-- were invisible - drawn UNDER the drawer. Unpin, lift above the drawer, and keep doing so on every layout.
+function Drawer.Lift(b)
+  local f = Drawer.frame
+  if not f then return end
+  if b.SetFixedFrameStrata then call(b.SetFixedFrameStrata, b, false) end
+  if b.SetFixedFrameLevel then call(b.SetFixedFrameLevel, b, false) end
+  call(b.SetFrameStrata, b, (f.GetFrameStrata and call(f.GetFrameStrata, f)) or "MEDIUM")
+  call(b.SetFrameLevel, b, ((f.GetFrameLevel and f:GetFrameLevel()) or 1) + 2)
+end
+
+--- Hand a button back exactly as it was (parent, points, scale, drag scripts, ring art, pinned level).
 function Drawer.Release(b)
   local s = saved[b]
   if not s then return end
@@ -271,6 +282,10 @@ function Drawer.Release(b)
   call(b.SetParent, b, s.parent or Minimap)
   if s.strata then call(b.SetFrameStrata, b, s.strata) end
   if s.level then call(b.SetFrameLevel, b, s.level) end
+  if s.name:find("^LibDBIcon10_") then   -- the library had these pinned
+    if b.SetFixedFrameStrata then call(b.SetFixedFrameStrata, b, true) end
+    if b.SetFixedFrameLevel then call(b.SetFixedFrameLevel, b, true) end
+  end
   for _, p in ipairs(s.points) do if p[1] then call(b.SetPoint, b, p[1], p[2], p[3], p[4], p[5]) end end
   for _, r in ipairs(s.art) do call(r.Show, r) end
   if b.SetScript then call(b.SetScript, b, "OnDragStart", s.drag[1]) call(b.SetScript, b, "OnDragStop", s.drag[2]) end
@@ -348,6 +363,7 @@ function Drawer.Layout()
     local scale = size / w
     placing[b] = true
     if call(b.GetParent, b) ~= f then call(b.SetParent, b, f) end
+    Drawer.Lift(b)
     call(b.SetScale, b, scale)
     call(b.ClearAllPoints, b)
     call(b.SetPoint, b, corner, f, corner, ox / scale, oy / scale)

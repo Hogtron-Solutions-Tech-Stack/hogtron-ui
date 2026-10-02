@@ -86,6 +86,8 @@ do -- LibDataBroker-1.1 / LibDBIcon-1.0
     self.registered[name] = { obj = obj, db = db }
     local b = CreateFrame("Button", "LibDBIcon10_" .. name, Minimap)
     b:SetSize(31, 31)
+    b:SetFrameStrata("MEDIUM") b:SetFixedFrameStrata(true)
+    b:SetFrameLevel(8) b:SetFixedFrameLevel(true)          -- the real library pins both
     b.dataObject, b.db = obj, db
     b.overlay = b:CreateTexture(nil, "OVERLAY") b.overlay:SetTexture(136430)
     b.background = b:CreateTexture(nil, "BACKGROUND") b.background:SetTexture(136467)
