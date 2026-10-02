@@ -1,5 +1,6 @@
--- Extras: the player's buff / debuff icons (top right) and the experience / reputation bar, flattened.
--- Classic-era names and the modern pooled frames are both handled; a client with neither loses nothing.
+-- Extras: the player's buff / debuff icons (top right), the experience / reputation bar and the mirror timers
+-- (breath, fatigue, feign death), flattened into the HogUI look. Classic-era names and the modern frames are both
+-- handled; a client with neither loses nothing.
 local HHS = HogHealsSkin
 local Skin = HHS.Skin
 local HH = HogHeals
@@ -78,6 +79,32 @@ local function flattenBar(bar)
   return true
 end
 
+-- Modern (Dragonflight-engine, WoW: Forever included): StatusTrackingBarManager owns two containers; the gold frame
+-- with the twenty divisions (in game 2026-10-01) is the container's BarFrameTexture, each bar inside has a StatusBar.
+Part.XP_CONTAINERS = { "MainStatusTrackingBarContainer", "SecondaryStatusTrackingBarContainer" }
+Part.XP_CONTAINER_ART = { "BarFrameTexture", "BackgroundGlow", "Background", "Overlay" }
+
+local function skinContainer(c)
+  local n = 0
+  if type(c) ~= "table" then return 0 end
+  for _, k in ipairs(Part.XP_CONTAINER_ART) do Skin.Kill(rawget(c, k)) end
+  Skin.KillRegions(c)
+  local bars = rawget(c, "bars")
+  if type(bars) == "table" then
+    for _, b in ipairs(bars) do
+      local sb = rawget(b, "StatusBar")
+      if flattenBar(type(sb) == "table" and sb or b) then n = n + 1 end
+    end
+  end
+  if c.GetChildren then
+    for _, ch in ipairs({ c:GetChildren() }) do
+      local sb = type(ch) == "table" and rawget(ch, "StatusBar")
+      if type(sb) == "table" and flattenBar(sb) then n = n + 1 end
+    end
+  end
+  return n
+end
+
 function Part.SkinXP()
   local d = Skin.cfg().extras
   if not d or d.xpBar == false then return 0 end
@@ -99,12 +126,59 @@ function Part.SkinXP()
       if flattenBar(type(sb) == "table" and sb or b) then n = n + 1 end
     end
   end
+  if type(mgr) == "table" then
+    for _, key in ipairs(Part.XP_CONTAINERS) do n = n + skinContainer(rawget(mgr, key)) end
+  end
+  return n
+end
+
+-- ------------------------------------------------------------------------------------------------ mirror timers
+-- Breath / fatigue / feign death: MirrorTimer1..3 - classic names them MirrorTimer1StatusBar / Border / Text,
+-- the modern template keeps StatusBar / Border / Text as keys under MirrorTimerContainer. Flat bar on an ink
+-- panel, Blizzard's colour kept (blue breath, red fatigue), cream text. Side table, no fields on the frames.
+local mirrored = setmetatable({}, { __mode = "k" })
+Part.mirrored = mirrored
+
+local function skinMirror(f)
+  if type(f) ~= "table" or mirrored[f] then return false end
+  local name = (f.GetName and f:GetName()) or ""
+  local sb = rawget(f, "StatusBar") or Skin.G(name .. "StatusBar")
+  if type(sb) ~= "table" then return false end
+  mirrored[f] = true
+  Skin.Kill(rawget(f, "Border") or Skin.G(name .. "Border"))
+  Skin.KillRegions(f)
+  flattenBar(sb)
+  local text = rawget(f, "Text") or Skin.G(name .. "Text")
+  if type(text) == "table" then
+    Skin.SetFont(text, 11)
+    if text.SetTextColor then Skin.call(text.SetTextColor, text, Skin.CREAM[1], Skin.CREAM[2], Skin.CREAM[3]) end
+  end
+  return true
+end
+
+function Part.SkinMirrors()
+  local d = Skin.cfg().extras
+  if not d or d.mirror == false then return 0 end
+  local n = 0
+  for i = 1, 3 do
+    local f = Skin.G("MirrorTimer" .. i)
+    if not f then
+      local c = rawget(_G, "MirrorTimerContainer")
+      f = type(c) == "table" and rawget(c, "MirrorTimer" .. i) or nil
+    end
+    if skinMirror(f) then n = n + 1 end
+  end
+  local c = rawget(_G, "MirrorTimerContainer")
+  if type(c) == "table" and c.GetChildren then
+    for _, ch in ipairs({ c:GetChildren() }) do if skinMirror(ch) then n = n + 1 end end
+  end
   return n
 end
 
 function Part.Apply()
   Part.auras = Part.SkinAuras()
   Part.xp = Part.SkinXP()
+  Part.mirrors = (Part.mirrors or 0) + Part.SkinMirrors()   -- cumulative: Apply runs more than once a session
   if not Part.hooked and type(hooksecurefunc) == "function" then
     Part.hooked = true
     -- new buff buttons appear as auras come and go
@@ -114,6 +188,19 @@ function Part.Apply()
     local bf = rawget(_G, "BuffFrame")
     if type(bf) == "table" and type(rawget(bf, "Update")) == "function" then
       pcall(hooksecurefunc, bf, "Update", function() if Skin.cfg().enabled ~= false then Part.SkinAuras() end end)
+    end
+    -- mirror timers are set up when they first show (classic: MirrorTimer_Show, modern: the container's SetupTimer)
+    if type(rawget(_G, "MirrorTimer_Show")) == "function" then
+      pcall(hooksecurefunc, "MirrorTimer_Show", function() if Skin.cfg().enabled ~= false then Part.SkinMirrors() end end)
+    end
+    local mc = rawget(_G, "MirrorTimerContainer")
+    if type(mc) == "table" and type(rawget(mc, "SetupTimer")) == "function" then
+      pcall(hooksecurefunc, mc, "SetupTimer", function() if Skin.cfg().enabled ~= false then Part.SkinMirrors() end end)
+    end
+    -- the XP container is rebuilt when bars come and go (level cap, reputation tracked)
+    local mgr = rawget(_G, "StatusTrackingBarManager")
+    if type(mgr) == "table" and type(rawget(mgr, "UpdateBarsShown")) == "function" then
+      pcall(hooksecurefunc, mgr, "UpdateBarsShown", function() if Skin.cfg().enabled ~= false then Part.SkinXP() end end)
     end
   end
 end

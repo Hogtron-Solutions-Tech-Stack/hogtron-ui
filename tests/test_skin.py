@@ -337,6 +337,51 @@ def test_parchment_windows_recoloured_and_stripped_deep_but_buttons_and_icons_ke
     assert [e["msg"] for e in lua.eval('HogHeals.errors').values()] == []
 
 
+def test_modern_xp_container_and_mirror_timers_flattened(lua):
+    # In game 2026-10-01 on Forever: the XP bar still wore its gold frame with twenty divisions, the breath bar its
+    # parchment box. Modern names: StatusTrackingBarManager.MainStatusTrackingBarContainer (BarFrameTexture) with
+    # bars[i].StatusBar; MirrorTimerContainer.MirrorTimer1 with StatusBar / Border / Text keys.
+    lua.execute(CLIENT + """
+      StatusTrackingBarManager = CreateFrame("Frame", "StatusTrackingBarManager", UIParent)
+      local c = CreateFrame("Frame", nil, StatusTrackingBarManager)
+      StatusTrackingBarManager.MainStatusTrackingBarContainer = c
+      c.BarFrameTexture = c:CreateTexture(); c.BarFrameTexture:SetTexture("gold-frame-with-ticks")
+      local xp = CreateFrame("Frame", nil, c); xp.StatusBar = CreateFrame("StatusBar", nil, xp)
+      xp.StatusBar.Background = xp.StatusBar:CreateTexture(); xp.StatusBar.Background:SetTexture("bar-bg")
+      c.bars = { xp }
+      function StatusTrackingBarManager:UpdateBarsShown() end
+      MirrorTimerContainer = CreateFrame("Frame", "MirrorTimerContainer", UIParent)
+      local m = CreateFrame("Frame", "MirrorTimer1", MirrorTimerContainer)
+      MirrorTimerContainer.MirrorTimer1 = m
+      m.StatusBar = CreateFrame("StatusBar", nil, m)
+      m.Border = m:CreateTexture(); m.Border:SetTexture("parchment-box")
+      m.Text = m:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+      function MirrorTimerContainer:SetupTimer() end
+      -- a classic-named one too
+      MirrorTimer2 = CreateFrame("Frame", "MirrorTimer2", UIParent)
+      MirrorTimer2StatusBar = CreateFrame("StatusBar", "MirrorTimer2StatusBar", MirrorTimer2)
+      MirrorTimer2Border = MirrorTimer2:CreateTexture("MirrorTimer2Border"); MirrorTimer2Border:SetTexture("parchment-box")
+      MirrorTimer2Text = MirrorTimer2:CreateFontString("MirrorTimer2Text", "OVERLAY", "GameFontNormal")
+    """)
+    lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
+    c = 'StatusTrackingBarManager.MainStatusTrackingBarContainer'
+    assert lua.eval(f'{c}.BarFrameTexture._alpha') == 0 and lua.eval(f'{c}.BarFrameTexture._texture') is None
+    assert lua.eval(f'{c}.bars[1].StatusBar._texture').endswith("WHITE8X8")
+    assert lua.eval(f'{c}.bars[1].StatusBar.Background._alpha') == 0
+    assert lua.eval('MirrorTimerContainer.MirrorTimer1.Border._alpha') == 0
+    assert lua.eval('MirrorTimerContainer.MirrorTimer1.StatusBar._texture').endswith("WHITE8X8")
+    assert lua.eval('MirrorTimerContainer.MirrorTimer1.Text._color[1]') == pytest.approx(0.96)
+    assert lua.eval('MirrorTimer2Border._alpha') == 0 and lua.eval('MirrorTimer2StatusBar._texture').endswith("WHITE8X8")
+    assert lua.eval('HogHealsSkin.Extras.mirrors') == 2
+    # Blizzard sets a timer up again later: nothing breaks, nothing doubled
+    lua.execute('MirrorTimerContainer:SetupTimer(); StatusTrackingBarManager:UpdateBarsShown()')
+    assert lua.eval('HogHealsSkin.Extras.SkinMirrors()') == 0
+    # the option turns it off for the next pass
+    lua.execute('HogHeals.db.profile.skin.extras.mirror = false')
+    assert lua.eval('HogHealsSkin.Extras.SkinMirrors()') == 0
+    assert [e["msg"] for e in lua.eval('HogHeals.errors').values()] == []
+
+
 def test_world_map_still_skipped_by_default(lua):
     lua.execute(CLIENT + """
       WorldMapFrame = CreateFrame("Frame", "WorldMapFrame", UIParent); WorldMapFrame:CreateTexture("WorldMapFrameBg"):SetTexture("map-art")

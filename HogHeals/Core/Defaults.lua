@@ -143,7 +143,7 @@ HH.defaults = {
       bagBar = { enabled = true },
       bags = { enabled = true, qualityMin = 2, fontSize = 12, backgroundAlpha = 0.85 },
       tooltips = { enabled = true, alpha = 0.9, fontSize = nil, anchorCursor = false },
-      extras = { buffs = true, xpBar = true, durationSize = 10 },
+      extras = { buffs = true, xpBar = true, mirror = true, durationSize = 10 },   -- mirror = breath / fatigue timers
       infoBar = { enabled = true, width = 640, height = 18, fontSize = 11, backgroundAlpha = 0.8, refresh = 1,
         time24 = false, serverTime = false, point = "BOTTOM", x = 0, y = 0,
         slots = { "gold", "durability", "bags", "fps", "latency", "time" } },
