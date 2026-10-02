@@ -58,12 +58,37 @@ def test_wizard_state_machine(frames):
     frames.execute('HogHealsFrames.Wizard.Next(HH_w, { preset = "compact" })')
     assert frames.eval('HH_w.step') == "bindings"
     frames.execute('HogHealsFrames.Wizard.Next(HH_w, { bindings = "default" })')
+    assert frames.eval('HH_w.step') == "gear"
+    frames.execute('HogHealsFrames.Wizard.Next(HH_w, { gear = "auto" })')
     assert frames.eval('HH_w.step') == "done"
     frames.execute('HogHealsFrames.Wizard.Finish(HH_w)')
     assert frames.eval('HogHeals.db.profile.wizardDone') is True
     assert frames.eval('HogHeals.db.profile.frames.layouts.raid40.width') < frames.eval('HogHeals.defaults.profile.frames.layouts.raid40.width')
     assert frames.eval('#HogHealsFrames.ClickCast.bindings') >= 5
 
+
+
+def test_wizard_gear_step_writes_the_atlas_role_auto_by_default(frames):
+    frames.execute('''
+      HH_w = HogHealsFrames.Wizard.New("PRIEST")
+      HogHealsFrames.Wizard.Next(HH_w, { class = "PRIEST" })
+      HogHealsFrames.Wizard.Next(HH_w, { preset = "default" })
+      HogHealsFrames.Wizard.Next(HH_w, { bindings = "default" })
+      HogHealsFrames.Wizard.Finish(HH_w)            -- the gear step skipped (older flow / Finish pressed early)
+    ''')
+    assert frames.eval('HogHeals.db.profile.atlas.role') == "auto"
+    frames.execute('''
+      HH_w = HogHealsFrames.Wizard.New("PRIEST")
+      HogHealsFrames.Wizard.Next(HH_w, { class = "PRIEST" })
+      HogHealsFrames.Wizard.Next(HH_w, { preset = "default" })
+      HogHealsFrames.Wizard.Next(HH_w, { bindings = "default" })
+      HogHealsFrames.Wizard.Next(HH_w, { gear = "caster" })
+      HogHealsFrames.Wizard.Finish(HH_w)
+    ''')
+    assert frames.eval('HogHeals.db.profile.atlas.role') == "caster"
+    frames.execute('HH_w = HogHealsFrames.Wizard.New("PRIEST"); HogHealsFrames.Wizard.Next(HH_w, { gear = "nonsense" }); HogHealsFrames.Wizard.Finish(HH_w)')
+    assert frames.eval('HogHeals.db.profile.atlas.role') == "auto"
+    assert frames.eval('HogHealsFrames.Wizard.GEAR_ROLES.auto').startswith("Auto")
 
 def test_wizard_accessibility_preset(frames):
     frames.execute('''
