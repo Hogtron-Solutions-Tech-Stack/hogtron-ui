@@ -20,6 +20,7 @@ local LINE = { 0.20, 0.20, 0.25 }
 local CYAN = { 0.13, 0.83, 0.88 }
 local CREAM = { 0.96, 0.92, 0.86 }
 local GREY = { 0.55, 0.55, 0.60 }
+local CELL = { 0.17, 0.17, 0.21 }   -- the square under each icon: lighter than the drawer so dark icons read
 local PAD = 4          -- gap between cells and to the drawer edge
 local LAUNCHER = 18    -- the H button, px (the minimap header is 20)
 local AWAY = 1.0       -- seconds the cursor must be off the drawer before it closes itself
@@ -133,6 +134,16 @@ local function build()
     end
     Drawer.Toggle()
   end)
+  -- /hh unlock: drag it anywhere; the spot is kept (Reset position in the options brings it back to the map)
+  if b.SetMovable then b:SetMovable(true) end
+  if b.SetClampedToScreen then b:SetClampedToScreen(true) end
+  if b.RegisterForDrag then b:RegisterForDrag("LeftButton") end
+  b:SetScript("OnDragStart", function(self) if HH.db.profile.locked == false and self.StartMoving then self:StartMoving() end end)
+  b:SetScript("OnDragStop", function(self)
+    if self.StopMovingOrSizing then self:StopMovingOrSizing() end
+    local point, _, _, x, y = self:GetPoint(1)
+    if point then local d = cfg() d.point, d.x, d.y = point, x, y end
+  end)
   b:SetScript("OnEnter", function(self)
     paintEdges(self.edges, CYAN)
     if cfg().hover then Drawer.Toggle(true) end
@@ -154,7 +165,7 @@ local function build()
     end
   end)
   b:SetScript("OnLeave", function(self)
-    paintEdges(self.edges, LINE)
+    paintEdges(self.edges, Drawer.unlocked and CYAN or LINE)
     if GameTooltip and GameTooltip.Hide then GameTooltip:Hide() end
   end)
   local d = CreateFrame("Frame", "HogHealsMinimapDrawer", b)
@@ -173,28 +184,38 @@ local function build()
 end
 
 --- Where the launcher sits, against our ink frame when the skin is on, against the bare Minimap otherwise:
---   side = "left"  (default): beside the map's top-left corner; the drawer opens leftward, toward the middle of the screen
+--   side = "left"  (default): beside the map's bottom-left corner (Sean 2026-10-01); the drawer opens leftward,
+--                  toward the middle of the screen, rows stacking upward
 --   side = "right": under the map's bottom-right corner; the drawer opens downward
--- Re-run after the skin or the side is changed.
+-- A position saved by dragging (/hh unlock) wins over both. Re-run after the skin, the side or a drag changes.
 function Drawer.Side() return cfg().side == "right" and "right" or "left" end
 
 function Drawer.Anchor()
   local b, f = Drawer.launcher, Drawer.frame
   if not b then return end
+  local d = cfg()
   local skin = HHQ.MapSkin and HHQ.MapSkin.frame
   local to = (skin and HH.db.profile.quests.map.enabled ~= false) and skin or Minimap
   local side = Drawer.Side()
   b:ClearAllPoints()
   f:ClearAllPoints()
-  if side == "left" then
-    b:SetPoint("TOPRIGHT", to, "TOPLEFT", -3, 0)
-    f:SetPoint("TOPRIGHT", b, "TOPLEFT", -2, 0)
+  if type(d.point) == "string" and type(d.x) == "number" and type(d.y) == "number" then
+    b:SetPoint(d.point, UIParent, d.point, d.x, d.y)
+    Drawer.anchoredTo = "saved"
   else
-    b:SetPoint("TOPRIGHT", to, "BOTTOMRIGHT", 0, -3)
-    f:SetPoint("TOPRIGHT", b, "BOTTOMRIGHT", 0, -2)
+    if side == "left" then b:SetPoint("BOTTOMRIGHT", to, "BOTTOMLEFT", -3, 0)
+    else b:SetPoint("TOPRIGHT", to, "BOTTOMRIGHT", 0, -3) end
+    Drawer.anchoredTo = (to == skin) and "skin" or "minimap"
   end
+  if side == "left" then f:SetPoint("BOTTOMRIGHT", b, "BOTTOMLEFT", -2, 0)
+  else f:SetPoint("TOPRIGHT", b, "BOTTOMRIGHT", 0, -2) end
   Drawer.side = side
-  Drawer.anchoredTo = (to == skin) and "skin" or "minimap"
+end
+
+--- /hh unlock: cyan edges say "drag me"; /hh lock: back to the quiet outline.
+function Drawer.SetUnlocked(unlocked)
+  Drawer.unlocked = unlocked and true or false
+  if Drawer.launcher then paintEdges(Drawer.launcher.edges, Drawer.unlocked and CYAN or LINE) end
 end
 
 -- ------------------------------------------------------------------------------------------------ collecting
@@ -292,8 +313,10 @@ function Drawer.Scan()
   return added
 end
 
---- Grid: shown buttons only, `columns` across, every one scaled to `size` px. Cells fill from the edge nearest the
--- launcher (top-right when the drawer opens leftward, top-left when it opens downward). Returns how many are placed.
+--- Grid: shown buttons only, `columns` across, every one scaled to `size` px, each on its own lighter ink cell
+-- (in game 2026-10-01: dark icons blended into the drawer). Cells fill from the corner nearest the launcher:
+-- bottom-right when the drawer opens leftward (rows stack upward), top-left when it opens downward.
+-- Returns how many are placed.
 function Drawer.Layout()
   local f = Drawer.frame
   if not f or Drawer.laying then return 0 end
@@ -301,12 +324,25 @@ function Drawer.Layout()
   local d = cfg()
   local cols = math.max(1, math.floor(d.columns or 4))
   local size = d.size or 28
-  local corner = Drawer.Side() == "left" and "TOPRIGHT" or "TOPLEFT"
-  local dir = corner == "TOPRIGHT" and -1 or 1
+  local corner = Drawer.Side() == "left" and "BOTTOMRIGHT" or "TOPLEFT"
+  local dx = corner == "BOTTOMRIGHT" and -1 or 1
+  local dy = corner == "BOTTOMRIGHT" and 1 or -1
+  f.bg:SetColorTexture(INK[1], INK[2], INK[3], d.alpha or 0.92)
+  Drawer.cells = Drawer.cells or {}
   local shown = {}
   for _, b in ipairs(Drawer.list) do if call(b.IsShown, b) then shown[#shown + 1] = b end end
   for i, b in ipairs(shown) do
     local col, row = (i - 1) % cols, math.floor((i - 1) / cols)
+    local ox, oy = dx * (PAD + col * (size + PAD)), dy * (PAD + row * (size + PAD))
+    local cell = Drawer.cells[i]
+    if not cell then
+      cell = solid(f, "BORDER", CELL)
+      Drawer.cells[i] = cell
+    end
+    cell:ClearAllPoints()
+    cell:SetSize(size, size)
+    cell:SetPoint(corner, f, corner, ox, oy)
+    cell:Show()
     local w = call(b.GetWidth, b)
     if type(w) ~= "number" or w <= 0 then w = 31 end
     local scale = size / w
@@ -314,9 +350,10 @@ function Drawer.Layout()
     if call(b.GetParent, b) ~= f then call(b.SetParent, b, f) end
     call(b.SetScale, b, scale)
     call(b.ClearAllPoints, b)
-    call(b.SetPoint, b, corner, f, corner, dir * (PAD + col * (size + PAD)) / scale, -(PAD + row * (size + PAD)) / scale)
+    call(b.SetPoint, b, corner, f, corner, ox / scale, oy / scale)
     placing[b] = nil
   end
+  for i = #shown + 1, #Drawer.cells do Drawer.cells[i]:Hide() end
   local n = #shown
   local c = math.min(math.max(n, 1), cols)
   local r = math.max(1, math.ceil(n / cols))
@@ -406,6 +443,12 @@ function Drawer.Apply()
   Drawer.Layout()
   Drawer.Listen()
   Drawer.Sweep()
+  -- /hh lock | unlock is one switch for the whole suite: follow it
+  if not Drawer.lockHooked and type(hooksecurefunc) == "function" and type(HH.SetLocked) == "function" then
+    Drawer.lockHooked = true
+    pcall(hooksecurefunc, HH, "SetLocked", function(_, locked) Drawer.SetUnlocked(not locked) end)
+  end
+  Drawer.SetUnlocked(HH.db.profile.locked == false)
 end
 
 function Drawer.Disable()
