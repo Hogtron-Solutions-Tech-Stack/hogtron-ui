@@ -94,12 +94,13 @@ function Part.MicroButtons()
     local c = rawget(_G, cn)
     if type(c) == "table" and c.GetChildren then for _, ch in ipairs({ c:GetChildren() }) do take(ch) end end
   end
+  -- our order, always: in game 2026-10-01 Blizzard's menu was a grid, and sorting by GetLeft scrambled the letters
   local order = {}
   for i, n in ipairs(Part.MICRO) do order[n] = i end
   table.sort(out, function(a, b)
-    local la, lb = Skin.call(a.GetLeft, a), Skin.call(b.GetLeft, b)
-    if Skin.num(la) and Skin.num(lb) and la ~= lb then return la < lb end
-    return (order[a:GetName()] or 99) < (order[b:GetName()] or 99)
+    local oa, ob = order[a:GetName()] or 99, order[b:GetName()] or 99
+    if oa ~= ob then return oa < ob end
+    return a:GetName() < b:GetName()
   end)
   return out
 end
@@ -129,7 +130,7 @@ end
 local function barFrame()
   if Part.bar then return Part.bar end
   local bar = CreateFrame("Frame", "HogHealsMicroBar", UIParent)
-  bar:SetFrameStrata("LOW")
+  bar:SetFrameStrata("MEDIUM")   -- above the bag strip (LOW): in game 2026-10-01 the cells hid behind it
   bar:SetMovable(true)
   bar:SetClampedToScreen(true)
   bar.bg = Skin.Solid(bar, "BACKGROUND", Skin.INK, Skin.cfg().backgroundAlpha or 0.75)
@@ -185,15 +186,15 @@ function Part.AnchorBar()
     Part.barAnchor = "saved"
     return
   end
-  for _, n in ipairs(Part.MICRO_CONTAINERS) do
-    local c = rawget(_G, n)
-    if type(c) == "table" and c.GetLeft then
-      bar:SetPoint("BOTTOMRIGHT", c, "BOTTOMRIGHT", 0, 0)
-      Part.barAnchor = n
-      return
-    end
+  -- default: right above the bag strip (in game 2026-10-01 Blizzard's container sat ON the bag bar and the letters
+  -- landed across the bag slots); without a bag strip, the screen's bottom-right corner
+  local bags = Part.strips and Part.strips.bags
+  if bags and bags.placed then
+    bar:SetPoint("BOTTOMRIGHT", bags, "TOPRIGHT", 0, 4)
+    Part.barAnchor = "bags"
+    return
   end
-  bar:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -220, 4)
+  bar:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -4, 4)
   Part.barAnchor = "screen"
 end
 
@@ -202,7 +203,7 @@ function Part.Strip()
   local m = Skin.cfg().micro
   local srcs = Part.MicroButtons()
   local bar = barFrame()
-  local size, pad = m.size or 22, 2
+  local size, pad = m.size or 24, 3
   local n = 0
   for i, src in ipairs(srcs) do
     n = n + 1
@@ -212,8 +213,8 @@ function Part.Strip()
     local letter = lab and lab[1] or name:gsub("MicroButton$", ""):sub(1, 1):upper()
     c.label = lab and lab[2] or name:gsub("MicroButton$", "")
     c.letter:SetText(letter)
-    Skin.SetFont(c.letter, math.max(8, math.floor(size * 0.55)))
-    c:SetSize(size, size - 2)
+    Skin.SetFont(c.letter, math.max(9, math.floor(size * 0.5)))
+    c:SetSize(size, size - 4)
     c:ClearAllPoints()
     c:SetPoint("LEFT", bar, "LEFT", pad + (i - 1) * (size + pad), 0)
     c:SetAttribute("type", "click")
@@ -224,7 +225,7 @@ function Part.Strip()
   end
   for i = n + 1, #bar.cells do bar.cells[i]:Hide() end
   bar:SetSize(pad + n * (size + pad), size + 2)
-  bar:SetScale(m.scale or 1)
+  bar:SetScale(1)   -- never the "Menu buttons scale" (that shrinks Blizzard's menu; it made these letters 10 px apart)
   bar.bg:SetColorTexture(Skin.INK[1], Skin.INK[2], Skin.INK[3], Skin.cfg().backgroundAlpha or 0.75)
   Part.AnchorBar()
   if n > 0 then bar:Show() else bar:Hide() end
@@ -265,6 +266,16 @@ end
 
 function Part.Apply()
   local d = Skin.cfg()
+  if d.bagBar and d.bagBar.enabled ~= false then
+    local bags = Part.BagButtons()
+    for _, b in ipairs(bags) do Skin.IconButton(b, { hotkeySize = 10 }) end
+    for _, n in ipairs(Part.BAG_HIDE) do Skin.HideFrame(Skin.G(n)) end
+    strip("bags", bags, 3)
+    Part.bagCount = #bags
+    local names = {}
+    for _, b in ipairs(bags) do names[#names + 1] = b:GetName() end
+    Part.bagNames = table.concat(names, ",")
+  end
   if d.micro and d.micro.enabled ~= false then
     for _, p in ipairs(Part.MICRO_ART) do
       local v = Skin.Path(p)
@@ -288,16 +299,6 @@ function Part.Apply()
       end
       Part.microCount = #micro
     end
-  end
-  if d.bagBar and d.bagBar.enabled ~= false then
-    local bags = Part.BagButtons()
-    for _, b in ipairs(bags) do Skin.IconButton(b, { hotkeySize = 10 }) end
-    for _, n in ipairs(Part.BAG_HIDE) do Skin.HideFrame(Skin.G(n)) end
-    strip("bags", bags, 3)
-    Part.bagCount = #bags
-    local names = {}
-    for _, b in ipairs(bags) do names[#names + 1] = b:GetName() end
-    Part.bagNames = table.concat(names, ",")
   end
 end
 
