@@ -9,7 +9,10 @@ from playwright.sync_api import sync_playwright
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE.parents[1] / "HogHeals" / "Media"
-IDS = ["quest_open", "quest_done", "quest_arrow"]
+IDS = ["quest_open", "quest_done", "quest_arrow",
+       "micro_character", "micro_professions", "micro_spellbook", "micro_talents", "micro_achievements", "micro_quests",
+       "micro_guild", "micro_social", "micro_lfg", "micro_collections", "micro_ej", "micro_pvp", "micro_shop", "micro_help",
+       "micro_menu", "micro_map"]
 DRY = "--dry-run" in sys.argv
 
 def main():
@@ -28,9 +31,9 @@ def main():
         if not DRY:
             im.save(dest, format="TGA", rle=False)
     # review sheet
-    sheet = Image.new("RGBA", (3 * 130, 2 * 80), (0, 0, 0, 0))
+    sheet = Image.new("RGBA", (len(IDS) * 130, 2 * 80), (0, 0, 0, 0))
     for row, bg in enumerate([(120, 150, 90, 255), (18, 18, 23, 255)]):
-        tile = Image.new("RGBA", (3 * 130, 80), bg)
+        tile = Image.new("RGBA", (len(IDS) * 130, 80), bg)
         x = 6
         for i in IDS:
             for s in (64, 32, 16):
