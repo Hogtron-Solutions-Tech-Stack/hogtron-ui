@@ -46,6 +46,20 @@ def click(lua, name, index, button="LeftButton"):
 
 
 # ------------------------------------------------------------------------------------------------ dungeon quests
+
+def test_auto_role_tab_is_the_lit_default_and_names_the_role_it_picked(atlas):
+    # Sean 2026-10-01: "tough to see what your default is ... we need to default to auto"
+    atlas.execute('HogHealsAtlas.Window.Toggle("upgrades")')
+    rb = 'HogHealsAtlas.Window.roleButtons'
+    assert atlas.eval(f'{rb}.auto.on') is True and atlas.eval(f'{rb}.healer.on') is False
+    assert atlas.eval(f'{rb}.auto.label._text') == "Auto: healer"              # shaman in the fixture
+    assert "healer (auto, by class)" in atlas.eval("HogUIAtlasWindow.status:GetText()")
+    atlas.execute(f'{rb}.tank:GetScript("OnClick")({rb}.tank)')
+    assert atlas.eval('HogHealsAtlas.cfg().role') == "tank" and atlas.eval(f'{rb}.tank.on') is True
+    assert atlas.eval(f'{rb}.auto.label._text') == "Auto"
+    atlas.execute(f'{rb}.auto:GetScript("OnClick")({rb}.auto)')
+    assert atlas.eval('HogHealsAtlas.cfg().role') == "auto" and atlas.eval(f'{rb}.auto.label._text') == "Auto: healer"
+
 def test_dungeon_quests_merge_the_list_with_your_log(atlas):
     rows = vals(atlas.eval(f'({DQ}.For("wc", FakeLog()))'))
     got = [(r["title"], r["state"], r["progress"], r["listed"]) for r in rows]
