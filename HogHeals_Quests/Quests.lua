@@ -25,6 +25,7 @@ function Module.WriteProbe()
     map = (function() local ok3, m = pcall(HHQ.MapSkin.Probe) return ok3 and m or ("probe failed: " .. tostring(m)) end)(),
     mapMissing = table.concat(HHQ.MapSkin.missing or {}, ","),
     worldMap = (function() local ok4, m = pcall(HHQ.WorldMap.Probe) return ok4 and m or ("probe failed: " .. tostring(m)) end)(),
+    buttons = (function() local ok5, m = pcall(HHQ.Buttons.Probe) return ok5 and m or ("probe failed: " .. tostring(m)) end)(),
     unknownEvents = table.concat(Module.unknown or {}, ","),
   }
 end
@@ -52,7 +53,7 @@ function Module:OnEnable()
       return
     end
     if e == "PLAYER_ENTERING_WORLD" then
-      if C_Timer and C_Timer.After then C_Timer.After(3, function() HHQ.Tracker.ApplyBlizzard() end) end HHQ.Tracker.ApplyBlizzard() HH:SafeCall(HHQ.MapSkin, "Apply") end
+      if C_Timer and C_Timer.After then C_Timer.After(3, function() HHQ.Tracker.ApplyBlizzard() end) end HHQ.Tracker.ApplyBlizzard() HH:SafeCall(HHQ.MapSkin, "Apply") HH:SafeCall(HHQ.Buttons, "Apply") end
     if e == "ZONE_CHANGED" or e == "ZONE_CHANGED_NEW_AREA" or e == "PLAYER_ENTERING_WORLD" then HH:SafeCall(HHQ.MapSkin, "UpdateZone") end
     HHQ.Tracker.Schedule()
   end)
@@ -63,6 +64,7 @@ function Module:OnEnable()
   end
   HH:SafeCall(HHQ.MapSkin, "Apply")
   HH:SafeCall(HHQ.WorldMap, "Apply")
+  HH:SafeCall(HHQ.Buttons, "Apply")
   HHQ.Pins.Start()
   -- position + quest data are not ready at login on every client: probe a few seconds in
   if C_Timer and C_Timer.After then C_Timer.After(5, function() HH:SafeCall(Module, "WriteProbe") end) end
@@ -73,6 +75,7 @@ function Module:OnProfileChanged()
   HHQ.Pins.Refresh()
   HH:SafeCall(HHQ.MapSkin, "Refresh")
   HH:SafeCall(HHQ.WorldMap, "Refresh")
+  HH:SafeCall(HHQ.Buttons, "Refresh")
 end
 
 function Module:GetOptions()
@@ -91,3 +94,14 @@ HH:RegisterSlash("questdiag", function()
   HH:Print(("minimap: map %s pos %s size %s radius %s points %s"):format(tostring(m.mapID), tostring(m.pos), tostring(m.size), tostring(m.radius), tostring(m.points)))
   if HHQ.Pins.why then HH:Print("pins: " .. HHQ.Pins.why) end
 end, "print what the quest tracker / minimap can read on this client")
+HH:RegisterSlash("buttons", function(rest)
+  local D = HHQ.Buttons
+  if type(rest) == "string" and rest:lower():find("^list") then
+    local names = D.Names()
+    HH:Print(("addon buttons: %d collected%s"):format(#names, #names > 0 and (" - " .. table.concat(names, ", ")) or ""))
+    if D.skipped and #D.skipped > 0 then HH:Print("left alone: " .. table.concat(D.skipped, ", ")) end
+    return
+  end
+  if HH.db.profile.quests.buttons.enabled == false then HH:Print("Addon buttons are off (Quests > Minimap > Addon buttons).") return end
+  D.Toggle()
+end, "open / close the addon-button drawer; 'buttons list' prints what was found")

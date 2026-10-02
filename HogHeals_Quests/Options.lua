@@ -10,6 +10,7 @@ local function t() return HH.db.profile.quests.tracker end
 local function mm() return HH.db.profile.quests.minimap end
 local function mp() return HH.db.profile.quests.map end
 local function wm() return HH.db.profile.quests.worldMap end
+local function bt() return HH.db.profile.quests.buttons end
 
 local function toggle(tbl, key, name, order, after, desc)
   return { type = "toggle", name = name, desc = desc, order = order,
@@ -27,6 +28,8 @@ function Options.Build()
   local pr = function() HHQ.Pins.Refresh() end
   local sr = function() HHQ.MapSkin.Refresh() end
   local wr = function() HH:SafeCall(HHQ.WorldMap, "Refresh") end
+  local sr = function() HHQ.MapSkin.Refresh() HH:SafeCall(HHQ.Buttons, "Anchor") end
+  local br = function() HH:SafeCall(HHQ.Buttons, "Refresh") end
   return {
     type = "group", name = "Quests", order = 35,
     args = {
@@ -75,6 +78,14 @@ function Options.Build()
           watchedOnly = toggle(mm, "watchedOnly", "Only watched quests", 3, pr),
           turnInInRange = toggle(mm, "turnInInRange", "Also mark nearby turn-ins (Blizzard already shows a ? on the NPC)", 3.5, pr),
           size = range(mm, "size", "Pin size", 4, 8, 32, 1, pr),
+        } },
+        buttons = { type = "group", inline = true, name = "Addon buttons", order = 3, args = {
+          about = { type = "description", order = 0, name = "Every addon's minimap icon (Atlas, Details, Bagnon, ...) gathered into one drawer under the minimap - click the three-dot button to open it. Blizzard's own buttons (tracking, mail, clock, LFG) stay where they are. Turning this off hands the icons back." },
+          enabled = toggle(bt, "enabled", "Gather addon buttons into a drawer", 1, br),
+          columns = range(bt, "columns", "Columns", 2, 1, 10, 1, br),
+          size = range(bt, "size", "Icon size", 3, 16, 40, 2, br),
+          hover = toggle(bt, "hover", "Open on mouse-over", 4, br),
+          autoClose = toggle(bt, "autoClose", "Close when the mouse leaves", 5, br),
         } },
       } },
     },

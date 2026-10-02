@@ -76,10 +76,30 @@ do -- LibDataBroker-1.1 / LibDBIcon-1.0
   ldb.objects = {}
   function ldb:NewDataObject(name, obj) self.objects[name] = obj return obj end
   function ldb:GetDataObjectByName(name) return self.objects[name] end
+  -- Like the real library: Register() makes a 31x31 "LibDBIcon10_<name>" button on the Minimap with the ring + disc
+  -- art and a drag script, keeps it in lib.objects, fires LibDBIcon_IconCreated (the Buttons drawer listens).
   local icon = LibStub:NewLibrary("LibDBIcon-1.0", 999999)
   icon.registered = {}
-  function icon:Register(name, obj, db) self.registered[name] = { obj = obj, db = db } end
-  function icon:Hide() end
-  function icon:Show() end
+  icon.objects = {}
+  icon.callbacks = LibStub("CallbackHandler-1.0"):New(icon)
+  function icon:Register(name, obj, db)
+    self.registered[name] = { obj = obj, db = db }
+    local b = CreateFrame("Button", "LibDBIcon10_" .. name, Minimap)
+    b:SetSize(31, 31)
+    b.dataObject, b.db = obj, db
+    b.overlay = b:CreateTexture(nil, "OVERLAY") b.overlay:SetTexture(136430)
+    b.background = b:CreateTexture(nil, "BACKGROUND") b.background:SetTexture(136467)
+    b.icon = b:CreateTexture(nil, "ARTWORK") b.icon:SetTexture(obj and obj.icon)
+    b:SetPoint("CENTER", Minimap, "CENTER", 52, 52)
+    b:SetScript("OnDragStart", function() end)
+    self.objects[name] = b
+    if db and db.hide then b:Hide() end
+    self.callbacks:Fire("LibDBIcon_IconCreated", b, name)
+  end
+  function icon:Hide(name) local b = self.objects[name] if b then b:Hide() end end
+  function icon:Show(name) local b = self.objects[name] if b then b:Show() end end
   function icon:Refresh() end
+  function icon:IsRegistered(name) return self.objects[name] ~= nil end
+  function icon:GetMinimapButton(name) return self.objects[name] end
+  function icon:GetButtonList() local out = {} for n in pairs(self.objects) do out[#out + 1] = n end table.sort(out) return out end
 end

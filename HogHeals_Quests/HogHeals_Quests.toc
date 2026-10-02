@@ -11,5 +11,6 @@ Tracker.lua
 Minimap.lua
 MapSkin.lua
 WorldMap.lua
+Buttons.lua
 Options.lua
 Quests.lua
