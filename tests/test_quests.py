@@ -163,11 +163,49 @@ def test_tracker_caps_height_and_says_how_many_more(modern):
     modern.execute('''
       for i = 1, 30 do QL[#QL + 1] = { title = "Q" .. i, questID = 100 + i, level = 5 } QObj[100 + i] = { { text = "Thing: 0/5" }, { text = "Other: 0/5" } } end
       HogHeals.db.profile.quests.tracker.mode = "all"
+      HogHeals.db.profile.quests.tracker.fill = false
       HogHeals.db.profile.quests.tracker.maxHeight = 200
       HogHealsQuests.Tracker.Update()
     ''')
     assert modern.eval('HogHealsQuests.Tracker.moreCount') > 0
     assert modern.eval('HogHealsQuestTracker._height') <= 200 + 20 + 8 + 20
+
+
+def test_tracker_fills_down_to_the_screen_bottom_and_the_wheel_scrolls(modern):
+    # Sean 2026-10-01: no "+7 more" - run to the bottom of the screen, scroll the rest.
+    modern.execute('''
+      for i = 1, 30 do QL[#QL + 1] = { title = "Q" .. i, questID = 100 + i, level = 5 } QObj[100 + i] = { { text = "Thing: 0/5" }, { text = "Other: 0/5" } } end
+      local d = HogHeals.db.profile.quests.tracker
+      d.mode, d.fontSize = "all", 13
+      HogHealsQuestTracker.GetTop = function() return 900 end     -- panel top 900 px above the screen's bottom edge
+      HogHealsQuests.Tracker.Update()
+    ''')
+    # fill: 900 - 20 margin - 21 header - 8 = 851 px of list; the 3 base quests are 39 px each (one line), the 30 added
+    # ones 19 + 32 + 4 = 55 px -> 3 + 13 = 16 fit
+    assert modern.eval('HogHealsQuests.Tracker.shownCount') == 16
+    assert modern.eval('HogHealsQuestTracker._height') <= 900 - 20
+    hint = modern.eval('HogHealsQuests.Tracker.lines[#HogHealsQuests.Tracker.lines]._text')
+    assert hint.startswith("scroll:") and "below" in hint and "above" not in hint
+    first = modern.eval('HogHealsQuests.Tracker.titles[1].label._text')
+    # wheel up at the top: nothing; wheel down: the list moves one quest
+    modern.execute('HogHealsQuestTracker:GetScript("OnMouseWheel")(HogHealsQuestTracker, 1)')
+    assert modern.eval('HogHealsQuests.Tracker.offset') == 0
+    modern.execute('HogHealsQuestTracker:GetScript("OnMouseWheel")(HogHealsQuestTracker, -1)')
+    assert modern.eval('HogHealsQuests.Tracker.offset') == 1
+    assert modern.eval('HogHealsQuests.Tracker.titles[1].label._text') != first
+    assert "1 above" in modern.eval('HogHealsQuests.Tracker.lines[#HogHealsQuests.Tracker.lines]._text')
+    # all the way down: stops at the end, never past it
+    for _ in range(40):
+        modern.execute('HogHealsQuestTracker:GetScript("OnMouseWheel")(HogHealsQuestTracker, -1)')
+    assert modern.eval('HogHealsQuests.Tracker.moreCount') == 0
+    assert modern.eval('HogHealsQuests.Tracker.offset') == 33 - 15     # 33 quests; once scrolled only 55 px quests show, 15 fit
+    # the log shrinks under the scroll position: clamped, no error
+    modern.execute('for i = 1, 25 do table.remove(QL) end; HogHealsQuests.Tracker.Update()')
+    assert modern.eval('HogHealsQuests.Tracker.offset') <= 7
+    # a client that cannot say where the top is falls back to the slider
+    modern.execute('HogHealsQuestTracker.GetTop = function() return 0 end; HogHeals.db.profile.quests.tracker.maxHeight = 200; HogHealsQuests.Tracker.offset = 0; HogHealsQuests.Tracker.Update()')
+    assert modern.eval('HogHealsQuestTracker._height') <= 200 + 20 + 8 + 20
+    assert errors(modern) == []
 
 
 def test_blizzard_tracker_hidden_only_when_we_can_read_the_log(lua):
@@ -265,11 +303,11 @@ def test_more_line_stays_inside_the_panel_and_scale_applies(modern):
     modern.execute('''
       for i = 1, 30 do QL[#QL + 1] = { title = "Q" .. i, questID = 100 + i, level = 5 } QObj[100 + i] = { { text = "Thing: 0/5" } } end
       local d = HogHeals.db.profile.quests.tracker
-      d.mode, d.maxHeight, d.scale, d.fontSize = "all", 200, 1.5, 24
+      d.mode, d.maxHeight, d.scale, d.fontSize, d.fill = "all", 200, 1.5, 24, false
       HogHealsQuests.Tracker.Update()
     ''')
     i = modern.eval('#HogHealsQuests.Tracker.lines')
-    assert modern.eval(f'HogHealsQuests.Tracker.lines[{i}]._text').startswith("+")
+    assert modern.eval(f'HogHealsQuests.Tracker.lines[{i}]._text').startswith("scroll:")
     assert modern.eval(f'HogHealsQuests.Tracker.lines[{i}]._points[2][1]') == "RIGHT"
     assert modern.eval('HogHealsQuestTracker._calls.SetScale') >= 1
     assert modern.eval('HogHealsQuestTracker._last.SetScale[1]') == 1.5

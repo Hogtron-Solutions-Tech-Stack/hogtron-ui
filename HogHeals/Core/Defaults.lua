@@ -93,6 +93,7 @@ HH.defaults = {
         enabled = true, hideBlizzard = true, mode = "watched",   -- "watched" (all when none) | "zone" | "all"
         showLevels = true, hideCompleted = false, collapsed = false, lockPosition = false, autoTrack = true,
         width = 260, maxHeight = 420, fontSize = 13, scale = 1, backgroundAlpha = 0.6,
+        fill = true, bottomMargin = 20,   -- run down to the screen's bottom edge and scroll; maxHeight only when fill is off
         point = "TOPRIGHT", x = -80, y = -260,
       },
       minimap = { enabled = true, edge = true, watchedOnly = false, turnInInRange = false, size = 16 },   -- Forever draws areas only, not points
