@@ -43,6 +43,7 @@ local function strip(key, frames, pad)
   local s = Part.strips and Part.strips[key]
   if not s then
     s = CreateFrame("Frame", nil, UIParent)
+    s.hhOurs = true
     s:SetFrameStrata("LOW")
     s.bg = Skin.Solid(s, "BACKGROUND", Skin.INK, Skin.cfg().backgroundAlpha or 0.75)
     s.bg:SetAllPoints(s)
@@ -87,7 +88,26 @@ Part.ICONS = {
 }
 Part.MEDIA = "Interface\\AddOns\\HogHeals\\Media\\"
 
-local silenced = setmetatable({}, { __mode = "k" })   -- Blizzard buttons we faded; weak keys, no fields on them
+-- A colour per glyph (the art is cream, so SetVertexColor tints it; the ink stroke stays ink). Applied at
+-- micro.tintStrength between cream (0) and the full colour (1); hover = the full colour. Sean 2026-10-02:
+-- "colorize them a little bit".
+Part.TINT = {
+  micro_character = { 1.00, 0.80, 0.40 }, micro_professions = { 0.85, 0.65, 0.40 }, micro_spellbook = Skin.CYAN,
+  micro_talents = { 1.00, 0.80, 0.40 }, micro_achievements = { 1.00, 0.85, 0.30 }, micro_quests = { 1.00, 0.72, 0.25 },
+  micro_guild = { 0.40, 0.85, 0.50 }, micro_social = Skin.CYAN, micro_lfg = { 0.70, 0.55, 0.95 },
+  micro_collections = { 0.35, 0.80, 0.75 }, micro_ej = { 0.95, 0.55, 0.35 }, micro_pvp = { 0.90, 0.35, 0.35 },
+  micro_shop = { 1.00, 0.85, 0.30 }, micro_help = Skin.CREAM, micro_menu = Skin.CREAM, micro_map = { 0.55, 0.80, 0.40 },
+}
+
+--- Cream pulled `s` of the way to the glyph's colour (0 = cream, 1 = the colour).
+function Part.Tint(id, s)
+  local t = Part.TINT[id] or Skin.CREAM
+  s = math.max(0, math.min(1, tonumber(s) or 0))
+  local c = Skin.CREAM
+  return { c[1] + (t[1] - c[1]) * s, c[2] + (t[2] - c[2]) * s, c[3] + (t[3] - c[3]) * s }
+end
+
+local silenced = setmetatable({}, { __mode = "k" })   -- Blizzard frames we faded; weak keys, no fields on them
 local fading = setmetatable({}, { __mode = "k" })
 
 --- Blizzard's micro buttons on this client, in Blizzard's left-to-right order when they have one.
@@ -138,9 +158,70 @@ local function unsilence(src)
   if src.EnableMouse then Skin.call(src.EnableMouse, src, true) end
 end
 
+-- ------------------------------------------------------------------------------------------------ Blizzard's art
+-- In game 2026-10-02 (Sean's screenshot): the buttons were gone but a gold-trimmed panel still stood behind the bar
+-- and the bags - art we have no name for on this client. So: walk up from every micro button (3 levels, never
+-- UIParent). A plain Frame whose name says Micro (or that holds nothing but micro buttons) and no bag slot is
+-- faded like the buttons - everything it draws goes with it. Any other ancestor gets its textures cleared
+-- (Skin.KillArt: regions + plain-Frame children such as a NineSlice; buttons / bars untouched).
+
+local function parentOf(f) return Skin.call(f.GetParent, f) end
+
+--- True when any of `bags` descends from `f`.
+local function holdsBag(f, bags)
+  for _, b in ipairs(bags) do
+    local p, d = parentOf(b), 0
+    while type(p) == "table" and d < 6 do
+      if p == f then return true end
+      p, d = parentOf(p), d + 1
+    end
+  end
+  return false
+end
+
+--- A frame whose button children are all micro buttons (and there is at least one).
+local function microOnly(f)
+  local n = 0
+  for _, ch in ipairs({ Skin.call(f.GetChildren, f) }) do
+    local kind = type(ch) == "table" and Skin.call(ch.GetObjectType, ch)
+    if kind == "Button" or kind == "CheckButton" then
+      local name = Skin.call(ch.GetName, ch)
+      if type(name) ~= "string" or not name:find("MicroButton$") then return false end
+      n = n + 1
+    end
+  end
+  return n > 0
+end
+
+--- Fade / strip whatever Blizzard draws around the micro buttons. Returns a diag string per ancestor.
+function Part.SilenceContainers(srcs, bags)
+  local done, out = {}, {}
+  Part.containers = Part.containers or {}
+  for _, src in ipairs(srcs) do
+    local p, d = parentOf(src), 0
+    while type(p) == "table" and p ~= UIParent and not p.hhOurs and d < 3 and not done[p] do
+      done[p] = true
+      local name = Skin.call(p.GetName, p)
+      name = type(name) == "string" and name or "?"
+      local kind = Skin.call(p.GetObjectType, p)
+      if kind == "Frame" and (name:find("Micro") or microOnly(p)) and not holdsBag(p, bags) then
+        silence(p)
+        Part.containers[#Part.containers + 1] = p
+        out[#out + 1] = name .. ":faded"
+      else
+        out[#out + 1] = name .. ":art" .. Skin.KillArt(p)
+      end
+      p, d = parentOf(p), d + 1
+    end
+  end
+  Part.containerDiag = table.concat(out, " ")
+  return out
+end
+
 local function barFrame()
   if Part.bar then return Part.bar end
   local bar = CreateFrame("Frame", "HogHealsMicroBar", UIParent)
+  bar.hhOurs = true
   bar:SetFrameStrata("MEDIUM")   -- above the bag strip (LOW): in game 2026-10-01 the cells hid behind it
   bar:SetMovable(true)
   bar:SetClampedToScreen(true)
@@ -165,6 +246,7 @@ local function cell(i, bar)
   local c = bar.cells[i]
   if c then return c end
   c = CreateFrame("Button", "HogHealsMicroBarButton" .. i, bar, "SecureActionButtonTemplate")
+  c.hhOurs = true
   if c.RegisterForClicks then c:RegisterForClicks("AnyUp") end
   c.bg = Skin.Solid(c, "BACKGROUND", { 0.10, 0.10, 0.12 }, 0.9)
   c.bg:SetAllPoints(c)
@@ -177,6 +259,7 @@ local function cell(i, bar)
   c.icon.hhOurs = true
   c:SetScript("OnEnter", function(self)
     Skin.ColorEdges(self.edges, Skin.CYAN)
+    if self.tintFull then self.icon:SetVertexColor(self.tintFull[1], self.tintFull[2], self.tintFull[3]) end
     if GameTooltip and GameTooltip.SetOwner and self.label then
       GameTooltip:SetOwner(self, "ANCHOR_TOP")
       GameTooltip:AddLine(self.label, Skin.CREAM[1], Skin.CREAM[2], Skin.CREAM[3])
@@ -185,6 +268,7 @@ local function cell(i, bar)
   end)
   c:SetScript("OnLeave", function(self)
     Skin.ColorEdges(self.edges, Skin.LINE)
+    if self.tint then self.icon:SetVertexColor(self.tint[1], self.tint[2], self.tint[3]) end
     if GameTooltip and GameTooltip.Hide then GameTooltip:Hide() end
   end)
   bar.cells[i] = c
@@ -222,7 +306,8 @@ function Part.Strip()
   local m = Skin.cfg().micro
   local srcs = Part.MicroButtons()
   local bar = barFrame()
-  local size, pad = m.size or 24, 3
+  local size, pad = m.size or 30, 3
+  local strength = m.tint == false and 0 or (m.tintStrength or 0.6)
   local n = 0
   for i, src in ipairs(srcs) do
     n = n + 1
@@ -237,9 +322,13 @@ function Part.Strip()
     -- the glyph when the client takes the file, the letter when it does not
     local id = Part.ICONS[name]
     local took = id and (c.icon:SetTexture(Part.MEDIA .. id) ~= false)
-    c.icon:SetSize(size - 6, size - 6)
+    c.icon:SetSize(size - 4, size - 4)   -- glyphs fill the cell (was size - 6; Sean 2026-10-02: "a little bigger")
     if took then c.icon:Show() c.letter:Hide() else c.icon:Hide() c.letter:Show() end
     c.glyph = took and id or nil
+    c.tint = Part.Tint(id, strength)
+    c.tintFull = Part.Tint(id, strength > 0 and 1 or 0)
+    c.icon:SetVertexColor(c.tint[1], c.tint[2], c.tint[3])
+    c.letter:SetTextColor(c.tint[1], c.tint[2], c.tint[3])
     c:ClearAllPoints()
     c:SetPoint("LEFT", bar, "LEFT", pad + (i - 1) * (size + pad), 0)
     c:SetAttribute("type", "click")
@@ -252,6 +341,7 @@ function Part.Strip()
   bar:SetSize(pad + n * (size + pad), size + 2)
   bar:SetScale(1)   -- never the "Menu buttons scale" (that shrinks Blizzard's menu; it made these letters 10 px apart)
   bar.bg:SetColorTexture(Skin.INK[1], Skin.INK[2], Skin.INK[3], Skin.cfg().backgroundAlpha or 0.75)
+  Part.SilenceContainers(srcs, Part.BagButtons())
   Part.AnchorBar()
   if n > 0 then bar:Show() else bar:Hide() end
   Part.microCount = n
@@ -261,6 +351,8 @@ end
 --- Back to Blizzard's buttons (strip option off): theirs visible again, our bar gone.
 function Part.Unstrip()
   for _, src in ipairs(Part.MicroButtons()) do unsilence(src) end
+  for _, c in ipairs(Part.containers or {}) do unsilence(c) end
+  Part.containers = {}
   if Part.bar then Part.bar:Hide() end
 end
 
@@ -289,11 +381,40 @@ function Part.BagButtons()
   return out
 end
 
+--- The bag slots in the micro bar's look: flat cell, scaled up, cyan outline under the mouse, the art around
+-- them cleared (same walk as the micro buttons: the slot's ancestors, 3 levels, never UIParent).
+function Part.StyleBags(bags, d)
+  local scale = d.scale or 1.2
+  local done, out = {}, {}
+  for _, b in ipairs(bags) do
+    Skin.IconButton(b, { hotkeySize = 10 })
+    Skin.call(b.SetScale, b, scale)
+    if not b.hhHover and b.HookScript then
+      b.hhHover = true
+      b:HookScript("OnEnter", function(self) if self.hh and self.hh.edges then Skin.ColorEdges(self.hh.edges, Skin.CYAN) end end)
+      b:HookScript("OnLeave", function(self) if self.hh and self.hh.edges then Skin.ColorEdges(self.hh.edges, Skin.LINE) end end)
+    end
+    local p, depth = parentOf(b), 0
+    while type(p) == "table" and p ~= UIParent and not p.hhOurs and depth < 3 and not done[p] do
+      done[p] = true
+      local name = Skin.call(p.GetName, p)
+      out[#out + 1] = (type(name) == "string" and name or "?") .. ":art" .. Skin.KillArt(p)
+      p, depth = parentOf(p), depth + 1
+    end
+  end
+  for _, cn in ipairs(Part.BAG_CONTAINERS) do
+    local c = rawget(_G, cn)
+    if type(c) == "table" and not done[c] then done[c] = true out[#out + 1] = cn .. ":art" .. Skin.KillArt(c) end
+  end
+  Part.bagDiag = table.concat(out, " ")
+  return out
+end
+
 function Part.Apply()
   local d = Skin.cfg()
   if d.bagBar and d.bagBar.enabled ~= false then
     local bags = Part.BagButtons()
-    for _, b in ipairs(bags) do Skin.IconButton(b, { hotkeySize = 10 }) end
+    Part.StyleBags(bags, d.bagBar)
     for _, n in ipairs(Part.BAG_HIDE) do Skin.HideFrame(Skin.G(n)) end
     strip("bags", bags, 3)
     Part.bagCount = #bags
@@ -305,6 +426,10 @@ function Part.Apply()
     for _, p in ipairs(Part.MICRO_ART) do
       local v = Skin.Path(p)
       if type(v) == "table" then if v.GetObjectType and v:GetObjectType() == "Texture" then Skin.Kill(v) else Skin.KillRegions(v) end end
+    end
+    for _, n in ipairs(Part.MICRO_CONTAINERS) do
+      local c = rawget(_G, n)
+      if type(c) == "table" then Skin.KillArt(c) end
     end
     if d.micro.strip ~= false then
       Part.Strip()

@@ -20,19 +20,30 @@ for i = 1, 2 do
   b.Border = b:CreateTexture("ActionButton" .. i .. "Border"); b.Border:SetTexture("border")
 end
 -- micro menu + bag bar
+MicroMenu = CreateFrame("Frame", "MicroMenu", UIParent)
+MicroMenu.Backdrop = MicroMenu:CreateTexture(); MicroMenu.Backdrop:SetTexture("gold-panel")
+MicroMenu.NineSlice = CreateFrame("Frame", nil, MicroMenu)
+MicroMenu.NineSlice.TopEdge = MicroMenu.NineSlice:CreateTexture(); MicroMenu.NineSlice.TopEdge:SetTexture("gold-edge")
+function MicroMenu:GetLeft() return 100 end
+function MicroMenu:GetRight() return 480 end
+function MicroMenu:GetTop() return 120 end
+function MicroMenu:GetBottom() return 60 end
+MicroMenu._width, MicroMenu._height = 380, 60
 for _, n in ipairs({ "CharacterMicroButton", "SpellbookMicroButton", "MainMenuMicroButton" }) do
-  local b = CreateFrame("Button", n, UIParent)
+  local b = CreateFrame("Button", n, MicroMenu)
   b._left = ({ CharacterMicroButton = 10, SpellbookMicroButton = 40, MainMenuMicroButton = 70 })[n]
   function b:GetLeft() return self._left end
   function b:GetRight() return self._left + 28 end
 end
 MicroButtonAndBagsBar = CreateFrame("Frame", "MicroButtonAndBagsBar", UIParent)
 MicroButtonAndBagsBar.MicroBagBar = MicroButtonAndBagsBar:CreateTexture(); MicroButtonAndBagsBar.MicroBagBar:SetTexture("bagbar-art")
-MainMenuBarBackpackButton = CreateFrame("CheckButton", "MainMenuBarBackpackButton", UIParent)
-MainMenuBarBackpackButton.icon = MainMenuBarBackpackButton:CreateTexture()
+BagsBar = CreateFrame("Frame", "BagsBar", UIParent)
+BagsBar.Art = BagsBar:CreateTexture(); BagsBar.Art:SetTexture("bag-panel")
+MainMenuBarBackpackButton = CreateFrame("CheckButton", "MainMenuBarBackpackButton", BagsBar)
+MainMenuBarBackpackButton.icon = MainMenuBarBackpackButton:CreateTexture(); MainMenuBarBackpackButton.icon:SetTexture("backpack")
 function MainMenuBarBackpackButton:GetLeft() return 200 end
 function MainMenuBarBackpackButton:GetRight() return 230 end
-CharacterBag0Slot = CreateFrame("CheckButton", "CharacterBag0Slot", UIParent)
+CharacterBag0Slot = CreateFrame("CheckButton", "CharacterBag0Slot", BagsBar)
 function CharacterBag0Slot:GetLeft() return 170 end
 function CharacterBag0Slot:GetRight() return 199 end
 -- a classic-style bag with two item slots
@@ -150,7 +161,7 @@ def test_hogui_letter_bar_stands_in_for_blizzards_micro_buttons(skin):
     assert skin.eval(f'{bar}.cells[2].letter:IsShown()') is True and skin.eval(f'{bar}.cells[2].letter._text') == "S"
     assert skin.eval(f'{bar}.cells[1].letter:IsShown()') is False
     assert skin.eval(f'{bar}._last.SetScale[1]') == 1                                # never the menu scale
-    assert skin.eval(f'{bar}.cells[2]._points[1][4]') == 3 + 27                     # 24 px cells, 3 px apart
+    assert skin.eval(f'{bar}.cells[2]._points[1][4]') == 3 + 33                     # 30 px cells, 3 px apart
     # unlock: cyan edges + draggable; the dropped spot is kept; reset puts it back
     skin.execute('HogHeals:SlashCommand("unlock")')
     assert skin.eval(f'{bar}.edges[1]._color[2]') == pytest.approx(0.83)
@@ -442,3 +453,121 @@ def test_late_built_gossip_option_lines_lifted_and_kept_through_hover_repaint(lu
     assert lua.eval('OPT._color[1]') == pytest.approx(0.96)
     lua.execute('OPT:SetTextColor(1, 0.82, 0)')                               # gold stays gold
     assert lua.eval('OPT._color[2]') == pytest.approx(0.82)
+
+
+def test_blizzards_panel_behind_the_menu_bar_and_bags_goes_too(skin):
+    # Sean 2026-10-02 (screenshot): the buttons were gone but Blizzard's gold panel still stood behind our bar.
+    # The menu buttons' container is faded with them (and kept faded); the bag bar's art is cleared, icons kept.
+    assert skin.eval('MicroMenu._alpha') == 0
+    skin.execute('MicroMenu:SetAlpha(1)')
+    assert skin.eval('MicroMenu._alpha') == 0
+    assert skin.eval('HogHealsSkin.Micro.containerDiag') == "MicroMenu:faded"
+    assert skin.eval('BagsBar.Art._alpha') == 0 and skin.eval('BagsBar.Art._texture') is None
+    assert skin.eval('MainMenuBarBackpackButton.icon._texture') == "backpack"            # the bag's own icon stays
+    assert skin.eval('MainMenuBarBackpackButton.icon._alpha') == 1
+    assert "BagsBar:art" in skin.eval('HogHealsSkin.Micro.bagDiag')
+    # a container that also holds bag slots is never faded (that would take the bags with it): art cleared instead
+    skin.execute("""
+      MicroButtonAndBagsBar.NineSlice = CreateFrame("Frame", nil, MicroButtonAndBagsBar)
+      MicroButtonAndBagsBar.NineSlice.Edge = MicroButtonAndBagsBar.NineSlice:CreateTexture(); MicroButtonAndBagsBar.NineSlice.Edge:SetTexture("edge")
+      CharacterBag1Slot = CreateFrame("CheckButton", "CharacterBag1Slot", MicroButtonAndBagsBar)
+      function CharacterBag1Slot:GetLeft() return 140 end
+      function CharacterBag1Slot:GetRight() return 169 end
+      CharacterBag1Slot.icon = CharacterBag1Slot:CreateTexture(); CharacterBag1Slot.icon:SetTexture("bag1")
+      local b = CreateFrame("Button", "TalentMicroButton", MicroButtonAndBagsBar)
+      HogHealsSkin.Micro.Apply()
+    """)
+    assert skin.eval('MicroButtonAndBagsBar._alpha') == 1
+    assert skin.eval('MicroButtonAndBagsBar.NineSlice.Edge._alpha') == 0
+    assert skin.eval('CharacterBag1Slot.icon._alpha') == 1 and skin.eval('CharacterBag1Slot.icon._texture') == "bag1"
+    # strip off: the container comes back with the buttons
+    skin.execute('HogHeals.db.profile.skin.micro.strip = false; HogHealsSkin.Micro.Apply()')
+    assert skin.eval('MicroMenu._alpha') == 1 and skin.eval('CharacterMicroButton._alpha') == 1
+    assert errors(skin) == []
+
+
+def test_kill_art_never_touches_buttons_bars_or_ours(skin):
+    skin.execute("""
+      ArtHolder = CreateFrame("Frame", "ArtHolder", UIParent)
+      ArtHolder.bg = ArtHolder:CreateTexture(); ArtHolder.bg:SetTexture("bg")
+      ArtHolder.inner = CreateFrame("Frame", nil, ArtHolder)
+      ArtHolder.inner.t = ArtHolder.inner:CreateTexture(); ArtHolder.inner.t:SetTexture("inner")
+      ArtHolder.bar = CreateFrame("StatusBar", nil, ArtHolder)
+      ArtHolder.bar.t = ArtHolder.bar:CreateTexture(); ArtHolder.bar.t:SetTexture("fill")
+      ArtHolder.btn = CreateFrame("Button", nil, ArtHolder)
+      ArtHolder.btn.icon = ArtHolder.btn:CreateTexture(); ArtHolder.btn.icon:SetTexture("icon")
+      ArtHolder.ours = ArtHolder:CreateTexture(); ArtHolder.ours:SetTexture("ours"); ArtHolder.ours.hhOurs = true
+      KILLED = HogHealsSkin.Skin.KillArt(ArtHolder)
+    """)
+    assert skin.eval('KILLED') == 2
+    assert skin.eval('ArtHolder.bg._alpha') == 0 and skin.eval('ArtHolder.inner.t._alpha') == 0
+    assert skin.eval('ArtHolder.bar.t._alpha') == 1 and skin.eval('ArtHolder.btn.icon._alpha') == 1 and skin.eval('ArtHolder.ours._alpha') == 1
+    assert skin.eval('HogHealsSkin.Skin.KillArt(UIParent)') == 0
+
+
+def test_glyphs_bigger_and_tinted_full_colour_under_the_mouse(skin):
+    bar = 'HogHealsMicroBar'
+    assert skin.eval(f'{bar}.cells[1]._width') == 30 and skin.eval(f'{bar}.cells[1].icon._width') == 26     # 30 px cells, glyph fills them
+    # character = amber at 0.6 of the way from cream; spellbook = cyan
+    r, g, b = [skin.eval(f'{bar}.cells[1].icon._color[{i}]') for i in (1, 2, 3)]
+    assert (r, g, b) == (pytest.approx(0.96 + (1.0 - 0.96) * 0.6), pytest.approx(0.92 + (0.80 - 0.92) * 0.6), pytest.approx(0.86 + (0.40 - 0.86) * 0.6))
+    assert skin.eval(f'{bar}.cells[2].icon._color[1]') == pytest.approx(0.96 + (0.13 - 0.96) * 0.6)
+    skin.execute(f'{bar}.cells[1]:GetScript("OnEnter")({bar}.cells[1])')
+    assert skin.eval(f'{bar}.cells[1].icon._color[1]') == pytest.approx(1.0) and skin.eval(f'{bar}.cells[1].icon._color[3]') == pytest.approx(0.40)
+    skin.execute(f'{bar}.cells[1]:GetScript("OnLeave")({bar}.cells[1])')
+    assert skin.eval(f'{bar}.cells[1].icon._color[3]') == pytest.approx(0.86 + (0.40 - 0.86) * 0.6)
+    # strength 1 = the colour itself; tint off = cream, hover stays cream
+    skin.execute('HogHeals.db.profile.skin.micro.tintStrength = 1; HogHealsSkin.Micro.Strip()')
+    assert skin.eval(f'{bar}.cells[1].icon._color[3]') == pytest.approx(0.40)
+    skin.execute('HogHeals.db.profile.skin.micro.tint = false; HogHealsSkin.Micro.Strip()')
+    assert skin.eval(f'{bar}.cells[1].icon._color[1]') == pytest.approx(0.96) and skin.eval(f'{bar}.cells[2].icon._color[1]') == pytest.approx(0.96)
+    skin.execute(f'{bar}.cells[1]:GetScript("OnEnter")({bar}.cells[1])')
+    assert skin.eval(f'{bar}.cells[1].icon._color[1]') == pytest.approx(0.96)
+    # the letter fallback wears the same tint
+    skin.execute('HogHeals.db.profile.skin.micro.tint = true; HogHeals.db.profile.skin.micro.tintStrength = 0.6; HogHealsSkin.Micro.Strip()')
+    assert skin.eval(f'{bar}.cells[2].letter._color[1]') == pytest.approx(0.96 + (0.13 - 0.96) * 0.6)
+    # options exist and write through
+    skin.execute('HogHeals.OptionsTable().args.Skin.args.micro.args.tintStrength.set(nil, 0.3)')
+    assert skin.eval('HogHeals.db.profile.skin.micro.tintStrength') == pytest.approx(0.3)
+    assert errors(skin) == []
+
+
+def test_bag_slots_scaled_up_with_cyan_outline_under_the_mouse(skin):
+    assert skin.eval('MainMenuBarBackpackButton._last.SetScale[1]') == pytest.approx(1.2)
+    assert skin.eval('CharacterBag0Slot._last.SetScale[1]') == pytest.approx(1.2)
+    skin.execute('MainMenuBarBackpackButton:GetScript("OnEnter")(MainMenuBarBackpackButton)')
+    assert skin.eval('MainMenuBarBackpackButton.hh.edges[1]._color[2]') == pytest.approx(0.83)
+    skin.execute('MainMenuBarBackpackButton:GetScript("OnLeave")(MainMenuBarBackpackButton)')
+    assert skin.eval('MainMenuBarBackpackButton.hh.edges[1]._color[2]') == pytest.approx(0.20)
+    skin.execute('HogHeals.OptionsTable().args.Skin.args.micro.args.bagScale.set(nil, 1.5)')
+    assert skin.eval('MainMenuBarBackpackButton._last.SetScale[1]') == pytest.approx(1.5)
+    assert errors(skin) == []
+
+
+def test_hh_under_names_what_blizzard_draws_at_the_cursor(skin):
+    # the walk: every visible frame whose rect holds the cursor, deepest first, with its live textures
+    skin.execute("""
+      GoldPanel = CreateFrame("Frame", "GoldPanel", UIParent)
+      GoldPanel.art = GoldPanel:CreateTexture(); GoldPanel.art:SetTexture("Interface/gold")
+      function GoldPanel:GetLeft() return 100 end  function GoldPanel:GetRight() return 480 end
+      function GoldPanel:GetTop() return 130 end   function GoldPanel:GetBottom() return 50 end
+      function GoldPanel:GetFrameLevel() return 7 end
+      Elsewhere = CreateFrame("Frame", "Elsewhere", UIParent)
+      function Elsewhere:GetLeft() return 900 end  function Elsewhere:GetRight() return 950 end
+      function Elsewhere:GetTop() return 130 end   function Elsewhere:GetBottom() return 50 end
+      Hidden = CreateFrame("Frame", "Hidden", UIParent); Hidden:Hide()
+      function Hidden:GetLeft() return 100 end  function Hidden:GetRight() return 480 end
+      function Hidden:GetTop() return 130 end   function Hidden:GetBottom() return 50 end
+      local list = { GoldPanel, Elsewhere, Hidden, MicroMenu, HogHealsMicroBar }
+      function EnumerateFrames(prev)
+        if prev == nil then return list[1] end
+        for i, f in ipairs(list) do if f == prev then return list[i + 1] end end
+      end
+      function GetCursorPosition() return 300, 100 end
+      HogHeals:SlashCommand("under")
+    """)
+    lines = skin.eval('HogHeals.db.global.diag.under.lines').split("\n")
+    assert lines[0].startswith("GoldPanel [Frame L7") and "Interface/gold" in lines[0]
+    assert all(not l.startswith(("Elsewhere", "Hidden", "HogHeals")) for l in lines)
+    assert any(l.startswith("MicroMenu [Frame") and "no textures" in l for l in lines)   # its art is killed, so nothing drawn
+    assert errors(skin) == []
