@@ -143,6 +143,7 @@ function Module:OnEnable()
   if HH.db.profile.quests.tracker.enabled ~= false then
     HHQ.Tracker.ApplyBlizzard()
     HHQ.Tracker.Show()
+    HH:SafeCall(HHQ.Tracker, "SetUnlocked", HH.db.profile.locked == false)
   end
   HH:SafeCall(HHQ.MapSkin, "Apply")
   HH:SafeCall(HHQ.WorldMap, "Apply")
@@ -150,6 +151,11 @@ function Module:OnEnable()
   HHQ.Pins.Start()
   -- position + quest data are not ready at login on every client: probe a few seconds in
   if C_Timer and C_Timer.After then C_Timer.After(5, function() HH:SafeCall(Module, "WriteProbe") end) end
+end
+
+--- /hh unlock | lock: the tracker shows its resize grip and cyan edges while unlocked.
+function Module:SetLocked(locked)
+  HH:SafeCall(HHQ.Tracker, "SetUnlocked", not locked)
 end
 
 function Module:OnProfileChanged()

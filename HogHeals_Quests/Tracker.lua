@@ -143,9 +143,40 @@ local function build()
     if point then local c = cfg() c.point, c.x, c.y = point, x, y end
     Tracker.Update()   -- the fill height depends on where the top now is
   end)
-  -- mouse wheel scrolls the list (title buttons do not take the wheel, so it reaches the panel)
+  -- Mouse wheel scrolls the list. In game 2026-10-01 the wheel over the panel zoomed the CAMERA: a frame that is
+  -- not mouse-enabled does not take the wheel on this client. The panel takes the mouse now, and every title
+  -- button (the thing actually under the cursor most of the time) scrolls as well.
+  if f.EnableMouse then f:EnableMouse(true) end
   if f.EnableMouseWheel then f:EnableMouseWheel(true) end
   f:SetScript("OnMouseWheel", function(_, delta) Tracker.Scroll(delta) end)
+
+  -- Resize grip, shown while /hh unlock is on: drag the bottom-right corner to set the width in place and, with
+  -- fill on, where the list stops above the screen's bottom edge (fill off: the max height).
+  if f.SetResizable then f:SetResizable(true) end
+  if f.SetResizeBounds then pcall(f.SetResizeBounds, f, 160, 80) elseif f.SetMinResize then pcall(f.SetMinResize, f, 160, 80) end
+  local grip = CreateFrame("Button", nil, f)
+  grip:SetSize(16, 16)
+  grip:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -1, 1)
+  grip:SetFrameLevel(f:GetFrameLevel() + 5)
+  grip.tex = grip:CreateTexture(nil, "OVERLAY")
+  grip.tex:SetAllPoints(grip)
+  if grip.tex:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up") == false then
+    grip.tex:SetColorTexture(CYAN[1], CYAN[2], CYAN[3], 0.9)
+  else
+    grip.tex:SetVertexColor(CYAN[1], CYAN[2], CYAN[3])
+  end
+  grip:SetScript("OnMouseDown", function()
+    if cfg().lockPosition then return end
+    Tracker.sizing = true
+    if f.StartSizing then f:StartSizing("BOTTOMRIGHT") end
+  end)
+  grip:SetScript("OnMouseUp", function()
+    if f.StopMovingOrSizing then f:StopMovingOrSizing() end
+    Tracker.sizing = nil
+    Tracker.TakeSize()
+  end)
+  grip:Hide()
+  f.grip = grip
   header:SetScript("OnClick", function(_, button)
     if button == "RightButton" then Tracker.CycleMode() else Tracker.SetCollapsed(not cfg().collapsed) end
   end)
@@ -159,6 +190,8 @@ local function build()
   f.body:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 6, -4)
   f.body:SetPoint("RIGHT", f, "RIGHT", -6, 0)
   f.body:SetHeight(10)
+  f.body:SetScript("OnMouseWheel", function(_, delta) Tracker.Scroll(delta) end)
+  if f.body.EnableMouseWheel then f.body:EnableMouseWheel(true) end
 
   f.empty = text(f.body, GREY, "LEFT")
   f.empty:SetPoint("TOPLEFT", f.body, "TOPLEFT", 0, 0)
@@ -172,6 +205,8 @@ local function titleButton(i)
   if b then return b end
   local f = Tracker.frame
   b = CreateFrame("Button", nil, f.body)
+  if b.EnableMouseWheel then b:EnableMouseWheel(true) end
+  b:SetScript("OnMouseWheel", function(_, delta) Tracker.Scroll(delta) end)
   b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   b.label = text(b, CREAM, "LEFT")
   if b.label.SetWordWrap then b.label:SetWordWrap(false) end   -- long titles wrapped into the objective (2026-09-22)
@@ -212,7 +247,7 @@ end
 
 -- ------------------------------------------------------------------------------------------------ update
 function Tracker.Update()
-  if not Tracker.frame then return end
+  if not Tracker.frame or Tracker.sizing then return end
   local f, d = Tracker.frame, cfg()
   local size = d.fontSize or 12
   local list = HHQ.Data.List()
@@ -313,6 +348,33 @@ function Tracker.Update()
   f:SetScale(d.scale or 1)
   f.bg:SetColorTexture(INK[1], INK[2], INK[3], d.backgroundAlpha or 0.6)
   Tracker.shownCount, Tracker.moreCount = ti, more
+end
+
+--- The grip was let go: the panel's new width becomes the width option; its new bottom edge becomes the fill gap
+-- (fill on) or the max height (fill off). Then a normal repaint.
+function Tracker.TakeSize()
+  local f, d = Tracker.frame, cfg()
+  if not f then return end
+  local w = f.GetWidth and f:GetWidth()
+  if type(w) == "number" and w >= 160 then d.width = math.floor(w + 0.5) end
+  local h = f.GetHeight and f:GetHeight()
+  if d.fill ~= false then
+    local bottom = f.GetBottom and f:GetBottom()
+    if type(bottom) == "number" and bottom >= 0 then d.bottomMargin = math.floor(bottom * (d.scale or 1) + 0.5) end
+  elseif type(h) == "number" and h > 80 then
+    d.maxHeight = math.floor(h - math.max(HEADER_H, (d.fontSize or 12) + 8) - 8 + 0.5)
+  end
+  Tracker.Update()
+end
+
+--- /hh unlock: cyan edges and the resize grip; /hh lock: back to normal.
+function Tracker.SetUnlocked(unlocked)
+  local f = Tracker.frame
+  if not f then return end
+  local c = unlocked and CYAN or LINE
+  for _, e in ipairs(f.edges or {}) do e:SetColorTexture(c[1], c[2], c[3], 1) end
+  if f.grip then if unlocked then f.grip:Show() else f.grip:Hide() end end
+  Tracker.unlocked = unlocked and true or false
 end
 
 --- Height the list may take. fill (default): from the panel's top down to the screen's bottom edge, minus the
