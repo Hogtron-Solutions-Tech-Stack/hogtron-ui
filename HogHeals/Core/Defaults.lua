@@ -94,6 +94,7 @@ HH.defaults = {
         showLevels = true, hideCompleted = false, collapsed = false, lockPosition = false, autoTrack = true,
         width = 260, maxHeight = 420, fontSize = 13, scale = 1, backgroundAlpha = 0.6,
         point = "TOPRIGHT", x = -80, y = -260,
+        followMinimap = true, gap = 8,   -- hangs under the minimap box; point/x/y only once dragged away
       },
       minimap = { enabled = true, edge = true, watchedOnly = false, turnInInRange = false, size = 16 },   -- Forever draws areas only, not points
       map = { enabled = true, fill = true, size = 180, zoneText = true, wheelZoom = true, hideDecor = true, dockButtons = true },
