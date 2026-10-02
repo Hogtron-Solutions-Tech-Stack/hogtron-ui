@@ -1,6 +1,6 @@
 ## Interface: 20505,20506,11508,11509,16001
 ## Title: |cffF5EBDCHog|r|cff21D4E0UI|r HUD
-## Notes: Healer HUD — castbar, mana + five-second rule, mana pacing, rank advisor.
+## Notes: Healer HUD — castbar, swing timer, mana + five-second rule, mana pacing, rank advisor.
 ## Author: HogTron Solutions (Sean Bilger)
 ## Version: 0.1.0
 ## Dependencies: HogHeals
@@ -10,6 +10,7 @@
 Data\HealRanks.lua
 HUD.lua
 Castbar.lua
+Swing.lua
 Mana.lua
 Pacing.lua
 RankAdvisor.lua

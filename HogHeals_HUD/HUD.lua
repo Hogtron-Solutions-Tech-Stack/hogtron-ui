@@ -3,13 +3,15 @@ HogHealsHUD = HogHealsHUD or {}
 local HHD = HogHealsHUD
 local HH = HogHeals
 
-local HUD = { rows = {}, order = { "castbar", "mana", "info" } }
+local HUD = { rows = {}, order = { "castbar", "swing", "mana", "info" } }
 HHD.HUD = HUD
 
 local function db() return HH.db.profile.hud end
 
-local ROW_SHOW = { castbar = "showCastbar", mana = "showMana", info = "showInfo" }
-local ROW_HEIGHT = { castbar = "castbarHeight", mana = "manaHeight", info = "infoHeight" }
+local ROW_SHOW = { castbar = "showCastbar", swing = "showSwing", mana = "showMana", info = "showInfo" }
+local ROW_HEIGHT = { castbar = "castbarHeight", swing = "swingHeight", mana = "manaHeight", info = "infoHeight" }
+-- rows that show themselves only while something is happening (the slot stays reserved)
+local SELF_SHOWING = { castbar = true, swing = true }
 
 function HUD.Create()
   if HUD.anchor then return end
@@ -73,6 +75,20 @@ function HUD.Create()
   castbar:Hide()
   HUD.rows.castbar = castbar
 
+  -- swing timer: flat bar, label left ("Swing" / "Auto Shot"), seconds to the next swing right (Swing.lua drives it)
+  local swing = CreateFrame("StatusBar", "HogHealsHUDSwing", container)
+  swing:SetMinMaxValues(0, 1)
+  swing:SetValue(0)
+  swing.bg = swing:CreateTexture(nil, "BACKGROUND")
+  swing.bg:SetAllPoints(swing)
+  swing.bg:SetColorTexture(0.07, 0.07, 0.09, 0.7)
+  swing.text = swing:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  swing.text:SetPoint("LEFT", swing, "LEFT", 4, 0)
+  swing.time = swing:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  swing.time:SetPoint("RIGHT", swing, "RIGHT", -4, 0)
+  swing:Hide()
+  HUD.rows.swing = swing
+
   local mana = CreateFrame("StatusBar", "HogHealsHUDMana", container)
   mana:SetMinMaxValues(0, 1)
   mana:SetValue(1)
@@ -120,7 +136,7 @@ function HUD.Layout()
       row:SetPoint("TOPLEFT", HUD.container, "TOPLEFT", 0, -y)
       row:SetSize(d.width, h)
       row.enabled = true
-      if name ~= "castbar" then row:Show() end -- castbar shows itself only while casting
+      if not SELF_SHOWING[name] then row:Show() end
       y = y + h + (d.rowSpacing or 0)
       shown = shown + 1
     else
@@ -143,9 +159,10 @@ function HUD.ApplyAppearance()
   local font = LSM and LSM:Fetch("font", d.font) or STANDARD_TEXT_FONT
   local tex = LSM and LSM:Fetch("statusbar", d.texture) or "Interface\\TargetingFrame\\UI-StatusBar"
   local size = d.fontSize or 11
-  local cb, mana, info = HUD.rows.castbar, HUD.rows.mana, HUD.rows.info
-  cb:SetStatusBarTexture(tex); cb.gcd:SetStatusBarTexture(tex); mana:SetStatusBarTexture(tex)
+  local cb, mana, info, sw = HUD.rows.castbar, HUD.rows.mana, HUD.rows.info, HUD.rows.swing
+  cb:SetStatusBarTexture(tex); cb.gcd:SetStatusBarTexture(tex); mana:SetStatusBarTexture(tex); sw:SetStatusBarTexture(tex)
   cb.text:SetFont(font, size, "OUTLINE"); cb.time:SetFont(font, size, "OUTLINE")
+  sw.text:SetFont(font, size - 1, "OUTLINE"); sw.time:SetFont(font, size - 1, "OUTLINE")
   mana.text:SetFont(font, size - 1, "OUTLINE"); mana.fsrText:SetFont(font, size - 2, "OUTLINE")
   info.left:SetFont(font, size, "OUTLINE"); info.right:SetFont(font, size, "OUTLINE")
   cb.icon:SetSize(d.castbarHeight or 18, d.castbarHeight or 18)
@@ -155,7 +172,7 @@ end
 function HUD.Refresh()
   HUD.Layout()
   HUD.ApplyAppearance()
-  for _, part in ipairs({ "Castbar", "Mana", "Pacing", "RankAdvisor" }) do
+  for _, part in ipairs({ "Castbar", "Swing", "Mana", "Pacing", "RankAdvisor" }) do
     local p = HHD[part]
     if p and p.Refresh then HH:SafeCall(p, "Refresh") end
   end
@@ -169,7 +186,7 @@ function Module:OnEnable()
   HUD.Create()
   HUD.Layout()
   HUD.ApplyAppearance()
-  for _, part in ipairs({ "Castbar", "Mana", "Pacing", "RankAdvisor" }) do
+  for _, part in ipairs({ "Castbar", "Swing", "Mana", "Pacing", "RankAdvisor" }) do
     local p = HHD[part]
     if p and p.Init then HH:SafeCall(p, "Init") end
   end

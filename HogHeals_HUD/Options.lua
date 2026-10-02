@@ -47,6 +47,8 @@ local function layoutGroup()
     rowSpacing = range(hud, "rowSpacing", "Row spacing", 4, 0, 10, 1),
     showCastbar = toggle(hud, "showCastbar", "Castbar row", 5),
     castbarHeight = range(hud, "castbarHeight", "Castbar height", 6, 8, 40, 1),
+    showSwing = toggle(hud, "showSwing", "Swing timer row", 6.2),
+    swingHeight = range(hud, "swingHeight", "Swing timer height", 6.4, 4, 30, 1),
     showMana = toggle(hud, "showMana", "Mana row", 7),
     manaHeight = range(hud, "manaHeight", "Mana height", 8, 6, 30, 1),
     showInfo = toggle(hud, "showInfo", "Info line", 9),
@@ -74,6 +76,19 @@ local function castbarGroup()
     channelColor = colour(c, "channelColor", "Channel colour", 11),
     uninterruptibleColor = colour(c, "uninterruptibleColor", "Uninterruptible colour", 12),
     failColor = colour(c, "failColor", "Failed / interrupted colour", 13),
+  } }
+end
+
+local function swingGroup()
+  local s = function() return hud().swing end
+  return { type = "group", name = "Swing timer", order = 2.5, args = {
+    note = { type = "description", order = 0, name = "Your auto-attack, right under the cast bar: the bar fills toward the next swing (Auto Shot / wand when that is what you are doing). Where the swings come from depends on the client - /hh swingdiag tells you. On clients that keep the combat log from addons it is a free-running estimate from the moment you start attacking." },
+    enabled = toggle(hud, "showSwing", "Swing timer on", 1),
+    text = toggle(s, "text", "Label and seconds on the bar", 2),
+    hideWhenIdle = toggle(s, "hideWhenIdle", "Hide when not attacking", 3),
+    precision = range(s, "precision", "Time decimals", 4, 0, 2, 1),
+    color = colour(s, "color", "Bar colour", 5),
+    diag = { type = "execute", name = "Print swing source to chat", order = 9, func = function() HH:SlashCommand("swingdiag") end },
   } }
 end
 
@@ -118,6 +133,6 @@ end
 
 function Options.Build()
   return { type = "group", name = "HUD", childGroups = "tab", args = {
-    layout = layoutGroup(), castbar = castbarGroup(), mana = manaGroup(), pacing = pacingGroup(), advisor = advisorGroup(),
+    layout = layoutGroup(), castbar = castbarGroup(), swing = swingGroup(), mana = manaGroup(), pacing = pacingGroup(), advisor = advisorGroup(),
   } }
 end
