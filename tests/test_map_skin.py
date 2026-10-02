@@ -74,6 +74,25 @@ def test_probe_lists_map_names(lua):
     assert errors(lua) == []
 
 
+def test_quest_offers_probe_records_apis_pools_and_counts(lua):
+    lua.execute(DECOR)
+    boot(lua, MODERN)
+    lua.execute("""
+      C_QuestLine = { RequestQuestLinesForMap = function() end,
+        GetAvailableQuestLines = function(mapID) return { { questID = 55, questLineID = 7, x = 0.4, y = 0.6, isHidden = false } } end }
+      WorldMapFrame = CreateFrame("Frame", "WorldMapFrame", UIParent)
+      WorldMapFrame.pinPools = { QuestLinePinTemplate = {}, QuestPinTemplate = {} }
+      function WorldMapFrame:GetMapID() return 1429 end
+    """)
+    lua.execute('HogHeals:SlashCommand("questdiag")')
+    o = lua.eval('HogHeals.db.global.diag.quests.offers')
+    assert "C_QuestLine{GetAvailableQuestLines RequestQuestLinesForMap}" in o["apis"] and "C_QuestOffer=nil" in o["apis"]
+    assert "questLines=1[isHidden questID questLineID x y]" in o["counts"] and "questOffers=nil" in o["counts"]
+    assert "questsOnMap=2[" in o["counts"]
+    assert o["pinPools"] == "QuestLinePinTemplate,QuestPinTemplate" and o["mapOpenID"] == "1429"
+    assert errors(lua) == []
+
+
 def test_every_quests_option_getter_and_setter_runs(lua):
     boot(lua, MODERN)
     lua.execute('''
