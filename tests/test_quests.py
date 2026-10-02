@@ -171,6 +171,45 @@ def test_tracker_caps_height_and_says_how_many_more(modern):
     assert modern.eval('HogHealsQuestTracker._height') <= 200 + 20 + 8 + 20
 
 
+def test_unlock_shows_a_resize_grip_and_dragging_it_sets_width_and_the_fill_gap(modern):
+    modern.execute('''
+      HogHeals.db.profile.quests.tracker.scale = 1
+      HogHealsQuestTracker.GetTop = function() return 900 end
+      HogHeals:SlashCommand("lock")        -- the default profile is unlocked, so the grip starts visible
+    ''')
+    assert modern.eval('HogHealsQuestTracker.grip:IsShown()') is False
+    assert modern.eval('HogHealsQuestTracker:GetScript("OnMouseWheel") ~= nil')
+    assert modern.eval('HogHealsQuestTracker._calls.EnableMouse') >= 1            # takes the wheel on this client
+    assert modern.eval('HogHealsQuests.Tracker.titles[1]:GetScript("OnMouseWheel") ~= nil')
+    modern.execute('HogHeals:SlashCommand("unlock")')
+    assert modern.eval('HogHealsQuestTracker.grip:IsShown()') is True
+    assert modern.eval('HogHealsQuestTracker.edges[1]._color[2]') == pytest.approx(0.83)   # cyan while unlocked
+    # the player drags the corner: the frame is 320 wide and its bottom sits 140 px above the screen edge
+    modern.execute('''
+      HogHealsQuestTracker.grip:GetScript("OnMouseDown")(HogHealsQuestTracker.grip)
+      HogHealsQuestTracker._width, HogHealsQuestTracker._height = 320, 700
+      HogHealsQuestTracker.GetBottom = function() return 140 end
+      HogHealsQuests.Tracker.Update()      -- a quest update mid-drag must not snap the size back
+    ''')
+    assert modern.eval('HogHealsQuestTracker._width') == 320
+    modern.execute('HogHealsQuestTracker.grip:GetScript("OnMouseUp")(HogHealsQuestTracker.grip)')
+    assert modern.eval('HogHeals.db.profile.quests.tracker.width') == 320
+    assert modern.eval('HogHeals.db.profile.quests.tracker.bottomMargin') == 140
+    assert modern.eval('HogHealsQuests.Tracker.sizing') is None
+    # fill off: the dragged height becomes the max height instead
+    modern.execute('''
+      HogHeals.db.profile.quests.tracker.fill = false
+      HogHealsQuestTracker.grip:GetScript("OnMouseDown")(HogHealsQuestTracker.grip)
+      HogHealsQuestTracker._height = 500
+      HogHealsQuestTracker.grip:GetScript("OnMouseUp")(HogHealsQuestTracker.grip)
+    ''')
+    assert modern.eval('HogHeals.db.profile.quests.tracker.maxHeight') == 500 - 21 - 8
+    modern.execute('HogHeals:SlashCommand("lock")')
+    assert modern.eval('HogHealsQuestTracker.grip:IsShown()') is False
+    assert modern.eval('HogHealsQuestTracker.edges[1]._color[2]') == pytest.approx(0.20)
+    assert errors(modern) == []
+
+
 def test_tracker_fills_down_to_the_screen_bottom_and_the_wheel_scrolls(modern):
     # Sean 2026-10-01: no "+7 more" - run to the bottom of the screen, scroll the rest.
     modern.execute('''
