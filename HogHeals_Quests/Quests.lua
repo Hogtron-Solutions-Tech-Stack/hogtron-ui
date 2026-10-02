@@ -12,6 +12,87 @@ local EVENTS = { "QUEST_LOG_UPDATE", "QUEST_WATCH_LIST_CHANGED", "QUEST_WATCH_UP
   "QUEST_ACCEPTED", "QUEST_REMOVED", "QUEST_TURNED_IN", "PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA", "ZONE_CHANGED",
   "PLAYER_LEVEL_UP", "ZONE_CHANGED_INDOORS", "ADDON_LOADED" }
 
+-- Quest OFFERS (the "!" over an NPC you have not talked to yet). Sean 2026-10-01: the minimap shows one right in
+-- front of him, the world map does not. The minimap "!" is the client's own NPC blip - no addon can read where it is.
+-- The world map could show offers only if this client exposes them; modern clients do through C_QuestLine
+-- (GetAvailableQuestLines(mapID) -> x, y per available quest after RequestQuestLinesForMap) or C_QuestOffer, and
+-- Blizzard's map draws them through a pin pool whose template name says so. This records which of those exist
+-- here; the next in-game /hh questdiag answers "buildable from the client, or needs a quest-giver database".
+local OFFER_APIS = { "C_QuestOffer", "C_QuestLine", "C_TaskQuest", "C_AreaPoiInfo", "C_Minimap", "C_QuestHub", "C_QuestInfoSystem" }
+local OFFER_CVARS = { "questPOI", "showTrivialQuests", "trivialQuests", "minimapTrackingShowAll", "showQuestTrackingTooltips" }
+
+function Module.OffersProbe()
+  local out = {}
+  local apis = {}
+  for _, name in ipairs(OFFER_APIS) do
+    local t = rawget(_G, name)
+    if type(t) == "table" then
+      local keys = {}
+      for k in pairs(t) do keys[#keys + 1] = tostring(k) end
+      table.sort(keys)
+      apis[#apis + 1] = name .. "{" .. table.concat(keys, " ") .. "}"
+    else
+      apis[#apis + 1] = name .. "=nil"
+    end
+  end
+  out.apis = table.concat(apis, " ; ")
+  local cv = {}
+  for _, c in ipairs(OFFER_CVARS) do
+    local ok, v = pcall(GetCVar, c)
+    cv[#cv + 1] = c .. "=" .. tostring(ok and v or "err")
+  end
+  out.cvars = table.concat(cv, ",")
+  -- what Blizzard's own map draws: the pin pools are keyed by template name (filled once the map has been opened)
+  local wm = rawget(_G, "WorldMapFrame")
+  local pools = {}
+  if type(wm) == "table" and type(rawget(wm, "pinPools")) == "table" then
+    for k in pairs(wm.pinPools) do pools[#pools + 1] = tostring(k) end
+    table.sort(pools)
+  end
+  out.pinPools = #pools > 0 and table.concat(pools, ",") or "none (open the map once, then /hh questdiag again)"
+  out.mapOpenID = (type(wm) == "table" and wm.GetMapID) and tostring(select(2, pcall(wm.GetMapID, wm))) or "nil"
+  -- minimap tracking types (the client's "Low level quests" / "Trivial quests" filters live here)
+  local tr = {}
+  if type(C_Minimap) == "table" and type(C_Minimap.GetNumTrackingTypes) == "function" then
+    local okN, n = pcall(C_Minimap.GetNumTrackingTypes)
+    for i = 1, (okN and tonumber(n)) or 0 do
+      local ok, a, b, c = pcall(C_Minimap.GetTrackingInfo, i)
+      if ok then
+        if type(a) == "table" then tr[#tr + 1] = tostring(a.name) .. ":" .. tostring(a.active)
+        else tr[#tr + 1] = tostring(a) .. ":" .. tostring(c) end
+      end
+    end
+  end
+  out.tracking = table.concat(tr, ",")
+  -- per-map counts for the player's map: every candidate source of "available quest" positions
+  local mapID = type(C_Map) == "table" and type(C_Map.GetBestMapForUnit) == "function" and select(2, pcall(C_Map.GetBestMapForUnit, "player")) or nil
+  out.mapID = tostring(mapID)
+  if type(mapID) == "number" then
+    local counts = {}
+    local function count(label, fn, ...)
+      if type(fn) ~= "function" then counts[#counts + 1] = label .. "=nil" return end
+      local ok, r = pcall(fn, ...)
+      if not ok then counts[#counts + 1] = label .. "=err:" .. tostring(r):sub(1, 60) return end
+      if type(r) ~= "table" then counts[#counts + 1] = label .. "=" .. type(r) return end
+      local keys = {}
+      local first = r[1]
+      if type(first) == "table" then for k in pairs(first) do keys[#keys + 1] = tostring(k) end table.sort(keys) end
+      counts[#counts + 1] = label .. "=" .. #r .. (#keys > 0 and ("[" .. table.concat(keys, " ") .. "]") or "")
+    end
+    if type(C_QuestLine) == "table" then
+      pcall(C_QuestLine.RequestQuestLinesForMap, mapID)   -- async: the second questdiag sees the answer
+      count("questLines", C_QuestLine.GetAvailableQuestLines, mapID)
+    else counts[#counts + 1] = "questLines=nil" end
+    count("questOffers", type(C_QuestOffer) == "table" and C_QuestOffer.GetQuestOfferMapInfo or nil, mapID)
+    count("taskQuests", type(C_TaskQuest) == "table" and C_TaskQuest.GetQuestsForPlayerByMapID or nil, mapID)
+    count("areaPOIs", type(C_AreaPoiInfo) == "table" and C_AreaPoiInfo.GetAreaPOIForMap or nil, mapID)
+    count("questsOnMap", type(C_QuestLog) == "table" and C_QuestLog.GetQuestsOnMap or nil, mapID)
+    count("questHubs", type(C_QuestHub) == "table" and C_QuestHub.GetQuestHubsForMap or nil, mapID)
+    out.counts = table.concat(counts, " ; ")
+  end
+  return out
+end
+
 function Module.WriteProbe()
   local g = HH.db and HH.db.global
   if not g then return end
@@ -24,6 +105,7 @@ function Module.WriteProbe()
     minimap = ok2 and pins or ("probe failed: " .. tostring(pins)),
     map = (function() local ok3, m = pcall(HHQ.MapSkin.Probe) return ok3 and m or ("probe failed: " .. tostring(m)) end)(),
     mapMissing = table.concat(HHQ.MapSkin.missing or {}, ","),
+    offers = (function() local ok6, m = pcall(Module.OffersProbe) return ok6 and m or ("probe failed: " .. tostring(m)) end)(),
     unknownEvents = table.concat(Module.unknown or {}, ","),
   }
 end
@@ -87,4 +169,7 @@ HH:RegisterSlash("questdiag", function()
   HH:Print(("quests: %s | paths: %s"):format(tostring(d.quests), tostring(d.paths)))
   HH:Print(("minimap: map %s pos %s size %s radius %s points %s"):format(tostring(m.mapID), tostring(m.pos), tostring(m.size), tostring(m.radius), tostring(m.points)))
   if HHQ.Pins.why then HH:Print("pins: " .. HHQ.Pins.why) end
+  local o = type(q.offers) == "table" and q.offers or {}
+  HH:Print(("offers: map %s | %s"):format(tostring(o.mapID), tostring(o.counts or o.apis)))
+  HH:Print("offer pins: " .. tostring(o.pinPools))
 end, "print what the quest tracker / minimap can read on this client")
