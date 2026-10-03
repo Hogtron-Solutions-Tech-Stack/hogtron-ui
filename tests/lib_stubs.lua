@@ -113,12 +113,16 @@ do
   lab.buttonRegistry = {}
   lab._callbacks = {}
   lab.callbacks = { Fire = function(_, event, ...) local fn = lab._callbacks[event] if fn then fn(event, ...) end end }
-  function lab.RegisterCallback(_, owner, event, fn) lab._callbacks[event] = fn end
-  function lab.UnregisterCallback(_, owner, event) lab._callbacks[event] = nil end
+  -- CallbackHandler convention: lib.RegisterCallback(target, event, method); method(event, ...)
+  function lab.RegisterCallback(target, event, fn) lab._callbacks[event] = fn end
+  function lab.UnregisterCallback(target, event) lab._callbacks[event] = nil end
   function lab:CreateButton(id, name, header, config)
     local b = CreateFrame("CheckButton", name, header)
     b.id, b.header, b.config = id, header, config or {}
     b._states = {}
+    b._hasAction = false
+    function b:HasAction() return self._hasAction end
+    function b:GetNormalTexture() return self.NormalTexture end
     b.icon = b:CreateTexture(nil, "ARTWORK")
     b.HotKey = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     b.Name = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
