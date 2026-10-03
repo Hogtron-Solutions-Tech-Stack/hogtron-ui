@@ -63,7 +63,10 @@ function Options.Build()
         scale = range(sub("micro"), "scale", "Menu buttons scale", 2, 0.5, 1.5, 0.05),
         resetPos = { type = "execute", name = "Reset menu bar position", order = 2.5, func = function() local m = sub("micro")() m.point, m.x, m.y = nil, nil, nil; HHS.Skin.ApplyAll("options") end },
         bagBarEnabled = toggle(sub("bagBar"), "enabled", "Skin the bag slots", 3),
-        bagScale = range(sub("bagBar"), "scale", "Bag slot scale", 3.5, 0.6, 2, 0.05),
+        bagMode = { type = "select", name = "Bag slots", order = 3.2, width = "full",
+          values = { button = "One Bags button at the end of the menu bar (Blizzard's slots hidden)", slots = "Blizzard's slots, flattened under the bar" },
+          get = function() return sub("bagBar")().mode or "button" end, set = function(_, v) sub("bagBar")().mode = v; apply() end },
+        bagScale = range(sub("bagBar"), "scale", "Bag slot scale (slots mode)", 3.5, 0.6, 2, 0.05),
       } },
       tooltips = { type = "group", name = "Tooltips", order = 4, args = {
         about = { type = "description", order = 0, name = "Tooltips on an ink panel with a 1 px outline, flat health bar." },
