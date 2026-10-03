@@ -6,7 +6,7 @@ import pytest
 MOCK_API = '''
 MockSetSecrets(true)
 HH_sources = {
-  { name = "Hog Tistic", classFilename = "SHAMAN", totalAmount = MockSecret(7439), amountPerSecond = MockSecret(48) },
+  { name = "Hog Tistic", classFilename = "SHAMAN", totalAmount = MockSecret(7439), amountPerSecond = MockSecret(48), sourceGUID = "Player-1" },
   { name = "lol Fried",  classFilename = "WARLOCK", totalAmount = MockSecret(44),   amountPerSecond = MockSecret(0.3) },
   { name = "Vanco Sh",   classFilename = "ROGUE",  totalAmount = MockSecret(18),   amountPerSecond = MockSecret(0.1) },
 }
@@ -19,6 +19,13 @@ C_DamageMeter = {
     return { sessionID = 3, encounterName = "Clattering Scorpid", combatSources = HH_sources, totalAmount = MockSecret(7501), maxAmount = MockSecret(7439), durationSeconds = 155 }
   end,
   GetSessionDurationSeconds = function() return MockSecret(155) end,
+  GetCombatSessionSourceFromType = function(a, b, guid)
+    HH_srcCalls = (HH_srcCalls or 0) + 1
+    if guid ~= "Player-1" then return nil end
+    return { sourceGUID = guid, name = "Hog Tistic", maxAmount = MockSecret(5000), totalAmount = MockSecret(7439),
+      combatSpells = { { spellID = 1064, spellName = "Chain Heal", spellIcon = 136042, totalAmount = MockSecret(5000), hitCount = MockSecret(12) },
+                       { spellID = 331, spellName = "Healing Wave", spellIcon = 136043, totalAmount = MockSecret(2439), hitCount = MockSecret(9) } } }
+  end,
   ResetAllCombatSessions = function() HH_reset = true end,
 }
 Enum = Enum or {}
@@ -191,3 +198,79 @@ def test_empty_session_is_no_data_not_a_shape_error(meter):
 def test_bar_max_comes_from_the_sessions_own_maxamount(meter):
     meter.execute('HogHealsMeter.Meter.Update()')
     assert meter.eval('HogHealsMeter.Meter.rows[2].bar._max') == 7439
+
+
+def test_hover_a_row_lists_the_spells_behind_it(meter):
+    # Sean 2026-10-02: "hover over or click the damage and healing meters and see what spells contributed"
+    meter.execute('HogHealsMeter.Meter.Update()')
+    r1 = 'HogHealsMeter.Meter.rows[1]'
+    assert meter.eval(f'{r1}._last.EnableMouse[1]') is True
+    # the mock tooltip's line methods are plain no-ops: record them here
+    meter.execute("""
+      HH_tt, HH_ttShown, HH_ttHidden = {}, 0, 0
+      function GameTooltip:AddLine(t) HH_tt[#HH_tt + 1] = { "L", t } end
+      function GameTooltip:AddDoubleLine(l, r) HH_tt[#HH_tt + 1] = { "D", l, r } end
+      function GameTooltip:Show() HH_ttShown = HH_ttShown + 1 end
+      function GameTooltip:Hide() HH_ttHidden = HH_ttHidden + 1 end
+    """)
+    meter.execute(f'{r1}:GetScript("OnEnter")({r1})')
+    assert meter.eval('#HH_tt') == 4 and meter.eval('HH_tt[1][2]').startswith("Hog Tistic")           # title, 2 spells, hint
+    assert meter.eval('HH_tt[2][2]') == "Chain Heal" and meter.eval('HH_tt[3][2]') == "Healing Wave"
+    assert "2.4k" in meter.eval('MockUnwrap(HH_tt[3][3])') and "(9)" in meter.eval('MockUnwrap(HH_tt[3][3])')   # a secret count makes the line a secret string: shown, never read
+    assert meter.eval('HH_ttShown') >= 1 and meter.eval('HogHealsMeter.Meter.sourceForm') == "type3"
+    # the first shape seen is written to the diag so the SV tells us what the client really sends
+    assert "combatSpells" in meter.eval('HogHeals.db.global.diag.meter.source') and "spellName" in meter.eval('HogHeals.db.global.diag.meter.source')
+    meter.execute(f'{r1}:GetScript("OnLeave")({r1})')
+    assert meter.eval('HH_ttHidden') >= 1
+    # a source the client has no detail for says so instead of erroring
+    meter.execute('wipe(HH_tt); HogHealsMeter.Meter.rows[2]:GetScript("OnEnter")(HogHealsMeter.Meter.rows[2])')
+    assert meter.eval('#HH_tt') == 2 and meter.eval('HH_tt[2][1]') == "L" and "No spell breakdown" in meter.eval('HH_tt[2][2]')
+    assert errors(meter) == []
+
+
+def test_click_a_row_drills_into_spell_bars_and_the_header_comes_back(meter):
+    meter.execute('HogHealsMeter.Meter.Update()')
+    r = 'HogHealsMeter.Meter.rows'
+    meter.execute(f'{r}[1]:GetScript("OnMouseUp")({r}[1], "LeftButton")')
+    assert meter.eval('HogHealsMeter.Meter.drill.name') == "Hog Tistic"
+    assert meter.eval(f'{r}[1].name._text') == "1. Chain Heal" and meter.eval(f'{r}[2].name._text') == "2. Healing Wave"
+    assert meter.eval(f'{r}[1].bar._value') == 5000 and meter.eval(f'{r}[1].bar._max') == 5000     # widget scales the secrets
+    assert meter.eval(f'{r}[2].bar._value') == 2439 and meter.eval(f'{r}[2].bar._max') == 5000
+    assert meter.eval(f'{r}[1].icon._texture') == 136042 and meter.eval(f'{r}[1].icon:IsShown()') is True
+    assert meter.eval(f'{r}[3]:IsShown()') is False
+    assert meter.eval('HogHealsMeterFrame.title._text').startswith("< Hog Tistic") and meter.eval('HogHealsMeterFrame.hint._text') == "click: back"
+    # the ticker keeps the drill view, a header click comes back to the players
+    meter.execute('HogHealsMeter.Meter.Update()')
+    assert meter.eval(f'{r}[1].name._text') == "1. Chain Heal"
+    meter.execute('HogHealsMeterFrame.header:GetScript("OnClick")(HogHealsMeterFrame.header, "LeftButton")')
+    assert meter.eval('HogHealsMeter.Meter.drill') is None and meter.eval(f'{r}[1].name._text') == "1. Hog Tistic"
+    assert meter.eval('HogHealsMeterFrame.hint._text') == "L: mode  R: segment"
+    # right-click on a row also comes back; a source without detail drills into a plain message, no error
+    meter.execute(f'{r}[1]:GetScript("OnMouseUp")({r}[1], "LeftButton"); {r}[1]:GetScript("OnMouseUp")({r}[1], "RightButton")')
+    assert meter.eval('HogHealsMeter.Meter.drill') is None
+    meter.execute(f'{r}[2]:GetScript("OnMouseUp")({r}[2], "LeftButton")')
+    assert meter.eval('HogHealsMeterFrame.empty:IsShown()') is True and "No spell breakdown" in meter.eval('HogHealsMeterFrame.empty._text')
+    meter.execute('HogHealsMeter.Meter.DrillOut()')
+    assert meter.eval('HogHealsMeterFrame.empty:IsShown()') is False
+    assert errors(meter) == []
+
+
+def test_blizzards_session_windows_are_banished_with_the_manager(meter):
+    # Sean 2026-10-02 (screenshot): a minimised "0" box still on screen after the manager frame was hidden
+    meter.execute("""
+      HH_hidAll = false
+      function DamageMeter:HideAllSessionWindows() HH_hidAll = true end
+      DamageMeterSessionWindow1 = CreateFrame("Frame", "DamageMeterSessionWindow1", UIParent)
+      Elsewhere = CreateFrame("Frame", "Elsewhere", UIParent)
+      local list = { DamageMeter, DamageMeterSessionWindow1, Elsewhere, HogHealsMeterFrame }
+      function EnumerateFrames(prev)
+        if prev == nil then return list[1] end
+        for i, f in ipairs(list) do if f == prev then return list[i + 1] end end
+      end
+      HogHealsMeter.Meter.ApplyBlizzard()
+    """)
+    assert meter.eval('HH_hidAll') is True
+    assert meter.eval('DamageMeterSessionWindow1:GetParent():GetName()') == "HogHealsHiddenParent"
+    assert meter.eval('Elsewhere:GetParent() == UIParent') is True and meter.eval('HogHealsMeterFrame:GetParent() == UIParent') is True
+    assert meter.eval('HogHealsMeter.Meter.blizzBanished') == "DamageMeterSessionWindow1"
+    assert errors(meter) == []
