@@ -114,6 +114,7 @@ function Meter.ReadSession(session)
         class = pick(src, CLASS_KEYS),
         amount = pick(src, AMOUNT_KEYS),
         per = pick(src, PER_KEYS),
+        guid = src.sourceGUID or src.guid or src.GUID,
       }
     end
   end
@@ -125,6 +126,120 @@ function Meter.DescribeKeys(t)
   if type(t) == "table" then for k, v in pairs(t) do keys[#keys + 1] = tostring(k) .. ":" .. type(v) end end
   table.sort(keys)
   return table.concat(keys, ",")
+end
+
+-- ------------------------------------------------------------------------------------------------ one source
+-- Sean 2026-10-02: "hover over or click the damage and healing meters and see what spells contributed". The client
+-- has GetCombatSessionSourceFromType / FromID (keys measured 2026-10-02); the shape of what they return is NOT
+-- measured, so it is read the way sessions are: the spell list is the first array of tables carrying a spell-like
+-- name, every field is picked from a list of candidate names, amounts stay secrets (printed, never compared),
+-- and the first shape seen is written to diag.meter.source so the SV tells us what the client really sends.
+local SPELL_LIST_KEYS = { "combatSpells", "spells", "abilities", "entries", "sources" }
+local SPELL_NAME_KEYS = { "spellName", "name", "abilityName" }
+local SPELL_ID_KEYS = { "spellID", "spellId", "id" }
+local SPELL_ICON_KEYS = { "spellIcon", "icon", "iconFileID", "iconID", "texture" }
+local SPELL_COUNT_KEYS = { "hitCount", "count", "casts", "numHits", "hits" }
+
+--- The client's detail table for one source of the current (segment, mode), or nil, reason.
+function Meter.FetchSource(segmentKey, modeKey, src, session)
+  local api = C_DamageMeter
+  if type(api) ~= "table" then return nil, "no C_DamageMeter" end
+  local guid = src and (src.guid or src.sourceGUID)
+  if guid == nil then return nil, "source has no GUID" end
+  local meterType = enumValue("DamageMeterType", modeKey, nil)
+  local sessionType = enumValue("DamageMeterSessionType", segmentKey, segmentKey == "Overall" and 1 or 0)
+  local tries = {}
+  if type(api.GetCombatSessionSourceFromType) == "function" then
+    tries[#tries + 1] = { "type3", api.GetCombatSessionSourceFromType, sessionType, meterType, guid }
+    tries[#tries + 1] = { "type2", api.GetCombatSessionSourceFromType, meterType, guid }
+  end
+  local sid = type(session) == "table" and session.sessionID or nil
+  if sid ~= nil and type(api.GetCombatSessionSourceFromID) == "function" then
+    tries[#tries + 1] = { "id3", api.GetCombatSessionSourceFromID, sid, meterType, guid }
+    tries[#tries + 1] = { "id2", api.GetCombatSessionSourceFromID, sid, guid }
+  end
+  if Meter.sourceForm then
+    for _, t in ipairs(tries) do
+      if t[1] == Meter.sourceForm then
+        local ok, r = pcall(t[2], t[3], t[4], t[5])
+        if ok and type(r) == "table" then return r end
+        break
+      end
+    end
+  end
+  local last
+  for _, t in ipairs(tries) do
+    local ok, r = pcall(t[2], t[3], t[4], t[5])
+    if ok and type(r) == "table" then Meter.sourceForm = t[1] return r end
+    last = ok and ("returned " .. type(r)) or tostring(r)
+  end
+  return nil, (#tries == 0) and "no per-source call on this client" or ("call failed: " .. tostring(last))
+end
+
+local function findSpells(detail)
+  if type(detail) ~= "table" then return nil end
+  for _, key in ipairs(SPELL_LIST_KEYS) do
+    local v = detail[key]
+    if type(v) == "table" and not isSecret(v) then return v, key end
+  end
+  for key, v in pairs(detail) do
+    if type(v) == "table" and not isSecret(v) and type(v[1]) == "table" and (pick(v[1], SPELL_NAME_KEYS) ~= nil or pick(v[1], SPELL_ID_KEYS) ~= nil) then return v, key end
+  end
+  return nil
+end
+
+local function spellIcon(entry)
+  local icon = pick(entry, SPELL_ICON_KEYS)
+  if icon ~= nil then return icon end
+  local id = pick(entry, SPELL_ID_KEYS)
+  if type(id) == "number" and not isSecret(id) then
+    if type(C_Spell) == "table" and type(C_Spell.GetSpellTexture) == "function" then
+      local ok, t = pcall(C_Spell.GetSpellTexture, id)
+      if ok and t ~= nil then return t end
+    end
+    if type(GetSpellTexture) == "function" then
+      local ok, t = pcall(GetSpellTexture, id)
+      if ok and t ~= nil then return t end
+    end
+  end
+  return nil
+end
+
+--- Normalise a detail table into { spells = { { name, icon, amount, per, count } }, maxAmount }. nil, reason otherwise.
+function Meter.ReadSource(detail)
+  local list, key = findSpells(detail)
+  if not list then return nil, "no spell list in source (fields: " .. Meter.DescribeKeys(detail) .. ")" end
+  local out = {}
+  for i, e in ipairs(list) do
+    if type(e) == "table" then
+      local name = pick(e, SPELL_NAME_KEYS)
+      if name == nil then
+        local id = pick(e, SPELL_ID_KEYS)
+        if type(id) == "number" and not isSecret(id) and type(C_Spell) == "table" and type(C_Spell.GetSpellName) == "function" then
+          local ok, n = pcall(C_Spell.GetSpellName, id) if ok then name = n end
+        end
+      end
+      out[#out + 1] = { name = name ~= nil and tostring(name) or ("spell #" .. i), icon = spellIcon(e), amount = pick(e, AMOUNT_KEYS), per = pick(e, PER_KEYS), count = pick(e, SPELL_COUNT_KEYS) }
+    end
+  end
+  return { spells = out, listKey = key, maxAmount = detail.maxAmount, totalAmount = detail.totalAmount }
+end
+
+--- The spells of one row's source: { spells, maxAmount } or nil, reason. Records the first shape seen to the diag.
+function Meter.SpellsFor(src)
+  local d = cfg()
+  local session = fetchSession(d.segment or "Current", d.mode or "DamageDone")
+  local detail, why = Meter.FetchSource(d.segment or "Current", d.mode or "DamageDone", src, session)
+  if not detail then return nil, why end
+  local data, reason = Meter.ReadSource(detail)
+  local g = HH.db and HH.db.global
+  if g and not Meter.sourceShapeLogged then
+    Meter.sourceShapeLogged = true
+    g.diag = g.diag or {} g.diag.meter = g.diag.meter or {}
+    local first = data and data.spells[1] and findSpells(detail)
+    g.diag.meter.source = ("form=%s keys=%s spell1=%s"):format(tostring(Meter.sourceForm), Meter.DescribeKeys(detail), first and Meter.DescribeKeys(first[1]) or "-")
+  end
+  return data, reason
 end
 
 -- ------------------------------------------------------------------------------------------------ text
@@ -238,8 +353,54 @@ local function newRow(i)
   row.value:SetPoint("RIGHT", row.overlay, "RIGHT", -4, 0)
   applyFont(row.name, d.fontSize or 12)
   applyFont(row.value, d.fontSize or 12)
+  row.index = i
+  row:EnableMouse(true)
+  row:SetScript("OnEnter", function(self)
+    row.bar.bg:SetColorTexture(0.16, 0.16, 0.20, 0.95)
+    Meter.ShowTooltip(self)
+  end)
+  row:SetScript("OnLeave", function()
+    row.bar.bg:SetColorTexture(0.11, 0.11, 0.14, 0.9)
+    if GameTooltip and GameTooltip.Hide then GameTooltip:Hide() end
+  end)
+  row:SetScript("OnMouseUp", function(self, button)
+    if button == "RightButton" or Meter.drill then Meter.DrillOut() else Meter.DrillIn(self.src) end
+  end)
   row:Hide()
   return row
+end
+
+--- Tooltip for a player row: the spells behind the number. In the drill view a spell row gets its own line.
+function Meter.ShowTooltip(row)
+  if not GameTooltip or not GameTooltip.SetOwner then return end
+  if Meter.drill then
+    local sp = row.spell
+    if not sp then return end
+    GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+    GameTooltip:AddLine(sp.name, CREAM[1], CREAM[2], CREAM[3])
+    local cnt = fmtPer(sp.count)
+    if cnt then GameTooltip:AddDoubleLine("Hits / ticks", cnt, GREY[1], GREY[2], GREY[3], CREAM[1], CREAM[2], CREAM[3]) end
+    GameTooltip:Show()
+    return
+  end
+  local src = row.src
+  if not src then return end
+  GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+  GameTooltip:AddLine(("%s  ·  %s"):format(src.name, modeInfo(cfg().mode).label), CYAN[1], CYAN[2], CYAN[3])
+  local data, why = Meter.SpellsFor(src)
+  if not data or #data.spells == 0 then
+    GameTooltip:AddLine(data and "No spells recorded" or ("No spell breakdown: " .. tostring(why)), GREY[1], GREY[2], GREY[3], true)
+  else
+    for i, sp in ipairs(data.spells) do
+      if i > (cfg().tooltipSpells or 8) then break end
+      local right = fmtAmount(sp.amount)
+      local cnt = fmtPer(sp.count)
+      if cnt then right = right .. "  (" .. cnt .. ")" end
+      GameTooltip:AddDoubleLine(sp.name, right, CREAM[1], CREAM[2], CREAM[3], CREAM[1], CREAM[2], CREAM[3])
+    end
+    GameTooltip:AddLine("click: spell bars    right-click: back", GREY[1], GREY[2], GREY[3])
+  end
+  GameTooltip:Show()
 end
 
 local function build()
@@ -285,6 +446,7 @@ local function build()
     if point then d.point, d.x, d.y = point, x, y end
   end)
   header:SetScript("OnClick", function(_, button)
+    if Meter.drill then Meter.DrillOut() return end
     if button == "RightButton" then Meter.CycleSegment() else Meter.CycleMode() end
   end)
   f.header = header
@@ -334,17 +496,95 @@ end
 -- ------------------------------------------------------------------------------------------------ update
 local function setTitle(sessionName)
   local d = cfg()
+  local f = Meter.frame
+  if Meter.drill then
+    f.title:SetText(("< %s  ·  %s"):format(tostring(Meter.drill.name), modeInfo(d.mode).label))
+    f.hint:SetText("click: back")
+    return
+  end
+  f.hint:SetText("L: mode  R: segment")
   local seg = d.segment == "Overall" and "Overall" or "Current"
   if sessionName and sessionName ~= "" then seg = seg .. ": " .. tostring(sessionName) end
-  Meter.frame.title:SetText(("%s  ·  %s"):format(modeInfo(d.mode).label, seg))
+  f.title:SetText(("%s  ·  %s"):format(modeInfo(d.mode).label, seg))
+end
+
+--- Drill into one player: the rows become that player's spells until DrillOut (header / right-click).
+function Meter.DrillIn(src)
+  if not src then return end
+  Meter.drill = { name = src.name, guid = src.guid, src = src }
+  if GameTooltip and GameTooltip.Hide then GameTooltip:Hide() end
+  Meter.Update()
+end
+
+function Meter.DrillOut()
+  Meter.drill = nil
+  if GameTooltip and GameTooltip.Hide then GameTooltip:Hide() end
+  Meter.Update()
+end
+
+--- One spell per row: icon, name, amount; bar scaled by the widget against the biggest spell.
+local function paintSpellRows(data)
+  local f, d = Meter.frame, cfg()
+  local max = d.maxBars or 10
+  local top = data.maxAmount or (data.spells[1] and data.spells[1].amount)
+  local shown = 0
+  for i, sp in ipairs(data.spells) do
+    if i > max then break end
+    local row = Meter.rows[i] or newRow(i)
+    Meter.rows[i] = row
+    row.src, row.spell = nil, sp
+    row.name:SetText(("%d. %s"):format(i, sp.name))
+    local amount = fmtAmount(sp.amount)
+    local cnt = fmtPer(sp.count)
+    row.value:SetText(cnt and (amount .. "  (" .. cnt .. ")") or amount)
+    row.bar:SetStatusBarColor(CYAN[1] * 0.8, CYAN[2] * 0.8, CYAN[3] * 0.8)
+    if d.classIcons ~= false and sp.icon ~= nil then
+      row.icon:SetTexture(sp.icon)
+      row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+      row.icon:Show()
+    else
+      row.icon:Hide()
+    end
+    if sp.amount ~= nil and top ~= nil then
+      row.bar:SetMinMaxValues(0, top)
+      row.bar:SetValue(sp.amount)
+    else
+      row.bar:SetMinMaxValues(0, 1)
+      row.bar:SetValue(0)
+    end
+    row:Show()
+    shown = shown + 1
+  end
+  for i = shown + 1, #Meter.rows do Meter.rows[i]:Hide() end
+  return shown
+end
+
+--- The drill view: this player's spells, or the reason there are none.
+function Meter.UpdateDrill()
+  local f = build()
+  setTitle()
+  local data, why = Meter.SpellsFor(Meter.drill.src)
+  if not data or #data.spells == 0 then
+    for _, row in ipairs(Meter.rows) do row:Hide() end
+    f.empty:SetText(data and "No spells recorded" or ("No spell breakdown: " .. tostring(why)))
+    f.empty:Show()
+    layout(1)
+    return 0
+  end
+  f.empty:Hide()
+  local shown = paintSpellRows(data)
+  layout(shown)
+  return shown
 end
 
 --- Pull the current session and repaint. Never throws: shape problems are logged once per shape.
 function Meter.Update()
   if Meter.unavailable then return end
+  if Meter.drill then return Meter.UpdateDrill() end
   local f = build()
   local d = cfg()
   setTitle()
+  f.empty:SetText("No data yet")
   local session, why = fetchSession(d.segment or "Current", d.mode or "DamageDone")
   local data, reason
   if session then data, reason = Meter.ReadSession(session) else reason = why end
@@ -370,6 +610,7 @@ function Meter.Update()
     if i > max then break end
     local row = Meter.rows[i] or newRow(i)
     Meter.rows[i] = row
+    row.src, row.spell = src, nil
     row.name:SetText(("%d. %s"):format(i, src.name))
     local per = fmtPer(src.per)
     local amount = fmtAmount(src.amount)
@@ -443,12 +684,31 @@ function Meter.ApplyBlizzard()
   local d = cfg()
   if d.enabled == false or d.hideBlizzard == false then return end
   HH:RunOutOfCombat(function()
-    hiddenParent = hiddenParent or _G.HogHealsHiddenParent
+    hiddenParent = _G.HogHealsHiddenParent or hiddenParent   -- the shared one when another module made it
     if not hiddenParent then
       hiddenParent = CreateFrame("Frame", "HogHealsHiddenParent", UIParent)
       hiddenParent:Hide()
     end
     banish(_G.DamageMeter)
+    -- The manager frame is one thing; its session windows are separate frames (SetSessionWindowMinimized et al
+    -- on the mixin) and one stayed on screen minimised. Ask the mixin to hide them, then banish anything named
+    -- after it that is not ours.
+    local dm = _G.DamageMeter
+    if type(dm) == "table" and type(dm.HideAllSessionWindows) == "function" then pcall(dm.HideAllSessionWindows, dm) end
+    local names = {}
+    if type(EnumerateFrames) == "function" then
+      local f, n = EnumerateFrames(), 0
+      while type(f) == "table" and n < 20000 do
+        n = n + 1
+        local ok, name = pcall(f.GetName, f)
+        if ok and type(name) == "string" and name:find("^DamageMeter") and f ~= dm and not (f.IsForbidden and pcall(f.IsForbidden, f) and f:IsForbidden()) then
+          banish(f)
+          names[#names + 1] = name
+        end
+        f = EnumerateFrames(f)
+      end
+    end
+    Meter.blizzBanished = table.concat(names, ",")
   end)
 end
 
