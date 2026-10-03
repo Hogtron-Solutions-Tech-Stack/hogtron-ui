@@ -450,6 +450,54 @@ function Part.BagButtons()
   return out
 end
 
+local function screenRect(f)
+  local s = Skin.num(Skin.call(f.GetEffectiveScale, f)) or 1
+  local l, r, t, b = Skin.num(Skin.call(f.GetLeft, f)), Skin.num(Skin.call(f.GetRight, f)), Skin.num(Skin.call(f.GetTop, f)), Skin.num(Skin.call(f.GetBottom, f))
+  if not (l and r and t and b) then return nil end
+  return l * s, r * s, t * s, b * s
+end
+
+--- Whatever Blizzard still draws over the faded slots. In game 2026-10-02 (Sean, screenshot 6): the slots' icons
+-- were gone but a slot border and the backpack's gold highlight stayed - decorations on frames of their own, not
+-- regions of the slot. Every small visible frame (<= 120 px) whose rect sits inside a faded slot's rect, that is
+-- not ours, not a tooltip and not the slot itself, is faded like the slot. Names kept in Part.bagOverlayDiag.
+function Part.SweepBagOverlays(bags)
+  if type(EnumerateFrames) ~= "function" then Part.bagOverlayDiag = "no EnumerateFrames" return 0 end
+  local rects, slot = {}, {}
+  for _, b in ipairs(bags) do
+    local l, r, t, bt = screenRect(b)
+    if l then rects[#rects + 1] = { l - 4, r + 4, t + 4, bt - 4 } slot[b] = true end
+  end
+  if #rects == 0 then Part.bagOverlayDiag = "no slot rects yet" return 0 end
+  Part.overlays = Part.overlays or {}
+  local names, n, f, count = {}, 0, EnumerateFrames(), 0
+  while type(f) == "table" and count < 20000 do
+    count = count + 1
+    if not slot[f] and not f.hhOurs and not silenced[f] then
+      local name = Skin.call(f.GetName, f)
+      local kind = Skin.call(f.GetObjectType, f)
+      local skip = type(name) == "string" and (name:find("^HogHeals") or name:find("Tooltip"))
+      if not skip and (kind == "Frame" or BUTTON_KINDS[kind]) and Skin.call(f.IsVisible, f) then
+        local l, r, t, bt = screenRect(f)
+        if l and (r - l) <= 120 and (t - bt) <= 120 then
+          for _, rc in ipairs(rects) do
+            if l >= rc[1] and r <= rc[2] and t <= rc[3] and bt >= rc[4] then
+              silence(f)
+              Part.overlays[#Part.overlays + 1] = f
+              names[#names + 1] = type(name) == "string" and name or (tostring(kind) .. "?")
+              n = n + 1
+              break
+            end
+          end
+        end
+      end
+    end
+    f = EnumerateFrames(f)
+  end
+  Part.bagOverlayDiag = (#names > 0) and table.concat(names, ",") or "none"
+  return n
+end
+
 --- The bag slots in the micro bar's look: flat cell, scaled up, cyan outline under the mouse, the art around
 -- them cleared (same walk as the micro buttons: the slot's ancestors, 3 levels, never UIParent).
 function Part.StyleBags(bags, d)
@@ -497,8 +545,14 @@ function Part.Apply()
       for _, b in ipairs(bags) do silence(b) end
       if Part.strips and Part.strips.bags then Part.strips.bags:Hide() end
       Part.bagMode = "button"
+      Part.SweepBagOverlays(bags)
+      if C_Timer and C_Timer.After then
+        C_Timer.After(1, function() if Part.BagsAsButton() then Part.SweepBagOverlays(Part.BagButtons()) end end)
+      end
     else
       for _, b in ipairs(bags) do unsilence(b) end
+      for _, f in ipairs(Part.overlays or {}) do unsilence(f) end
+      Part.overlays = {}
       Part.StyleBags(bags, d.bagBar)
       strip("bags", bags, 3)
       Part.bagMode = "slots"
@@ -543,7 +597,8 @@ function Part.OnEvent(e)
     -- strips anchored before the first layout pass need a second go; late micro buttons too
     local s = Part.strips
     local stripPending = not Part.BagsAsButton() and not (s and s.bags and s.bags.placed)
-    if stripPending or Part.barAnchor == "screen" or (Skin.cfg().micro.strip ~= false and (Part.microCount or 0) < 3) then Part.Apply() end
+    if stripPending or Part.barAnchor == "screen" or (Skin.cfg().micro.strip ~= false and (Part.microCount or 0) < 3) then Part.Apply()
+    elseif e == "PLAYER_ENTERING_WORLD" and Part.BagsAsButton() then Part.SweepBagOverlays(Part.BagButtons()) end
   end
 end
 
