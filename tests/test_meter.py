@@ -274,3 +274,25 @@ def test_blizzards_session_windows_are_banished_with_the_manager(meter):
     assert meter.eval('Elsewhere:GetParent() == UIParent') is True and meter.eval('HogHealsMeterFrame:GetParent() == UIParent') is True
     assert meter.eval('HogHealsMeter.Meter.blizzBanished') == "DamageMeterSessionWindow1"
     assert errors(meter) == []
+
+
+def test_source_call_falls_back_to_the_list_index_and_keeps_every_failure(meter):
+    # in game 2026-10-02: the GUID shapes answered "bad argument #2"; the client's usage text must survive in full
+    meter.execute("""
+      C_DamageMeter.GetCombatSessionSourceFromType = function(a, b, c)
+        if type(c) ~= "number" then error("bad argument #2 to '?' (Usage: local sessionSource = C_DamageMeter.GetCombatSessionSourceFromType(sessionType, meterType, sourceIndex))") end
+        return { combatSpells = { { spellName = "Lightning Bolt", totalAmount = MockSecret(90) } }, maxAmount = MockSecret(90) }
+      end
+      HogHealsMeter.Meter.sourceForm = nil
+      HogHealsMeter.Meter.Update()
+    """)
+    r1 = 'HogHealsMeter.Meter.rows[1]'
+    meter.execute(f'{r1}:GetScript("OnMouseUp")({r1}, "LeftButton")')
+    assert meter.eval('HogHealsMeter.Meter.sourceForm') == "type3i" and meter.eval(f'{r1}.name._text') == "1. Lightning Bolt"
+    tries = meter.eval('HogHealsMeter.Meter.sourceTries')
+    assert tries.startswith("type3: ") and "sourceIndex))" in tries and "type2: " in tries          # full usage text, both failures
+    assert "sourceIndex))" in meter.eval('HogHeals.db.global.diag.meter.sourceTries') and "guid=Player-1" in meter.eval('HogHeals.db.global.diag.meter.sourceArgs')
+    meter.execute('HogHealsMeter.Meter.DrillOut(); wipe(MockLog.chat or {}); HogHeals:SlashCommand("meterdiag")')
+    chat = " | ".join(meter.eval('MockLog.chat').values())
+    assert "per-source form type3i" in chat and "sourceIndex))" in chat
+    assert errors(meter) == []

@@ -115,6 +115,7 @@ function Meter.ReadSession(session)
         amount = pick(src, AMOUNT_KEYS),
         per = pick(src, PER_KEYS),
         guid = src.sourceGUID or src.guid or src.GUID,
+        index = i,
       }
     end
   end
@@ -148,15 +149,25 @@ function Meter.FetchSource(segmentKey, modeKey, src, session)
   if guid == nil then return nil, "source has no GUID" end
   local meterType = enumValue("DamageMeterType", modeKey, nil)
   local sessionType = enumValue("DamageMeterSessionType", segmentKey, segmentKey == "Overall" and 1 or 0)
+  -- in game 2026-10-02 (tooltip): both GUID shapes answered "bad argument #2" - the client wants something else
+  -- there; the source's position in the list and its name are tried too, and every failure is kept IN FULL
+  -- (the client's usage string names the real signature) in Meter.sourceTries / diag.meter.sourceTries.
   local tries = {}
+  local idx, name = src.index, src.name
   if type(api.GetCombatSessionSourceFromType) == "function" then
-    tries[#tries + 1] = { "type3", api.GetCombatSessionSourceFromType, sessionType, meterType, guid }
-    tries[#tries + 1] = { "type2", api.GetCombatSessionSourceFromType, meterType, guid }
+    local f = api.GetCombatSessionSourceFromType
+    tries[#tries + 1] = { "type3", f, sessionType, meterType, guid }
+    tries[#tries + 1] = { "type2", f, meterType, guid }
+    if idx then tries[#tries + 1] = { "type3i", f, sessionType, meterType, idx } tries[#tries + 1] = { "type2i", f, meterType, idx } end
+    tries[#tries + 1] = { "typeG2", f, sessionType, guid }
+    if name then tries[#tries + 1] = { "type3n", f, sessionType, meterType, name } end
   end
-  local sid = type(session) == "table" and session.sessionID or nil
+  local sid = type(session) == "table" and (session.sessionID or session.id) or nil
   if sid ~= nil and type(api.GetCombatSessionSourceFromID) == "function" then
-    tries[#tries + 1] = { "id3", api.GetCombatSessionSourceFromID, sid, meterType, guid }
-    tries[#tries + 1] = { "id2", api.GetCombatSessionSourceFromID, sid, guid }
+    local f = api.GetCombatSessionSourceFromID
+    tries[#tries + 1] = { "id3", f, sid, meterType, guid }
+    tries[#tries + 1] = { "id2", f, sid, guid }
+    if idx then tries[#tries + 1] = { "id3i", f, sid, meterType, idx } end
   end
   if Meter.sourceForm then
     for _, t in ipairs(tries) do
@@ -167,12 +178,29 @@ function Meter.FetchSource(segmentKey, modeKey, src, session)
       end
     end
   end
-  local last
+  local last, errs = nil, {}
+  local function record()   -- what failed and with which arguments: in memory and, once, on disk
+    if #errs == 0 then return end
+    Meter.sourceTries = table.concat(errs, " | ")
+    local g = HH.db and HH.db.global
+    if g and not Meter.sourceTriesLogged then
+      Meter.sourceTriesLogged = true
+      g.diag = g.diag or {} g.diag.meter = g.diag.meter or {}
+      g.diag.meter.sourceTries = Meter.sourceTries
+      g.diag.meter.sourceArgs = ("sessionType=%s meterType=%s guid=%s idx=%s name=%s sessionKeys=%s"):format(tostring(sessionType), tostring(meterType), tostring(guid), tostring(idx), tostring(name), Meter.DescribeKeys(session))
+    end
+  end
   for _, t in ipairs(tries) do
     local ok, r = pcall(t[2], t[3], t[4], t[5])
-    if ok and type(r) == "table" then Meter.sourceForm = t[1] return r end
+    if ok and type(r) == "table" then
+      Meter.sourceForm = t[1]
+      record()
+      return r
+    end
     last = ok and ("returned " .. type(r)) or tostring(r)
+    errs[#errs + 1] = t[1] .. ": " .. last
   end
+  record()
   return nil, (#tries == 0) and "no per-source call on this client" or ("call failed: " .. tostring(last))
 end
 
@@ -753,6 +781,13 @@ function Meter.Refresh()
   end
   Meter.Show()
 end
+
+HH:RegisterSlash("meterdiag", function()
+  HH:Print(("meter: session call form %s; per-source form %s"):format(tostring(Meter.callForm), tostring(Meter.sourceForm)))
+  if Meter.sourceTries then for line in Meter.sourceTries:gmatch("[^|]+") do HH:Print("  " .. (line:gsub("^%s+", ""))) end end
+  local g = HH.db and HH.db.global
+  if g and g.diag and g.diag.meter then HH:Print("  args: " .. tostring(g.diag.meter.sourceArgs)) HH:Print("  shape: " .. tostring(g.diag.meter.source)) end
+end, "how the meter talks to this client's damage-meter API (every call shape tried, with the client's own usage text)")
 
 local Module = {}
 HHM.module = Module
