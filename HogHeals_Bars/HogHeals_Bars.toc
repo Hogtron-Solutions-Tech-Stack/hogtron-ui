@@ -11,4 +11,5 @@ Libs\LibButtonGlow-1.0\LibButtonGlow-1.0.lua
 Libs\LibActionButton-1.0\LibActionButton-1.0.lua
 Bars.lua
 Bind.lua
+Extra.lua
 Options.lua
