@@ -12,7 +12,7 @@ OUT = HERE.parents[1] / "HogHeals" / "Media"
 IDS = ["quest_open", "quest_done", "quest_arrow",
        "micro_character", "micro_professions", "micro_spellbook", "micro_talents", "micro_achievements", "micro_quests",
        "micro_guild", "micro_social", "micro_lfg", "micro_collections", "micro_ej", "micro_pvp", "micro_shop", "micro_help",
-       "micro_menu", "micro_map"]
+       "micro_menu", "micro_map", "micro_bags"]
 DRY = "--dry-run" in sys.argv
 
 def main():

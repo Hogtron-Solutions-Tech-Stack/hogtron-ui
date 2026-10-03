@@ -87,6 +87,9 @@ Part.ICONS = {
   WorldMapMicroButton = "micro_map",
 }
 Part.MEDIA = "Interface\\AddOns\\HogHeals\\Media\\"
+-- The one Bags cell at the end of the bar (Sean 2026-10-02: "the bag icons look terrible... just have one to open all
+-- the bags at once"). A plain button: ToggleAllBags is not protected, so it works in combat without a secure path.
+Part.BAG_CELL = { icon = "micro_bags", letter = "B", label = "Bags" }
 
 -- A colour per glyph (the art is cream, so SetVertexColor tints it; the ink stroke stays ink). Applied at
 -- micro.tintStrength between cream (0) and the full colour (1); hover = the full colour. Sean 2026-10-02:
@@ -242,12 +245,9 @@ local function barFrame()
   return bar
 end
 
-local function cell(i, bar)
-  local c = bar.cells[i]
-  if c then return c end
-  c = CreateFrame("Button", "HogHealsMicroBarButton" .. i, bar, "SecureActionButtonTemplate")
+--- The look every cell shares: ink backdrop, outline, letter, glyph, cyan edges + full tint + tooltip on hover.
+local function dress(c)
   c.hhOurs = true
-  if c.RegisterForClicks then c:RegisterForClicks(HH.SecureClick()) end   -- the edge this client acts on (cvar); "AnyUp" alone was dead on Forever
   c.bg = Skin.Solid(c, "BACKGROUND", { 0.10, 0.10, 0.12 }, 0.9)
   c.bg:SetAllPoints(c)
   c.edges = Skin.Outline(c, c)
@@ -271,8 +271,56 @@ local function cell(i, bar)
     if self.tint then self.icon:SetVertexColor(self.tint[1], self.tint[2], self.tint[3]) end
     if GameTooltip and GameTooltip.Hide then GameTooltip:Hide() end
   end)
+  return c
+end
+
+local function cell(i, bar)
+  local c = bar.cells[i]
+  if c then return c end
+  c = CreateFrame("Button", "HogHealsMicroBarButton" .. i, bar, "SecureActionButtonTemplate")
+  if c.RegisterForClicks then c:RegisterForClicks(HH.SecureClick()) end   -- the edge this client acts on (cvar); "AnyUp" alone was dead on Forever
+  dress(c)
   bar.cells[i] = c
   return c
+end
+
+--- Open / close every bag. The global exists on every client we run on; the older pair is the fallback.
+function Part.ToggleBags()
+  if type(ToggleAllBags) == "function" then ToggleAllBags() return true end
+  if type(OpenAllBags) == "function" then OpenAllBags() return true end
+  return false
+end
+
+local function bagCell(bar)
+  if bar.bagCell then return bar.bagCell end
+  local c = CreateFrame("Button", "HogHealsMicroBarBags", bar)
+  dress(c)
+  c:SetScript("OnClick", function() Part.ToggleBags() end)
+  bar.bagCell = c
+  return c
+end
+
+--- The bar carries the Bags cell and Blizzard's slots are hidden (bagBar.mode "button", the default) - unless the
+-- bar itself is off (strip = false), then the slots stay.
+function Part.BagsAsButton()
+  local d = Skin.cfg()
+  return (d.bagBar and d.bagBar.enabled ~= false and (d.bagBar.mode or "button") ~= "slots" and d.micro and d.micro.strip ~= false) and true or false
+end
+
+--- Glyph / letter / size / tint for one cell.
+local function paintCell(c, size, id, letter, label, strength)
+  c.label = label
+  c.letter:SetText(letter)
+  Skin.SetFont(c.letter, math.max(9, math.floor(size * 0.5)))
+  c:SetSize(size, size - 4)
+  local took = id and (c.icon:SetTexture(Part.MEDIA .. id) ~= false)
+  c.icon:SetSize(size - 4, size - 4)   -- glyphs fill the cell (was size - 6; Sean 2026-10-02: "a little bigger")
+  if took then c.icon:Show() c.letter:Hide() else c.icon:Hide() c.letter:Show() end
+  c.glyph = took and id or nil
+  c.tint = Part.Tint(id, strength)
+  c.tintFull = Part.Tint(id, strength > 0 and 1 or 0)
+  c.icon:SetVertexColor(c.tint[1], c.tint[2], c.tint[3])
+  c.letter:SetTextColor(c.tint[1], c.tint[2], c.tint[3])
 end
 
 function Part.AnchorBar()
@@ -293,7 +341,9 @@ function Part.AnchorBar()
     if Skin.num(r) and (not rr or r > rr) then right, rr = b, r end
   end
   if right then
-    bar:SetPoint("BOTTOMRIGHT", right, "TOPRIGHT", 0, 8)
+    -- with the Bags cell in the bar the slots are hidden: the bar takes their place; otherwise it sits above them
+    if Part.BagsAsButton() then bar:SetPoint("BOTTOMRIGHT", right, "BOTTOMRIGHT", 0, 0)
+    else bar:SetPoint("BOTTOMRIGHT", right, "TOPRIGHT", 0, 8) end
     Part.barAnchor = "bags"
     return
   end
@@ -314,21 +364,8 @@ function Part.Strip()
     local c = cell(i, bar)
     local name = src:GetName()
     local lab = Part.LABELS[name]
-    local letter = lab and lab[1] or name:gsub("MicroButton$", ""):sub(1, 1):upper()
-    c.label = lab and lab[2] or name:gsub("MicroButton$", "")
-    c.letter:SetText(letter)
-    Skin.SetFont(c.letter, math.max(9, math.floor(size * 0.5)))
-    c:SetSize(size, size - 4)
     -- the glyph when the client takes the file, the letter when it does not
-    local id = Part.ICONS[name]
-    local took = id and (c.icon:SetTexture(Part.MEDIA .. id) ~= false)
-    c.icon:SetSize(size - 4, size - 4)   -- glyphs fill the cell (was size - 6; Sean 2026-10-02: "a little bigger")
-    if took then c.icon:Show() c.letter:Hide() else c.icon:Hide() c.letter:Show() end
-    c.glyph = took and id or nil
-    c.tint = Part.Tint(id, strength)
-    c.tintFull = Part.Tint(id, strength > 0 and 1 or 0)
-    c.icon:SetVertexColor(c.tint[1], c.tint[2], c.tint[3])
-    c.letter:SetTextColor(c.tint[1], c.tint[2], c.tint[3])
+    paintCell(c, size, Part.ICONS[name], lab and lab[1] or name:gsub("MicroButton$", ""):sub(1, 1):upper(), lab and lab[2] or name:gsub("MicroButton$", ""), strength)
     c:ClearAllPoints()
     c:SetPoint("LEFT", bar, "LEFT", pad + (i - 1) * (size + pad), 0)
     c:SetAttribute("type", "click")
@@ -338,7 +375,18 @@ function Part.Strip()
     silence(src)
   end
   for i = n + 1, #bar.cells do bar.cells[i]:Hide() end
-  bar:SetSize(pad + n * (size + pad), size + 2)
+  local total = n
+  if n > 0 and Part.BagsAsButton() then
+    total = n + 1
+    local c = bagCell(bar)
+    paintCell(c, size, Part.BAG_CELL.icon, Part.BAG_CELL.letter, Part.BAG_CELL.label, strength)
+    c:ClearAllPoints()
+    c:SetPoint("LEFT", bar, "LEFT", pad + n * (size + pad), 0)
+    c:Show()
+  elseif bar.bagCell then
+    bar.bagCell:Hide()
+  end
+  bar:SetSize(pad + total * (size + pad), size + 2)
   bar:SetScale(1)   -- never the "Menu buttons scale" (that shrinks Blizzard's menu; it made these letters 10 px apart)
   bar.bg:SetColorTexture(Skin.INK[1], Skin.INK[2], Skin.INK[3], Skin.cfg().backgroundAlpha or 0.75)
   Part.SilenceContainers(srcs, Part.BagButtons())
@@ -385,7 +433,6 @@ end
 -- them cleared (same walk as the micro buttons: the slot's ancestors, 3 levels, never UIParent).
 function Part.StyleBags(bags, d)
   local scale = d.scale or 1.2
-  local done, out = {}, {}
   for _, b in ipairs(bags) do
     Skin.IconButton(b, { hotkeySize = 10 })
     Skin.call(b.SetScale, b, scale)
@@ -394,6 +441,14 @@ function Part.StyleBags(bags, d)
       b:HookScript("OnEnter", function(self) if self.hh and self.hh.edges then Skin.ColorEdges(self.hh.edges, Skin.CYAN) end end)
       b:HookScript("OnLeave", function(self) if self.hh and self.hh.edges then Skin.ColorEdges(self.hh.edges, Skin.LINE) end end)
     end
+  end
+  return Part.SweepBagArt(bags)
+end
+
+--- The art around the bag slots cleared (their ancestors, 3 levels, never UIParent, plus the bag containers).
+function Part.SweepBagArt(bags)
+  local done, out = {}, {}
+  for _, b in ipairs(bags) do
     local p, depth = parentOf(b), 0
     while type(p) == "table" and p ~= UIParent and not p.hhOurs and depth < 3 and not done[p] do
       done[p] = true
@@ -414,9 +469,19 @@ function Part.Apply()
   local d = Skin.cfg()
   if d.bagBar and d.bagBar.enabled ~= false then
     local bags = Part.BagButtons()
-    Part.StyleBags(bags, d.bagBar)
     for _, n in ipairs(Part.BAG_HIDE) do Skin.HideFrame(Skin.G(n)) end
-    strip("bags", bags, 3)
+    if Part.BagsAsButton() then
+      -- the Bags cell in the bar stands in: Blizzard's slots faded and kept faded, their art cleared, no strip
+      Part.SweepBagArt(bags)
+      for _, b in ipairs(bags) do silence(b) end
+      if Part.strips and Part.strips.bags then Part.strips.bags:Hide() end
+      Part.bagMode = "button"
+    else
+      for _, b in ipairs(bags) do unsilence(b) end
+      Part.StyleBags(bags, d.bagBar)
+      strip("bags", bags, 3)
+      Part.bagMode = "slots"
+    end
     Part.bagCount = #bags
     local names = {}
     for _, b in ipairs(bags) do names[#names + 1] = b:GetName() end
@@ -456,7 +521,8 @@ function Part.OnEvent(e)
   if e == "PLAYER_ENTERING_WORLD" or e == "PLAYER_REGEN_ENABLED" then
     -- strips anchored before the first layout pass need a second go; late micro buttons too
     local s = Part.strips
-    if not s or not (s.bags and s.bags.placed) or Part.barAnchor == "screen" or (Skin.cfg().micro.strip ~= false and (Part.microCount or 0) < 3) then Part.Apply() end
+    local stripPending = not Part.BagsAsButton() and not (s and s.bags and s.bags.placed)
+    if stripPending or Part.barAnchor == "screen" or (Skin.cfg().micro.strip ~= false and (Part.microCount or 0) < 3) then Part.Apply() end
   end
 end
 

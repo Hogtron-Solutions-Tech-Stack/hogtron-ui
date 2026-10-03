@@ -122,7 +122,7 @@ def test_action_buttons_flattened(skin):
 
 
 def test_micro_and_bag_strips(skin):
-    skin.execute('HogHeals.db.profile.skin.micro.strip = false; HogHealsSkin.Micro.Apply()')   # the older strip-behind look
+    skin.execute('HogHeals.db.profile.skin.micro.strip = false; HogHeals.db.profile.skin.bagBar.mode = "slots"; HogHealsSkin.Micro.Apply()')   # the older strip-behind look
     assert skin.eval('MicroButtonAndBagsBar.MicroBagBar._alpha') == 0
     s = 'HogHealsSkin.Micro.strips.micro'
     assert skin.eval(f'{s}._points[1][2] == CharacterMicroButton') and skin.eval(f'{s}._points[2][2] == MainMenuMicroButton')
@@ -148,8 +148,8 @@ def test_hogui_letter_bar_stands_in_for_blizzards_micro_buttons(skin):
     assert skin.eval('CharacterMicroButton._alpha') == 0
     skin.execute('CharacterMicroButton:SetAlpha(1)')
     assert skin.eval('CharacterMicroButton._alpha') == 0
-    assert skin.eval(f'{bar}._points[1][2] == MainMenuBarBackpackButton')           # above the rightmost bag button
-    assert skin.eval(f'{bar}._points[1][1]') == "BOTTOMRIGHT" and skin.eval(f'{bar}._points[1][3]') == "TOPRIGHT"
+    assert skin.eval(f'{bar}._points[1][2] == MainMenuBarBackpackButton')           # in the bag slots' place (they are hidden)
+    assert skin.eval(f'{bar}._points[1][1]') == "BOTTOMRIGHT" and skin.eval(f'{bar}._points[1][3]') == "BOTTOMRIGHT"
     # our glyphs in the cells (letters hidden); a client refusing the file falls back to the letter
     assert skin.eval(f'{bar}.cells[1].icon._texture').endswith("micro_character") and skin.eval(f'{bar}.cells[1].letter:IsShown()') is False
     assert skin.eval(f'{bar}.cells[3].glyph') == "micro_menu"
@@ -533,6 +533,8 @@ def test_glyphs_bigger_and_tinted_full_colour_under_the_mouse(skin):
 
 
 def test_bag_slots_scaled_up_with_cyan_outline_under_the_mouse(skin):
+    skin.execute('HogHeals.db.profile.skin.bagBar.mode = "slots"; HogHealsSkin.Micro.Apply()')   # the slots look, on request
+    assert skin.eval('MainMenuBarBackpackButton._alpha') == 1
     assert skin.eval('MainMenuBarBackpackButton._last.SetScale[1]') == pytest.approx(1.2)
     assert skin.eval('CharacterBag0Slot._last.SetScale[1]') == pytest.approx(1.2)
     skin.execute('MainMenuBarBackpackButton:GetScript("OnEnter")(MainMenuBarBackpackButton)')
@@ -585,4 +587,34 @@ def test_glyph_clicks_listen_on_the_edge_this_client_acts_on(skin):
     assert skin.eval(f'{bar}.cells[1]._last.RegisterForClicks[1]') == "AnyDown" and skin.eval(f'{bar}.cells[1]._last.RegisterForClicks[2]') is None
     skin.execute('GetCVar = function() return nil end')
     assert skin.eval('HogHeals.SecureClick()') == "AnyUp"                                  # no such cvar: classic release
+    assert errors(skin) == []
+
+
+def test_one_bags_cell_in_the_bar_and_blizzards_slots_hidden(skin):
+    # Sean 2026-10-02: "the bag icons look terrible... just have one to open all the bags at once"
+    bar = 'HogHealsMicroBar'
+    c = 'HogHealsMicroBarBags'
+    assert skin.eval(f'{c} ~= nil') and skin.eval(f'{c}:GetParent() == {bar}') and skin.eval(f'{c}:IsShown()') is True
+    assert skin.eval(f'{c}._template') is None                                              # plain button: ToggleAllBags is not protected
+    assert skin.eval(f'{c}.label') == "Bags" and skin.eval(f'{c}.icon._texture').endswith("micro_bags")
+    assert skin.eval(f'{c}._points[1][4]') == 3 + 3 * 33 and skin.eval(f'{bar}._width') == 3 + 4 * 33   # 4th cell, bar sized for it
+    skin.execute(f'TOGGLED_BAGS = 0; {c}:GetScript("OnClick")({c})')
+    assert skin.eval('TOGGLED_BAGS') == 1
+    # Blizzard's slots faded and kept faded, their strip gone, their art still cleared
+    assert skin.eval('MainMenuBarBackpackButton._alpha') == 0 and skin.eval('CharacterBag0Slot._alpha') == 0
+    skin.execute('MainMenuBarBackpackButton:SetAlpha(1)')
+    assert skin.eval('MainMenuBarBackpackButton._alpha') == 0
+    assert skin.eval('HogHealsSkin.Micro.strips == nil or HogHealsSkin.Micro.strips.bags == nil or not HogHealsSkin.Micro.strips.bags:IsShown()') is True
+    assert skin.eval('BagsBar.Art._alpha') == 0 and skin.eval('HogHealsSkin.Micro.bagMode') == "button"
+    # the letter stands in when the client refuses the glyph file
+    skin.execute(f'local st = {c}.icon.SetTexture; {c}.icon.SetTexture = function(t, p) st(t, p) return false end; HogHealsSkin.Micro.Strip()')
+    assert skin.eval(f'{c}.letter:IsShown()') is True and skin.eval(f'{c}.letter._text') == "B"
+    # slots mode: the cell goes, the slots come back flattened under the bar
+    skin.execute('HogHeals.OptionsTable().args.Skin.args.micro.args.bagMode.set(nil, "slots")')
+    assert skin.eval(f'{c}:IsShown()') is False and skin.eval('MainMenuBarBackpackButton._alpha') == 1
+    assert skin.eval('HogHealsSkin.Micro.strips.bags:IsShown()') is True and skin.eval(f'{bar}._width') == 3 + 3 * 33
+    assert skin.eval(f'{bar}._points[1][3]') == "TOPRIGHT" and skin.eval('HogHealsSkin.Micro.bagMode') == "slots"
+    # and back
+    skin.execute('HogHeals.OptionsTable().args.Skin.args.micro.args.bagMode.set(nil, "button")')
+    assert skin.eval(f'{c}:IsShown()') is True and skin.eval('MainMenuBarBackpackButton._alpha') == 0
     assert errors(skin) == []
