@@ -791,3 +791,32 @@ def test_a_bag_slot_with_an_unknown_name_is_still_found_and_faded(skin):
     assert skin.eval('ActionButton3._alpha') == 1 and skin.eval('Lever._alpha') == 1
     assert skin.eval('HogHealsMicroBar._points[1][2] == KeyRingButton')         # rightmost slot still anchors the bar
     assert errors(skin) == []
+
+
+def test_decorations_left_over_the_faded_slots_are_faded_too(skin):
+    # Sean 2026-10-02 (screenshot 6): slot icons gone, but a slot border and the backpack's gold highlight stayed -
+    # frames of their own sitting on the slots' rects
+    skin.execute("""
+      local function rect(f, l, r, t, b) f.GetLeft = function() return l end f.GetRight = function() return r end f.GetTop = function() return t end f.GetBottom = function() return b end end
+      rect(MainMenuBarBackpackButton, 200, 230, 40, 10)
+      rect(CharacterBag0Slot, 170, 199, 40, 10)
+      Highlight = CreateFrame("Frame", "BackpackGoldHighlight", UIParent); rect(Highlight, 198, 232, 42, 8)     -- a hair bigger than the slot: still inside the padded rect
+      Border = CreateFrame("Frame", nil, UIParent); rect(Border, 172, 197, 38, 12)                               -- nameless, on the other slot
+      Big = CreateFrame("Frame", "BagsBarWhole", UIParent); rect(Big, 100, 240, 60, 0)                            -- the bar itself: too big, left alone
+      Far = CreateFrame("Frame", "Elsewhere", UIParent); rect(Far, 500, 530, 40, 10)
+      Tip = CreateFrame("Frame", "GameTooltipThing", UIParent); rect(Tip, 200, 230, 40, 10)                       -- tooltips never
+      Gone = CreateFrame("Frame", "HiddenOne", UIParent); rect(Gone, 200, 230, 40, 10); Gone:Hide()
+      local list = { MainMenuBarBackpackButton, CharacterBag0Slot, Highlight, Border, Big, Far, Tip, Gone, HogHealsMicroBar, HogHealsMicroBarBags }
+      function EnumerateFrames(prev) if prev == nil then return list[1] end for i, f in ipairs(list) do if f == prev then return list[i + 1] end end end
+      HogHealsSkin.Micro.Apply()
+    """)
+    assert skin.eval('Highlight._alpha') == 0 and skin.eval('Border._alpha') == 0
+    skin.execute('Highlight:SetAlpha(1)')
+    assert skin.eval('Highlight._alpha') == 0                                                   # kept faded
+    assert skin.eval('Big._alpha') == 1 and skin.eval('Far._alpha') == 1 and skin.eval('Tip._alpha') == 1 and skin.eval('Gone._alpha') == 1
+    assert skin.eval('HogHealsMicroBar._alpha') == 1 and skin.eval('HogHealsMicroBarBags._alpha') == 1
+    assert skin.eval('HogHealsSkin.Micro.bagOverlayDiag').startswith("BackpackGoldHighlight,Frame")   # the nameless one by kind
+    # slots mode brings the decorations back with the slots
+    skin.execute('HogHeals.OptionsTable().args.Skin.args.micro.args.bagMode.set(nil, "slots")')
+    assert skin.eval('Highlight._alpha') == 1 and skin.eval('Border._alpha') == 1
+    assert errors(skin) == []

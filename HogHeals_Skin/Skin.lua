@@ -323,11 +323,13 @@ HH:RegisterSlash("skindiag", function()
   if micro and (micro.containerDiag or micro.bagDiag) then
     HH:Print("  menu ancestors: " .. tostring(micro.containerDiag or "-") .. " | bag ancestors: " .. tostring(micro.bagDiag or "-"))
     HH:Print(("  bag slots found: %d [%s]; bar anchor: %s; menu buttons: %d"):format(micro.bagCount or 0, tostring(micro.bagNames or ""), tostring(micro.barAnchor), micro.microCount or 0))
+    HH:Print("  faded over the slots: " .. tostring(micro.bagOverlayDiag or "-"))
   end
   local g = HH.db and HH.db.global
   local xp = (HHS.Extras and HHS.Extras.ProbeXP) and HHS.Extras.ProbeXP() or {}
   if g then g.diag = g.diag or {} g.diag.skin = { found = table.concat(f, ","), missing = table.concat(m, ","), xp = table.concat(xp, " ; "),
     micro = micro and micro.containerDiag or nil, bags = micro and micro.bagDiag or nil,
-    bagCount = micro and micro.bagCount or nil, bagNames = micro and micro.bagNames or nil, barAnchor = micro and micro.barAnchor or nil } end
+    bagCount = micro and micro.bagCount or nil, bagNames = micro and micro.bagNames or nil, barAnchor = micro and micro.barAnchor or nil,
+    overlays = micro and micro.bagOverlayDiag or nil } end
   if #xp > 0 then HH:Print(("  xp bar textures: %d recorded (diag.skin.xp)"):format(#xp)) end
 end, "which Blizzard frames the skin found / could not find on this client")
