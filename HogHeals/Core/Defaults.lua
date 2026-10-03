@@ -158,6 +158,8 @@ HH.defaults = {
         [1] = { y = 60 }, [2] = { y = 100 }, [3] = { y = 140 },
         [4] = { perRow = 1, point = "RIGHT", x = -40, y = 0 }, [5] = { perRow = 1, point = "RIGHT", x = -82, y = 0 },
         [6] = { enabled = false }, [7] = { enabled = false }, [8] = { enabled = false },
+        pet = { buttons = 10, perRow = 10, point = "BOTTOM", x = -160, y = 184 },      -- above bar 3, left of centre
+        stance = { buttons = 10, perRow = 10, point = "BOTTOM", x = 160, y = 184 },    -- above bar 3, right of centre
       },
     },
     skin = {

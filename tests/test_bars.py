@@ -74,7 +74,7 @@ def test_five_bars_built_on_blizzards_slots_with_their_binding_names(bars):
     # bar 1 is paged: state 1 = slots 1-12, state 2 = 13-24, bonus bar 1 (state 7) = 73-84
     assert bars.eval('HogUIBar1.buttons[3]._states[1][2]') == 3 and bars.eval('HogUIBar1.buttons[3]._states[2][2]') == 15 and bars.eval('HogUIBar1.buttons[1]._states[7][2]') == 73
     assert bars.eval('HogUIBar1.driver') == "[overridebar]14;[shapeshift]13;[vehicleui]12;[possessbar]12;[bar:2]2;[bar:3]3;[bar:4]4;[bar:5]5;[bar:6]6;[bonusbar:1]7;[bonusbar:2]8;[bonusbar:3]9;[bonusbar:4]10;1"
-    assert bars.eval('#DRIVERS') == 1 and bars.eval('DRIVERS[1][1] == HogUIBar1 and DRIVERS[1][2] == "page"') is True
+    assert bars.eval('(function() for _, d in ipairs(DRIVERS) do if d[1] == HogUIBar1 and d[2] == "page" then return true end end return false end)()') is True
     assert bars.eval('HogUIBar1:GetAttribute("_onstate-page") ~= nil') is True
     # keybinds: Blizzard's own binding names, so the keys the player has keep firing
     assert bars.eval('HogUIBar1.buttons[1].config.keyBoundTarget') == "ACTIONBUTTON1"
@@ -169,7 +169,7 @@ function IsAltKeyDown() return ALT end
 def test_bind_mode_hover_a_slot_press_a_key_esc_clears_mouse_binds(bars):
     bars.execute(BIND_CLIENT + 'BOUND = {}; CLEARED = 0; HogHeals:SlashCommand("bind")')
     B = 'HogHealsBars.Bind'
-    assert bars.eval(f'{B}.active') is True and bars.eval(f'{B}.count') == 60                  # 5 bars x 12 overlays
+    assert bars.eval(f'{B}.active') is True and bars.eval(f'{B}.count') == 80                  # 5 bars x 12 + pet 10 + stance 10
     o = f'{B}.overlays[HogUIBar1.buttons[1]]'
     assert bars.eval(f'{o}:IsShown()') is True and bars.eval(f'{o}:GetParent() == HogUIBar1.buttons[1]') is True
     assert bars.eval('HogHealsBindStrip:IsShown()') is True
@@ -211,3 +211,97 @@ def test_bind_mode_refuses_combat_and_ends_when_combat_starts(bars):
     assert bars.eval('HogHealsBars.Bind.active') is False
     assert bars.eval('HogHeals.OptionsTable().args.Bars.args.bind.func ~= nil') is True
     assert errors(bars) == []
+
+
+EXTRA_CLIENT = """
+PET = { { "Attack", "Interface/Icons/Ability_GhoulFrenzy", false, true, true, true }, { "Follow", "PET_FOLLOW_TEXTURE", true, false, false, false }, { "Growl", "Interface/Icons/Growl", false, false, true, false } }
+PET_FOLLOW_TEXTURE = "Interface/Icons/Ability_Tracking"
+function GetPetActionInfo(i) local p = PET[i] if not p then return nil end return unpack(p) end
+function GetPetActionCooldown(i) if i == 3 then return 100, 8, 1 end return 0, 0, 0 end
+function PetHasActionBar() return true end
+FORMS = { { "Interface/Icons/Ability_Warrior_OffensiveStance", true, true, 2457 }, { "Interface/Icons/Ability_Warrior_DefensiveStance", false, true, 71 }, { "Interface/Icons/Ability_Warrior_Berserk", false, false, 2458 } }
+function GetNumShapeshiftForms() return #FORMS end
+function GetShapeshiftFormInfo(i) local f = FORMS[i] if not f then return nil end return unpack(f) end
+function GetShapeshiftFormCooldown() return 0, 0, 0 end
+PetActionBar = CreateFrame("Frame", "PetActionBar", UIParent)
+StanceBar = CreateFrame("Frame", "StanceBar", UIParent)
+for i = 1, 10 do CreateFrame("CheckButton", "PetActionButton" .. i, UIParent); CreateFrame("CheckButton", "StanceButton" .. i, UIParent) end
+"""
+
+
+@pytest.fixture
+def xbars(lua):
+    lua.execute(CLIENT + EXTRA_CLIENT)
+    lua.load_addon("HogHeals")
+    lua.load_addon("HogHeals_Bars")
+    lua.player_login()
+    lua.execute('wipe(HogHeals.errors)')
+    return lua
+
+
+def test_visibility_drivers_fade_and_click_through(bars):
+    # always: no driver; the choice becomes a state driver on the bar; custom = the player's own conditional
+    assert bars.eval('HogUIBar2.visDriver') is None
+    bars.execute('HogHeals.OptionsTable().args.Bars.args.bar2.args.visibility.set(nil, "nocombat")')
+    assert bars.eval('HogUIBar2.visDriver') == "[nocombat]hide;show"
+    assert bars.eval('DRIVERS[#DRIVERS][1] == HogUIBar2 and DRIVERS[#DRIVERS][2] == "vis" and DRIVERS[#DRIVERS][3] == "[nocombat]hide;show"') is True
+    assert bars.eval('HogUIBar2:GetAttribute("_onstate-vis") ~= nil') is True
+    bars.execute('HogHeals.OptionsTable().args.Bars.args.bar2.args.visibility.set(nil, "custom"); HogHeals.OptionsTable().args.Bars.args.bar2.args.custom.set(nil, "[mod:shift]show;hide")')
+    assert bars.eval('HogUIBar2.visDriver') == "[mod:shift]show;hide"
+    # fade: faded until the mouse is over a button, back after the delay
+    bars.execute('HogHeals.OptionsTable().args.Bars.args.bar3.args.fade.set(nil, true)')
+    assert bars.eval('HogUIBar3._alpha') == pytest.approx(0.25)
+    bars.execute('local b = HogUIBar3.buttons[4]; b:GetScript("OnEnter")(b)')
+    assert bars.eval('HogUIBar3._alpha') == 1
+    bars.execute('local b = HogUIBar3.buttons[4]; b:GetScript("OnLeave")(b); MockAdvance(0.3)')
+    assert bars.eval('HogUIBar3._alpha') == 1                                                 # delay not up yet
+    bars.execute('MockAdvance(0.4)')
+    assert bars.eval('HogUIBar3._alpha') == pytest.approx(0.25)
+    bars.execute('HogHeals.OptionsTable().args.Bars.args.bar3.args.fade.set(nil, false)')
+    assert bars.eval('HogUIBar3._alpha') == 1
+    # click-through: empty slots let the mouse through, a filled slot keeps it
+    bars.execute('HogHeals.OptionsTable().args.Bars.args.bar1.args.clickThrough.set(nil, true)')
+    assert bars.eval('HogUIBar1.buttons[1]._last.EnableMouse[1]') is False
+    bars.execute('HogUIBar1.buttons[1]._hasAction = true; HogHealsBars.Bars.UpdateCell(HogUIBar1.buttons[1])')
+    assert bars.eval('HogUIBar1.buttons[1]._last.EnableMouse[1]') is True
+    assert errors(bars) == []
+
+
+def test_pet_bar_actions_autocast_cooldown_and_bind_targets(xbars):
+    assert xbars.eval('HogUIPetBar ~= nil and #HogUIPetBar.buttons') == 10
+    b = 'HogUIPetBar.buttons'
+    assert xbars.eval(f'{b}[1]:GetAttribute("type")') == "pet" and xbars.eval(f'{b}[3]:GetAttribute("action")') == 3
+    assert xbars.eval(f'{b}[1].icon._texture') == "Interface/Icons/Ability_GhoulFrenzy"
+    assert xbars.eval(f'{b}[2].icon._texture') == "Interface/Icons/Ability_Tracking"             # token resolved
+    assert xbars.eval(f'{b}[1].hh.edges[1]._color[2]') == pytest.approx(0.83)                 # autocast on = cyan edge
+    assert xbars.eval(f'{b}[3].hh.edges[1]._color[2]') == pytest.approx(0.20)
+    assert xbars.eval(f'{b}[3].cooldown._last.SetCooldown[1]') == 100 and xbars.eval(f'{b}[3].cooldown._last.SetCooldown[2]') == 8
+    assert xbars.eval(f'{b}[4].icon._texture') is None and xbars.eval('HogHealsBars.Extra.petCount') == 3
+    assert xbars.eval(f'{b}[1].keyBoundTarget') == "BONUSACTIONBUTTON1" and xbars.eval(f'{b}[1]:GetBindingAction()') == "BONUSACTIONBUTTON1"
+    assert xbars.eval('HogUIPetBar.visDriver') == "[nopet]hide;show"                           # never without a pet
+    assert xbars.eval('HogUIPetBar._points[1][5]') == 184 and xbars.eval('HogUIPetBar._width') == 10 * 36 + 9 * 2
+    assert xbars.eval('PetActionBar:GetParent() == HogHealsBarsHider and PetActionButton1:GetParent() == HogHealsBarsHider') is True
+    # bind mode reaches the pet buttons with the same four methods
+    xbars.execute('BOUND = {}; HogHealsBars.Bind.Start(); local o = HogHealsBars.Bind.overlays[HogUIPetBar.buttons[2]]; o:GetScript("OnEnter")(o); HogHealsBindStrip:GetScript("OnKeyDown")(HogHealsBindStrip, "T")')
+    assert xbars.eval('BOUND[1][1]') == "T" and xbars.eval('BOUND[1][2]') == "BONUSACTIONBUTTON2"
+    assert xbars.eval('HogUIPetBar.buttons[2].HotKey._text') == "T"
+    assert xbars.eval('HogHealsBars.Bind.count') == 80                                         # 60 + 10 pet + 10 stance
+    xbars.execute('HogHealsBars.Bind.Stop("done")')
+    assert errors(xbars) == []
+
+
+def test_stance_bar_forms_spells_and_layout(xbars):
+    b = 'HogUIStanceBar.buttons'
+    assert xbars.eval('HogHealsBars.Extra.formCount') == 3
+    assert xbars.eval(f'{b}[1]:GetAttribute("type")') == "spell" and xbars.eval(f'{b}[1]:GetAttribute("spell")') == 2457 and xbars.eval(f'{b}[2]:GetAttribute("spell")') == 71
+    assert xbars.eval(f'{b}[1]._last.SetChecked[1]') is True and xbars.eval(f'{b}[2]._last.SetChecked[1]') is False
+    assert xbars.eval(f'{b}[3]:IsShown()') is True and xbars.eval(f'{b}[4]:IsShown()') is False   # laid out for 3 forms
+    assert xbars.eval('HogUIStanceBar._width') == 3 * 36 + 2 * 2
+    assert xbars.eval(f'{b}[1].keyBoundTarget') == "SHAPESHIFTBUTTON1"
+    assert xbars.eval('StanceBar:GetParent() == HogHealsBarsHider') is True
+    # a classic-style client hands a name instead of a spell id; no forms = no bar
+    xbars.execute('function GetShapeshiftFormInfo(i) local f = FORMS[i] if not f then return nil end return f[1], "Battle Stance", f[2], f[3] end; HogHealsBars.Extra.UpdateStance()')
+    assert xbars.eval(f'{b}[1]:GetAttribute("spell")') == "Battle Stance"
+    xbars.execute('FORMS = {}; MockFire("UPDATE_SHAPESHIFT_FORMS")')
+    assert xbars.eval('HogUIStanceBar:IsShown()') is False and xbars.eval('HogHealsBars.Extra.formCount') == 0
+    assert errors(xbars) == []

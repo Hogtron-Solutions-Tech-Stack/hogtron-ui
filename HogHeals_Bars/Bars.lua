@@ -107,6 +107,9 @@ function Bars.UpdateCell(b)
   local show = has == true or grid
   if show then hh.backdrop:Show() for _, e in ipairs(hh.edges) do e:Show() end
   else hh.backdrop:Hide() for _, e in ipairs(hh.edges) do e:Hide() end end
+  -- click-through: an empty slot lets the mouse through to the world; a filled one must keep it (it casts)
+  local through = bar and cfg().list[bar.n] and cfg().list[bar.n].clickThrough
+  if b.EnableMouse then b:EnableMouse(not (through and has ~= true)) end
 end
 
 local function hookLib(lib)
@@ -136,6 +139,59 @@ function Bars.ButtonConfig(n, i)
   }
 end
 
+-- ------------------------------------------------------------------------------------------------ visibility / fade
+-- A state driver on the bar frame decides whether it is shown; "always" has none. The pet bar prefixes its own
+-- "[nopet]hide;" so it never shows without a pet, whatever the option says. Custom = the player's own macro
+-- conditional ("[combat]show;hide").
+Bars.VISIBILITY = { combat = "[combat]hide;show", nocombat = "[nocombat]hide;show", pet = "[nopet]hide;show", nopet = "[pet]hide;show" }
+function Bars.VisibilityDriver(bd, prefix)
+  local driver
+  if bd.visibility == "custom" then
+    driver = (type(bd.custom) == "string" and bd.custom ~= "") and bd.custom or nil
+  else
+    driver = Bars.VISIBILITY[bd.visibility or "always"]
+  end
+  if prefix then return prefix .. (driver or "show") end
+  return driver
+end
+
+function Bars.ApplyVisibility(bar)
+  local driver = Bars.VisibilityDriver(cfg().list[bar.n], bar.visPrefix)
+  if bar.visDriver == driver then return driver end
+  if bar.visDriver and type(UnregisterStateDriver) == "function" then call(UnregisterStateDriver, bar, "vis") end
+  bar.visDriver = driver
+  if driver then
+    bar:SetAttribute("_onstate-vis", [[ if newstate == "show" then self:Show() else self:Hide() end ]])
+    if type(RegisterStateDriver) == "function" then call(RegisterStateDriver, bar, "vis", driver) end
+  end
+  return driver
+end
+
+--- Fade: the bar sits at fadeAlpha until the mouse is over it (or one of its buttons), back after fadeDelay.
+function Bars.FadeIn(bar)
+  bar.fadeToken = (bar.fadeToken or 0) + 1
+  bar:SetAlpha(cfg().list[bar.n].alpha or 1)
+end
+
+function Bars.FadeOut(bar)
+  local bd = cfg().list[bar.n]
+  if not bd.fade then return end
+  bar.fadeToken = (bar.fadeToken or 0) + 1
+  local token = bar.fadeToken
+  local function go() if bar.fadeToken == token and cfg().list[bar.n].fade then bar:SetAlpha(bd.fadeAlpha or 0.25) end end
+  if C_Timer and C_Timer.After then C_Timer.After(bd.fadeDelay or 0.5, go) else go() end
+end
+
+local function fadeHooks(bar)
+  if bar.fadeHooked then return end
+  bar.fadeHooked = true
+  local function enter() Bars.FadeIn(bar) end
+  local function leave() Bars.FadeOut(bar) end
+  for _, b in ipairs(bar.buttons) do
+    if b.HookScript then b:HookScript("OnEnter", enter) b:HookScript("OnLeave", leave) end
+  end
+end
+
 -- ------------------------------------------------------------------------------------------------ bars
 local function dragHandle(bar, n)
   local h = CreateFrame("Frame", nil, bar)
@@ -146,7 +202,7 @@ local function dragHandle(bar, n)
   h.bg:SetAllPoints(h)
   h.label = h:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   h.label:SetPoint("CENTER", h, "CENTER", 0, 0)
-  h.label:SetText(("Bar %d"):format(n))
+  h.label:SetText(type(n) == "number" and ("Bar %d"):format(n) or tostring(n))
   h.label:SetTextColor(CREAM[1], CREAM[2], CREAM[3])
   h:EnableMouse(true)
   h:RegisterForDrag("LeftButton")
@@ -159,6 +215,7 @@ local function dragHandle(bar, n)
   h:Hide()
   return h
 end
+Bars.DragHandle = dragHandle
 
 --- The bar frame and its lib buttons, once. Returns the bar (nil when the client has no such bar).
 function Bars.Create(n)
@@ -205,13 +262,13 @@ end
 function Bars.Layout(bar)
   local n = bar.n
   local bd = cfg().list[n]
-  local count = math.max(1, math.min(12, bd.buttons or 12))
+  local count = math.max(1, math.min(#bar.buttons, bar.countOverride or bd.buttons or 12))
   local perRow = math.max(1, math.min(count, bd.perRow or 12))
   local pad, size = bd.padding or 2, Bars.SIZE
   local rows = math.ceil(count / perRow)
   bar:SetSize(perRow * size + (perRow - 1) * pad, rows * size + (rows - 1) * pad)
   bar:SetScale(bd.scale or 1)
-  bar:SetAlpha(bd.alpha or 1)
+  bar:SetAlpha(bd.fade and (bd.fadeAlpha or 0.25) or (bd.alpha or 1))
   bar:ClearAllPoints()
   bar:SetPoint(bd.point or "BOTTOM", UIParent, bd.point or "BOTTOM", bd.x or 0, bd.y or 0)
   bar.gridOn = bd.grid
@@ -221,14 +278,15 @@ function Bars.Layout(bar)
       b:ClearAllPoints()
       b:SetPoint("TOPLEFT", bar, "TOPLEFT", col * (size + pad), -row * (size + pad))
       b:SetSize(size, size)
-      b:UpdateConfig(Bars.ButtonConfig(n, i))
+      if b.UpdateConfig and Bars.SPECS[n] then b:UpdateConfig(Bars.ButtonConfig(n, i)) end
       b:Show()
     else
       b:Hide()
     end
     Bars.UpdateCell(b)
   end
-  if bd.clickThrough then bar:EnableMouse(false) end
+  fadeHooks(bar)
+  Bars.ApplyVisibility(bar)
   bar.laidOut = true
   return count, perRow, rows
 end
@@ -243,6 +301,7 @@ local function banish(f, keepEvents)
   if f.SetParent then call(f.SetParent, f, hider) end
   return true
 end
+Bars.Banish = banish
 
 function Bars.HideBlizzard()
   if not hider then
@@ -288,6 +347,10 @@ function Bars.Build(reason)
         bar:Hide()
       end
     end
+    if HHB.Extra and HHB.Extra.Build then
+      local ok, err = pcall(HHB.Extra.Build)
+      if not ok then HH:LogError("bars pet/stance: " .. tostring(err)) end
+    end
     Bars.built = built
     Bars.SetUnlocked(HH.db.profile.locked == false)
   end)
@@ -312,10 +375,11 @@ end
 function Bars.BarOptions()
   local O = HHB.Options
   local out = {}
-  for n = 1, 8 do
-    local spec = Bars.SPECS[n]
+  local keys = { 1, 2, 3, 4, 5, 6, 7, 8, "pet", "stance" }
+  for order, n in ipairs(keys) do
+    local spec = Bars.SPECS[n] or { label = (n == "pet") and "Pet bar" or "Stance / form bar" }
     local sub = function() return cfg().list[n] end
-    out["bar" .. n] = { type = "group", name = spec.label, order = 10 + n, args = {
+    out["bar" .. n] = { type = "group", name = spec.label, order = 10 + order, args = {
       enabled = O.toggle(sub, "enabled", "Show this bar", 1, nil, "full"),
       buttons = O.range(sub, "buttons", "Buttons", 2, 1, 12, 1, 12),
       perRow = O.range(sub, "perRow", "Buttons per row", 3, 1, 12, 1, 12),
@@ -330,7 +394,15 @@ function Bars.BarOptions()
         get = function() return sub().point or "BOTTOM" end, set = function(_, v) sub().point = v Bars.Apply("options") end },
       x = O.range(sub, "x", "X", 10, -1500, 1500, 1, 0),
       y = O.range(sub, "y", "Y", 11, -1000, 1000, 1, 0),
+      visibility = { type = "select", name = "Show", order = 12, values = { always = "Always", combat = "Hide in combat", nocombat = "Hide out of combat", pet = "Hide without a pet", nopet = "Hide with a pet", custom = "Custom conditional" },
+        get = function() return sub().visibility or "always" end, set = function(_, v) sub().visibility = v Bars.Apply("options") end },
+      custom = { type = "input", name = "Custom conditional (e.g. [combat]show;hide)", order = 13, width = "full",
+        get = function() return sub().custom or "" end, set = function(_, v) sub().custom = v Bars.Apply("options") end },
+      fade = O.toggle(sub, "fade", "Fade out until the mouse is over it", 14),
+      fadeAlpha = O.range(sub, "fadeAlpha", "Faded opacity", 15, 0, 1, 0.05, 0.25),
+      fadeDelay = O.range(sub, "fadeDelay", "Fade delay (seconds)", 16, 0, 3, 0.1, 0.5),
     } }
+    out["bar" .. n].args.fade.get = function() return sub().fade == true end
     -- the global toggle's default is "on" except for bars 6-8, so the generic toggle needs the real value
     out["bar" .. n].args.enabled.get = function() return sub().enabled ~= false end
   end
