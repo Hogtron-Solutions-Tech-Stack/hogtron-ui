@@ -618,3 +618,28 @@ def test_one_bags_cell_in_the_bar_and_blizzards_slots_hidden(skin):
     skin.execute('HogHeals.OptionsTable().args.Skin.args.micro.args.bagMode.set(nil, "button")')
     assert skin.eval(f'{c}:IsShown()') is True and skin.eval('MainMenuBarBackpackButton._alpha') == 0
     assert errors(skin) == []
+
+
+def test_a_bag_slot_with_an_unknown_name_is_still_found_and_faded(skin):
+    # in game 2026-10-02 (Forever): one slot kept Blizzard's look beside seven faded ones - it matched no name we know
+    skin.execute("""
+      Mystery = CreateFrame("ItemButton", "CharacterQuiverSlot", BagsBar)      -- in the bag bar, no "Bag" in the name
+      function Mystery:GetLeft() return 231 end  function Mystery:GetRight() return 260 end
+      Nameless = CreateFrame("CheckButton", nil, BagsBar)                       -- no name at all
+      function Nameless:GetLeft() return 261 end  function Nameless:GetRight() return 290 end
+      -- a classic-style client: the keyring hangs off the art frame next to the action buttons; those stay
+      MainMenuBarArtFrame = CreateFrame("Frame", "MainMenuBarArtFrame", UIParent)
+      KeyRingButton = CreateFrame("CheckButton", "KeyRingButton", MainMenuBarArtFrame)
+      function KeyRingButton:GetLeft() return 300 end  function KeyRingButton:GetRight() return 320 end
+      ActionButton3 = CreateFrame("CheckButton", "ActionButton3", MainMenuBarArtFrame)
+      function ActionButton3:GetLeft() return 10 end  function ActionButton3:GetRight() return 40 end
+      Lever = CreateFrame("Button", nil, MainMenuBarArtFrame)
+      HogHealsSkin.Micro.Apply()
+    """)
+    names = skin.eval('HogHealsSkin.Micro.bagNames')
+    assert "CharacterQuiverSlot" in names and "KeyRingButton" in names and "ActionButton3" not in names
+    assert skin.eval('HogHealsSkin.Micro.bagCount') == 5                       # backpack, bag0, quiver, nameless, keyring
+    assert skin.eval('Mystery._alpha') == 0 and skin.eval('Nameless._alpha') == 0 and skin.eval('KeyRingButton._alpha') == 0
+    assert skin.eval('ActionButton3._alpha') == 1 and skin.eval('Lever._alpha') == 1
+    assert skin.eval('HogHealsMicroBar._points[1][2] == KeyRingButton')         # rightmost slot still anchors the bar
+    assert errors(skin) == []
