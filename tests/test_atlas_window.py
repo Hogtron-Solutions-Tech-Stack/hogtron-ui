@@ -55,10 +55,10 @@ def test_auto_role_tab_is_the_lit_default_and_names_the_role_it_picked(atlas):
     assert atlas.eval(f'{rb}.auto.label._text') == "Auto: healer"              # shaman in the fixture
     assert "healer (auto, by class)" in atlas.eval("HogUIAtlasWindow.status:GetText()")
     atlas.execute(f'{rb}.tank:GetScript("OnClick")({rb}.tank)')
-    assert atlas.eval('HogHealsAtlas.cfg().role') == "tank" and atlas.eval(f'{rb}.tank.on') is True
+    assert atlas.eval('HogHealsAtlas.Role()') == "tank" and atlas.eval(f'{rb}.tank.on') is True
     assert atlas.eval(f'{rb}.auto.label._text') == "Auto"
     atlas.execute(f'{rb}.auto:GetScript("OnClick")({rb}.auto)')
-    assert atlas.eval('HogHealsAtlas.cfg().role') == "auto" and atlas.eval(f'{rb}.auto.label._text') == "Auto: healer"
+    assert atlas.eval('HogHealsAtlas.Role()') == "auto" and atlas.eval(f'{rb}.auto.label._text') == "Auto: healer"
 
 def test_dungeon_quests_merge_the_list_with_your_log(atlas):
     rows = vals(atlas.eval(f'({DQ}.For("wc", FakeLog()))'))
@@ -226,7 +226,7 @@ def test_upgrades_tab_roles_and_status(atlas):
     assert "Scored for: healer" in atlas.eval("HogUIAtlasWindow.status:GetText()")
     assert atlas.eval(f"{W}.roleButtons.auto.on") is True
     atlas.execute(f"{W}.roleButtons.tank:Click()")
-    assert atlas.eval(f"{A}.cfg().role") == "tank" and atlas.eval(f"{W}.roleButtons.tank.on") is True
+    assert atlas.eval(f"{A}.Role()") == "tank" and atlas.eval(f"{W}.roleButtons.tank.on") is True
     rows = vals(atlas.eval(f"{W}.lists.upgrades.data"))
     assert [r["text"] for r in rows if not r["header"]] == ["Seer's Cowl"]          # plate helm: a shaman cannot wear it
     assert "Scored for: tank" in atlas.eval("HogUIAtlasWindow.status:GetText()")
@@ -357,7 +357,7 @@ def test_options_table_reads_and_writes_the_settings(atlas):
     assert atlas.eval("OPT.args.general.args.tooltip.get()") is True
     atlas.execute("OPT.args.general.args.tooltip.set(nil, false); OPT.args.general.args.futureLevels.set(nil, 5); OPT.args.general.args.role.set(nil, 'caster')")
     c = atlas.eval(f"{A}.cfg()")
-    assert c["tooltip"] is False and c["futureLevels"] == 5 and c["role"] == "caster"
+    assert c["tooltip"] is False and c["futureLevels"] == 5 and atlas.eval(f"{A}.Role()") == "caster"   # the role is per character now
     assert atlas.eval("OPT.args.weights.args.spelldmg.get()") == 1.0
     atlas.execute("OPT.args.weights.args.spelldmg.set(nil, 2.5)")
     assert atlas.eval(f"{A}.Stats.Weights('caster').spelldmg") == 2.5 and atlas.eval(f"{A}.Stats.Weights('healer').spelldmg") == 0.3

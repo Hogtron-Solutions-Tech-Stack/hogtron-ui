@@ -51,6 +51,18 @@ local function fill(dst, src)
   return dst
 end
 
+--- The gear-scoring role is PER CHARACTER (db.char), never the profile: the profile is shared by every character
+-- on the account, and one Tank pick on an alt scored the shaman's loot "+3.7 for tank" (Sean 2026-10-02). The old
+-- profile.atlas.role is left alone and never read.
+function A.roleCfg()
+  local c = HH.db and HH.db.char
+  if not c then A.roleFallback = A.roleFallback or {} return A.roleFallback end
+  c.atlas = c.atlas or {}
+  return c.atlas
+end
+function A.Role() return A.roleCfg().role or "auto" end
+function A.SetRole(r) A.roleCfg().role = r end
+
 function A.cfg()
   local p = HH.db and HH.db.profile
   if not p then return fill({}, A.DEFAULTS) end

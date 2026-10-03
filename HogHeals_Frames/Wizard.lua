@@ -104,8 +104,9 @@ function Wizard.Finish(w)
   -- Atlas gear scoring role (Atlas may not be loaded yet; the profile table is shared)
   local role = w.answers.gear or "auto"
   if not Wizard.GEAR_ROLES[role] then role = "auto" end
-  HH.db.profile.atlas = HH.db.profile.atlas or {}
-  HH.db.profile.atlas.role = role
+  -- per character (db.char): the profile is shared by every character on the account
+  HH.db.char.atlas = HH.db.char.atlas or {}
+  HH.db.char.atlas.role = role
 
   HH.db.profile.wizardDone = true
   w.step = "done"

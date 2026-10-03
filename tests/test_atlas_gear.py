@@ -75,10 +75,19 @@ def test_role_follows_the_class_until_you_pick_one(atlas):
     assert atlas.eval(f"{ST}.Role()") == "healer"                                  # shaman
     atlas.execute('MockState.playerClass = "ROGUE"')
     assert atlas.eval(f"{ST}.Role()") == "melee"
-    atlas.execute(f'{A}.cfg().role = "tank"')
+    atlas.execute(f'{A}.SetRole("tank")')
     assert atlas.eval(f"{ST}.Role()") == "tank"
-    atlas.execute(f'{A}.cfg().role = "nonsense"')
+    atlas.execute(f'{A}.SetRole("nonsense")')
     assert atlas.eval(f"{ST}.Role()") == "melee"
+
+
+def test_role_lives_on_the_character_not_the_shared_profile(atlas):
+    # Sean 2026-10-02: "+3.7 for tank" on the shaman - a Tank pick on an alt had landed in the account-wide profile
+    atlas.execute('HogHeals.db.profile.atlas.role = "tank"')
+    assert atlas.eval(f"{ST}.Role()") == "healer"                                  # shaman: the profile value is never read
+    atlas.execute(f'{A}.SetRole("caster")')
+    assert atlas.eval('HogHeals.db.char.atlas.role') == "caster" and atlas.eval(f"{ST}.Role()") == "caster"
+    assert atlas.eval('HogHeals.db.profile.atlas.role') == "tank"                  # left alone
 
 
 def test_score_uses_the_preset_with_your_changes_on_top(atlas):
@@ -312,7 +321,7 @@ def test_a_two_hander_is_measured_against_both_hands(atlas):
       ITEMS[5003] = { "Orb of Holding", 2, 20, 15, "Armor", "Miscellaneous", "INVTYPE_HOLDABLE", 4, 0, { "+9 Intellect" } }
       WORN[16], WORN[17] = 5001, 5002
     """)
-    atlas.execute(f'{A}.cfg().role = "melee"')
+    atlas.execute(f'{A}.SetRole("melee")')
     c = atlas.eval(f"{G}.Compare(1009)")                                            # Great Maul: 25 dps * 3 + 12 str = 87
     worn = (10 * 3 + 5) + (8 + 200 * 0.01)                                          # sword 35 + buckler 10
     assert c["slot"] == 16 and c["delta"] == pytest.approx(87 - worn)

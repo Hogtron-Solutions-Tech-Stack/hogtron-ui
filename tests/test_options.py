@@ -76,7 +76,7 @@ def test_wizard_gear_step_writes_the_atlas_role_auto_by_default(frames):
       HogHealsFrames.Wizard.Next(HH_w, { bindings = "default" })
       HogHealsFrames.Wizard.Finish(HH_w)            -- the gear step skipped (older flow / Finish pressed early)
     ''')
-    assert frames.eval('HogHeals.db.profile.atlas.role') == "auto"
+    assert frames.eval('HogHeals.db.char.atlas.role') == "auto"
     frames.execute('''
       HH_w = HogHealsFrames.Wizard.New("PRIEST")
       HogHealsFrames.Wizard.Next(HH_w, { class = "PRIEST" })
@@ -85,9 +85,9 @@ def test_wizard_gear_step_writes_the_atlas_role_auto_by_default(frames):
       HogHealsFrames.Wizard.Next(HH_w, { gear = "caster" })
       HogHealsFrames.Wizard.Finish(HH_w)
     ''')
-    assert frames.eval('HogHeals.db.profile.atlas.role') == "caster"
+    assert frames.eval('HogHeals.db.char.atlas.role') == "caster"
     frames.execute('HH_w = HogHealsFrames.Wizard.New("PRIEST"); HogHealsFrames.Wizard.Next(HH_w, { gear = "nonsense" }); HogHealsFrames.Wizard.Finish(HH_w)')
-    assert frames.eval('HogHeals.db.profile.atlas.role') == "auto"
+    assert frames.eval('HogHeals.db.char.atlas.role') == "auto"
     assert frames.eval('HogHealsFrames.Wizard.GEAR_ROLES.auto').startswith("Auto")
 
 def test_wizard_accessibility_preset(frames):
