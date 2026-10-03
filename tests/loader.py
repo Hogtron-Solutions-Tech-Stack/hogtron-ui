@@ -18,6 +18,7 @@ TESTS = Path(__file__).resolve().parent
 STUBBED = {
     "AceGUI-3.0", "AceConfig-3.0", "AceDBOptions-3.0", "LibSharedMedia-3.0",
     "LibRangeCheck-3.0", "LibHealComm-4.0", "LibDataBroker-1.1", "LibDBIcon-1.0",
+    "LibActionButton-1.0", "LibButtonGlow-1.0",
 }
 
 _SCRIPT_RE = re.compile(r'<(Script|Include)\s+file="([^"]+)"', re.IGNORECASE)

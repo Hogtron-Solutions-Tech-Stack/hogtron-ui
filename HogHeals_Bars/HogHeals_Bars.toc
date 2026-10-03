@@ -1,0 +1,14 @@
+## Interface: 20505,20506,11508,11509,16001
+## Title: |cffF5EBDCHog|r|cff21D4E0UI|r Bars
+## Notes: Your own action bars in the HogUI look (Bartender-style): per-bar layout, always-on grid, hover-and-press key binding. Blizzard's bars hidden.
+## Author: HogTron Solutions (Sean Bilger)
+## Version: 0.1.0
+## Dependencies: HogHeals
+## OptionalDeps: HogHeals_Skin
+## X-License: MIT
+
+Libs\LibButtonGlow-1.0\LibButtonGlow-1.0.lua
+Libs\LibActionButton-1.0\LibActionButton-1.0.lua
+Bars.lua
+Bind.lua
+Options.lua

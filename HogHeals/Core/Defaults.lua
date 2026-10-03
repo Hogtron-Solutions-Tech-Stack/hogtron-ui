@@ -149,6 +149,17 @@ HH.defaults = {
       pacing = { enabled = true, targetLength = 300, amber = 60, red = 20, showProjection = true },
       advisor = { enabled = true, margin = 0.9, onFrame = false, spells = {} },
     },
+    bars = {   -- HogUI Bars: own action bars on LibActionButton (docs/superpowers/specs/2026-10-02-hogui-bars-design.md)
+      enabled = true, grid = true, hotkeySize = 10, hideNames = true, cooldownNumbers = true,
+      -- the HogUI stack: bars 1-3 bottom centre, 4-5 vertical on the right edge, 6-8 off. ["**"] = every bar's defaults.
+      list = {
+        ["**"] = { enabled = true, buttons = 12, perRow = 12, padding = 2, scale = 1, alpha = 1, point = "BOTTOM", x = 0, y = 60,
+          fade = false, fadeAlpha = 0.25, fadeDelay = 0.5, visibility = "always", custom = "", clickThrough = false, grid = nil },
+        [1] = { y = 60 }, [2] = { y = 100 }, [3] = { y = 140 },
+        [4] = { perRow = 1, point = "RIGHT", x = -40, y = 0 }, [5] = { perRow = 1, point = "RIGHT", x = -82, y = 0 },
+        [6] = { enabled = false }, [7] = { enabled = false }, [8] = { enabled = false },
+      },
+    },
     skin = {
       enabled = true, font = "Friz Quadrata TT", backgroundAlpha = 0.75,
       actionBars = { enabled = true, hideArt = true, hotkeySize = 10, hideNames = true, cooldownNumbers = true },
