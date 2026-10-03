@@ -411,20 +411,41 @@ function Part.SetUnlocked(unlocked)
   Skin.ColorEdges(bar.edges, unlocked and Skin.CYAN or Skin.LINE)
 end
 
---- Bag slots: the named ones plus anything bag-like under the bag containers (this client may name them differently).
+--- Bag slots: the named ones, anything bag-like under the bag containers, and - in game 2026-10-02 on Forever one
+-- slot matched no name we know and stayed on screen beside seven faded ones - any button-kind frame that sits in
+-- a bag container or beside a found slot (its parent named after bags; never a classic action-bar parent).
+local BUTTON_KINDS = { Button = true, CheckButton = true, ItemButton = true }
+local function bagLike(f, loose)
+  if type(f) ~= "table" or not f.GetName or not f.GetLeft then return false end
+  local n = Skin.call(f.GetName, f)
+  if type(n) == "string" then
+    if n:find("ExpandToggle") or n:find("MicroButton$") or n:find("^ActionButton") or n:find("^MultiBar") or n:find("^HogHeals") then return false end
+    if n:find("Bag") or n:find("Backpack") then return true end
+  end
+  if loose then return BUTTON_KINDS[Skin.call(f.GetObjectType, f)] == true end
+  return false
+end
+
 function Part.BagButtons()
   local seen, out = {}, {}
-  local function take(f)
-    if type(f) ~= "table" or seen[f] or not f.GetName or not f.GetLeft then return end
-    local n = f:GetName()
-    if type(n) ~= "string" or not (n:find("Bag") or n:find("Backpack")) or n:find("ExpandToggle") then return end
-    seen[f] = true
-    out[#out + 1] = f
+  local function take(f, loose)
+    if not seen[f] and bagLike(f, loose) then seen[f] = true out[#out + 1] = f end
   end
-  for _, n in ipairs(Part.BAGS) do take(Skin.G(n)) end
+  for _, n in ipairs(Part.BAGS) do take(Skin.G(n), true) end   -- our own list: taken as named (KeyRingButton has no Bag in it)
   for _, cn in ipairs(Part.BAG_CONTAINERS) do
     local c = rawget(_G, cn)
-    if type(c) == "table" and c.GetChildren then for _, ch in ipairs({ c:GetChildren() }) do take(ch) end end
+    if type(c) == "table" then for _, ch in ipairs(Skin.all(c.GetChildren, c)) do take(ch, true) end end
+  end
+  -- neighbours: every button in the parent of a found slot, when that parent is a bag bar by name
+  local parents, found = {}, {}
+  for i, b in ipairs(out) do found[i] = b end
+  for _, b in ipairs(found) do
+    local p = Skin.call(b.GetParent, b)
+    local pn = type(p) == "table" and Skin.call(p.GetName, p)
+    if type(p) == "table" and p ~= UIParent and not parents[p] and type(pn) == "string" and pn:find("Bag") then
+      parents[p] = true
+      for _, ch in ipairs(Skin.all(p.GetChildren, p)) do take(ch, true) end
+    end
   end
   return out
 end
