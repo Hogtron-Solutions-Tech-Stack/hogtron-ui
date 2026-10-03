@@ -131,7 +131,7 @@ end
 
 -- ------------------------------------------------------------------------------------------------ scoring
 function Stats.Role()
-  local r = A.cfg().role
+  local r = A.Role()
   if r and r ~= "auto" and Stats.PRESETS[r] then return r end
   return Stats.CLASS_ROLE[A.playerClass()] or "melee"
 end

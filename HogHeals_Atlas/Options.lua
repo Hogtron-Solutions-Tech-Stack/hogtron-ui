@@ -38,7 +38,7 @@ function Options.Build()
       get = function() return A.cfg().futureLevels or 3 end, set = function(_, v) A.cfg().futureLevels = v refresh() end },
     role = { type = "select", name = "Score gear for", order = 9,
       values = { auto = "My class (automatic)", healer = "Healer", caster = "Caster", melee = "Melee", ranged = "Ranged", tank = "Tank" },
-      get = function() return A.cfg().role or "auto" end, set = function(_, v) A.cfg().role = v refresh() end },
+      get = function() return A.Role() end, set = function(_, v) A.SetRole(v) refresh() end },
     scale = { type = "range", name = "Window scale", order = 10, min = 0.6, max = 1.4, step = 0.05,
       get = function() return A.cfg().scale or 1 end,
       set = function(_, v) A.cfg().scale = v if A.Window.frame then A.Window.frame:SetScale(v) end end },

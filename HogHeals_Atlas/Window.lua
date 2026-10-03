@@ -451,7 +451,7 @@ function Window.Build()
   local roles = { "auto", "healer", "caster", "melee", "ranged", "tank" }
   for i, r in ipairs(roles) do
     local w = r == "auto" and 118 or 80
-    local b = A.button(p, r == "auto" and "Auto" or (r:sub(1, 1):upper() .. r:sub(2)), w, 20, function() A.cfg().role = r Window.Refresh() end)
+    local b = A.button(p, r == "auto" and "Auto" or (r:sub(1, 1):upper() .. r:sub(2)), w, 20, function() A.SetRole(r) Window.Refresh() end)
     b:SetPoint("TOPLEFT", p, "TOPLEFT", r == "auto" and 0 or (118 + 10 + (i - 2) * 84), 0)
     Window.roleButtons[r] = b
   end
@@ -534,7 +534,7 @@ function Window.Refresh()
     status = ("%d dungeons, %d drops known. Red too low, orange hard, green right, grey outgrown. +N = better than what you wear.%s"):format(
       #rows, A.Store.db().count, jr and ("  Journal: " .. tostring(jr.status) .. ".") or "")
   elseif Window.tab == "upgrades" then
-    local role = A.cfg().role or "auto"
+    local role = A.Role()
     local effective = A.Stats.Role()
     for name, b in pairs(Window.roleButtons) do
       b:SetOn(name == role)
@@ -544,7 +544,7 @@ function Window.Refresh()
     local rows, unknown = Window.UpgradeRows()
     L.upgrades:SetData(rows, EMPTY.upgrades)
     status = ("Scored for: %s%s. Number = points better than what you wear. Amber = needs a higher level.%s"):format(
-      A.Stats.Role(), (A.cfg().role or "auto") == "auto" and " (auto, by class)" or "",
+      A.Stats.Role(), A.Role() == "auto" and " (auto, by class)" or "",
       (unknown or 0) > 0 and ("  %d items still loading."):format(unknown) or "")
   elseif Window.tab == "sets" then
     local sets = A.Gear.Sets()
