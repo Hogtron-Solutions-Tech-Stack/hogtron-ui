@@ -6,46 +6,46 @@ merged into play when its checklist is green. **New folder ⇒ `dev\link.ps1 -Cl
 before anything shows in game.
 
 ## T0 — skeleton (no behaviour)
-- [ ] `HogHeals_Bars/` + toc (`## Dependencies: HogHeals`, `## Interface: 20505,20506,11508,11509,16001`), `Libs/`
+- [x] `HogHeals_Bars/` + toc (`## Dependencies: HogHeals`, `## Interface: 20505,20506,11508,11509,16001`), `Libs/`
       with vendored `LibActionButton-1.0` + `LibButtonGlow-1.0` (BSD headers kept; `Libs/README.md` = origin +
       version + any local patch), `Bars.lua` registering module `Bars`, `Options.lua` with an empty tab.
-- [ ] `dev/link.ps1`: folder added. `HogHeals/Core/Defaults.lua`: `profile.bars` defaults (HogUI stack).
-- [ ] Harness: `tests/loader.py` STUBBED += `LibActionButton-1.0`, `LibButtonGlow-1.0`; `tests/lib_stubs.lua`
+- [x] `dev/link.ps1`: folder added. `HogHeals/Core/Defaults.lua`: `profile.bars` defaults (HogUI stack).
+- [x] Harness: `tests/loader.py` STUBBED += `LibActionButton-1.0`, `LibButtonGlow-1.0`; `tests/lib_stubs.lua`
       fake LAB (`CreateButton` → mock Button with `SetState/UpdateConfig/SetKey/ClearBindings/GetBindingAction/
       GetHotkey/UpdateHotkeys/NewHeader/ClearStates`, recorded).
-- [ ] Test: module registers, options table exists, no errors at login.
+- [x] Test: module registers, options table exists, no errors at login.
 
 ## T1 — bars 1–5: layout, grid, flat skin, Blizzard hidden
-- [ ] `Bars.Create(n)`: `SecureHandlerStateTemplate` bar frame, LAB buttons with slot mapping + `keyBoundTarget`,
+- [x] `Bars.Create(n)`: `SecureHandlerStateTemplate` bar frame, LAB buttons with slot mapping + `keyBoundTarget`,
       `Bars.Layout(n)` (buttons / perRow / padding / scale / alpha / anchor), `showGrid` per bar + global.
-- [ ] Flat look through `lib.callbacks.OnButtonCreated` (ink backdrop, 1 px outline, trimmed icon, hotkey font).
-- [ ] `Bars.HideBlizzard()` (reparent + HideBase, buttons' events off); Skin `actionbars` part yields when
+- [x] Flat look through `lib.callbacks.OnButtonCreated` (ink backdrop, 1 px outline, trimmed icon, hotkey font).
+- [x] `Bars.HideBlizzard()` (reparent + HideBase, buttons' events off); Skin `actionbars` part yields when
       `HogHealsBars` is enabled.
-- [ ] Drag under `/hh unlock` (handle + saved point like the frames); `Bars.Refresh()` on profile change.
-- [ ] `/hh barsdiag`: which Blizzard bars existed, how many buttons built, slot mapping in force.
-- [ ] Tests: 5 bars built with right slot ids + binding names; layout maths (perRow wrap, padding, growth);
+- [x] Drag under `/hh unlock` (handle + saved point like the frames); `Bars.Refresh()` on profile change.
+- [x] `/hh barsdiag`: which Blizzard bars existed, how many buttons built, slot mapping in force.
+- [x] Tests: 5 bars built with right slot ids + binding names; layout maths (perRow wrap, padding, growth);
       grid flag passed to `UpdateConfig`; Blizzard bars reparented; options write-through; drag saves point.
 
 ## T2 — bind mode
-- [ ] `Bind.lua`: `/hh bind` + options button; refused in combat; instruction strip; hover target; key capture
+- [x] `Bind.lua`: `/hh bind` + options button; refused in combat; instruction strip; hover target; key capture
       → binding string with modifiers; mouse 3–5; `SetKey` / `ClearBindings`; `SaveBindings(set)`; ends on
       `PLAYER_REGEN_DISABLED`; hotkeys repainted.
-- [ ] Tests: key string building (modifiers, mouse buttons, Esc), target follows hover, refused in combat,
+- [x] Tests: key string building (modifiers, mouse buttons, Esc), target follows hover, refused in combat,
       per-character set chosen, exit repaints.
 
 ## T3 — paging, visibility, fade, click-through
-- [ ] Bar 1 page driver (`[bar:2]2;…;[bonusbar:1]7;…;1`) via `_onstate-page` + `SetState` per button.
-- [ ] Per-bar `vis` driver from the visibility option (always / combat / out of combat / pet / custom).
-- [ ] Fade out (alpha + delay, OnEnter/OnLeave on the bar and its buttons), click-through (`EnableMouse(false)`).
-- [ ] Tests: driver strings, state registration calls, fade alpha, click-through.
+- [x] Bar 1 page driver (`[bar:2]2;…;[bonusbar:1]7;…;1`) via `_onstate-page` + `SetState` per button.
+- [x] Per-bar `vis` driver from the visibility option (always / combat / out of combat / pet / custom).
+- [x] Fade out (alpha + delay, OnEnter/OnLeave on the bar and its buttons), click-through (`EnableMouse(false)`).
+- [x] Tests: driver strings, state registration calls, fade alpha, click-through.
 
 ## T4 — pet + stance bars
-- [ ] Pet bar (10 `SecureActionButtonTemplate` buttons, `type = "pet"`, `action = i`, icons from
+- [x] Pet bar (10 `SecureActionButtonTemplate` buttons, `type = "pet"`, `action = i`, icons from
       `GetPetActionInfo`, autocast border), stance bar (`GetNumShapeshiftForms`, `type = "spell"` by form).
-- [ ] Both: same layout engine, flat look, bind mode targets (`BONUSACTIONBUTTON<i>`, `SHAPESHIFTBUTTON<i>`).
-- [ ] Blizzard's `PetActionBar` / `StanceBar` hidden; Skin yields.
+- [x] Both: same layout engine, flat look, bind mode targets (`BONUSACTIONBUTTON<i>`, `SHAPESHIFTBUTTON<i>`).
+- [x] Blizzard's `PetActionBar` / `StanceBar` hidden; Skin yields.
 
-## T5 — polish
+## T5 — polish (OPEN)
 - [ ] Options: presets ("HogUI stack", "Two rows", "Blizzard-like"), per-bar copy, reset.
 - [ ] Review doc for Sean + memory update + PR to main once Skin/Atlas land there.
 
