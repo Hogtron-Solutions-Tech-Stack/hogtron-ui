@@ -105,3 +105,35 @@ do -- LibDataBroker-1.1 / LibDBIcon-1.0
   function icon:GetMinimapButton(name) return self.objects[name] end
   function icon:GetButtonList() local out = {} for n in pairs(self.objects) do out[#out + 1] = n end table.sort(out) return out end
 end
+
+-- LibActionButton-1.0: a fake that hands back mock buttons recording every call (the real lib needs secure
+-- templates and a live client). Buttons carry id / config / header; GetBindingAction mirrors the lib's rule.
+do
+  local lab = LibStub:NewLibrary("LibActionButton-1.0", 999999)
+  lab.buttonRegistry = {}
+  lab._callbacks = {}
+  lab.callbacks = { Fire = function(_, event, ...) local fn = lab._callbacks[event] if fn then fn(event, ...) end end }
+  function lab.RegisterCallback(_, owner, event, fn) lab._callbacks[event] = fn end
+  function lab.UnregisterCallback(_, owner, event) lab._callbacks[event] = nil end
+  function lab:CreateButton(id, name, header, config)
+    local b = CreateFrame("CheckButton", name, header)
+    b.id, b.header, b.config = id, header, config or {}
+    b._states = {}
+    b.icon = b:CreateTexture(nil, "ARTWORK")
+    b.HotKey = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    b.Name = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    b.NormalTexture = b:CreateTexture(nil, "OVERLAY")
+    function b:SetState(state, kind, action) self._states[state or 0] = { kind, action } end
+    function b:UpdateConfig(c) self.config = c end
+    function b:GetBindingAction() return self.config.keyBoundTarget or ("CLICK " .. name .. ":LeftButton") end
+    function b:GetBindings() return GetBindingKey(self:GetBindingAction()) end
+    function b:GetHotkey() local k = self:GetBindings() return k or "" end
+    function b:SetKey(key) SetBinding(key, self:GetBindingAction()) end
+    function b:ClearBindings() BINDINGS[self:GetBindingAction()] = nil CLEARED = (CLEARED or 0) + 1 end
+    lab.buttonRegistry[b] = true
+    lab.callbacks:Fire("OnButtonCreated", b)
+    return b
+  end
+  function lab:GetAllButtons() local t = {} for b in pairs(lab.buttonRegistry) do t[b] = true end return t end
+  LibStub:NewLibrary("LibButtonGlow-1.0", 999999)
+end
