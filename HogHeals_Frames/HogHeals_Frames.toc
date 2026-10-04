@@ -23,6 +23,7 @@ Elements\MyShield.lua
 Elements\Buffs.lua
 Elements\Thresholds.lua
 Elements\AoEHealing.lua
+Elements\Highlight.lua
 Elements\HealPrediction.lua
 ClickCast.lua
 RequestDispel.lua

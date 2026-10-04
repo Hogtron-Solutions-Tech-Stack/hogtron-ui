@@ -8,7 +8,7 @@ local INDICATOR_LABELS = {
   dispel = "Dispellable debuff (my class)", priorityDebuff = "Priority debuff slot", range = "Range fade",
   aggro = "Aggro border", raidIcon = "Raid target icon", statusIcons = "Status icons (ready/res/summon/leader)",
   missingBuffs = "Missing buff I can cast", myShield = "My shield + Weakened Soul", thresholds = "Health threshold ticks",
-  aoeHealing = "AoE-heal scope highlight", requestGlow = "Dispel-request glow (/hh dispelme from others)",
+  aoeHealing = "AoE-heal scope fill (Highlight tab)", highlight = "Hover / target marks (Highlight tab)", requestGlow = "Dispel-request glow (/hh dispelme from others)", requestGlow = "Dispel-request glow (/hh dispelme from others)",
   buffs = "Buffs on the cell (Fortitude-type buffs live here, not above heads)",
 }
 local INDICATOR_ORDER = { "health", "power", "name", "healPrediction", "dispel", "priorityDebuff", "range", "aggro",
@@ -228,6 +228,58 @@ local function bindingsGroup()
   return { type = "group", name = "Bindings", order = 4, args = args }
 end
 
+local STYLE_VALUES = { outline = "Outline", corners = "Corners", fill = "Fill", none = "None" }
+local function highlightGroup()
+  local function hl() return frames().highlight end
+  local function part(key) return function() hl()[key] = hl()[key] or {} return hl()[key] end end
+  local function style(tbl, name, order)
+    return { type = "select", name = name, order = order, values = STYLE_VALUES,
+      get = function() return tbl().style or "outline" end, set = function(_, v) tbl().style = v; refresh() end }
+  end
+  local function colour(tbl, name, order)
+    return { type = "color", name = name, order = order,
+      get = function() local c = tbl().color or { 1, 1, 1 } return c[1], c[2], c[3] end,
+      set = function(_, r, g, b) tbl().color = { r, g, b }; refresh() end }
+  end
+  local function num(tbl, key, name, order, min, max, step)
+    return { type = "range", name = name, order = order, min = min, max = max, step = step,
+      get = function() return tbl()[key] end, set = function(_, v) tbl()[key] = v; refresh() end }
+  end
+  local function preset(hoverStyle, hoverColor, targetStyle, targetColor)
+    return function()
+      local h, t = part("hover")(), part("target")()
+      h.style, h.color = hoverStyle, { hoverColor[1], hoverColor[2], hoverColor[3] }
+      t.style, t.color = targetStyle, { targetColor[1], targetColor[2], targetColor[3] }
+      refresh()
+    end
+  end
+  local WHITE, RED = { 1, 1, 1 }, { 0.85, 0.2, 0.2 }
+  local args = {
+    about = { type = "description", order = 0, name = "Which cell the mouse is on and which one you have targeted. Marks sit just outside the cell so the aggro border stays visible. A secret target answer (restricted client, in combat) shows no mark." },
+    presetHead = { type = "header", name = "Presets", order = 1 },
+    presetWhite = { type = "execute", name = "White outline + corners", order = 2, func = preset("outline", WHITE, "corners", WHITE) },
+    presetRed = { type = "execute", name = "Red outline on the target", order = 3, func = preset("outline", WHITE, "outline", RED) },
+    presetCorners = { type = "execute", name = "Corners for both", order = 4, func = preset("corners", WHITE, "corners", WHITE) },
+    hoverHead = { type = "header", name = "Mouse over", order = 10 },
+    hoverStyle = style(part("hover"), "Style", 11),
+    hoverColor = colour(part("hover"), "Colour", 12),
+    hoverThick = num(part("hover"), "thick", "Thickness", 13, 1, 4, 1),
+    hoverSize = num(part("hover"), "size", "Corner size", 14, 4, 20, 1),
+    targetHead = { type = "header", name = "My target", order = 20 },
+    targetStyle = style(part("target"), "Style", 21),
+    targetColor = colour(part("target"), "Colour", 22),
+    targetThick = num(part("target"), "thick", "Thickness", 23, 1, 4, 1),
+    targetSize = num(part("target"), "size", "Corner size", 24, 4, 20, 1),
+    aoeHead = { type = "header", name = "AoE-heal scope fill", order = 30 },
+    aoe = { type = "toggle", name = "Fill every cell my AoE heal would reach while I hover one", order = 31, width = "full",
+      get = function() return frames().indicators.aoeHealing == true end,
+      set = function(_, v) frames().indicators.aoeHealing = v and true or false; refresh() end },
+    aoeColor = colour(part("aoe"), "Fill colour", 32),
+    aoeAlpha = num(part("aoe"), "alpha", "Fill opacity", 33, 0.05, 1, 0.05),
+  }
+  return { type = "group", name = "Highlight", order = 3.5, args = args }
+end
+
 local function profilesGroup()
   local AceDBOptions = LibStub("AceDBOptions-3.0", true)
   local t = AceDBOptions and AceDBOptions:GetOptionsTable(HH.db) or { type = "group", name = "Profiles", args = {} }
@@ -249,6 +301,7 @@ function HHF.module:GetOptions()
       appearance = appearanceGroup(),
       indicators = indicatorsGroup(),
       bindings = bindingsGroup(),
+      highlight = highlightGroup(),
       profiles = profilesGroup(),
     },
   }

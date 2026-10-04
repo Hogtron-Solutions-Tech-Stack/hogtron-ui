@@ -20,8 +20,11 @@ local function isPartyScope(unit)
 end
 
 local function setGlows(predicate)
+  local d = HH.db and HH.db.profile.frames
+  local a = d and d.highlight and d.highlight.aoe or {}
+  local c = a.color or { 0.13, 0.83, 0.88 }
   for _, b in ipairs(HHF.UnitButton.All()) do
-    if b.unit and predicate(b.unit) then b.aoeGlow:Show() else b.aoeGlow:Hide() end
+    if b.unit and predicate(b.unit) then b.aoeGlow:SetColorTexture(c[1], c[2], c[3], a.alpha or 0.25) b.aoeGlow:Show() else b.aoeGlow:Hide() end
   end
 end
 
