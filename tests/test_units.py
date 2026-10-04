@@ -346,3 +346,24 @@ def test_secret_expiry_shows_no_countdown(units):
     assert units.eval('HogUITarget.auras.debuffs[1]:IsShown()') is True
     assert units.eval('HogUITarget.auras.debuffs[1].timer._text') == ""
     assert errors(units) == []
+
+
+
+def test_blizzard_reshow_in_combat_waits_for_combat_to_end(units):
+    # In game 2026-10-03: "ADDON_ACTION_BLOCKED: HogHeals_Units called PetFrame:HideBase() (in combat)" - the
+    # re-show hook hid the frame straight away; Hide on a secure unit frame is protected in combat.
+    units.execute('MockState.inCombat = true; PetFrame:Show()')
+    assert units.eval('PetFrame:IsShown()') is True
+    units.execute('MockState.inCombat = false; MockFire("PLAYER_REGEN_ENABLED")')
+    assert units.eval('PetFrame:IsShown()') is False
+    units.execute('PetFrame:Show()')                                           # out of combat: hidden at once
+    assert units.eval('PetFrame:IsShown()') is False
+    assert errors(units) == []
+
+
+def test_banished_frames_lose_their_unit_watch(lua):
+    boot(lua, 'RegisterUnitWatch(PetFrame); RegisterUnitWatch(TargetFrame); function UnitWatchRegistered(f) return MockUnitWatch[f] == true end')
+    assert lua.eval('MockUnitWatch[PetFrame]') is None
+    assert lua.eval('MockUnitWatch[TargetFrame]') is None
+    assert lua.eval('HogHealsUnits.Units.watched[PetFrame]') is True
+    assert errors(lua) == []
