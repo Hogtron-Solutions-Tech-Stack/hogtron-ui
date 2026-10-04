@@ -492,6 +492,7 @@ end
 
 -- ------------------------------------------------------------------------------------------------ Blizzard's frames
 local hiddenParent
+Units.watched = Units.watched or setmetatable({}, { __mode = "k" })   -- Blizzard frames whose unit watch banish() dropped
 local function banish(f)
   if type(f) ~= "table" then return false end
   hiddenParent = hiddenParent or _G.HogHealsHiddenParent
@@ -500,12 +501,27 @@ local function banish(f)
     hiddenParent:Hide()
   end
   if f.UnregisterAllEvents then call(f.UnregisterAllEvents, f) end
+  -- The engine's unit watch is what re-shows PetFrame / TargetFrame / FocusFrame (pet summoned, target picked)
+  -- - in combat too, where we may not hide them back. Drop the watch out of combat (banish runs out of combat);
+  -- remember it so turning the restyle off can give it back.
+  if type(UnitWatchRegistered) == "function" and type(UnregisterUnitWatch) == "function" and call(UnitWatchRegistered, f) then
+    Units.watched[f] = true
+    pcall(UnregisterUnitWatch, f)
+  end
   call(f.Hide, f)
   call(f.SetParent, f, hiddenParent)
   if not f.hhBanishHooked and type(hooksecurefunc) == "function" then
     f.hhBanishHooked = true
     pcall(hooksecurefunc, f, "Show", function(self)
       if cfg().enabled == false or cfg().hideBlizzard == false then return end
+      -- Hide on a secure unit frame runs HideBase, PROTECTED in combat (in game 2026-10-03: ADDON_ACTION_BLOCKED
+      -- "HogHeals_Units called PetFrame:HideBase() (in combat)"). In combat the hide waits for the end of it.
+      if type(InCombatLockdown) == "function" and InCombatLockdown() then
+        HH:RunOutOfCombat(function()
+          if cfg().enabled ~= false and cfg().hideBlizzard ~= false then call(self.Hide, self) end
+        end)
+        return
+      end
       call(self.Hide, self)
     end)
   end
