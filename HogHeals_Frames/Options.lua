@@ -12,7 +12,7 @@ local INDICATOR_LABELS = {
   buffs = "Buffs on the cell (Fortitude-type buffs live here, not above heads)",
 }
 local INDICATOR_ORDER = { "health", "power", "name", "healPrediction", "dispel", "priorityDebuff", "range", "aggro",
-  "raidIcon", "statusIcons", "missingBuffs", "myShield", "buffs", "thresholds", "aoeHealing", "requestGlow" }
+  "raidIcon", "statusIcons", "missingBuffs", "myShield", "buffs", "thresholds", "highlight", "aoeHealing", "requestGlow" }
 
 local function frames() return HH.db.profile.frames end
 local function layout() return HHF.module:LayoutFor() end
