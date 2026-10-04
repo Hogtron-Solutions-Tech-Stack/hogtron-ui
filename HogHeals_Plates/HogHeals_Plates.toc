@@ -10,4 +10,5 @@
 QuestMobs.lua
 Plates.lua
 Hots.lua
+Castbar.lua
 Options.lua

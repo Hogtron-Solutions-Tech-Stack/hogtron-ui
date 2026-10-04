@@ -120,6 +120,10 @@ HH.defaults = {
       flatBar = true,                 -- plain flat bar: all of Blizzard's art on the health bar hidden (heal / absorb kept)
       hideBorders = true,             -- Blizzard's own bar border / selection line off (ours is the dark 1 px edge)
       border = true, classColors = true, reactionColors = true, castbar = true,
+      cast = {                        -- our own cast bar under the plate (Castbar.lua): HUD look, HUD colours
+        height = 10, icon = true, time = true, fontSize = 10, precision = 1, gap = 3,
+        castColor = { 0.13, 0.83, 0.88 }, channelColor = { 0.25, 0.80, 0.35 }, lockedColor = { 0.55, 0.55, 0.60 },
+      },
       nameClass = "friendly",         -- player names on plates in class colour: "friendly" | "all" | "none"
       friendlyNameOnly = true,        -- friendly plates: just the name, no health bar
       friendlyNameSize = 14,          -- text size of that name (the overhead name is about this)
