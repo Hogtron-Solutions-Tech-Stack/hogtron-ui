@@ -306,11 +306,13 @@ end
 function UnitButton.OnEnter(button)
   if HHF.ClickCast and HHF.ClickCast.OnEnter then HHF.ClickCast.OnEnter(button) end
   if HHF.Elements.aoeHealing and elementEnabled("aoeHealing") then HHF.Elements.aoeHealing.OnEnter(button) end
+  if HHF.Elements.highlight and elementEnabled("highlight") then HHF.Elements.highlight.OnEnter(button) end
 end
 
 function UnitButton.OnLeave(button)
   if HHF.ClickCast and HHF.ClickCast.OnLeave then HHF.ClickCast.OnLeave(button) end
   if HHF.Elements.aoeHealing then HHF.Elements.aoeHealing.OnLeave(button) end
+  if HHF.Elements.highlight then HHF.Elements.highlight.OnLeave(button) end
 end
 
 

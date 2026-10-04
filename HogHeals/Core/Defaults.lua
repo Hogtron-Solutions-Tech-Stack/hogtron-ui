@@ -68,10 +68,16 @@ HH.defaults = {
       indicators = {
         health = true, power = true, name = true, healPrediction = true,
         dispel = true, range = true, aggro = true, raidIcon = true, statusIcons = true,
-        missingBuffs = true, myShield = true, thresholds = false, aoeHealing = true,
+        missingBuffs = true, myShield = true, thresholds = false, aoeHealing = false,   -- AoE-scope fill: off since the hover / target marks (2026-10-03)
+        highlight = true,
         priorityDebuff = true, requestGlow = true,
       },
       dispel = { style = "icon", priorityDebuffs = {} },  -- style: "icon" | "color" | "border"
+      highlight = {                   -- hover / target marks on the cells (Elements/Highlight.lua); style: outline | corners | fill | none
+        hover = { style = "outline", color = { 1, 1, 1 }, thick = 1, gap = 0 },
+        target = { style = "corners", color = { 1, 1, 1 }, thick = 2, size = 8, gap = 1 },
+        aoe = { color = { 0.13, 0.83, 0.88 }, alpha = 0.25 },   -- the AoE-scope fill when indicators.aoeHealing is on
+      },
       thresholds = { 35, 50 },
       healthFade = { enabled = false, above = 90, alpha = 0.5 },
       healPrediction = { show = "all", overheal = true },    -- "mine" | "others" | "all"
