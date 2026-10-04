@@ -178,7 +178,10 @@ local function bindingsGroup()
       local lines = HHF.ClickCast.Describe()
       return #lines > 0 and ("|cff21D4E0Current bindings:|r\n" .. table.concat(lines, "\n")) or "No bindings."
     end },
-    header = { type = "header", name = "Add binding", order = 10 },
+    quick = { type = "execute", name = "Quick bind: hover a spell, press a key", order = 9, width = "full",
+      desc = "Opens the hover-heal keys panel (/hh bind heals). Esc on a spell clears its keys; mouse 3-5 bind too.",
+      func = function() HHF.HoverBind.Toggle() end },
+    header = { type = "header", name = "Add binding (typed)", order = 10 },
     key = { type = "input", name = "Key (e.g. 3, Q, BUTTON2)", order = 11, get = function() return newBinding.key end, set = function(_, v) newBinding.key = strtrim(v):upper() end },
     mod = { type = "select", name = "Modifier", order = 12, values = { [""] = "None", SHIFT = "Shift", CTRL = "Ctrl", ALT = "Alt" },
       get = function() return newBinding.mod end, set = function(_, v) newBinding.mod = v end },
