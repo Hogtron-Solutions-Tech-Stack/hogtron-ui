@@ -52,6 +52,17 @@ function Options.Build()
           values = { friendly = "Friendly players", all = "All players", none = "Off" },
           get = function() return p().nameClass or "friendly" end, set = function(_, v) p().nameClass = v; refresh() end },
       } },
+      castbar = { type = "group", name = "Cast bar", order = 1.5, args = {
+        about = { type = "description", order = 0, name = "Our own cast bar under the plate, the HUD look: flat fill, ink backing, spell icon, name, time left; grey while the cast cannot be interrupted. Blizzard's bar goes quiet." },
+        enabled = toggle(p, "castbar", "HogUI cast bar under the plate", 1),
+        height = range(sub("cast"), "height", "Height", 2, 6, 24, 1),
+        icon = toggle(sub("cast"), "icon", "Spell icon", 3),
+        time = toggle(sub("cast"), "time", "Time left", 4),
+        fontSize = range(sub("cast"), "fontSize", "Text size", 5, 7, 16, 1),
+        castColor = colour(sub("cast"), "castColor", "Cast colour", 6),
+        channelColor = colour(sub("cast"), "channelColor", "Channel colour", 7),
+        lockedColor = colour(sub("cast"), "lockedColor", "Uninterruptible colour", 8),
+      } },
       highlight = { type = "group", name = "Highlight", order = 2, args = {
         about = { type = "description", order = 0, name = "Outline colour by priority: a mob on YOU (red) beats your target (cyan) beats a quest mob (amber)." },
         target = toggle(sub("target"), "highlight", "Highlight my target", 1),

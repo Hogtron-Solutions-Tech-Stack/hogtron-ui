@@ -280,20 +280,20 @@ def test_quest_badge_falls_back_to_drawn_square_when_art_is_refused(lua):
     assert lua.eval(f'{uf}.hh.quest._color[1]') == pytest.approx(0.95)
 
 
-def test_plate_cast_bar_flattened_once(plates):
+def test_plate_cast_bar_is_ours_blizzards_goes_quiet(plates):
+    # 2026-10-03: the HogUI bar (Castbar.lua) replaces the old re-skin; Blizzard's bar only loses its alpha
     plates.execute("""
       local p = MockPlate("nameplate8", { name = "Caster", class = "MAGE", health = 5, maxHealth = 5, guid = "C-80" })
       p.UnitFrame.castBar = CreateFrame("StatusBar", nil, p.UnitFrame)
+      p.UnitFrame.castBar:SetStatusBarTexture("blizz")
       p.UnitFrame.castBar.Border = p.UnitFrame.castBar:CreateTexture()
-      p.UnitFrame.castBar.Text = p.UnitFrame.castBar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
       MockFire("NAME_PLATE_UNIT_ADDED", "nameplate8")
     """)
     uf = 'NP.nameplate8.UnitFrame'
-    assert plates.eval(f'{uf}.castBar._texture').endswith("WHITE8X8")
-    assert plates.eval(f'{uf}.castBar.Border._alpha') == 0
-    assert plates.eval(f'#{uf}.hh.castEdges') == 4
-    plates.execute('HogHealsPlates.Plates.ApplyLook(NP.nameplate8.UnitFrame)')
-    assert plates.eval(f'#{uf}.hh.castEdges') == 4                       # not re-skinned
+    assert plates.eval(f'{uf}.castBar._texture') == "blizz"
+    assert plates.eval(f'{uf}.castBar:GetAlpha()') == 0
+    assert plates.eval(f'{uf}.hh.castEdges') is None
+    assert plates.eval(f'{uf}.hh.castbar ~= nil') is True
     assert errors(plates) == []
 
 

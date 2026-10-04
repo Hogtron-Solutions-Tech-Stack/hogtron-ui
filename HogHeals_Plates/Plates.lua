@@ -305,7 +305,7 @@ function Plates.ApplyLook(uf)
     hh.bg:Show()
   end
   if uf.name then setFont(uf.name, d.fontSize or 10) end
-  Plates.SkinCastbar(uf)
+  -- the cast bar is ours now (Castbar.lua); SkinCastbar stays for profiles that turn the HogUI bar off
 end
 
 --- Blizzard's cast bar on the plate (a StatusBar under the health bar), flattened once: our texture, dark backing,
