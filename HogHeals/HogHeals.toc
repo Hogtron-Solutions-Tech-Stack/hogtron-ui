@@ -20,3 +20,4 @@ Core\Options.lua
 Core\Panel.lua
 Core\Perf.lua
 Core\AtlasProbe.lua
+Core\Session.lua

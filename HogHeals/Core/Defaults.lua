@@ -195,7 +195,7 @@ HH.defaults = {
       extras = { buffs = true, xpBar = true, mirror = true, durationSize = 10 },   -- mirror = breath / fatigue timers
       infoBar = { enabled = true, width = 640, height = 18, fontSize = 11, backgroundAlpha = 0.8, refresh = 1,
         time24 = false, serverTime = false, point = "BOTTOM", x = 0, y = 0,
-        slots = { "gold", "durability", "bags", "fps", "latency", "time" } },
+        slots = { "gold", "durability", "bags", "fps", "latency", "time", "session", "tolevel" } },   -- session / tolevel: Core/Session.lua
     },
   },
 }
