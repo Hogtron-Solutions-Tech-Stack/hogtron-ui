@@ -71,10 +71,14 @@ HH.defaults = {
         health = true, power = true, name = true, healPrediction = true,
         dispel = true, range = true, aggro = true, raidIcon = true, statusIcons = true,
         missingBuffs = true, myShield = true, thresholds = false, aoeHealing = false,
-        priorityDebuff = true, requestGlow = true, buffs = true,
+        priorityDebuff = true, requestGlow = true, buffs = true, debuffs = true,
         highlight = true,
       },
-      buffs = { size = 12, max = 4, filter = "mine", offsetY = 5 },   -- row of the unit's buffs on the cell; filter: mine | all (long buffs live here, not above heads)
+      -- aura rows on the cell (Elements/AuraRow.lua): anchor = one of the nine points, x / y from it, grow LEFT | RIGHT (default
+      -- from the anchor), numbers = countdown text on the swipe. buffs: filter mine | all (long buffs live here, not above heads).
+      buffs = { size = 12, max = 4, filter = "all", anchor = "BOTTOMLEFT", x = 2, y = 5, gap = 1, numbers = false },
+      -- debuffs: what is on them (DoTs, curses, poisons, bleeds), edge in the dispel-type colour; filter all | dispellable | mine
+      debuffs = { size = 12, max = 3, filter = "all", anchor = "RIGHT", x = -2, y = 0, gap = 1, numbers = false },
       dispel = { style = "icon", priorityDebuffs = {} },  -- style: "icon" | "color" | "border"
       highlight = {                   -- hover / target marks on the cells (Elements/Highlight.lua); style: outline | corners | fill | none
         hover = { style = "outline", color = { 1, 1, 1 }, thick = 1, gap = 0 },
