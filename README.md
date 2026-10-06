@@ -5,20 +5,34 @@ Opinionated, small, mouseover-first. Not another ElvUI — the one good thing fr
 
 > Naming: **HogTron UI** is the umbrella; **HogHeals** is the healer-frames module it grew out of. Addon folders keep the `HogHeals_*` names until the first public release (saved variables and every module namespace key off them).
 
-**Status:** pre-release (0.1.0). Module 1 (`HogHeals_Frames`) built + unit-tested; in-game verification pending.
+**Status:** public beta (0.1.0-beta.1). Built and unit-tested; in-game testing is what the beta is for - see [docs/TESTERS.txt](docs/TESTERS.txt).
+
+## Install (testers)
+
+1. Download `HogTronUI-<version>.zip` from [Releases](../../releases).
+2. Unzip and drop **every** `HogHeals*` folder into `World of Warcraft\_classic_beta_\Interface\AddOns\` (or `_classic_era_` / `_classic_`).
+3. Full game start, then `/hh`.
+
+Bugs: open an issue with `/hh diag` output (or your `SavedVariables\HogHeals.lua`), a screenshot and one line on what you did.
 
 ## Modules
 
 | Addon | What |
 |---|---|
-| `HogHeals` | Core: profiles, `/hh` options, group-size auto-layout, combat-safe queue |
-| `HogHeals_Frames` | Party + raid frames, **hover-bind engine** (any key + modifier while hovering), dispel-by-my-class, missing buffs, my shield, AoE-heal scope, thresholds, health-threshold fade, incoming heals, test mode, setup wizard |
-| `HogHeals_Quests` | Quest tracker window (watched / zone / all, click to open, right-click to watch) + quest pins on the minimap from the client's own quest points (rim pins for far quests). `/hh quests`, `/hh questdiag` |
-| `HogHeals_Plates` | Restyled Blizzard nameplates (flat bar, outline, health text, class / reaction colours), **quest-mob icon + progress**, outline highlight: aggro on you > target > quest mob, fade non-targets. `/hh platediag` |
+| `HogHeals` | Core: profiles, `/hh` options, group-size auto-layout, combat-safe queue, session stats (`/hh session`), `/hh perf` |
+| `HogHeals_Frames` | Party + raid frames for healing: hover-bind engine, dispel-by-my-class, debuff + buff rows, test mode (`/hh test 5`), setup wizard |
+| `HogHeals_Units` | Player / target / target-of-target / pet / focus frames |
+| `HogHeals_HUD` | Cast bar, swing timer, mana bar with five-second rule, info line |
+| `HogHeals_Bars` | Own action bars (Bartender-style), hover-and-press key binding |
+| `HogHeals_Plates` | Nameplates: flat bar, quest-mob icons, target marks, own cast bar, DoesItDie skull / reapply mark |
+| `HogHeals_Quests` | Quest tracker with the GO row (`/hh go`), minimap pins, square minimap, addon-button drawer |
+| `HogHeals_Atlas` | Dungeon guide: levels, bosses, loot, dungeon quests, gear upgrades, Where next (`/hh next`) |
+| `HogHeals_Training` | What the class trainer has for you, before you get there (`/hh train`) |
+| `HogHeals_Meter` | Damage / healing meter on the game's own numbers |
+| `HogHeals_Chat` | Chat restyle, URL copy |
+| `HogHeals_Skin` | Blizzard's bags, menu bar, tooltips and windows in the same look; info bar |
 
-Roadmap: HUD (castbar/mana/FSR/rank-picker) → Bars → QoL → Pad (controller). One module ships before the next starts.
-
-## Install (dev)
+## Install (developers)
 
 ```powershell
 .\dev\link.ps1 -Client anniversary     # junction both addons into _anniversary_\Interface\AddOns
@@ -34,6 +48,8 @@ In game: `/reload`, then
 /hh errors       show caught errors
 /hh macro Flash Heal    print a mouseover→focus→target→self macro
 ```
+
+Package a tester zip: `python dev/package.py --write` -> `dist/HogTronUI-<version>.zip`.
 
 ## Tests
 
