@@ -33,7 +33,7 @@ def files():
     for pat in pats:
         for p in sorted(ROOT.glob(pat)):
             rel = p.relative_to(ROOT).as_posix()
-            if any(s in f"/{rel}" for s in SKIP_DIRS) or SKIP_FILES.search(rel) or p.name == "rebrand.py":
+            if any(s in f"/{rel}" for s in SKIP_DIRS) or SKIP_FILES.search(rel) or p.name in ("rebrand.py", "lint.py"):   # both carry the old word on purpose
                 continue
             if rel not in seen:
                 seen.add(rel)
