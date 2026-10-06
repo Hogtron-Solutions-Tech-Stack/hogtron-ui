@@ -98,6 +98,7 @@ HH.defaults = {
       minimap = { enabled = true, edge = true, watchedOnly = false, turnInInRange = false, size = 16 },   -- Forever draws areas only, not points
       map = { enabled = true, fill = true, size = 180, zoneText = true, wheelZoom = true, hideDecor = true, dockButtons = true },
     },
+    training = { enabled = true, nudge = true },   -- HogHeals_Training: learned at the trainer; nudge = chat line on level-up
     chat = {
       enabled = true, backgroundAlpha = 0.6, fontSize = nil, outline = false,   -- fontSize nil = keep Blizzard's size
       shortChannels = true, classNames = true, fade = true, hideButtons = true, hideMenuButtons = false, urlCopy = true,
