@@ -63,6 +63,7 @@ HH.defaults = {
         healthTextPosition = "BOTTOM",
         healthTextAlign = "CENTER",
         outOfRangeAlpha = 0.4,
+        rangeInterval = 0.4,         -- seconds between range polls on every cell (perf: 0.25 was the old constant)
         deficitGradient = true,
       },
       indicators = {

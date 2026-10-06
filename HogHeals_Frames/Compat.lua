@@ -76,21 +76,60 @@ HogHeals:RegisterSlash("apicheck", function()
   for _, line in ipairs(Compat.Describe()) do HogHeals:Print("  " .. line) end
 end, "print client API capability flags")
 
+-- ---------------------------------------------------------------- aura memo (perf, 2026-10-05)
+-- One UNIT_AURA on a cell runs every aura element (buffs, debuffs, dispel, missing buffs, shield): 4-5 full walks of
+-- the same 40 slots. While a dispatch is open (UnitButton.OnEvent / UpdateAll) every (unit, filter, index) read is
+-- kept and handed back to the next element; the memo is dropped when the dispatch ends, so nothing goes stale.
+-- Elements that mutate the returned table (Buffs sets mine / index / filter) are harmless: same event, same moment.
+Compat.batchDepth = 0
+function Compat.BeginAuraBatch()
+  Compat.batchDepth = Compat.batchDepth + 1
+  Compat.batch = Compat.batch or {}
+end
+function Compat.EndAuraBatch()
+  Compat.batchDepth = Compat.batchDepth - 1
+  if Compat.batchDepth <= 0 then Compat.batchDepth = 0 Compat.batch = nil end
+end
+local function memo(unit, key)
+  local b = Compat.batch
+  if not b then return nil end
+  local u = b[unit]
+  if not u then u = {} b[unit] = u end
+  local f = u[key]
+  if not f then f = {} u[key] = f end
+  return f
+end
+Compat.memoHits = 0
+
 --- UnitAura(unit, index, filter) for every client: the global was removed from modern clients.
 -- Returns name, icon, count, dispelType, duration, expires, source.
 function Compat.UnitAura(unit, index, filter)
-  if type(UnitAura) == "function" then return UnitAura(unit, index, filter) end
-  local get = C_UnitAuras and C_UnitAuras.GetAuraDataByIndex
-  if not get then return nil end
-  local a = get(unit, index, filter)
-  if not a then return nil end
-  return a.name, a.icon, a.applications, a.dispelName, a.duration or 0, a.expirationTime, a.sourceUnit
+  local slot = memo(unit, "ua:" .. tostring(filter))
+  if slot then
+    local c = slot[index]
+    if c ~= nil then
+      Compat.memoHits = Compat.memoHits + 1
+      if c == false then return nil end
+      return c[1], c[2], c[3], c[4], c[5], c[6], c[7]
+    end
+  end
+  local name, icon, count, dtype, duration, expires, source
+  if type(UnitAura) == "function" then
+    name, icon, count, dtype, duration, expires, source = UnitAura(unit, index, filter)
+  else
+    local get = C_UnitAuras and C_UnitAuras.GetAuraDataByIndex
+    local a = get and get(unit, index, filter)
+    if a then name, icon, count, dtype, duration, expires, source = a.name, a.icon, a.applications, a.dispelName, a.duration or 0, a.expirationTime, a.sourceUnit end
+  end
+  if slot then slot[index] = name and { name, icon, count, dtype, duration, expires, source } or false end
+  if not name then return nil end
+  return name, icon, count, dtype, duration, expires, source
 end
 
 --- One harmful/helpful aura as a table, on every client. Modern: C_UnitAuras.GetAuraDataByIndex (carries
 -- canActivePlayerDispel, measured 2026-09-17). Legacy: UnitAura, with canActivePlayerDispel derived from our
 -- class table. Returns nil past the last aura.
-function Compat.AuraData(unit, index, filter)
+local function readAuraData(unit, index, filter)
   local get = C_UnitAuras and C_UnitAuras.GetAuraDataByIndex
   if type(get) == "function" then
     local a = get(unit, index, filter)
@@ -107,6 +146,21 @@ function Compat.AuraData(unit, index, filter)
   local _, class = UnitClass("player")
   return { name = name, icon = icon, applications = count, dispelName = dtype, duration = duration, expirationTime = expires,
     sourceUnit = source, spellId = spellId, canActivePlayerDispel = HogHeals.CanDispel(class, dtype) }
+end
+
+function Compat.AuraData(unit, index, filter)
+  local slot = memo(unit, "ad:" .. tostring(filter))
+  if slot then
+    local c = slot[index]
+    if c ~= nil then
+      Compat.memoHits = Compat.memoHits + 1
+      if c == false then return nil end
+      return c
+    end
+  end
+  local a = readAuraData(unit, index, filter)
+  if slot then slot[index] = a or false end
+  return a
 end
 
 --- True while the client is handing out SECRET aura fields (no `if` on them; widgets only).

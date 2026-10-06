@@ -272,6 +272,10 @@ function UnitButton.OnEvent(button, event, arg1)
   local unit = button.unit
   if not unit then return end
   if event:sub(1, 5) == "UNIT_" and arg1 and arg1 ~= unit then return end
+  -- a cell nobody can see (its header is hidden: solo, or the raid groups off) does no work; OnShow repaints it
+  if button.IsVisible and button:IsVisible() == false then return end
+  local Compat = HHF.Compat
+  Compat.BeginAuraBatch()
   for _, name in ipairs(HHF.ElementOrder) do
     local el = HHF.Elements[name]
     if el.EventSet and el.EventSet[event] and elementEnabled(name) then
@@ -279,11 +283,14 @@ function UnitButton.OnEvent(button, event, arg1)
       if not ok then HH:LogError(name .. ": " .. tostring(err)) end
     end
   end
+  Compat.EndAuraBatch()
 end
 
 function UnitButton.UpdateAll(button)
   local unit = button.unit
   if not unit then return end
+  local Compat = HHF.Compat
+  Compat.BeginAuraBatch()
   for _, name in ipairs(HHF.ElementOrder) do
     local el = HHF.Elements[name]
     if elementEnabled(name) then
@@ -293,6 +300,7 @@ function UnitButton.UpdateAll(button)
       pcall(el.Hide, button)
     end
   end
+  Compat.EndAuraBatch()
 end
 
 function UnitButton.UpdateElement(button, name)
@@ -328,14 +336,29 @@ function UnitButton.SetAlphaReason(button, reason, alpha)
 end
 
 local tickers = {}
---- Elements with a numeric `Ticker` field are polled every that-many seconds on every live button.
+UnitButton.tickers = tickers
+
+--- How often an element's poll runs: its Interval() when it has one (an option), else its Ticker constant.
+function UnitButton.TickerInterval(name)
+  local el = HHF.Elements[name]
+  if not el then return nil end
+  if type(el.Interval) == "function" then
+    local v = el.Interval()
+    if type(v) == "number" and v > 0 then return v end
+  end
+  return el.Ticker
+end
+
+--- Elements with a numeric `Ticker` field are polled every that-many seconds on every live button. An element this
+-- client blocks (Compat.Blocked) gets no ticker at all: a poll that returns at once still wakes up every tick.
 function UnitButton.StartTickers()
   for _, t in pairs(tickers) do if t.Cancel then t:Cancel() end end
   wipe(tickers)
   for _, name in ipairs(HHF.ElementOrder) do
     local el = HHF.Elements[name]
-    if el.Ticker and C_Timer and C_Timer.NewTicker then
-      tickers[name] = C_Timer.NewTicker(el.Ticker, function()
+    local blocked = HHF.Compat and HHF.Compat.Blocked and HHF.Compat.Blocked(name)
+    if el.Ticker and not blocked and C_Timer and C_Timer.NewTicker then
+      tickers[name] = C_Timer.NewTicker(UnitButton.TickerInterval(name), function()
         if not elementEnabled(name) then return end
         for _, button in ipairs(buttons) do
           if button.unit and button:IsShown() then
