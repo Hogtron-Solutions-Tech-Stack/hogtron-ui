@@ -149,7 +149,7 @@ HH.defaults = {
     },
     hud = {
       x = 0, y = -180, width = 300, followFrames = false,
-      castbarHeight = 18, swingHeight = 10, manaHeight = 12, infoHeight = 14, rowSpacing = 2,
+      castbarHeight = 18, swingHeight = 16, manaHeight = 12, infoHeight = 14, rowSpacing = 2,
       showCastbar = true, showSwing = true, showMana = true, showInfo = true,
       font = "Friz Quadrata TT", fontSize = 11, texture = "Solid",
       castbar = {
@@ -158,7 +158,9 @@ HH.defaults = {
         failColor = { 0.85, 0.2, 0.2 },
       },
       -- swing timer (Swing.lua): auto-attack / Auto Shot bar under the cast bar; showSwing above is the on / off
-      swing = { color = { 0.96, 0.92, 0.86 }, text = true, precision = 1, hideWhenIdle = true },
+      -- swing: width 0 = as wide as the strip, else its own width centred on it; spark = bright head on the fill; outline = 1 px
+      -- ink frame; fontSize 0 = the strip's font one step larger (Sean 2026-10-05: bigger, wider, cleaner)
+      swing = { color = { 0.96, 0.92, 0.86 }, text = true, precision = 1, hideWhenIdle = true, width = 0, spark = true, outline = true, fontSize = 0 },
       mana = { textMode = "cur", showTicks = true, showFsrText = true, fsrColor = { 0.13, 0.83, 0.88 }, tickColor = { 0.96, 0.92, 0.86 } },
       pacing = { enabled = true, targetLength = 300, amber = 60, red = 20, showProjection = true },
       advisor = { enabled = true, margin = 0.9, onFrame = false, spells = {} },
