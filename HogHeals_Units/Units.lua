@@ -1,6 +1,6 @@
--- HogUI unit frames: player, target, target-of-target, pet, focus.
+-- HogTron UI unit frames: player, target, target-of-target, pet, focus.
 --
--- Same panel language as the rest of HogUI (ink body, 1 px outline, flat bars): a class / reaction coloured health
+-- Same panel language as the rest of HogTron UI (ink body, 1 px outline, flat bars): a class / reaction coloured health
 -- bar, a thin power bar under it, name and level on top, health and power text on the right. Blizzard's own frames
 -- are hidden while ours are on (ours on = theirs off; they come back with a /reload after the option is turned off).
 -- Blizzard's frames are only ever hidden: never re-parented onto ours, never given stub methods (see cast bars).

@@ -1,4 +1,4 @@
-# HogUI Atlas: item stats, scoring, the upgrade finder, sets and the wishlist (the Sixty Upgrades part).
+# HogTron UI Atlas: item stats, scoring, the upgrade finder, sets and the wishlist (the Sixty Upgrades part).
 import pytest
 
 from atlas_helpers import boot, errors, vals

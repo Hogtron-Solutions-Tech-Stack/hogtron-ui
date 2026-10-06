@@ -166,9 +166,9 @@ HH.defaults = {
       pacing = { enabled = true, targetLength = 300, amber = 60, red = 20, showProjection = true },
       advisor = { enabled = true, margin = 0.9, onFrame = false, spells = {} },
     },
-    bars = {   -- HogUI Bars: own action bars on LibActionButton (docs/superpowers/specs/2026-10-02-hogui-bars-design.md)
+    bars = {   -- HogTron UI Bars: own action bars on LibActionButton (docs/superpowers/specs/2026-10-02-hogui-bars-design.md)
       enabled = true, grid = true, hotkeySize = 10, hideNames = true, cooldownNumbers = true,
-      -- the HogUI stack: bars 1-3 bottom centre, 4-5 vertical on the right edge, 6-8 off. ["**"] = every bar's defaults.
+      -- the HogTron UI stack: bars 1-3 bottom centre, 4-5 vertical on the right edge, 6-8 off. ["**"] = every bar's defaults.
       list = {
         ["**"] = { enabled = true, buttons = 12, perRow = 12, padding = 2, scale = 1, alpha = 1, point = "BOTTOM", x = 0, y = 60,
           fade = false, fadeAlpha = 0.25, fadeDelay = 0.5, visibility = "always", custom = "", clickThrough = false, grid = nil },
@@ -188,7 +188,7 @@ HH.defaults = {
       -- map went black); the tabard designer needs its art
       panels = { enabled = true, alpha = 0.9, titleSize = 13, skip = { WorldMapFrame = true, TaxiFrame = true, TabardFrame = true } },
       auto = { sellJunk = true, repair = true, guildRepair = false },
-      micro = { enabled = true, scale = 1, strip = true, size = 30, tint = true, tintStrength = 0.6 },   -- strip: HogUI glyph buttons instead of Blizzard's art; point/x/y once dragged; tint = colour per glyph
+      micro = { enabled = true, scale = 1, strip = true, size = 30, tint = true, tintStrength = 0.6 },   -- strip: HogTron UI glyph buttons instead of Blizzard's art; point/x/y once dragged; tint = colour per glyph
       bagBar = { enabled = true, mode = "button", scale = 1.2 },   -- mode: button = one Bags cell in the menu bar (slots hidden) | slots = Blizzard's slots flattened; scale for slots
       bags = { enabled = true, qualityMin = 2, fontSize = 12, backgroundAlpha = 0.85 },
       tooltips = { enabled = true, alpha = 0.9, fontSize = nil, anchorCursor = false },
@@ -200,6 +200,6 @@ HH.defaults = {
   },
 }
 
--- Solo frame off by default since 2026-09-23: HogUI Units draws the player and pet frames; the healer frames are
+-- Solo frame off by default since 2026-09-23: HogTron UI Units draws the player and pet frames; the healer frames are
 -- for party / raid. (Sean: "turn off the HogHeals solo frames".)
 HH.defaults.profile.frames.layouts.solo.showSolo = false

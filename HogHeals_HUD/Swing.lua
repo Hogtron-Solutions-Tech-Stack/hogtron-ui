@@ -1,4 +1,4 @@
--- Swing timer: one flat HogUI bar for the player's auto-attack (main hand, or Auto Shot / wand when that is what
+-- Swing timer: one flat HogTron UI bar for the player's auto-attack (main hand, or Auto Shot / wand when that is what
 -- you are doing), right under the cast bar. On / off in the HUD options (Sean 2026-10-01).
 --
 -- Where the swings come from - a ladder, best source wins, every rung is recorded for /hh swingdiag:

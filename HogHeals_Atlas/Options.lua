@@ -1,4 +1,4 @@
--- Options tab for Atlas (AceConfig-style table, drawn by the HogUI options window).
+-- Options tab for Atlas (AceConfig-style table, drawn by the HogTron UI options window).
 local A = HogHealsAtlas
 
 local Options = {}

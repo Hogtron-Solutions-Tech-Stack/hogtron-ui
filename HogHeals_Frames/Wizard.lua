@@ -7,7 +7,7 @@ local Wizard = {}
 HHF.Wizard = Wizard
 
 local STEPS = { "class", "layout", "bindings", "gear", "done" }
--- gear: what HogUI Atlas scores items for. "auto" follows the class (priest / shaman / druid / paladin = healer, mage /
+-- gear: what HogTron UI Atlas scores items for. "auto" follows the class (priest / shaman / druid / paladin = healer, mage /
 -- warlock = caster, warrior / rogue = melee, hunter = ranged); Sean 2026-10-01: "default to auto, make it part of setup".
 Wizard.GEAR_ROLES = { auto = "Auto - by my class (recommended)", healer = "Healer", caster = "Caster", melee = "Melee", ranged = "Ranged", tank = "Tank" }
 

@@ -1,4 +1,4 @@
-# HogUI Atlas: the on-screen dungeon tracker and drop sharing with party / guild.
+# HogTron UI Atlas: the on-screen dungeon tracker and drop sharing with party / guild.
 import pytest
 
 from atlas_helpers import boot, errors, vals
@@ -294,7 +294,7 @@ def test_launcher_tooltip_names_dungeons_for_your_level_and_bag_upgrades(atlas):
     atlas.execute("WORN[1] = 1002; BAGS = { 1001, 1011 }")
     lines = [list(l.values()) for l in vals(atlas.eval(f"{L}.Lines()"))]
     texts = [l[0] for l in lines]
-    assert texts[0] == "HogUI Atlas" and texts[1] == "For level 20:"
+    assert texts[0] == "HogTron UI Atlas" and texts[1] == "For level 20:"
     assert "  The Deadmines  17-26  (other side)" in texts and "  Wailing Caverns  17-24" in texts
     assert not any("bags" in t for t in texts)                                      # the cowl needs level 25: not an upgrade yet
     assert not any("Scholomance" in t for t in texts)

@@ -1,4 +1,4 @@
-# HogUI Atlas: the Store (what is remembered) and Capture (how a drop finds its boss), plus the journal reader.
+# HogTron UI Atlas: the Store (what is remembered) and Capture (how a drop finds its boss), plus the journal reader.
 import pytest
 
 from atlas_helpers import boot, errors, vals

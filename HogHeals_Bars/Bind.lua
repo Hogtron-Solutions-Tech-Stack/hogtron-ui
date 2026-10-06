@@ -139,7 +139,7 @@ end
 
 function Bind.Start()
   if type(InCombatLockdown) == "function" and InCombatLockdown() then HH:Print("Key bindings: not in combat.") return false end
-  if HHB.Bars.unavailable or not next(HHB.Bars.bars) then HH:Print("Key bindings: HogUI Bars are off.") return false end
+  if HHB.Bars.unavailable or not next(HHB.Bars.bars) then HH:Print("Key bindings: HogTron UI Bars are off.") return false end
   Bind.active = true
   local n = 0
   for _, bar in pairs(HHB.Bars.bars) do
@@ -171,4 +171,4 @@ function Bind.Toggle()
   return Bind.Start()
 end
 
-HH:RegisterSlash("bind", function() Bind.Toggle() end, "key bindings: hover a slot on the HogUI bars and press a key (Esc clears)")
+HH:RegisterSlash("bind", function() Bind.Toggle() end, "key bindings: hover a slot on the HogTron UI bars and press a key (Esc clears)")

@@ -1,4 +1,4 @@
-# HogUI Atlas: the window, the dungeon quest tracker, the tooltip line, slash commands, options.
+# HogTron UI Atlas: the window, the dungeon quest tracker, the tooltip line, slash commands, options.
 import pytest
 
 from atlas_helpers import boot, errors, vals
@@ -439,7 +439,7 @@ def test_dungeon_items_lists_each_item_once(atlas):
 def test_the_quest_log_is_read_once_per_repaint_not_once_per_dungeon(lua):
     boot(lua, quests=True, extra=LOG)
     lua.execute("HogHealsQuests.Data.List = FakeLog")
-    reads = lambda: lua.eval(f"{DQ}.reads or 0")                                   # Atlas's own reads (HogUI Quests reads too)
+    reads = lambda: lua.eval(f"{DQ}.reads or 0")                                   # Atlas's own reads (HogTron UI Quests reads too)
     before = reads()
     lua.execute('HogHeals:SlashCommand("atlas")')
     assert lua.eval(f"#{W}.lists.dungeons.data") >= 28

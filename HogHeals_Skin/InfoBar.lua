@@ -1,4 +1,4 @@
--- Info bar: a slim HogUI strip of "datatexts" (ElvUI's word) - gold, durability, bag space, fps, latency, clock,
+-- Info bar: a slim HogTron UI strip of "datatexts" (ElvUI's word) - gold, durability, bag space, fps, latency, clock,
 -- coordinates, friends, guild, experience. Each slot is a click target (bags open the bags, gold too, durability
 -- the character sheet, clock the calendar, friends / guild their frames, coordinates the map).
 local HHS = HogHealsSkin

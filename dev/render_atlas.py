@@ -1,4 +1,4 @@
-"""Render PREVIEWS of the HogUI Atlas window to docs/mockups/atlas-<tab>.png.
+"""Render PREVIEWS of the HogTron UI Atlas window to docs/mockups/atlas-<tab>.png.
 
 Not screenshots of WoW. The real addon code runs in the test harness (lupa + tests/wow_mock.lua) with sample
 items, a sample quest log and sample drops; this script walks the frames the code built, reads back what the code

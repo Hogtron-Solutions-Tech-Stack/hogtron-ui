@@ -43,7 +43,7 @@ HH.ns = ns
 
 -- Chat prefix: the umbrella brand. (AceConsole would print "HogHeals:"; the addon object keeps that internal name
 -- because SavedVariables, junctions and every module namespace key off it.)
-HH.BRAND = "|cffF5EBDCHog|r|cff21D4E0UI|r"
+HH.BRAND = "|cffF5EBDCHog|r|cff21D4E0Tron UI|r"   -- two-tone wordmark: Hog cream, Tron cyan (brand rule)
 function HH:Print(...)
   local n = select("#", ...)
   local parts = {}

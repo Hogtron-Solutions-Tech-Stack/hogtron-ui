@@ -1,4 +1,4 @@
-# Addon-button drawer (HogHeals_Quests/Buttons.lua): every addon's minimap icon gathered under one HogUI button.
+# Addon-button drawer (HogHeals_Quests/Buttons.lua): every addon's minimap icon gathered under one HogTron UI button.
 # Blizzard's buttons are left alone; owners that move their button back are caught; turning it off hands them back.
 import pytest
 
@@ -148,7 +148,7 @@ def test_click_slash_hover_and_close_on_mouse_out(lua):
     lua.execute('HogHeals:SlashCommand("buttons")')
     assert lua.eval('HogHealsMinimapDrawer:IsShown()') is False
     lua.execute('HogHeals:SlashCommand("buttons list")')              # prints, no error
-    # right-click opens the HogUI options window
+    # right-click opens the HogTron UI options window
     lua.execute('HogHealsMinimapButtons:GetScript("OnClick")(HogHealsMinimapButtons, "RightButton")')
     # hover-open is an opt-in
     lua.execute('HogHealsMinimapButtons:GetScript("OnEnter")(HogHealsMinimapButtons)')

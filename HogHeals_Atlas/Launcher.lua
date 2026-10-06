@@ -1,7 +1,7 @@
 -- Launcher: a minimap button (and an entry for any LibDataBroker display) so Atlas opens without a slash command.
 --   left-click   the window        right-click   gear upgrades        shift-click   the dungeon tracker
 -- The tooltip answers the two questions you have at a glance: which dungeons are for my level, and is anything in
--- my bags better than what I wear. Uses the libraries the HogUI core already carries; without them, no button.
+-- my bags better than what I wear. Uses the libraries the HogTron UI core already carries; without them, no button.
 local A = HogHealsAtlas
 local HH = HogHeals
 
@@ -13,7 +13,7 @@ function Launcher.Lines()
   local out = {}
   local C = A.COLORS
   local function add(text, c) out[#out + 1] = { text, c[1], c[2], c[3] } end
-  add("HogUI Atlas", C.cream)
+  add("HogTron UI Atlas", C.cream)
   local L = A.playerLevel()
   local mine = A.Levels.List(L, true)
   local faction = A.playerFaction()
@@ -48,7 +48,7 @@ function Launcher.Start()
   local LDB = LibStub and LibStub("LibDataBroker-1.1", true)
   if not LDB then Launcher.why = "no LibDataBroker" return false end
   local ok, obj = pcall(LDB.NewDataObject, LDB, Launcher.NAME, {
-    type = "launcher", text = "Atlas", label = "HogUI Atlas", icon = "Interface\\Icons\\INV_Misc_Map_01",
+    type = "launcher", text = "Atlas", label = "HogTron UI Atlas", icon = "Interface\\Icons\\INV_Misc_Map_01",
     OnClick = function(_, button)
       local good, err = pcall(Launcher.Click, button)
       if not good then HH:LogError("atlas launcher: " .. tostring(err)) end

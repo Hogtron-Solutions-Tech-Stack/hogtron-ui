@@ -1,5 +1,5 @@
 -- Addon buttons: every third-party minimap icon (LibDBIcon ones and the old hand-named kind) gathered into one ink
--- drawer beside the minimap, opened from a single small HogUI "H" button (Sean 2026-10-01: left of the map, opening
+-- drawer beside the minimap, opened from a single small HogTron UI "H" button (Sean 2026-10-01: left of the map, opening
 -- toward the middle of the screen, a colour-themed H for a logo). Blizzard's own buttons (tracking, mail,
 -- clock, LFG eye) are never touched: MapSkin docks the ones that sat on the map, and they keep handling their own
 -- secrets (LANDMINE 2026-09-26: adopting a Blizzard frame taints it).
@@ -160,7 +160,7 @@ local function build()
           GameTooltip:AddLine("  " .. Drawer.Label(c), CREAM[1], CREAM[2], CREAM[3])
         end
       end
-      GameTooltip:AddLine("Left: open / close.  Right: HogUI options.", GREY[1], GREY[2], GREY[3])
+      GameTooltip:AddLine("Left: open / close.  Right: HogTron UI options.", GREY[1], GREY[2], GREY[3])
       GameTooltip:Show()
     end
   end)

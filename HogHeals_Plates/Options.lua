@@ -66,7 +66,7 @@ function Options.Build()
       } },
       castbar = { type = "group", name = "Cast bar", order = 1.5, args = {
         about = { type = "description", order = 0, name = "Our own cast bar under the plate, the HUD look: flat fill, ink backing, spell icon, name, time left; grey while the cast cannot be interrupted. Blizzard's bar goes quiet." },
-        enabled = toggle(p, "castbar", "HogUI cast bar under the plate", 1),
+        enabled = toggle(p, "castbar", "HogTron UI cast bar under the plate", 1),
         height = range(sub("cast"), "height", "Height", 2, 6, 24, 1),
         icon = toggle(sub("cast"), "icon", "Spell icon", 3),
         time = toggle(sub("cast"), "time", "Time left", 4),

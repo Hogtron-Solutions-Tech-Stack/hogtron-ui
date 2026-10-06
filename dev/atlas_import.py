@@ -1,4 +1,4 @@
-"""Fill HogUI Atlas's curated loot file (HogHeals_Atlas/Data/Loot.lua) from a CSV of VERIFIED drops.
+"""Fill HogTron UI Atlas's curated loot file (HogHeals_Atlas/Data/Loot.lua) from a CSV of VERIFIED drops.
 
     python dev/atlas_import.py drops.csv                 # dry run: says what it would write, writes nothing
     python dev/atlas_import.py drops.csv --write         # writes Data/Loot.lua

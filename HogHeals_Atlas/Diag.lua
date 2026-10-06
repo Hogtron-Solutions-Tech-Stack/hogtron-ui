@@ -88,7 +88,7 @@ function Diag.Write(reason)
     levelsFromGame = A.Levels.found or 0,
     role = A.Stats.Role(),
     itemProbe = ok and probe or ("probe failed: " .. tostring(probe)),
-    questLog = (rawget(_G, "HogHealsQuests") and "HogUI Quests loaded") or "HogUI Quests not loaded",
+    questLog = (rawget(_G, "HogHealsQuests") and "HogTron UI Quests loaded") or "HogTron UI Quests not loaded",
   }
   g.diag.atlasState = state
   return state

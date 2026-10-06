@@ -23,8 +23,8 @@ Options.toggle, Options.range = toggle, range
 
 function Options.Build()
   local args = {
-    about = { type = "description", order = 0, name = "Your own action bars (Bartender-style) in the HogUI look: Blizzard's bars are hidden, every spell stays in its slot and every keybind keeps working. Each bar has its own layout, grid and visibility. /hh unlock to drag the bars, /hh bind to bind keys by hovering a slot." },
-    enabled = toggle(root, "enabled", "HogUI Bars on (needs a /reload when turned off)", 1, nil, "full"),
+    about = { type = "description", order = 0, name = "Your own action bars (Bartender-style) in the HogTron UI look: Blizzard's bars are hidden, every spell stays in its slot and every keybind keeps working. Each bar has its own layout, grid and visibility. /hh unlock to drag the bars, /hh bind to bind keys by hovering a slot." },
+    enabled = toggle(root, "enabled", "HogTron UI Bars on (needs a /reload when turned off)", 1, nil, "full"),
     grid = toggle(root, "grid", "Always show empty slots (grid)", 2, nil, "full"),
     hotkeySize = range(root, "hotkeySize", "Keybind text size", 3, 7, 16, 1, 10),
     hideNames = toggle(root, "hideNames", "Hide macro names on buttons", 4),

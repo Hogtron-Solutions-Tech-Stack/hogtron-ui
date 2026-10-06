@@ -1,4 +1,4 @@
-"""Shared mocks for the HogUI Atlas tests: an item database the way the Forever client serves it (C_Item only, no
+"""Shared mocks for the HogTron UI Atlas tests: an item database the way the Forever client serves it (C_Item only, no
 global GetItemInfo), tooltip lines, an instance, a loot window, the quest log."""
 
 CLIENT = r'''

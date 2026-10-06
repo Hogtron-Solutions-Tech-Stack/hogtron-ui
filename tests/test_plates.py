@@ -290,7 +290,7 @@ def test_quest_badge_falls_back_to_drawn_square_when_art_is_refused(lua):
 
 
 def test_plate_cast_bar_is_ours_blizzards_goes_quiet(plates):
-    # 2026-10-03: the HogUI bar (Castbar.lua) replaces the old re-skin; Blizzard's bar only loses its alpha
+    # 2026-10-03: the HogTron UI bar (Castbar.lua) replaces the old re-skin; Blizzard's bar only loses its alpha
     plates.execute("""
       local p = MockPlate("nameplate8", { name = "Caster", class = "MAGE", health = 5, maxHealth = 5, guid = "C-80" })
       p.UnitFrame.castBar = CreateFrame("StatusBar", nil, p.UnitFrame)

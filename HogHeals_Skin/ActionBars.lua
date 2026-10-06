@@ -59,7 +59,7 @@ end
 function Part.Apply()
   local d = Skin.cfg().actionBars
   if not d or d.enabled == false then return end
-  -- HogUI Bars (own bars, Blizzard's hidden) makes restyling Blizzard's buttons pointless
+  -- HogTron UI Bars (own bars, Blizzard's hidden) makes restyling Blizzard's buttons pointless
   local bars = rawget(_G, "HogHealsBars")
   if bars and bars.Bars and not bars.Bars.unavailable and HH.db.profile.bars and HH.db.profile.bars.enabled ~= false then Part.yielded = true return end
   Part.yielded = false

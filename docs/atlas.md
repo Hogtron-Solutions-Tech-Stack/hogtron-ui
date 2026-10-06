@@ -1,4 +1,4 @@
-# HogUI Atlas
+# HogTron UI Atlas
 
 Dungeon guide for WoW: Forever, inside the game: what each dungeon is for, who is in it, what they drop, which
 quests send you there, and which of those drops are better than what you wear.
@@ -61,7 +61,7 @@ drop in Atlas carries its source:
 | Badge | Meaning |
 |---|---|
 | `seen` | you or your group saw it drop |
-| `group` | another HogUI player saw it and shared it |
+| `group` | another HogTron UI player saw it and shared it |
 | `journal` | read from the game's own dungeon journal |
 | `reported` | the curated file shipped with the addon (empty until drops are verified) |
 

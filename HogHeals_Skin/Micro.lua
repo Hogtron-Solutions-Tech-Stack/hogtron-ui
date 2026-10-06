@@ -60,7 +60,7 @@ local function strip(key, frames, pad)
   return s
 end
 
--- ------------------------------------------------------------------------------------------------ HogUI micro bar
+-- ------------------------------------------------------------------------------------------------ HogTron UI micro bar
 -- Blizzard's menu buttons are one atlas each - the gold frame is baked into the picture, there is nothing to strip
 -- (Sean 2026-10-01: "needs to be customized to fit the UI"). So they go invisible and a row of ink letter buttons
 -- stands in. Every letter is a SecureActionButton with type="click" / clickbutton=<the real button>: the client

@@ -4,7 +4,7 @@
 -- Two sources, merged by title:
 --   your quest log   every quest the game files under the dungeon (log header = the dungeon's name) - always right
 --   the shipped list titles from the old game (Data/Quests.lua) - a reminder of what exists, not verified on Forever
--- The quest log is read through HogUI Quests when that addon is loaded; without it the shipped list still shows,
+-- The quest log is read through HogTron UI Quests when that addon is loaded; without it the shipped list still shows,
 -- without progress.
 local A = HogHealsAtlas
 

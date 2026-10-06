@@ -1,4 +1,4 @@
--- Module: registers Atlas with the HogUI core, starts the pieces, owns the slash commands. Loads last.
+-- Module: registers Atlas with the HogTron UI core, starts the pieces, owns the slash commands. Loads last.
 local A = HogHealsAtlas
 local HH = HogHeals
 

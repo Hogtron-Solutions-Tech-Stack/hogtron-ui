@@ -175,7 +175,7 @@ function Window.QuestRows()
   end
   if not haveLog then
     rows[#rows + 1] = { text = "" }
-    rows[#rows + 1] = { text = "Turn on HogUI Quests to see your progress here.", color = C.grey }
+    rows[#rows + 1] = { text = "Turn on HogTron UI Quests to see your progress here.", color = C.grey }
   end
   return rows
 end

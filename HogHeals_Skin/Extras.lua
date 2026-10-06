@@ -1,5 +1,5 @@
 -- Extras: the player's buff / debuff icons (top right), the experience / reputation bar and the mirror timers
--- (breath, fatigue, feign death), flattened into the HogUI look. Classic-era names and the modern frames are both
+-- (breath, fatigue, feign death), flattened into the HogTron UI look. Classic-era names and the modern frames are both
 -- handled; a client with neither loses nothing.
 local HHS = HogHealsSkin
 local Skin = HHS.Skin

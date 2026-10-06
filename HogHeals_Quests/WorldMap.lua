@@ -1,4 +1,4 @@
--- World map (M) in the HogUI look: coordinates strip (you + cursor), map scale, fade while moving, border art off.
+-- World map (M) in the HogTron UI look: coordinates strip (you + cursor), map scale, fade while moving, border art off.
 --
 -- Sean 2026-09-23: "Leatrix Maps ... shows the terrain much more in-depth ... integrate that or something similar."
 -- What Leatrix does that we can: coordinates, scale, fade, art removal, unlock. What it does that we can NOT:

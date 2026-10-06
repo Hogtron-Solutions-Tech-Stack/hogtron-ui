@@ -323,7 +323,7 @@ function HoverBind.Init()
   elseif not existing then
     HH:RegisterSlash("bind", function(rest)
       if wantsHeals(rest) then HoverBind.Toggle()
-      else HH:Print("/hh bind heals = hover-heal keys (hover a spell, press a key). Action-bar key binding needs HogUI Bars.") end
+      else HH:Print("/hh bind heals = hover-heal keys (hover a spell, press a key). Action-bar key binding needs HogTron UI Bars.") end
     end, "heals: hover-heal keys (hover a spell, press a key)")
     HH.slash.bind.hhHover = true
   end

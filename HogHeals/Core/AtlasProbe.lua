@@ -1,4 +1,4 @@
--- AtlasProbe: what does this client offer a dungeon loot guide? Measured, not assumed, before HogUI Atlas is built.
+-- AtlasProbe: what does this client offer a dungeon loot guide? Measured, not assumed, before HogTron UI Atlas is built.
 --
 -- At login it writes HogHealsDB.global.diag.atlas: API presence (Group Finder, Encounter Journal, loot, item,
 -- addon-message, tooltip functions), every Group Finder activity with its level range, instance info, and whether

@@ -1,6 +1,6 @@
--- HogUI Bars: our own action bars on LibActionButton-1.0 (the engine Bartender / ElvUI run on), Blizzard's hidden.
+-- HogTron UI Bars: our own action bars on LibActionButton-1.0 (the engine Bartender / ElvUI run on), Blizzard's hidden.
 --
--- Sean 2026-10-02: "make the action bars section of HogUI a separate thing, kind of like Bartender: always show
+-- Sean 2026-10-02: "make the action bars section of HogTron UI a separate thing, kind of like Bartender: always show
 -- the slots, turn them on and off, quick binding (click a button, hover a slot, hit the key)".
 -- Design: docs/superpowers/specs/2026-10-02-hogui-bars-design.md. This file: the bars (frames, slot mapping,
 -- paging, layout, the flat look, the Blizzard hide, dragging); bind mode lives in Bind.lua.
@@ -66,7 +66,7 @@ function Bars.PageDriver()
 end
 
 -- ------------------------------------------------------------------------------------------------ the look
---- The HogUI cell on a lib button: Blizzard's slot art off, ink backdrop + 1 px outline, trimmed icon. The
+--- The HogTron UI cell on a lib button: Blizzard's slot art off, ink backdrop + 1 px outline, trimmed icon. The
 -- backdrop and outline double as the grid: shown for an empty slot only when the grid is on.
 function Bars.Dress(b)
   if b.hh then return b.hh end
@@ -417,7 +417,7 @@ function Module:OnEnable()
   local d = cfg()
   if not d or d.enabled == false then return end
   if not Bars.Lib() then
-    HH:LogError("bars: LibActionButton-1.0 did not load on this client; HogUI Bars stay off")
+    HH:LogError("bars: LibActionButton-1.0 did not load on this client; HogTron UI Bars stay off")
     Bars.unavailable = true
     return
   end
@@ -451,4 +451,4 @@ HH:RegisterSlash("barsdiag", function()
   for n = 1, 8 do local b = Bars.bars[n] if b and b.describe then HH:Print("  " .. b.describe()) end end
   local g = HH.db and HH.db.global
   if g then g.diag = g.diag or {} g.diag.bars = { found = table.concat(f, ","), missing = table.concat(m, ","), built = Bars.built, hidden = Bars.hidden, driver = Bars.bars[1] and Bars.bars[1].driver } end
-end, "what HogUI Bars found on this client (bars, slots, Blizzard pieces)")
+end, "what HogTron UI Bars found on this client (bars, slots, Blizzard pieces)")

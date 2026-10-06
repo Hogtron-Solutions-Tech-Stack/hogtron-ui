@@ -1,4 +1,4 @@
-# HogUI Atlas: the shipped dungeon / quest lists hold together, and level colours fall on the right side of each
+# HogTron UI Atlas: the shipped dungeon / quest lists hold together, and level colours fall on the right side of each
 # boundary.
 import pytest
 

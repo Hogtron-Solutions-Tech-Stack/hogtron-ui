@@ -1,5 +1,5 @@
 -- Blizzard's windows (character sheet, spellbook, quest log, escape menu, vendor, mail, trade, bank, ...) in the
--- HogUI panel: their art, portrait and border switched off, an ink panel with a 1 px outline behind them, the title
+-- HogTron UI panel: their art, portrait and border switched off, an ink panel with a 1 px outline behind them, the title
 -- in our font, a flat close button. Styled when first shown (many are load-on-demand), caught through OnShow, the
 -- ShowUIPanel hook and Blizzard_* addon loads. Each window can be excluded in the options.
 local HHS = HogHealsSkin

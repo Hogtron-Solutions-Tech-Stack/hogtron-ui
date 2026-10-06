@@ -1,4 +1,4 @@
--- HogUI Atlas: dungeon guide for WoW: Forever. Namespace, settings, and the small helpers every file shares.
+-- HogTron UI Atlas: dungeon guide for WoW: Forever. Namespace, settings, and the small helpers every file shares.
 --
 -- Why this addon reads the game instead of shipping a database: Forever changed the old loot tables, added
 -- dungeons, and encrypts item data, so no ready-made table exists. Loot here comes from three places, each marked:
