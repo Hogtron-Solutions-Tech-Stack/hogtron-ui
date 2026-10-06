@@ -123,6 +123,7 @@ HH.defaults = {
       worldMap = { enabled = true, coords = false, scale = 1.0, fadeWhileMoving = true, skin = false, alpha = 0.95 },
       buttons = { enabled = true, side = "left", columns = 4, size = 28, alpha = 0.92, hover = false, autoClose = true },   -- addon minimap icons in one drawer; side: left (opens toward the screen) | right (opens down); point/x/y once dragged
     },
+    training = { enabled = true, nudge = true },   -- HogHeals_Training: learned at the trainer; nudge = chat line on level-up
     chat = {
       enabled = true, backgroundAlpha = 0.6, fontSize = nil, outline = false,   -- fontSize nil = keep Blizzard's size
       shortChannels = true, classNames = true, fade = true, hideButtons = true, hideMenuButtons = false, urlCopy = true,
