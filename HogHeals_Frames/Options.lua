@@ -73,7 +73,11 @@ local function layoutGroup()
       },
       lock = { type = "execute", name = function() return HH.db.profile.locked and "Unlock (drag anchor)" or "Lock" end, order = 10,
         func = function() HH:SetLocked(not HH.db.profile.locked) end },
-      test = { type = "execute", name = "Test mode (10 units)", order = 11, func = function() HHF.TestMode.Start(10) end },
+      testHeader = { type = "header", name = "Test mode: fake units with health, DoTs, buffs, dispels, range", order = 10.5 },
+      test5 = { type = "execute", name = "Test 5 (party)", order = 11, func = function() HHF.TestMode.Start(5) end },
+      test = { type = "execute", name = "Test 10 (raid)", order = 11.1, func = function() HHF.TestMode.Start(10) end },
+      test25 = { type = "execute", name = "Test 25", order = 11.2, func = function() HHF.TestMode.Start(25) end },
+      test40 = { type = "execute", name = "Test 40", order = 11.3, func = function() HHF.TestMode.Start(40) end },
       testOff = { type = "execute", name = "Test mode off", order = 12, func = function() HHF.TestMode.Stop() end },
     },
   }

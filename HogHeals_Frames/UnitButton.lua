@@ -271,6 +271,7 @@ end
 function UnitButton.OnEvent(button, event, arg1)
   local unit = button.unit
   if not unit then return end
+  if button.hhFake and HHF.TestMode and HHF.TestMode.PaintFake(button) then return end
   if event:sub(1, 5) == "UNIT_" and arg1 and arg1 ~= unit then return end
   for _, name in ipairs(HHF.ElementOrder) do
     local el = HHF.Elements[name]
@@ -284,6 +285,8 @@ end
 function UnitButton.UpdateAll(button)
   local unit = button.unit
   if not unit then return end
+  -- a fake test-mode cell has no unit API behind it: painted from its fake table, never by the elements
+  if button.hhFake and HHF.TestMode and HHF.TestMode.PaintFake(button) then return end
   for _, name in ipairs(HHF.ElementOrder) do
     local el = HHF.Elements[name]
     if elementEnabled(name) then
@@ -338,7 +341,7 @@ function UnitButton.StartTickers()
       tickers[name] = C_Timer.NewTicker(el.Ticker, function()
         if not elementEnabled(name) then return end
         for _, button in ipairs(buttons) do
-          if button.unit and button:IsShown() then
+          if button.unit and button:IsShown() and not (button.hhFake and not MockUnits) then
             local ok, err = pcall(el.Update, button, button.unit)
             if not ok then HH:LogError(name .. ": " .. tostring(err)) end
           end
