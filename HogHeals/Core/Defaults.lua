@@ -106,6 +106,9 @@ HH.defaults = {
       enabled = true,                 -- restyle Blizzard's nameplates (flat bar, outline, health text)
       font = "Friz Quadrata TT", fontSize = 10, healthText = "percent",   -- "percent" | "value" | "none"
       border = true, classColors = true, reactionColors = true, castbar = true,
+      -- DoesItDie.lua: skull when my DoT outlives the mob, red X pulsing when it ends first within reapplyAt seconds;
+      -- margin = how clearly the mob must die first (0.1 = 10%); target = the same mark on the target frame
+      die = { enabled = true, reapplyAt = 3, margin = 0.1, size = 18, gap = 4, showTime = true, target = true, tick = 0.5 },
       nameClass = "friendly",         -- player names on plates in class colour: "friendly" | "all" | "none"
       friendlyNameOnly = true,        -- friendly plates: just the name, no health bar
       friendlyNameSize = 14,          -- text size of that name (the overhead name is about this)

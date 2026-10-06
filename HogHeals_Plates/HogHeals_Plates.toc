@@ -9,4 +9,5 @@
 
 QuestMobs.lua
 Plates.lua
+DoesItDie.lua
 Options.lua
