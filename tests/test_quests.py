@@ -223,6 +223,7 @@ def test_tracker_fills_down_to_the_screen_bottom_and_the_wheel_scrolls(modern):
       for i = 1, 30 do QL[#QL + 1] = { title = "Q" .. i, questID = 100 + i, level = 5 } QObj[100 + i] = { { text = "Thing: 0/5" }, { text = "Other: 0/5" } } end
       local d = HogHeals.db.profile.quests.tracker
       d.mode, d.fontSize = "all", 13
+      if HogHeals.db.profile.quests.go then HogHeals.db.profile.quests.go.enabled = false end   -- the GO row (Go.lua) would take two lines
       HogHealsQuestTracker.GetTop = function() return 900 end     -- panel top 900 px above the screen's bottom edge
       HogHealsQuests.Tracker.Update()
     ''')
