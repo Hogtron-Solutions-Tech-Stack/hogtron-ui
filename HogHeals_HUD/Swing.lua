@@ -74,6 +74,7 @@ local function paint(label)
   b.text:SetText(c.text ~= false and (label or "") or "")
   b:SetMinMaxValues(0, 1)
   b:SetValue(0)
+  if b.spark then b.spark:SetShown(c.spark ~= false) end
   if b.enabled ~= false then b:Show() end
   b:SetScript("OnUpdate", function(self) Swing.OnUpdate(self) end)
   Swing.OnUpdate(b)
@@ -102,6 +103,7 @@ function Swing.Stop()
   local b = bar()
   if not b then return end
   b:SetScript("OnUpdate", nil)
+  if b.spark then b.spark:Hide() end
   if cfg().hideWhenIdle ~= false then b:Hide() else b:SetValue(0) b.time:SetText("") end
 end
 
@@ -111,6 +113,10 @@ function Swing.OnUpdate(b)
   local now = GetTime()
   local p = Swing.Progress(s, now)
   b:SetValue(p)
+  if b.spark and b.spark:IsShown() then
+    local w = b:GetWidth()
+    if type(w) == "number" and not HH.IsSecret(w) then b.spark:SetPoint("CENTER", b, "LEFT", p * w, 0) end
+  end
   local remaining = math.max(0, s.start + s.period - now)
   local places = cfg().precision or 1
   b.time:SetText(cfg().text ~= false and (("%." .. places .. "f"):format(remaining)) or "")

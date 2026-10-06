@@ -120,3 +120,46 @@ def test_off_switch_hides_the_row_and_ignores_events(sw):
     args = sw.eval('HogHeals.OptionsTable().args.HUD.args.swing.args')
     assert args["enabled"]["name"] == "Swing timer on" and args["color"]["type"] == "color"
     assert errors(sw) == []
+
+
+# ---------------------------------------------------------------- 2026-10-05: bigger, wider, cleaner
+def test_bar_is_taller_by_default_with_outline_sheen_and_spark(sw):
+    assert sw.eval("HogHeals.db.profile.hud.swingHeight") == 16
+    assert sw.eval("#HH_sw.outline") == 4 and sw.eval("HH_sw.outline[1]:IsShown()") is True
+    assert sw.eval("HH_sw.sheen ~= nil and HH_sw.spark ~= nil")
+    assert sw.eval("HH_sw.spark:IsShown()") is False                       # idle: no spark
+    # the label is one step larger than the strip's font
+    size = sw.eval("HogHeals.db.profile.hud.fontSize")
+    assert sw.eval("HH_sw.text._last.SetFont[2]") == size + 1
+    sw.execute("HogHeals.db.profile.hud.swing.fontSize = 20; HogHealsHUD.HUD.Refresh()")
+    assert sw.eval("HH_sw.text._last.SetFont[2]") == 20
+    sw.execute("HogHeals.db.profile.hud.swing.outline = false; HogHealsHUD.HUD.Refresh()")
+    assert sw.eval("HH_sw.outline[1]:IsShown()") is False
+
+
+def test_spark_rides_the_head_of_the_fill(sw):
+    sw.execute("HogHealsHUD.Swing.Start('melee', 'toggle', 100)")
+    assert sw.eval("HH_sw.spark:IsShown()") is True
+    w = sw.eval("HH_sw:GetWidth()")
+    sw.execute("MockState.time = 101.3; HogHealsHUD.Swing.OnUpdate(HH_sw)")      # half of a 2.6 s swing
+    pt = sw.eval("HH_sw.spark._points[1]")
+    assert pt[1] == "CENTER" and pt[3] == "LEFT" and pt[4] == pytest.approx(0.5 * w, abs=0.5)
+    sw.execute("HogHealsHUD.Swing.Stop()")
+    assert sw.eval("HH_sw.spark:IsShown()") is False
+    sw.execute("HogHeals.db.profile.hud.swing.spark = false; HogHealsHUD.Swing.Start('melee', 'toggle', 100)")
+    assert sw.eval("HH_sw.spark:IsShown()") is False
+    assert errors(sw) == []
+
+
+def test_own_width_centres_the_bar_on_the_strip(sw):
+    strip = sw.eval("HogHeals.db.profile.hud.width")
+    assert sw.eval("HH_sw._width") == strip and sw.eval("HH_sw._points[1][1]") == "TOPLEFT"
+    sw.execute("HogHeals.db.profile.hud.swing.width = 480; HogHealsHUD.HUD.Refresh()")
+    assert sw.eval("HH_sw._width") == 480
+    pt = sw.eval("HH_sw._points[1]")
+    assert pt[1] == "TOP" and pt[3] == "TOP" and pt[4] == 0
+    # the rows under it still stack at the strip width
+    assert sw.eval("HogHealsHUD.HUD.rows.mana._width") == strip
+    sw.execute("HogHeals.db.profile.hud.swing.width = 0; HogHealsHUD.HUD.Refresh()")
+    assert sw.eval("HH_sw._width") == strip and sw.eval("HH_sw._points[1][1]") == "TOPLEFT"
+    assert errors(sw) == []

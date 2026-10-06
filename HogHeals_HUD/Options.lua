@@ -88,6 +88,14 @@ local function swingGroup()
     hideWhenIdle = toggle(s, "hideWhenIdle", "Hide when not attacking", 3),
     precision = range(s, "precision", "Time decimals", 4, 0, 2, 1),
     color = colour(s, "color", "Bar colour", 5),
+    sizeHeader = { type = "header", name = "Size and look", order = 6 },
+    height = range(hud, "swingHeight", "Height", 6.1, 4, 40, 1),
+    width = { type = "range", name = "Width (0 = as wide as the strip)", order = 6.2, min = 0, max = 800, step = 2,
+      get = function() return s().width or 0 end, set = function(_, v) s().width = v; refresh() end },
+    fontSize = { type = "range", name = "Font size (0 = strip font, one step larger)", order = 6.3, min = 0, max = 30, step = 1,
+      get = function() return s().fontSize or 0 end, set = function(_, v) s().fontSize = v; refresh() end },
+    spark = toggle(s, "spark", "Spark on the head of the fill", 6.4),
+    outline = toggle(s, "outline", "1 px outline", 6.5),
     diag = { type = "execute", name = "Print swing source to chat", order = 9, func = function() HH:SlashCommand("swingdiag") end },
   } }
 end

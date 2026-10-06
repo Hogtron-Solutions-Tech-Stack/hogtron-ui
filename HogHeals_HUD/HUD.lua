@@ -86,6 +86,34 @@ function HUD.Create()
   swing.text:SetPoint("LEFT", swing, "LEFT", 4, 0)
   swing.time = swing:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   swing.time:SetPoint("RIGHT", swing, "RIGHT", -4, 0)
+  -- 2026-10-05: bigger and cleaner - a 1 px ink outline, a soft sheen on the top half, a bright spark on the head of
+  -- the fill (Swing.lua moves it). Flat colour, so it is crisp at any resolution.
+  swing.outline = {}
+  -- { point1, x1, y1, point2, x2, y2, width, height }: one pixel outside the bar on every side
+  local edges = {
+    { "TOPLEFT", -1, 1, "TOPRIGHT", 1, 1, nil, 1 }, { "BOTTOMLEFT", -1, -1, "BOTTOMRIGHT", 1, -1, nil, 1 },
+    { "TOPLEFT", -1, 1, "BOTTOMLEFT", -1, -1, 1, nil }, { "TOPRIGHT", 1, 1, "BOTTOMRIGHT", 1, -1, 1, nil },
+  }
+  for i, e in ipairs(edges) do
+    local t = swing:CreateTexture(nil, "OVERLAY", nil, 3)
+    t:SetPoint(e[1], swing, e[1], e[2], e[3])
+    t:SetPoint(e[4], swing, e[4], e[5], e[6])
+    if e[7] then t:SetWidth(e[7]) end
+    if e[8] then t:SetHeight(e[8]) end
+    t:SetColorTexture(0.20, 0.20, 0.25, 1)
+    swing.outline[i] = t
+  end
+  swing.sheen = swing:CreateTexture(nil, "ARTWORK", nil, 2)
+  swing.sheen:SetPoint("TOPLEFT", swing, "TOPLEFT", 0, 0)
+  swing.sheen:SetPoint("TOPRIGHT", swing, "TOPRIGHT", 0, 0)
+  swing.sheen:SetHeight(4)
+  swing.sheen:SetColorTexture(1, 1, 1, 0.07)
+  swing.spark = swing:CreateTexture(nil, "OVERLAY", nil, 2)
+  swing.spark:SetSize(12, 32)
+  swing.spark:SetTexture("Interface/CastingBar/UI-CastingBar-Spark")
+  if swing.spark.SetBlendMode then swing.spark:SetBlendMode("ADD") end
+  swing.spark:SetPoint("CENTER", swing, "LEFT", 0, 0)
+  swing.spark:Hide()
   swing:Hide()
   HUD.rows.swing = swing
 
@@ -133,8 +161,15 @@ function HUD.Layout()
     if enabled then
       local h = d[ROW_HEIGHT[name]] or 12
       row:ClearAllPoints()
-      row:SetPoint("TOPLEFT", HUD.container, "TOPLEFT", 0, -y)
-      row:SetSize(d.width, h)
+      local own = name == "swing" and d.swing and (d.swing.width or 0) > 0 and d.swing.width or nil
+      if own then
+        -- the swing bar may be wider than the strip: centred on it, hanging out both sides
+        row:SetPoint("TOP", HUD.container, "TOP", 0, -y)
+        row:SetSize(own, h)
+      else
+        row:SetPoint("TOPLEFT", HUD.container, "TOPLEFT", 0, -y)
+        row:SetSize(d.width, h)
+      end
       row.enabled = true
       if not SELF_SHOWING[name] then row:Show() end
       y = y + h + (d.rowSpacing or 0)
@@ -162,7 +197,11 @@ function HUD.ApplyAppearance()
   local cb, mana, info, sw = HUD.rows.castbar, HUD.rows.mana, HUD.rows.info, HUD.rows.swing
   cb:SetStatusBarTexture(tex); cb.gcd:SetStatusBarTexture(tex); mana:SetStatusBarTexture(tex); sw:SetStatusBarTexture(tex)
   cb.text:SetFont(font, size, "OUTLINE"); cb.time:SetFont(font, size, "OUTLINE")
-  sw.text:SetFont(font, size - 1, "OUTLINE"); sw.time:SetFont(font, size - 1, "OUTLINE")
+  local ss = (d.swing and (d.swing.fontSize or 0) > 0) and d.swing.fontSize or (size + 1)
+  sw.text:SetFont(font, ss, "OUTLINE"); sw.time:SetFont(font, ss, "OUTLINE")
+  if sw.spark then sw.spark:SetSize(math.max(8, math.floor((d.swingHeight or 16) * 0.75)), (d.swingHeight or 16) * 2) end
+  if sw.outline then for _, t in ipairs(sw.outline) do t:SetShown(not d.swing or d.swing.outline ~= false) end end
+  if sw.sheen then sw.sheen:SetHeight(math.max(2, math.floor((d.swingHeight or 16) / 4))) end
   mana.text:SetFont(font, size - 1, "OUTLINE"); mana.fsrText:SetFont(font, size - 2, "OUTLINE")
   info.left:SetFont(font, size, "OUTLINE"); info.right:SetFont(font, size, "OUTLINE")
   cb.icon:SetSize(d.castbarHeight or 18, d.castbarHeight or 18)
