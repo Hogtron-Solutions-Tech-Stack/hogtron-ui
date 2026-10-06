@@ -150,8 +150,8 @@ local function indicatorsGroup()
     args[key .. "Header"] = { type = "header", name = title, order = base }
     args[key .. "Filter"] = { type = "select", name = "Which", order = base + 1, values = filters,
       get = function() return row().filter or filterDefault end, set = function(_, v) row().filter = v; refresh() end }
-    args[key .. "Size"] = { type = "range", name = "Icon size", order = base + 2, min = 8, max = 24, step = 1,
-      get = function() return row().size or 12 end, set = function(_, v) row().size = v; refresh() end }
+    args[key .. "Size"] = { type = "range", name = "Icon size (0 = fit the cell)", order = base + 2, min = 0, max = 24, step = 1,
+      get = function() return row().size or 0 end, set = function(_, v) row().size = v; refresh() end }
     args[key .. "Max"] = { type = "range", name = "Most icons", order = base + 3, min = 1, max = 8, step = 1,
       get = function() return row().max or 4 end, set = function(_, v) row().max = v; refresh() end }
     args[key .. "Anchor"] = { type = "select", name = "Corner / side of the cell", order = base + 4, values = ANCHORS,

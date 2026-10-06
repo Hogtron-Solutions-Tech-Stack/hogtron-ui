@@ -96,8 +96,17 @@ end
 
 --- Draw a whole row: list = aura tables (AuraData shape), edgeFor(a) = edge colour per aura (optional).
 -- Hides the icons past the list. Returns how many are shown; also kept on button[key .. "Count"].
+--- Icon size that fits the cell: about a quarter of its height, 12-24 px (in game 2026-10-05: 12 px on an 80 px cell
+-- was unreadable). size 0 / nil in the row settings means "fit".
+function R.AutoSize(button)
+  local h = button and button.GetHeight and button:GetHeight()
+  if type(h) ~= "number" or HHF.Compat.IsSecret(h) or h <= 0 then return 12 end
+  return math.max(12, math.min(24, math.floor(h * 0.24)))
+end
+
 function R.Row(button, key, list, cfg, edgeFor)
-  local size, max = cfg.size or 12, cfg.max or 4
+  local size, max = cfg.size, cfg.max or 4
+  if not size or size == 0 then size = R.AutoSize(button) end
   local shown = 0
   for i, a in ipairs(list) do
     if i > max then break end
