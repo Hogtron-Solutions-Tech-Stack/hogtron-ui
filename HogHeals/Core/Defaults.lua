@@ -95,6 +95,9 @@ HH.defaults = {
         width = 260, maxHeight = 420, fontSize = 13, scale = 1, backgroundAlpha = 0.6,
         point = "TOPRIGHT", x = -80, y = -260,
       },
+      -- the GO row on the tracker (Go.lua): the quest to do next by rule fastest | balanced | travel; superTrack = the
+      -- game's own arrow follows the pick
+      go = { enabled = true, rule = "balanced", superTrack = true },
       minimap = { enabled = true, edge = true, watchedOnly = false, turnInInRange = false, size = 16 },   -- Forever draws areas only, not points
       map = { enabled = true, fill = true, size = 180, zoneText = true, wheelZoom = true, hideDecor = true, dockButtons = true },
     },
