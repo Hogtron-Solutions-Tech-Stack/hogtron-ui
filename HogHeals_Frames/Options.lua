@@ -172,6 +172,11 @@ local function indicatorsGroup()
   rowControls("buffs", 40, "Buffs on the cell", { mine = "Mine only", all = "Mine first, then everyone's" }, "all")
   rowControls("debuffs", 45, "Debuffs on the cell (what is on them)",
     { all = "Everything on them", dispellable = "Only what I can dispel", mine = "Only mine (my DoTs)" }, "all")
+  args.rangeHeader = { type = "header", name = "Range fade", order = 48 }
+  args.rangeEvery = { type = "range", name = "Check range every (seconds)", order = 49, min = 0.2, max = 1.0, step = 0.05,
+    desc = "Lower = the fade reacts faster, costs more in big raids (every cell is checked each time).",
+    get = function() return frames().appearance.rangeInterval or 0.4 end,
+    set = function(_, v) frames().appearance.rangeInterval = v; HHF.UnitButton.StartTickers() end }
   args.dispelHeader = { type = "header", name = "Dispel display", order = 50 }
   args.dispelStyle = { type = "select", name = "Style", order = 51,
     values = { icon = "Icon", color = "Health bar colour", border = "Border" },

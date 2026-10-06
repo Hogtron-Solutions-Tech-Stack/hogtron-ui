@@ -2,7 +2,11 @@
 local HHF = HogHealsFrames
 local HH = HogHeals
 
-local E = { Events = {}, Ticker = 0.25 }
+local E = { Events = {}, Ticker = 0.4 }
+
+--- Poll rate from the profile (appearance.rangeInterval). 0.25 s was the old constant: in a 40-man that is 160
+-- range checks a second for a fade nobody reads faster than twice a second. 0.4 by default, 0.2-1.0 in the options.
+function E.Interval() return HH.db.profile.frames.appearance.rangeInterval or E.Ticker end
 
 local function inRange(unit)
   if unit == "player" or UnitIsUnit(unit, "player") then return true end
