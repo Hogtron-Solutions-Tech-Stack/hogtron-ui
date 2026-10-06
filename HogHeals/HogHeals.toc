@@ -19,3 +19,4 @@ Core\Migrate.lua
 Core\Options.lua
 Core\Panel.lua
 Core\Perf.lua
+Core\Session.lua

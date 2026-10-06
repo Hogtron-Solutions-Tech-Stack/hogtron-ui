@@ -148,6 +148,62 @@ P.xp = { label = "Experience",
     return s
   end }
 
+-- this sitting (HogHeals/Core/Session.lua): time + pace, time to the next level, gold an hour
+local function session() return HH.Session end
+P.session = { label = "Session",
+  value = function()
+    local S = session()
+    if not S then return "-" end
+    local st = S.Stats()
+    local t = S.FormatTime(st.seconds)
+    if st.hidden then return t end
+    if not st.rate then return t .. "  " .. S.FormatNumber(st.xp) .. " xp" end
+    return t .. "  " .. S.FormatNumber(st.rate) .. " xp/h"
+  end,
+  tooltip = function(tip)
+    local S = session()
+    if not S then return end
+    for i, l in ipairs(S.Lines()) do tip:AddLine(l, i == 1 and 1 or 0.75, i == 1 and 1 or 0.75, i == 1 and 1 or 0.8, true) end
+    tip:AddLine("Click: restart the count", 0.5, 0.5, 0.55)
+  end,
+  click = function() local S = session() if S then S.Reset() HH:Print("session: count restarted.") end end }
+
+P.tolevel = { label = "Time to level",
+  value = function()
+    local S = session()
+    if not S then return "-" end
+    local st = S.Stats()
+    if st.hidden or not st.level then return "-" end
+    if not st.toLevel then return ("lvl %d: %s"):format(st.level + 1, st.percent and ("%.0f%%"):format(st.percent) or "-") end
+    return ("lvl %d in %s"):format(st.level + 1, S.FormatTime(st.toLevel))
+  end,
+  tooltip = function(tip)
+    local S = session()
+    if not S then return end
+    local st = S.Stats()
+    tip:AddLine("Time to the next level", 1, 1, 1)
+    if st.remaining then tip:AddLine(("%s xp to go (%.0f%% there)"):format(S.FormatNumber(st.remaining), st.percent or 0), 0.8, 0.8, 0.85) end
+    tip:AddLine(st.rate and ("at %s xp/h, %s"):format(S.FormatNumber(st.rate), st.rateSource == "recent" and "your last 15 minutes" or "this session's average")
+      or "needs a minute of play and some experience", 0.8, 0.8, 0.85, true)
+  end }
+
+P.goldph = { label = "Gold an hour",
+  value = function()
+    local S = session()
+    if not S then return "-" end
+    local st = S.Stats()
+    if not st.goldPerHour then return S.FormatMoney(st.gold) end
+    return S.FormatMoney(st.goldPerHour) .. "/h"
+  end,
+  tooltip = function(tip)
+    local S = session()
+    if not S then return end
+    local st = S.Stats()
+    tip:AddLine("Gold this session", 1, 1, 1)
+    tip:AddLine(S.FormatMoney(st.gold) .. (st.goldPerHour and (" (" .. S.FormatMoney(st.goldPerHour) .. " an hour)") or ""), 0.8, 0.8, 0.85)
+  end,
+  click = function() call(rawget(_G, "ToggleAllBags")) end }
+
 P.none = { label = "(empty)", value = function() return "" end }
 
 -- ------------------------------------------------------------------------------------------------ frame
