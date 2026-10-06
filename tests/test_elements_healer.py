@@ -208,7 +208,7 @@ def test_debuff_row_shows_what_is_on_them_with_type_coloured_edges(btn):
     assert btn.eval('HH_b.debuffs[1].edge._color[3]') == pytest.approx(magic)
     assert btn.eval('HH_b.debuffs[2].edge._color[3]') == pytest.approx(0.25)
     # sits on the RIGHT of the cell and grows leftwards; mouse off so hover-cast survives
-    assert btn.eval('HH_b.debuffs[1]._points[1][1]') == "RIGHT" and btn.eval('HH_b.debuffs[1]._points[1][4]') == -2
+    assert btn.eval('HH_b.debuffs[1]._points[1][1]') == "TOPRIGHT" and btn.eval('HH_b.debuffs[1]._points[1][4]') == -2
     assert btn.eval('HH_b.debuffs[2]._points[1][4]') == -2 - 13
     assert btn.eval('HH_b.debuffs[1]._last.EnableMouse[1]') is False
     # never a buff in the debuff row
@@ -271,3 +271,16 @@ def test_test_mode_hook_paints_both_rows_on_a_fake_cell(btn):
     assert btn.eval('HH_b.buffsCount') == 2 and btn.eval('HH_b.buffs[1].icon._texture') == "renew"   # mine first
     assert btn.eval('HH_b.buffs[1].edge._color[2]') == pytest.approx(0.83)
     assert btn.eval('HH_b.buffs[1].cd._last.SetCooldown[1]') == 10
+
+
+def test_icon_size_fits_the_cell_unless_set(btn):
+    # the fixture cell is 100x30: fit = max(12, floor(30 * 0.24)) = 12. An 80 px cell (Sean's party layout) -> 19.
+    btn.execute('MockUnits.party1.auras = { { name = "Corruption", type = "Magic", icon = "corr", source = "target" } }')
+    upd(btn, "debuffs")
+    assert btn.eval('HH_b.debuffs[1]._width') == 12
+    btn.execute('HH_b:SetSize(151, 80)'); upd(btn, "debuffs")
+    assert btn.eval('HH_b.debuffs[1]._width') == 19
+    btn.execute('HH_b:SetSize(151, 200)'); upd(btn, "debuffs")
+    assert btn.eval('HH_b.debuffs[1]._width') == 24                                        # capped
+    btn.execute('HogHeals.db.profile.frames.debuffs.size = 14'); upd(btn, "debuffs")
+    assert btn.eval('HH_b.debuffs[1]._width') == 14                                        # a set size wins

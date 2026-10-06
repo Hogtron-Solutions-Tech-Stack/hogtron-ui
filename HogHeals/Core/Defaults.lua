@@ -77,9 +77,9 @@ HH.defaults = {
       },
       -- aura rows on the cell (Elements/AuraRow.lua): anchor = one of the nine points, x / y from it, grow LEFT | RIGHT (default
       -- from the anchor), numbers = countdown text on the swipe. buffs: filter mine | all (long buffs live here, not above heads).
-      buffs = { size = 12, max = 4, filter = "all", anchor = "BOTTOMLEFT", x = 2, y = 5, gap = 1, numbers = false },
+      buffs = { size = 0, max = 4, filter = "all", anchor = "BOTTOMLEFT", x = 2, y = 5, gap = 1, numbers = false },   -- size 0 = fit the cell (12-24 px)
       -- debuffs: what is on them (DoTs, curses, poisons, bleeds), edge in the dispel-type colour; filter all | dispellable | mine
-      debuffs = { size = 12, max = 3, filter = "all", anchor = "RIGHT", x = -2, y = 0, gap = 1, numbers = false },
+      debuffs = { size = 0, max = 3, filter = "all", anchor = "TOPRIGHT", x = -2, y = -2, gap = 1, numbers = false },   -- top-right corner: clear of centred name / deficit text
       dispel = { style = "icon", priorityDebuffs = {} },  -- style: "icon" | "color" | "border"
       highlight = {                   -- hover / target marks on the cells (Elements/Highlight.lua); style: outline | corners | fill | none
         hover = { style = "outline", color = { 1, 1, 1 }, thick = 1, gap = 0 },
