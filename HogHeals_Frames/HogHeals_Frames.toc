@@ -20,7 +20,9 @@ Elements\StatusIcons.lua
 Elements\Dispel.lua
 Elements\MissingBuffs.lua
 Elements\MyShield.lua
+Elements\AuraRow.lua
 Elements\Buffs.lua
+Elements\Debuffs.lua
 Elements\Thresholds.lua
 Elements\AoEHealing.lua
 Elements\HealPrediction.lua

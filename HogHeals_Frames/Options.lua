@@ -10,9 +10,10 @@ local INDICATOR_LABELS = {
   missingBuffs = "Missing buff I can cast", myShield = "My shield + Weakened Soul", thresholds = "Health threshold ticks",
   aoeHealing = "AoE-heal scope highlight", requestGlow = "Dispel-request glow (/hh dispelme from others)",
   buffs = "Buffs on the cell (Fortitude-type buffs live here, not above heads)",
+  debuffs = "Debuffs on the cell (DoTs, curses, poisons, bleeds - what is on them)",
 }
 local INDICATOR_ORDER = { "health", "power", "name", "healPrediction", "dispel", "priorityDebuff", "range", "aggro",
-  "raidIcon", "statusIcons", "missingBuffs", "myShield", "buffs", "thresholds", "aoeHealing", "requestGlow" }
+  "raidIcon", "statusIcons", "missingBuffs", "myShield", "buffs", "debuffs", "thresholds", "aoeHealing", "requestGlow" }
 
 local function frames() return HH.db.profile.frames end
 local function layout() return HHF.module:LayoutFor() end
@@ -141,13 +142,32 @@ local function indicatorsGroup()
       set = function(_, v) frames().indicators[key] = v and true or false; refresh() end,
     }
   end
-  args.buffsHeader = { type = "header", name = "Buffs on the cell", order = 40 }
-  args.buffsFilter = { type = "select", name = "Which buffs", order = 41, values = { mine = "Mine only", all = "Mine first, then everyone's" },
-    get = function() return frames().buffs.filter or "mine" end, set = function(_, v) frames().buffs.filter = v; refresh() end }
-  args.buffsSize = { type = "range", name = "Icon size", order = 42, min = 8, max = 24, step = 1,
-    get = function() return frames().buffs.size or 12 end, set = function(_, v) frames().buffs.size = v; refresh() end }
-  args.buffsMax = { type = "range", name = "Most icons", order = 43, min = 1, max = 8, step = 1,
-    get = function() return frames().buffs.max or 4 end, set = function(_, v) frames().buffs.max = v; refresh() end }
+  -- the two aura rows share one set of controls (Elements/AuraRow.lua)
+  local ANCHORS = {}
+  for _, a in ipairs(HHF.AuraRow and HHF.AuraRow.ANCHORS or { "BOTTOMLEFT" }) do ANCHORS[a] = a end
+  local function rowControls(key, base, title, filters, filterDefault)
+    local function row() frames()[key] = frames()[key] or {} return frames()[key] end
+    args[key .. "Header"] = { type = "header", name = title, order = base }
+    args[key .. "Filter"] = { type = "select", name = "Which", order = base + 1, values = filters,
+      get = function() return row().filter or filterDefault end, set = function(_, v) row().filter = v; refresh() end }
+    args[key .. "Size"] = { type = "range", name = "Icon size", order = base + 2, min = 8, max = 24, step = 1,
+      get = function() return row().size or 12 end, set = function(_, v) row().size = v; refresh() end }
+    args[key .. "Max"] = { type = "range", name = "Most icons", order = base + 3, min = 1, max = 8, step = 1,
+      get = function() return row().max or 4 end, set = function(_, v) row().max = v; refresh() end }
+    args[key .. "Anchor"] = { type = "select", name = "Corner / side of the cell", order = base + 4, values = ANCHORS,
+      get = function() return row().anchor or "BOTTOMLEFT" end, set = function(_, v) row().anchor = v; refresh() end }
+    args[key .. "X"] = { type = "range", name = "Nudge across", order = base + 5, min = -40, max = 40, step = 1,
+      get = function() return row().x or 0 end, set = function(_, v) row().x = v; refresh() end }
+    args[key .. "Y"] = { type = "range", name = "Nudge up / down", order = base + 6, min = -40, max = 40, step = 1,
+      get = function() return row().y or row().offsetY or 0 end, set = function(_, v) row().y = v; refresh() end }
+    args[key .. "Grow"] = { type = "select", name = "Grow", order = base + 7, values = { AUTO = "From the side it sits on", RIGHT = "Rightwards", LEFT = "Leftwards" },
+      get = function() return row().grow or "AUTO" end, set = function(_, v) row().grow = (v ~= "AUTO") and v or nil; refresh() end }
+    args[key .. "Numbers"] = { type = "toggle", name = "Countdown numbers on the swipe (icon size 14+)", order = base + 8, width = "full",
+      get = function() return row().numbers == true end, set = function(_, v) row().numbers = v and true or false; refresh() end }
+  end
+  rowControls("buffs", 40, "Buffs on the cell", { mine = "Mine only", all = "Mine first, then everyone's" }, "all")
+  rowControls("debuffs", 45, "Debuffs on the cell (what is on them)",
+    { all = "Everything on them", dispellable = "Only what I can dispel", mine = "Only mine (my DoTs)" }, "all")
   args.dispelHeader = { type = "header", name = "Dispel display", order = 50 }
   args.dispelStyle = { type = "select", name = "Style", order = 51,
     values = { icon = "Icon", color = "Health bar colour", border = "Border" },
