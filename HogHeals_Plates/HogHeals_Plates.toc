@@ -11,4 +11,5 @@ QuestMobs.lua
 Plates.lua
 Hots.lua
 Castbar.lua
+DoesItDie.lua
 Options.lua

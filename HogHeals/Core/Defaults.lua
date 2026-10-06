@@ -138,6 +138,9 @@ HH.defaults = {
         height = 10, icon = true, time = true, fontSize = 10, precision = 1, gap = 3,
         castColor = { 0.13, 0.83, 0.88 }, channelColor = { 0.25, 0.80, 0.35 }, lockedColor = { 0.55, 0.55, 0.60 },
       },
+      -- DoesItDie.lua: skull when my DoT outlives the mob, red X pulsing when it ends first within reapplyAt seconds;
+      -- margin = how clearly the mob must die first (0.1 = 10%); target = the same mark on the target frame
+      die = { enabled = true, reapplyAt = 3, margin = 0.1, size = 18, gap = 4, showTime = true, target = true, tick = 0.5 },
       nameClass = "friendly",         -- player names on plates in class colour: "friendly" | "all" | "none"
       friendlyNameOnly = true,        -- friendly plates: just the name, no health bar
       friendlyNameSize = 14,          -- text size of that name (the overhead name is about this)
