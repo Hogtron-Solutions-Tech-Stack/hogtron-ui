@@ -72,8 +72,8 @@ function Options.Build()
     type = "group", name = "Units", order = 38,
     args = {
       general = { type = "group", name = "General", order = 1, args = {
-        about = { type = "description", order = 0, name = "Player, target, target-of-target, pet and focus frames in the HogUI look. Left-click targets, right-click opens the menu. Unlock (/hh units unlock) to drag them, then lock. Blizzard's frames are hidden while these are on; turning them off needs a /reload to bring Blizzard's back." },
-        enabled = toggle(g, "enabled", "HogUI unit frames", 1),
+        about = { type = "description", order = 0, name = "Player, target, target-of-target, pet and focus frames in the HogTron UI look. Left-click targets, right-click opens the menu. Unlock (/hh units unlock) to drag them, then lock. Blizzard's frames are hidden while these are on; turning them off needs a /reload to bring Blizzard's back." },
+        enabled = toggle(g, "enabled", "HogTron UI unit frames", 1),
         hideBlizzard = toggle(g, "hideBlizzard", "Hide Blizzard's unit frames", 2),
         locked = { type = "description", order = 3, name = "Move: /hh unlock, drag the frames (hidden ones appear with a 'drag' label), then /hh lock." },
         classColors = toggle(g, "classColors", "Class colours on players", 4),

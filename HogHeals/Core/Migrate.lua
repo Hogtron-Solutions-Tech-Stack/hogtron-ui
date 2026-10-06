@@ -39,7 +39,7 @@ Migrate.steps = {
       end
     end },
   { version = 4, run = function(db)
-      -- HogUI Units now draws the player + pet frames: the healer frames' solo frame goes off, once, in every
+      -- HogTron UI Units now draws the player + pet frames: the healer frames' solo frame goes off, once, in every
       -- profile (a saved true would otherwise outlive the new default).
       for _, profile in pairs(db.profiles or { db.profile }) do
         local solo = profile.frames and profile.frames.layouts and profile.frames.layouts.solo

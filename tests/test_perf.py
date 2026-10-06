@@ -1,4 +1,4 @@
-# /hh perf: time every HogUI function while measuring, zero cost when off, restore everything on stop.
+# /hh perf: time every HogTron UI function while measuring, zero cost when off, restore everything on stop.
 import pytest
 
 

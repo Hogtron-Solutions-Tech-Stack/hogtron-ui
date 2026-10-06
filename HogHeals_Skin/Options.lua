@@ -47,14 +47,14 @@ function Options.Build()
         cooldownNumbers = toggle(sub("actionBars"), "cooldownNumbers", "Cooldown numbers on buttons (Blizzard's countdown)", 5),
       } },
       bags = { type = "group", name = "Bags", order = 2, args = {
-        about = { type = "description", order = 0, name = "Blizzard's bags in the HogUI panel: art removed, item slots flattened, outline coloured by item quality." },
+        about = { type = "description", order = 0, name = "Blizzard's bags in the HogTron UI panel: art removed, item slots flattened, outline coloured by item quality." },
         enabled = toggle(sub("bags"), "enabled", "Skin the bags", 1),
         qualityMin = range(sub("bags"), "qualityMin", "Colour the outline from this quality up (2 = uncommon)", 2, 0, 5, 1),
         fontSize = range(sub("bags"), "fontSize", "Text size (title, counts)", 3, 8, 20, 1),
         backgroundAlpha = range(sub("bags"), "backgroundAlpha", "Background opacity", 4, 0, 1, 0.05),
       } },
       micro = { type = "group", name = "Menu & bag bar", order = 3, args = {
-        about = { type = "description", order = 0, name = "The bottom menu buttons and the bag slots: Blizzard's backdrop art removed, one HogUI strip behind each group, bag slots flattened." },
+        about = { type = "description", order = 0, name = "The bottom menu buttons and the bag slots: Blizzard's backdrop art removed, one HogTron UI strip behind each group, bag slots flattened." },
         microEnabled = toggle(sub("micro"), "enabled", "Skin the menu buttons", 1),
         scale = range(sub("micro"), "scale", "Menu buttons scale", 2, 0.5, 1.5, 0.05),
         bagBarEnabled = toggle(sub("bagBar"), "enabled", "Skin the bag slots", 3),
@@ -69,13 +69,13 @@ function Options.Build()
         anchorCursor = toggle(sub("tooltips"), "anchorCursor", "Anchor tooltips to the cursor", 4),
       } },
       extras = { type = "group", name = "Buffs & XP bar", order = 4.5, args = {
-        about = { type = "description", order = 0, name = "Your buff / debuff icons (top right) flattened with the HogUI outline, and the experience / reputation bar made flat." },
+        about = { type = "description", order = 0, name = "Your buff / debuff icons (top right) flattened with the HogTron UI outline, and the experience / reputation bar made flat." },
         buffs = toggle(sub("extras"), "buffs", "Skin my buff and debuff icons", 1),
         durationSize = range(sub("extras"), "durationSize", "Duration / count text size", 2, 7, 16, 1),
         xpBar = toggle(sub("extras"), "xpBar", "Flat experience / reputation bar", 3),
       } },
       panels = { type = "group", name = "Windows", order = 4.7, args = {
-        about = { type = "description", order = 0, name = "Blizzard's windows (character, spellbook, escape menu, vendor, mail, trade, bank, ...) on the HogUI panel: art and portrait off, outline, flat close button. Parchment windows (gossip, quest text, quest log, books, opened mail) get their text recoloured cream / amber and the parchment stripped. Untick a window to leave it alone (needs a /reload to come back)." },
+        about = { type = "description", order = 0, name = "Blizzard's windows (character, spellbook, escape menu, vendor, mail, trade, bank, ...) on the HogTron UI panel: art and portrait off, outline, flat close button. Parchment windows (gossip, quest text, quest log, books, opened mail) get their text recoloured cream / amber and the parchment stripped. Untick a window to leave it alone (needs a /reload to come back)." },
         enabled = toggle(sub("panels"), "enabled", "Skin Blizzard's windows", 1),
         alpha = range(sub("panels"), "alpha", "Background opacity", 2, 0.3, 1, 0.05),
         titleSize = range(sub("panels"), "titleSize", "Title text size", 3, 9, 20, 1),

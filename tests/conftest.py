@@ -24,7 +24,7 @@ def hud(lua):
     lua.load_addon("HogHeals_Frames")
     lua.load_addon("HogHeals_HUD")
     lua.player_login()
-    # the solo frame is off by default since 2026-09-23 (HogUI Units draws the player); the older frame tests
+    # the solo frame is off by default since 2026-09-23 (HogTron UI Units draws the player); the older frame tests
     # were written around it, so they opt back in
     lua.execute('HogHeals.db.profile.frames.layouts.solo.showSolo = true; HogHealsFrames.module:ApplyProfile(HogHeals:CurrentBucket())')
     return lua
@@ -36,7 +36,7 @@ def frames(lua):
     lua.load_addon("HogHeals")
     lua.load_addon("HogHeals_Frames")
     lua.player_login()
-    # the solo frame is off by default since 2026-09-23 (HogUI Units draws the player); the older frame tests
+    # the solo frame is off by default since 2026-09-23 (HogTron UI Units draws the player); the older frame tests
     # were written around it, so they opt back in
     lua.execute('HogHeals.db.profile.frames.layouts.solo.showSolo = true; HogHealsFrames.module:ApplyProfile(HogHeals:CurrentBucket())')
     return lua

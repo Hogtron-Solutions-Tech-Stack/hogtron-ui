@@ -8,7 +8,7 @@ local function generalTab()
   return {
     type = "group", name = "General", order = 1,
     args = {
-      version = { type = "description", order = 1, name = "HogUI " .. tostring(HH.version) .. "\nHogTron's UI suite for WoW: Forever / Classic - HogHeals (healer frames), HUD, meter, quests & map, nameplates, chat, unit frames, skin.\n" },
+      version = { type = "description", order = 1, name = "HogTron UI " .. tostring(HH.version) .. "\nHogTron's UI suite for WoW: Forever / Classic - HogHeals (healer frames), HUD, meter, quests & map, nameplates, chat, unit frames, skin.\n" },
       locked = {
         type = "toggle", order = 2, name = "Lock frames", desc = "Unlock to drag the layout anchor.",
         get = function() return HH.db.profile.locked end,
@@ -33,7 +33,7 @@ end
 
 --- Build the full options table (called lazily so modules can register first).
 function HH.OptionsTable()
-  local t = { type = "group", name = "HogUI", childGroups = "tab", args = { general = generalTab() } }
+  local t = { type = "group", name = "HogTron UI", childGroups = "tab", args = { general = generalTab() } }
   local order = 10
   for name, m in pairs(HH.modules) do
     if m.GetOptions then
@@ -106,7 +106,7 @@ HH:RegisterSlash("lock", function() HH:SetLocked(true) end, "lock the frames")
 HH:RegisterSlash("unlock", function() HH:SetLocked(false) end, "unlock to drag the anchor")
 HH:RegisterSlash("config", function() HH:OpenOptions() end, "open options")
 HH:RegisterSlash("wizard", function() if HH.RunWizard then HH:RunWizard() end end, "run the setup wizard")
-HH:RegisterSlash("version", function() HH:Print("HogUI " .. tostring(HH.version)) end, "print version")
+HH:RegisterSlash("version", function() HH:Print("HogTron UI " .. tostring(HH.version)) end, "print version")
 
 -- Hook into the enable cycle without editing Core.lua: wrap OnEnable once.
 local origOnEnable = HH.OnEnable

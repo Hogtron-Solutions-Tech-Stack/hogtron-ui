@@ -1,6 +1,6 @@
--- /hh perf: how much CPU and memory each HogUI piece costs, measured in game.
+-- /hh perf: how much CPU and memory each HogTron UI piece costs, measured in game.
 --
--- Zero cost when off: nothing is wrapped until you start a measurement. `start` walks every HogUI module namespace
+-- Zero cost when off: nothing is wrapped until you start a measurement. `start` walks every HogTron UI module namespace
 -- (HogHealsFrames, HogHealsQuests, ...) up to 3 tables deep and swaps each function for a timed wrapper
 -- (debugprofilestop before / after); `stop` puts every original back. Callers that look a function up at call time
 -- (event handlers, tickers, element updates - all of ours) get measured; a reference someone captured earlier just
@@ -80,7 +80,7 @@ function Perf.Stop()
   Perf.on = false
 end
 
---- Memory per HogUI addon, KB. UpdateAddOnMemoryUsage walks every addon - only called on demand.
+--- Memory per HogTron UI addon, KB. UpdateAddOnMemoryUsage walks every addon - only called on demand.
 function Perf.Memory()
   local out, total = {}, 0
   if type(UpdateAddOnMemoryUsage) == "function" then pcall(UpdateAddOnMemoryUsage) end
@@ -113,7 +113,7 @@ function Perf.Print()
   local rows, secs, total = Perf.Report(10)
   local mem, memTotal = Perf.Memory()
   local fps = type(GetFramerate) == "function" and GetFramerate() or 0
-  HH:Print(("perf: %.0f s window, HogUI total %.2f ms (%.3f ms per second = %.2f%% of one 60 fps frame budget), %.0f fps now")
+  HH:Print(("perf: %.0f s window, HogTron UI total %.2f ms (%.3f ms per second = %.2f%% of one 60 fps frame budget), %.0f fps now")
     :format(secs, total, total / secs, (total / secs) / (1000 / 60) * 100, fps))
   for _, e in ipairs(rows) do
     HH:Print(("  %-38s %6d calls %8.2f ms  %.3f ms/s  worst %.2f ms"):format(e.name, e.calls, e.ms, e.ms / secs, e.max))
@@ -150,4 +150,4 @@ HH:RegisterSlash("perf", function(arg)
       end)
     end
   end
-end, "measure CPU + memory of every HogUI part: /hh perf [seconds] | /hh perf (report now) | /hh perf stop")
+end, "measure CPU + memory of every HogTron UI part: /hh perf [seconds] | /hh perf (report now) | /hh perf stop")

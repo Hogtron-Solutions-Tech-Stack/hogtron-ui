@@ -1,4 +1,4 @@
--- Tooltips in the HogUI panel: Blizzard's border art off (modern NineSlice or classic backdrop), ink panel with a
+-- Tooltips in the HogTron UI panel: Blizzard's border art off (modern NineSlice or classic backdrop), ink panel with a
 -- 1 px outline behind the text, flat status bar, optional text size and cursor anchoring.
 local HHS = HogHealsSkin
 local Skin = HHS.Skin

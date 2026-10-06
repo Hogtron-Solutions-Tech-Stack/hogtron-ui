@@ -1,4 +1,4 @@
--- Bags: Blizzard's container frames (and the modern combined bag) in the HogUI panel, item slots flattened with
+-- Bags: Blizzard's container frames (and the modern combined bag) in the HogTron UI panel, item slots flattened with
 -- a quality-coloured outline. Restyle only: sorting, searching, the money line and every click stay Blizzard's.
 local HHS = HogHealsSkin
 local Skin = HHS.Skin

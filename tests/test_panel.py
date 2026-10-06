@@ -57,7 +57,7 @@ def test_window_is_ours_and_closes_on_escape(panel):
     assert "HogHealsPanel" in names
     # two-tone wordmark: HOG cream, HEALS cyan (brand rule)
     assert panel.eval('HogHeals.Panel.frame.titleHog._text') == "HOG"
-    assert panel.eval('HogHeals.Panel.frame.titleHeals._text') == "UI"          # HogUI umbrella brand
+    assert panel.eval('HogHeals.Panel.frame.titleHeals._text') == "TRON UI"          # HogTron UI umbrella brand
 
 
 def test_sidebar_lists_top_level_groups_in_order(panel):

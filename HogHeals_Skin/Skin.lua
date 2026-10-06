@@ -1,7 +1,7 @@
--- HogUI Skin: Blizzard's own action bars, bag bar, micro menu, bags and tooltips in the HogUI look.
+-- HogTron UI Skin: Blizzard's own action bars, bag bar, micro menu, bags and tooltips in the HogTron UI look.
 --
 -- Restyle, never replace: every Blizzard frame keeps doing what it does (secure action buttons stay Blizzard's,
--- bags stay Blizzard's); we clear their art and put flat HogUI pieces on top. Every Blizzard name is looked up
+-- bags stay Blizzard's); we clear their art and put flat HogTron UI pieces on top. Every Blizzard name is looked up
 -- through a list and never assumed - a missing one is skipped and reported by /hh skindiag, because the names
 -- differ between the client generations this addon runs on (Classic-era globals vs. modern mixins).
 -- This file: shared helpers + the module. The pieces live in ActionBars.lua, Bags.lua, Micro.lua, Tooltip.lua,

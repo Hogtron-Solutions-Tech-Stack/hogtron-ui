@@ -151,6 +151,6 @@ HH.defaults = {
   },
 }
 
--- Solo frame off by default since 2026-09-23: HogUI Units draws the player and pet frames; the healer frames are
+-- Solo frame off by default since 2026-09-23: HogTron UI Units draws the player and pet frames; the healer frames are
 -- for party / raid. (Sean: "turn off the HogHeals solo frames".)
 HH.defaults.profile.frames.layouts.solo.showSolo = false

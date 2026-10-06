@@ -42,6 +42,18 @@ def main() -> int:
             if not p.exists():
                 bad += 1
                 print(f"TOC     {folder}: missing {line}")
+    # brand guard: display text says "HogTron UI" (dev/rebrand.py); identifiers like HogUIBar1 are fine
+    import re
+    brand = re.compile(r"\bHogUI\b|\bHOG UI\b|\bHog UI\b")
+    targets = [ROOT / "README.md"]
+    for folder in FOLDERS:
+        targets += [p for p in (ROOT / folder).rglob("*.lua") if "/Libs/" not in f"/{p.relative_to(ROOT).as_posix()}"]
+        targets += list((ROOT / folder).glob("*.toc"))
+    for path in targets:
+        for i, line in enumerate(path.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
+            if brand.search(line):
+                bad += 1
+                print(f"BRAND   {path.relative_to(ROOT).as_posix()}:{i}: says HogUI - run python dev/rebrand.py --apply")
     print(f"checked {count} lua files, {bad} problem(s)")
     return 1 if bad else 0
 

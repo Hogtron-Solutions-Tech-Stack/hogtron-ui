@@ -1,6 +1,6 @@
 ## Interface: 20505,20506,11508,11509,16001
 ## Title: |cffF5EBDCHog|r|cff21D4E0UI|r Skin
-## Notes: Action bars, bags, bag slots, menu buttons and tooltips in the HogUI look, plus an info bar (gold, durability, bags, fps, latency, clock).
+## Notes: Action bars, bags, bag slots, menu buttons and tooltips in the HogTron UI look, plus an info bar (gold, durability, bags, fps, latency, clock).
 ## Author: HogTron Solutions (Sean Bilger)
 ## Version: 0.1.0
 ## Dependencies: HogHeals
