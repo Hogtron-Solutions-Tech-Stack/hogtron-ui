@@ -10,7 +10,7 @@
 local A = HogHealsAtlas
 local HH = HogHeals
 
-local Window = { tab = "dungeons", detail = "loot", setIndex = 1, runIndex = 1 }
+local Window = { tab = "dungeons", detail = "loot", setIndex = 1, runIndex = 1 }   -- "next" is the first tab; /hh next opens it
 A.Window = Window
 
 local C = A.COLORS
@@ -19,7 +19,7 @@ local PAD, TOP = 10, 58
 local ROW = 18
 local BODY_ROWS = 26
 
-local TABS = { { "dungeons", "Dungeons" }, { "upgrades", "Upgrades" }, { "sets", "Sets" }, { "wish", "Wishlist" }, { "log", "Loot log" } }
+local TABS = { { "next", "Where next" }, { "dungeons", "Dungeons" }, { "upgrades", "Upgrades" }, { "sets", "Sets" }, { "wish", "Wishlist" }, { "log", "Loot log" } }
 local DETAILS = { { "loot", "Loot" }, { "quests", "Quests" }, { "guide", "Guide" } }
 local BADGE = { seen = "seen", group = "group", journal = "journal", reported = "reported" }
 local BADGE_COLOR = { seen = C.green, group = C.green, journal = C.cyan, reported = C.grey }
@@ -410,8 +410,26 @@ function Window.Build()
   Window.panes = {}
   Window.lists = {}
 
+  -- Where next (WhereNext.lua): dungeons / quests / zones for your level, nearest first; a dungeon row opens it
+  local p = pane(f, "next")
+  Window.showAll = A.button(p, "Show all levels", 120, 20, function()
+    local c = A.cfg()
+    c.nextAll = not c.nextAll
+    Window.Refresh()
+  end)
+  Window.showAll:SetPoint("TOPLEFT", p, "TOPLEFT", 0, 0)
+  Window.sayNext = A.button(p, "To chat", 80, 20, function() for _, l in ipairs(A.WhereNext.Say()) do HH:Print(l) end end)
+  Window.sayNext:SetPoint("TOPLEFT", p, "TOPLEFT", 126, 0)
+  Window.lists.next = column(p, 0, 880, BODY_ROWS - 2, function(row)
+    if row.key then
+      Window.dungeon, Window.boss = row.key, nil
+      Window.lists.bosses.offset, Window.lists.detail.offset = 0, 0
+      Window.SetTab("dungeons")
+    end
+  end, -24, 330)
+
   -- Dungeons
-  local p = pane(f, "dungeons")
+  p = pane(f, "dungeons")
   Window.forMe = A.button(p, "For my level", 110, 20, function()
     local c = A.cfg()
     c.forMeNow = not c.forMeNow
@@ -533,6 +551,10 @@ function Window.Refresh()
     local jr = A.Journal.last
     status = ("%d dungeons, %d drops known. Red too low, orange hard, green right, grey outgrown. +N = better than what you wear.%s"):format(
       #rows, A.Store.db().count, jr and ("  Journal: " .. tostring(jr.status) .. ".") or "")
+  elseif Window.tab == "next" then
+    Window.showAll:SetOn(A.cfg().nextAll)
+    L.next:SetData(A.WhereNext.Rows({ all = A.cfg().nextAll }))
+    status = "Nearest first, coloured for your level. Click a dungeon to open it. 'old list' = a drop the old game had there, not verified on Forever."
   elseif Window.tab == "upgrades" then
     local role = A.Role()
     local effective = A.Stats.Role()
