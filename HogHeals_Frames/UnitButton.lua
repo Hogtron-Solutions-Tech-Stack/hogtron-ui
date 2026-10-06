@@ -69,15 +69,26 @@ end
 -- (Tester: "change where the text is within the frame: centre it, top, bottom, whatever.")
 local VPOINT = { TOP = "TOP", CENTER = "", BOTTOM = "BOTTOM" }
 local HPOINT = { LEFT = "LEFT", CENTER = "", RIGHT = "RIGHT" }
-function UnitButton.PlaceText(fs, button, vpos, halign, inset)
+function UnitButton.PlaceText(fs, button, vpos, halign, inset, dyExtra)
   if not fs then return end
   local v, h = VPOINT[vpos] or "TOP", HPOINT[halign] or ""
   local point = (v .. h ~= "") and (v .. h) or "CENTER"
   local dx = (h == "LEFT" and inset) or (h == "RIGHT" and -inset) or 0
-  local dy = (v == "TOP" and -inset) or (v == "BOTTOM" and inset) or 0
+  local dy = ((v == "TOP" and -inset) or (v == "BOTTOM" and inset) or 0) + (dyExtra or 0)
   fs:ClearAllPoints()
   fs:SetPoint(point, button, point, dx, dy)
   if fs.SetJustifyH then fs:SetJustifyH(halign == "LEFT" and "LEFT" or halign == "RIGHT" and "RIGHT" or "CENTER") end
+end
+
+--- Extra y for the name and for the health text when the two are placed on the same point. Pure.
+function UnitButton.SplitText(ap)
+  local nv, nh = ap.namePosition or "TOP", ap.nameAlign or "CENTER"
+  local hv, hh = ap.healthTextPosition or "BOTTOM", ap.healthTextAlign or "CENTER"
+  if nv ~= hv or nh ~= hh then return 0, 0 end
+  local line = math.ceil((ap.fontSize or 11) * 0.6)
+  if nv == "TOP" then return 0, -2 * line end
+  if nv == "BOTTOM" then return 2 * line, 0 end
+  return line, -line
 end
 
 --- Build all regions on a (secure) button. Idempotent.
@@ -232,8 +243,12 @@ function UnitButton.ApplyAppearance(button)
   button.healthText:SetFont(font, (ap.fontSize or 11) - 1, ap.fontOutline or "OUTLINE")
   button.shieldText:SetFont(font, (ap.fontSize or 11) - 2, ap.fontOutline or "OUTLINE")
   button.bg:SetColorTexture(0.07, 0.07, 0.09, ap.backgroundAlpha or 0.6)
-  UnitButton.PlaceText(button.name, button, ap.namePosition or "TOP", ap.nameAlign or "CENTER", 3)
-  UnitButton.PlaceText(button.healthText, button, ap.healthTextPosition or "BOTTOM", ap.healthTextAlign or "CENTER", 4)
+  -- Name and deficit on the same spot (Sean's profile: both CENTER, 18 pt -> "Hog-55icen" in game 2026-10-05): split
+  -- them around that spot, the name above the line and the number below it. Top: name stays, number drops under
+  -- it; bottom: number stays, name rises; centre: half a line each way.
+  local nameUp, textDown = UnitButton.SplitText(ap)
+  UnitButton.PlaceText(button.name, button, ap.namePosition or "TOP", ap.nameAlign or "CENTER", 3, nameUp)
+  UnitButton.PlaceText(button.healthText, button, ap.healthTextPosition or "BOTTOM", ap.healthTextAlign or "CENTER", 4, textDown)
   local layout = HHF.module and HHF.module.LayoutFor and HHF.module:LayoutFor()
   -- Secure buttons may not be resized in combat (diag log: 25x ADDON_ACTION_BLOCKED SetSize). The layout pass
   -- queued for the end of combat sizes them anyway, so simply skip here.
