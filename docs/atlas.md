@@ -94,3 +94,13 @@ without a source, with an unknown dungeon, or with a boss the list does not know
 - Random-suffix items ("of the Eagle") from the journal show their base stats: the suffix is only known once the
   item exists.
 - Raids are recorded when you are in one but are not in the dungeon list.
+
+## Where next
+
+`/hh next` (the window's first tab) answers "I'm level N in zone Z - where do I go?":
+
+- **Dungeons for you** - green / orange for your level, nearest first (same zone, next door, this continent, across the sea; the other side's land ranks last). Under each: the quests for it in your log, how many known drops beat what you wear, and up to four **named drops for your slots** from the old game's list (`Data/LootNames.lua`, names only, no item ids) - each with what you have in that slot now ("empty slot", "yours is item level 12").
+- **Your quest log, by zone** - the zone you stand in first, then zones with quests ready to turn in, then nearest. Quest levels coloured against yours.
+- **Zones at your level, nearest first** - from `Data/Zones.lua` (old-game ranges and neighbours), with the dungeons inside each.
+
+`/hh next say` prints three chat lines instead. Nothing here is verified on Forever: the window says so on every pane.
