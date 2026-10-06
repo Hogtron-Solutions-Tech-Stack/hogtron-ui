@@ -112,6 +112,9 @@ HH.defaults = {
         point = "TOPRIGHT", x = -80, y = -260,
         followMinimap = true, gap = 8,   -- hangs under the minimap box; point/x/y only once dragged away
       },
+      -- the GO row on the tracker (Go.lua): the quest to do next by rule fastest | balanced | travel; superTrack = the
+      -- game's own arrow follows the pick
+      go = { enabled = true, rule = "balanced", superTrack = true },
       minimap = { enabled = true, edge = true, watchedOnly = false, turnInInRange = false, size = 16 },   -- Forever draws areas only, not points
       map = { enabled = true, fill = true, size = 180, zoneText = true, wheelZoom = true, hideDecor = true, dockButtons = true },
       -- the world map (M): coordinates strip, scale, fade while moving, border art off (skipped when Leatrix Maps runs)

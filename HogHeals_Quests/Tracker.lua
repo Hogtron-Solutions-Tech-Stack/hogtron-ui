@@ -283,7 +283,8 @@ function Tracker.Update()
   for _, fs in ipairs(Tracker.lines) do fs:Hide() end
   f.empty:Hide()
 
-  local y, ti, li = 0, 0, 0
+  -- the GO row (Go.lua) sits on top of the list when it is on; it returns the height it took
+  local y, ti, li = (HHQ.Go and HHQ.Go.Draw and HHQ.Go.Draw(f, d, size, list)) or 0, 0, 0
   local maxH = Tracker.MaxHeight(f, d, size)
   local titleH, lineH = size + 6, size + 3
   local more = 0
