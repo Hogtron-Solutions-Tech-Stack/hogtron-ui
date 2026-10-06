@@ -461,13 +461,26 @@ end
 -- were gone but a slot border and the backpack's gold highlight stayed - decorations on frames of their own, not
 -- regions of the slot. Every small visible frame (<= 120 px) whose rect sits inside a faded slot's rect, that is
 -- not ours, not a tooltip and not the slot itself, is faded like the slot. Names kept in Part.bagOverlayDiag.
+-- 2026-10-05 (Sean, screenshot): a gold square around the 7th letter and around the Bags cell - decorations that
+-- came back AFTER the sweep (a menu button's alert / flash frame, the backpack's highlight when a bag opens). So the
+-- sweep now covers Blizzard's menu buttons and our own bar as well as the slots, and runs again on the events and
+-- Blizzard calls that bring such frames back (Part.SweepSoon, debounced).
+local PAD = 6
+function Part.OverlayRects(bags)
+  local rects, slot = {}, {}
+  local function add(f)
+    local l, r, t, bt = screenRect(f)
+    if l and r > l and t > bt then rects[#rects + 1] = { l - PAD, r + PAD, t + PAD, bt - PAD } slot[f] = true end
+  end
+  for _, b in ipairs(bags or {}) do add(b) end
+  for _, m in ipairs(Part.MicroButtons()) do add(m) end
+  if Part.bar and Part.bar.IsShown and Part.bar:IsShown() then add(Part.bar) end
+  return rects, slot
+end
+
 function Part.SweepBagOverlays(bags)
   if type(EnumerateFrames) ~= "function" then Part.bagOverlayDiag = "no EnumerateFrames" return 0 end
-  local rects, slot = {}, {}
-  for _, b in ipairs(bags) do
-    local l, r, t, bt = screenRect(b)
-    if l then rects[#rects + 1] = { l - 4, r + 4, t + 4, bt - 4 } slot[b] = true end
-  end
+  local rects, slot = Part.OverlayRects(bags)
   if #rects == 0 then Part.bagOverlayDiag = "no slot rects yet" return 0 end
   Part.overlays = Part.overlays or {}
   local names, n, f, count = {}, 0, EnumerateFrames(), 0
@@ -476,7 +489,7 @@ function Part.SweepBagOverlays(bags)
     if not slot[f] and not f.hhOurs and not silenced[f] then
       local name = Skin.call(f.GetName, f)
       local kind = Skin.call(f.GetObjectType, f)
-      local skip = type(name) == "string" and (name:find("^HogHeals") or name:find("Tooltip"))
+      local skip = type(name) == "string" and (name:find("^HogHeals") or name:find("Tooltip") or name:find("^LibDBIcon"))
       if not skip and (kind == "Frame" or BUTTON_KINDS[kind]) and Skin.call(f.IsVisible, f) then
         local l, r, t, bt = screenRect(f)
         if l and (r - l) <= 120 and (t - bt) <= 120 then
@@ -494,8 +507,44 @@ function Part.SweepBagOverlays(bags)
     end
     f = EnumerateFrames(f)
   end
-  Part.bagOverlayDiag = (#names > 0) and table.concat(names, ",") or "none"
+  if #names > 0 then
+    Part.overlayNames = Part.overlayNames or {}
+    for _, nm in ipairs(names) do Part.overlayNames[nm] = (Part.overlayNames[nm] or 0) + 1 end
+  end
+  local all = {}
+  for nm, c in pairs(Part.overlayNames or {}) do all[#all + 1] = nm .. (c > 1 and ("x" .. c) or "") end
+  table.sort(all)
+  Part.bagOverlayDiag = (#all > 0) and table.concat(all, ",") or "none"
   return n
+end
+
+--- One sweep a moment from now (several triggers can land in the same frame; only the bar's mode needs it).
+function Part.SweepSoon(why)
+  if not Part.BagsAsButton() and Skin.cfg().micro.strip == false then return end
+  Part.sweepWhy = why
+  if Part.sweepPending then return end
+  Part.sweepPending = true
+  local function run()
+    Part.sweepPending = nil
+    pcall(Part.SweepBagOverlays, Part.BagsAsButton() and Part.BagButtons() or {})
+  end
+  if C_Timer and C_Timer.After then C_Timer.After(0.2, run) else run() end
+end
+
+-- Blizzard calls that put a frame back over a menu button or a bag slot: each one books a sweep.
+Part.SWEEP_HOOKS = { "MicroButtonPulse", "MicroButtonPulseStop", "MainMenuMicroButton_SetPushed", "MainMenuMicroButton_SetNormal",
+  "BagSlotButton_UpdateChecked", "BackpackButton_UpdateChecked", "MainMenuBarBackpackButton_UpdateFreeSlots", "UpdateMicroButtons" }
+function Part.HookSweeps()
+  if type(hooksecurefunc) ~= "function" then return end
+  Part.sweepHooked = Part.sweepHooked or {}
+  Part.sweepHookedSet = Part.sweepHookedSet or {}
+  -- per name, retried on every Apply: Blizzard defines some of these only once its own bar has loaded
+  for _, n in ipairs(Part.SWEEP_HOOKS) do
+    if not Part.sweepHookedSet[n] and type(rawget(_G, n)) == "function" then
+      local ok = pcall(hooksecurefunc, n, function() Part.SweepSoon(n) end)
+      if ok then Part.sweepHookedSet[n] = true Part.sweepHooked[#Part.sweepHooked + 1] = n end
+    end
+  end
 end
 
 --- The bag slots in the micro bar's look: flat cell, scaled up, cyan outline under the mouse, the art around
@@ -546,8 +595,9 @@ function Part.Apply()
       if Part.strips and Part.strips.bags then Part.strips.bags:Hide() end
       Part.bagMode = "button"
       Part.SweepBagOverlays(bags)
+      Part.HookSweeps()
       if C_Timer and C_Timer.After then
-        C_Timer.After(1, function() if Part.BagsAsButton() then Part.SweepBagOverlays(Part.BagButtons()) end end)
+        for _, secs in ipairs({ 1, 5, 15 }) do C_Timer.After(secs, function() Part.SweepSoon("late" .. secs) end) end
       end
     else
       for _, b in ipairs(bags) do unsilence(b) end
@@ -598,7 +648,9 @@ function Part.OnEvent(e)
     local s = Part.strips
     local stripPending = not Part.BagsAsButton() and not (s and s.bags and s.bags.placed)
     if stripPending or Part.barAnchor == "screen" or (Skin.cfg().micro.strip ~= false and (Part.microCount or 0) < 3) then Part.Apply()
-    elseif e == "PLAYER_ENTERING_WORLD" and Part.BagsAsButton() then Part.SweepBagOverlays(Part.BagButtons()) end
+    else Part.SweepSoon(e) end
+  elseif e == "BAG_UPDATE_DELAYED" or e == "UPDATE_BINDINGS" or e == "QUEST_LOG_UPDATE" then
+    Part.SweepSoon(e)
   end
 end
 

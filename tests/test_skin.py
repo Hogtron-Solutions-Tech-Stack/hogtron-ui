@@ -672,3 +672,45 @@ def test_decorations_left_over_the_faded_slots_are_faded_too(skin):
     skin.execute('HogHeals.OptionsTable().args.Skin.args.micro.args.bagMode.set(nil, "slots")')
     assert skin.eval('Highlight._alpha') == 1 and skin.eval('Border._alpha') == 1
     assert errors(skin) == []
+
+
+def test_decorations_that_come_back_over_the_menu_buttons_and_the_bar_are_swept_again(skin):
+    # Sean 2026-10-05 (screenshot): a gold square around the 7th letter and around the Bags cell - frames Blizzard
+    # put back after the first sweep (menu alert / flash, backpack highlight on bag open)
+    skin.execute("""
+      local function rect(f, l, r, t, b) f.GetLeft = function() return l end f.GetRight = function() return r end f.GetTop = function() return t end f.GetBottom = function() return b end end
+      rect(MainMenuBarBackpackButton, 200, 230, 40, 10)
+      rect(SpellbookMicroButton, 100, 128, 44, 6)
+      rect(HogHealsMicroBar, 20, 240, 44, 6)
+      function MicroButtonPulse(b) end
+      function MicroButtonPulseStop(b) end
+      LIST = { MainMenuBarBackpackButton, SpellbookMicroButton, HogHealsMicroBar, HogHealsMicroBarBags }
+      function EnumerateFrames(prev) if prev == nil then return LIST[1] end for i, f in ipairs(LIST) do if f == prev then return LIST[i + 1] end end end
+      HogHealsSkin.Micro.Apply()
+    """)
+    assert "MicroButtonPulse" in skin.eval("table.concat(HogHealsSkin.Micro.sweepHooked, ',')")
+    # a flash frame appears over the menu button later, Blizzard calls MicroButtonPulse: swept a moment later
+    skin.execute("""
+      local function rect(f, l, r, t, b) f.GetLeft = function() return l end f.GetRight = function() return r end f.GetTop = function() return t end f.GetBottom = function() return b end end
+      Flash = CreateFrame("Frame", "SpellbookMicroButtonAlertGlow", UIParent); rect(Flash, 97, 131, 47, 3)
+      LIST[#LIST + 1] = Flash
+      MicroButtonPulse(SpellbookMicroButton)
+    """)
+    assert skin.eval("Flash._alpha") == 1                                                      # not yet: debounced
+    skin.execute("MockAdvance(0.3)")
+    assert skin.eval("Flash._alpha") == 0
+    skin.execute("Flash:SetAlpha(1)")
+    assert skin.eval("Flash._alpha") == 0                                                      # kept faded
+    # the backpack highlight comes back when a bag opens (BAG_UPDATE_DELAYED): swept too; sits inside our bar's rect
+    skin.execute("""
+      local function rect(f, l, r, t, b) f.GetLeft = function() return l end f.GetRight = function() return r end f.GetTop = function() return t end f.GetBottom = function() return b end end
+      Gold = CreateFrame("Frame", "BackpackHighlightAgain", UIParent); rect(Gold, 198, 232, 42, 8)
+      Big = CreateFrame("Frame", "SomethingHuge", UIParent); rect(Big, 0, 400, 100, 0)
+      LIST[#LIST + 1] = Gold; LIST[#LIST + 1] = Big
+      HogHealsSkin.Micro.OnEvent("BAG_UPDATE_DELAYED"); MockAdvance(0.3)
+    """)
+    assert skin.eval("Gold._alpha") == 0 and skin.eval("Big._alpha") == 1
+    diag = skin.eval("HogHealsSkin.Micro.bagOverlayDiag")
+    assert "SpellbookMicroButtonAlertGlow" in diag and "BackpackHighlightAgain" in diag          # /hh skindiag names them
+    assert skin.eval("HogHealsMicroBar._alpha") == 1 and skin.eval("HogHealsMicroBarBags._alpha") == 1
+    assert errors(skin) == []
