@@ -19,6 +19,7 @@ local LINE = { 0.20, 0.20, 0.25 }
 
 local W, H, SIDEBAR, TITLE, PAD = 860, 580, 170, 40, 16
 local COLS, GUTTER = 2, 18
+local CW, CH = 400, 460   -- compact window (edit mode: one frame's settings beside the frame)
 
 -- ------------------------------------------------------------------------------------------------ helpers
 local function solid(parent, layer, c, a)
@@ -566,7 +567,8 @@ local FULL_WIDTH = { header = true, description = true }
 local function place(args, path, y, handler)
   local content = Panel.frame.content
   local total = content:GetWidth() or (W - SIDEBAR - PAD * 2 - 8)
-  local colW = (total - GUTTER * (COLS - 1)) / COLS
+  local cols = Panel.cols or COLS
+  local colW = (total - GUTTER * (cols - 1)) / cols
   local col, rowH = 0, 0
   local function newline()
     if col > 0 then y = y + rowH + 6; col, rowH = 0, 0 end
@@ -603,7 +605,7 @@ local function place(args, path, y, handler)
         else
           rowH = math.max(rowH, h)
           col = col + 1
-          if col >= COLS then newline() end
+          if col >= cols then newline() end
         end
       end
     end
@@ -745,10 +747,49 @@ function Panel.SelectTab(key)
   Panel.Refresh()
 end
 
---- Open the window. source = optional function returning an options table (defaults to the live HogHeals one).
-function Panel.Open(source)
+--- Full window (sidebar, two columns, centred) or compact (one section, one column, beside a frame: edit mode).
+-- opts = { compact = true, anchor = frame, title = "Action bar 2" }
+function Panel.Layout(opts)
+  local f = Panel.frame
+  opts = opts or {}
+  local was = Panel.compact
+  Panel.compact = opts.compact and true or false
+  f.tabbar:ClearAllPoints()
+  if Panel.compact then
+    f:SetSize(CW, CH)
+    f.side:Hide()
+    f.tabbar:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -(TITLE + 10))
+    f.content:SetWidth(CW - PAD * 2 - 8)
+    Panel.cols = 1
+    f.version:SetText(opts.title or "")
+    f:ClearAllPoints()
+    local a = opts.anchor
+    local right = a and a.GetRight and a:GetRight()
+    local sw = (type(GetScreenWidth) == "function" and GetScreenWidth()) or 1920
+    if right and type(right) == "number" then
+      local s = (a.GetEffectiveScale and a:GetEffectiveScale() or 1) / (UIParent:GetEffectiveScale() or 1)
+      if right * s + CW + 16 < sw then f:SetPoint("LEFT", a, "RIGHT", 12, 0) else f:SetPoint("RIGHT", a, "LEFT", -12, 0) end
+    else
+      f:SetPoint("CENTER", UIParent, "CENTER", 0, 20)
+    end
+  else
+    f:SetSize(W, H)
+    f.side:Show()
+    f.tabbar:SetPoint("TOPLEFT", f.side, "TOPRIGHT", PAD, -10)
+    f.content:SetWidth(W - SIDEBAR - PAD * 2 - 8)
+    Panel.cols = nil
+    f.version:SetText("v" .. tostring(HH.version or "dev"))
+    if was then f:ClearAllPoints() f:SetPoint("CENTER", UIParent, "CENTER", 0, 20) end
+  end
+  f.tabbar:SetPoint("RIGHT", f, "RIGHT", -PAD, 0)
+end
+
+--- Open the window. source = optional function returning an options table (defaults to the live HogHeals one);
+-- opts = Panel.Layout's (compact edit-mode form).
+function Panel.Open(source, opts)
   Panel.source = source
   local f = build()
+  Panel.Layout(opts)
   f:Show()
   Panel.Refresh()
   return f
