@@ -30,7 +30,7 @@ end
 
 -- Forever beta: SetText on a template-less FontString throws "Font not set". Always pass a template.
 local function text(parent, c, justify)
-  local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  local fs = parent:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
   fs:SetTextColor(c[1], c[2], c[3])
   if justify then fs:SetJustifyH(justify) end
   return fs

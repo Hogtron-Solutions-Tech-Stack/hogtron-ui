@@ -52,7 +52,7 @@ function R.Icon(button, key, i)
   b.cd:SetAllPoints(b)
   if b.cd.SetHideCountdownNumbers then b.cd:SetHideCountdownNumbers(true) end
   if b.cd.SetDrawEdge then b.cd:SetDrawEdge(false) end
-  b.count = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  b.count = b:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
   b.count:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 1, -1)
   b.count:SetJustifyH("RIGHT")
   button[key][i] = b
@@ -68,7 +68,7 @@ function R.Paint(b, a, size, edge, numbers)
   if n and n > 1 then b.count:SetText(tostring(n)) b.count:Show()
   elseif n == nil and a.applications ~= nil and isSecret(a.applications) then b.count:SetText(string.format("%s", a.applications)) b.count:Show()
   else b.count:SetText("") b.count:Hide() end
-  if b.count.SetFont then call(b.count.SetFont, b.count, STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", math.max(7, math.floor(size * 0.6)), "OUTLINE") end
+  if b.count.SetFont then call(b.count.SetFont, b.count, HogHeals.Look.Font() or STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", math.max(7, math.floor(size * 0.6)), "OUTLINE") end
   edge = edge or R.LINE
   b.edge:SetColorTexture(edge[1], edge[2], edge[3], 1)
   local dur, exp = R.num(a.duration), R.num(a.expirationTime)

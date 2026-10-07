@@ -27,7 +27,7 @@ HH.defaults = {
       enabled = true, hideBlizzard = true, tooltips = true,
       classColors = true, reactionColors = true, healthColor = { 0.25, 0.80, 0.35 },
       healthText = "current-max", powerText = "current-max",   -- percent | current | current-max | current-percent | none (Sean: "343 / 343")
-      texture = "Solid", font = "Friz Quadrata TT", fontSize = 12, backgroundAlpha = 0.6,
+      texture = "Solid", font = "HogTron", fontSize = 12, backgroundAlpha = 0.6,
       -- flanking the bottom centre (ElvUI's arrangement): player left, target right, small frames beside them
       player = { enabled = true, width = 240, height = 42, powerHeight = 8, showPower = true, showName = true, showLevel = true, point = "BOTTOM", x = -280, y = 230 },
       target = { enabled = true, width = 240, height = 42, powerHeight = 8, showPower = true, showName = true, showLevel = true, point = "BOTTOM", x = 280, y = 230,
@@ -39,6 +39,9 @@ HH.defaults = {
         castbar = true, castbarHeight = 14, debuffs = true, buffs = false, auraSize = 20, aurasPerRow = 8, maxDebuffs = 8, maxBuffs = 8,
         debuffFilter = "mine-first", myDebuffSize = 26, auraTimers = true },
     },
+    -- how it looks (Core/Look.lua): style hogtron | classic (reload), font Inter | Manrope | Barlow Condensed,
+    -- edge shadow | outline (panel text; text on bars keeps its outline), size -2..+4, pixel = saved pixel-perfect scale
+    look = { style = "hogtron", font = "Inter", edge = "shadow", size = 0 },
     frames = {
       hideBlizzard = true,           -- our group frames on = Blizzard's party / raid-style frames off
       soloSharesParty = true,        -- one layout for solo and party (size, growth, anchor); showSolo stays solo's own
@@ -51,7 +54,7 @@ HH.defaults = {
         raid40 = layout(62, 40, 1, "DOWN", 8, 8),
       },
       appearance = {
-        font = "Friz Quadrata TT", fontSize = 11, fontOutline = "OUTLINE",
+        font = "HogTron", fontSize = 11, fontOutline = "OUTLINE",
         texture = "Solid",           -- flat; the glossy Blizzard bar read as "what is this"
         healthMode = "class",        -- "class" | "deficit" | "custom"
         healthText = "deficit",      -- "percent" | "deficit" | "none"
@@ -130,7 +133,7 @@ HH.defaults = {
     },
     plates = {
       enabled = true,                 -- restyle Blizzard's nameplates (flat bar, outline, health text)
-      font = "Friz Quadrata TT", fontSize = 13, healthText = "percent",   -- "percent" | "value" | "none"
+      font = "HogTron", fontSize = 13, healthText = "percent",   -- "percent" | "value" | "none"
       barHeight = 14, widthScale = 1.3,   -- bar height in px; plate width as a multiple of Blizzard's (cvar)
       flatBar = true,                 -- plain flat bar: all of Blizzard's art on the health bar hidden (heal / absorb kept)
       hideBorders = true,             -- Blizzard's own bar border / selection line off (ours is the dark 1 px edge)
@@ -159,7 +162,7 @@ HH.defaults = {
       x = 0, y = -180, width = 300, followFrames = false,
       castbarHeight = 18, swingHeight = 16, manaHeight = 12, infoHeight = 14, rowSpacing = 2,
       showCastbar = true, showSwing = true, showMana = true, showInfo = true,
-      font = "Friz Quadrata TT", fontSize = 11, texture = "Solid",
+      font = "HogTron", fontSize = 11, texture = "Solid",
       castbar = {
         icon = true, showTarget = true, latency = true, gcd = false, hideBlizzard = true, precision = 1,
         castColor = { 0.13, 0.83, 0.88 }, channelColor = { 0.25, 0.80, 0.35 }, uninterruptibleColor = { 0.6, 0.6, 0.6 },
@@ -187,7 +190,7 @@ HH.defaults = {
       },
     },
     skin = {
-      enabled = true, font = "Friz Quadrata TT", backgroundAlpha = 0.75,
+      enabled = true, font = "HogTron", backgroundAlpha = 0.75,
       actionBars = { enabled = true, hideArt = true, hotkeySize = 10, hideNames = true, cooldownNumbers = true },
       -- parchment windows get the parchment treatment in Panels.lua (fonts recoloured, inner art stripped);
       -- World Map and the tabard designer keep their own art

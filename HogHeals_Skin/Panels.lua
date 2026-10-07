@@ -176,7 +176,7 @@ function Part.Style(f)
   local close = rawget(f, "CloseButton") or rawget(_G, name .. "CloseButton")
   if type(close) == "table" and close.CreateFontString and not close.hhX then
     Skin.KillRegions(close)
-    close.hhX = close:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    close.hhX = close:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
     close.hhX:SetPoint("CENTER", close, "CENTER", 0, 0)
     close.hhX:SetText("x")
     close.hhX:SetTextColor(Skin.CREAM[1], Skin.CREAM[2], Skin.CREAM[3])

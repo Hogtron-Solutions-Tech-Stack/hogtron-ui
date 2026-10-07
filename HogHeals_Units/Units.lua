@@ -52,8 +52,8 @@ local function media(kind, name, fallback)
   local p = LSM and call(LSM.Fetch, LSM, kind, name)
   return p or fallback
 end
-local function fontPath() return media("font", cfg().font or "Friz Quadrata TT", STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF") end
-local function barTexture() return media("statusbar", cfg().texture or "Solid", FLAT) end
+local function fontPath() return HogHeals.Look.Font(cfg().font) end
+local function barTexture() return HogHeals.Look.Bar(cfg().texture) end
 
 -- ------------------------------------------------------------------------------------------------ class memory
 Units.classByGUID, Units.classByName = {}, {}
@@ -180,7 +180,7 @@ local function solid(parent, layer, c, a)
 end
 
 local function text(parent, c, justify)
-  local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  local fs = parent:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
   fs:SetTextColor(c[1], c[2], c[3])
   if justify then fs:SetJustifyH(justify) end
   if fs.SetWordWrap then fs:SetWordWrap(false) end
@@ -797,7 +797,7 @@ end
 function Module:SetLockedNow(locked)
   Units.ForEach(function(f)
     if not f.dragHint then
-      f.dragHint = f.overlay:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+      f.dragHint = f.overlay:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
       f.dragHint:SetPoint("CENTER", f, "CENTER", 0, 0)
       f.dragHint:SetTextColor(CYAN[1], CYAN[2], CYAN[3])
       f.dragHint:SetText("drag: " .. (Units.LABEL[f.unit] or f.unit):lower())

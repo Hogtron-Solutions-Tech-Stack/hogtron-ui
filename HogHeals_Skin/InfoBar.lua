@@ -240,7 +240,7 @@ local function slot(i)
   if s then return s end
   local f = Bar.frame
   s = CreateFrame("Button", nil, f)
-  s.text = s:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  s.text = s:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
   s.text:SetPoint("CENTER", s, "CENTER", 0, 0)
   s.text:SetJustifyH("CENTER")
   if s.text.SetWordWrap then s.text:SetWordWrap(false) end

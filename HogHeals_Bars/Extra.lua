@@ -58,13 +58,13 @@ local function newButton(bar, name, i, target)
   if b.RegisterForClicks then b:RegisterForClicks(HH.SecureClick and HH.SecureClick() or "AnyUp") end
   b.icon = b:CreateTexture(nil, "ARTWORK")
   b.icon:SetAllPoints(b)
-  b.HotKey = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  b.HotKey = b:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
   b.HotKey:SetPoint("TOPRIGHT", b, "TOPRIGHT", -1, -1)
   b.cooldown = CreateFrame("Cooldown", nil, b, "CooldownFrameTemplate")
   b.cooldown:SetAllPoints(b)
   bindMixin(b, target)
   Bars.Dress(b)
-  if b.HotKey.SetFont then call(b.HotKey.SetFont, b.HotKey, STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", cfg().hotkeySize or 10, "OUTLINE") end
+  if b.HotKey.SetFont then call(b.HotKey.SetFont, b.HotKey, HogHeals.Look.Font() or STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", cfg().hotkeySize or 10, "OUTLINE") end
   return b
 end
 

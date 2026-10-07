@@ -109,7 +109,7 @@ local function icon(r, i)
   b.cd:SetAllPoints(b)
   if b.cd.SetHideCountdownNumbers then b.cd:SetHideCountdownNumbers(true) end
   if b.cd.SetDrawEdge then b.cd:SetDrawEdge(false) end
-  b.count = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  b.count = b:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
   b.count:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 1, -1)
   b.count:SetJustifyH("RIGHT")
   r.icons[i] = b
@@ -124,7 +124,7 @@ local function paint(b, a, size)
   if n and n > 1 then b.count:SetText(tostring(n)) b.count:Show()
   elseif n == nil and a.applications ~= nil and isSecret(a.applications) then b.count:SetText(string.format("%s", a.applications)) b.count:Show()
   else b.count:SetText("") b.count:Hide() end
-  if b.count.SetFont then call(b.count.SetFont, b.count, STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", math.max(8, math.floor(size * 0.55)), "OUTLINE") end
+  if b.count.SetFont then call(b.count.SetFont, b.count, HogHeals.Look.Font() or STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", math.max(8, math.floor(size * 0.55)), "OUTLINE") end
   local dur, exp = num(a.duration), num(a.expirationTime)
   if dur and exp and dur > 0 and b.cd.SetCooldown then
     b.cd:SetCooldown(exp - dur, dur)
