@@ -74,11 +74,13 @@ end
 
 -- Text fields (name, desc) are NEVER resolved as methods: a label that happens to equal a method name must not
 -- call it (test caught "Reset" firing five times).
+local function passOrLog(ok, ...)
+  if not ok then HH:LogError("options: " .. tostring((...))) return nil end
+  return ...   -- every value, nils included ({ pcall() } + unpack stops at the first nil)
+end
 local function val(x, info, ...)
   if type(x) ~= "function" then return x end
-  local r = { pcall(x, info, ...) }
-  if not r[1] then HH:LogError("options: " .. tostring(r[2])) return nil end
-  return unpack(r, 2)
+  return passOrLog(pcall(x, info, ...))
 end
 
 --- Method-capable fields only: get, values, hidden, disabled.
