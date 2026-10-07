@@ -193,24 +193,31 @@ local function fadeHooks(bar)
 end
 
 -- ------------------------------------------------------------------------------------------------ bars
-local function dragHandle(bar, n)
-  local h = CreateFrame("Frame", nil, bar)
+-- The cyan box you drag after /hh unlock. Sean 2026-10-06: "the action bars need to be movable in the unlock".
+-- Its own frame on UIParent at DIALOG strata, laid over the bar: a bar's fade, alpha or child levels can neither hide
+-- it nor take the mouse from it. The position is saved under the bar's own key (bar.n): the pet bar used to save
+-- under "Pet" while its layout read "pet", so a dragged pet bar jumped back.
+local function dragHandle(bar, label)
+  local h = CreateFrame("Frame", nil, UIParent)
+  h:SetFrameStrata("DIALOG")
   h:SetAllPoints(bar)
-  h:SetFrameLevel(bar:GetFrameLevel() + 20)
   h.bg = h:CreateTexture(nil, "BACKGROUND")
-  h.bg:SetColorTexture(CYAN[1], CYAN[2], CYAN[3], 0.25)
+  h.bg:SetColorTexture(CYAN[1], CYAN[2], CYAN[3], 0.30)
   h.bg:SetAllPoints(h)
   h.label = h:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
   h.label:SetPoint("CENTER", h, "CENTER", 0, 0)
-  h.label:SetText(type(n) == "number" and ("Bar %d"):format(n) or tostring(n))
+  local name = label or (type(bar.n) == "number" and ("Bar %d"):format(bar.n)) or tostring(bar.n)
+  h.label:SetText(name .. "  -  drag")
   h.label:SetTextColor(CREAM[1], CREAM[2], CREAM[3])
+  h.bar = bar
   h:EnableMouse(true)
   h:RegisterForDrag("LeftButton")
   h:SetScript("OnDragStart", function() if not InCombatLockdown() then bar:StartMoving() end end)
   h:SetScript("OnDragStop", function()
     bar:StopMovingOrSizing()
     local point, _, _, x, y = bar:GetPoint(1)
-    if point then local bd = cfg().list[n] bd.point, bd.x, bd.y = point, x, y end
+    local bd = cfg().list[bar.n]
+    if point and bd then bd.point, bd.x, bd.y = point, x, y end
   end)
   h:Hide()
   return h
@@ -248,7 +255,7 @@ function Bars.Create(n)
     bar.driver = Bars.PageDriver()
     if type(RegisterStateDriver) == "function" then call(RegisterStateDriver, bar, "page", bar.driver) end
   end
-  bar.handle = dragHandle(bar, n)
+  bar.handle = dragHandle(bar)
   bar.describe = function()
     local bd = cfg().list[n]
     return ("bar %d: %s slots %d-%d, %d shown, %d per row, at %s %d,%d%s"):format(n, bd.enabled == false and "OFF" or "on", spec.slot, spec.slot + 11,
@@ -358,10 +365,49 @@ function Bars.Build(reason)
 end
 
 function Bars.SetUnlocked(unlocked)
+  local was = Bars.unlocked
   for _, bar in pairs(Bars.bars) do
     if bar.handle then if unlocked then bar.handle:Show() else bar.handle:Hide() end end
+    -- unlocked: every bar fully visible so you can see what you are placing; locked: its own opacity / fade again
+    if unlocked then bar:SetAlpha(1) elseif was and bar.laidOut then Bars.Layout(bar) end
   end
   Bars.unlocked = unlocked and true or false
+  if unlocked and not was and next(Bars.bars) then HH:Print("bars: drag the cyan boxes to move a bar; /hh lock when done. /hh bars reset puts them all back.") end
+end
+
+--- Every bar back to its default place and scale (positions, not buttons or visibility).
+function Bars.ResetPositions()
+  local list = cfg().list
+  -- the default values written in explicitly (bar-specific over "**"), not cleared: same result on every database
+  local D = (HH.defaults and HH.defaults.profile and HH.defaults.profile.bars and HH.defaults.profile.bars.list) or {}
+  local star = D["**"] or {}
+  for k, bd in pairs(list) do
+    if type(bd) == "table" then
+      local d = D[k] or {}
+      for _, f in ipairs({ "point", "x", "y", "scale" }) do
+        local v = d[f]
+        if v == nil then v = star[f] end
+        bd[f] = v
+      end
+    end
+  end
+  list.Pet, list.Stances = nil, nil
+  for _, bar in pairs(Bars.bars) do if bar.laidOut then Bars.Layout(bar) end end
+  if Bars.unlocked then Bars.SetUnlocked(true) end
+  return true
+end
+
+--- One-time move of a position saved under the old wrong keys ("Pet", "Stances") to the keys the layout reads.
+function Bars.MigrateKeys()
+  local list = cfg().list
+  for old, new in pairs({ Pet = "pet", Stances = "stance" }) do
+    local o = rawget(list, old)
+    if type(o) == "table" then
+      local n = list[new]
+      if o.x ~= nil or o.y ~= nil then n.point, n.x, n.y = o.point or n.point or "BOTTOM", o.x, o.y end
+      list[old] = nil
+    end
+  end
 end
 
 --- Build or refresh everything.
@@ -414,6 +460,7 @@ local Module = {}
 HHB.module = Module
 
 function Module:OnEnable()
+  Bars.MigrateKeys()
   local d = cfg()
   if not d or d.enabled == false then return end
   if not Bars.Lib() then
@@ -441,7 +488,36 @@ function Module:SetLocked(locked) Bars.SetUnlocked(not locked) end
 
 HH:RegisterModule("Bars", Module)
 
+HH:RegisterSlash("bars", function(rest)
+  rest = (rest or ""):lower()
+  if rest == "reset" then
+    if InCombatLockdown and InCombatLockdown() then HH:Print("bars: not in combat.") return end
+    Bars.ResetPositions()
+    HH:Print("bars: every bar back to its default place and scale.")
+    return
+  end
+  HH:Print("bars: /hh unlock to drag them, /hh bars reset to put them back, /hh bind to bind keys, /hh barsdiag for details.")
+end, "action bars: reset (all bars back to their default place)")
+
+--- Where each bar really is: its own scale, the scale it ends up drawn at, size and anchor (for /hh barsdiag).
+function Bars.LayoutLines()
+  local out = {}
+  local keys = {}
+  for k in pairs(Bars.bars) do keys[#keys + 1] = k end
+  table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
+  for _, k in ipairs(keys) do
+    local bar = Bars.bars[k]
+    local function n(f) local ok, v = pcall(f, bar) return ok and type(v) == "number" and v or 0 end
+    local point, _, rel, x, y = bar:GetPoint(1)
+    out[#out + 1] = ("bar %s: scale %.2f, drawn at %.2f, %dx%d, %s %s %d,%d, %s"):format(tostring(k), n(bar.GetScale), n(bar.GetEffectiveScale),
+      n(bar.GetWidth), n(bar.GetHeight), tostring(point), tostring(rel), x or 0, y or 0, bar:IsShown() and "shown" or "hidden")
+  end
+  return out
+end
+
 HH:RegisterSlash("barsdiag", function()
+  for _, l in ipairs(Bars.LayoutLines()) do HH:Print("  " .. l) end
+  do local g = HH.db and HH.db.global if g then g.diag = g.diag or {} g.diag.barsLayout = Bars.LayoutLines() end end
   do
     local lab = LibStub and LibStub("LibActionButton-1.0", true)
     local miss = {}

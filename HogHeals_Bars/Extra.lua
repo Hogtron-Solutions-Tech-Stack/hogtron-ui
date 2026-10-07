@@ -101,7 +101,7 @@ function Extra.CreatePet()
     bar.buttons[i] = b
   end
   bar.visPrefix = "[nopet]hide;"   -- no pet, no bar - whatever the visibility option says
-  bar.handle = Bars.DragHandle(bar, "Pet")
+  bar.handle = Bars.DragHandle(bar, "Pet bar")
   bar.describe = function() return ("pet bar: %d actions, %s"):format(Extra.petCount or 0, Bars.bars.pet:IsShown() and "shown" or "hidden") end
   Bars.bars.pet = bar
   return bar
@@ -154,7 +154,7 @@ function Extra.CreateStance()
     b:SetScript("OnLeave", function() if GameTooltip and GameTooltip.Hide then GameTooltip:Hide() end end)
     bar.buttons[i] = b
   end
-  bar.handle = Bars.DragHandle(bar, "Stances")
+  bar.handle = Bars.DragHandle(bar, "Stance bar")
   bar.describe = function() return ("stance bar: %d forms"):format(Extra.formCount or 0) end
   Bars.bars.stance = bar
   return bar
