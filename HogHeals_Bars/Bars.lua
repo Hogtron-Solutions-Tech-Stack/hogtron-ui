@@ -442,6 +442,15 @@ function Module:SetLocked(locked) Bars.SetUnlocked(not locked) end
 HH:RegisterModule("Bars", Module)
 
 HH:RegisterSlash("barsdiag", function()
+  do
+    local lab = LibStub and LibStub("LibActionButton-1.0", true)
+    local miss = {}
+    for e in pairs(lab and lab.unknownEvents or {}) do miss[#miss + 1] = e end
+    table.sort(miss)
+    HH:Print(("bars: cooldowns via %s; events this client refused: %s"):format(tostring(lab and lab.cooldownPath or "?"), #miss > 0 and table.concat(miss, ", ") or "none"))
+    local g = HH.db and HH.db.global
+    if g then g.diag = g.diag or {} g.diag.barsCooldown = { path = lab and lab.cooldownPath, refused = table.concat(miss, ",") } end
+  end
   local f, m = {}, {}
   for k in pairs(Bars.found) do f[#f + 1] = k end
   for k in pairs(Bars.missing) do if not Bars.found[k] then m[#m + 1] = k end end

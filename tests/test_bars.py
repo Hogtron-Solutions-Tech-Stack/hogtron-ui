@@ -354,3 +354,49 @@ def test_an_unknown_event_no_longer_stops_the_bar_library_registering_the_rest()
         assert rt.eval(f'REG["{ev}"]') is True, ev
     rt.execute("InitializeEventHandler()")                      # second call: wrapper not stacked
     assert rt.eval("lib.eventFrame.hhSafeRegister") is True
+
+
+def _lab_src():
+    from pathlib import Path as _P
+    return (_P(__file__).resolve().parents[1] / "HogHeals_Bars/Libs/LibActionButton-1.0/LibActionButton-1.0.lua").read_text(encoding="utf-8")
+
+
+def test_duration_object_path_is_taken_wherever_the_client_has_it():
+    # in game 2026-10-06: no swipes / GCD on any button - Forever is not "Retail", so the lib never used duration objects
+    from lupa.lua51 import LuaRuntime
+    src = _lab_src().splitlines()
+    a = next(k for k, l in enumerate(src) if l.startswith("local function HHDurationObjectsAvailable()"))
+    b = next(k for k in range(a, len(src)) if src[k].startswith("lib.cooldownPath ="))
+    chunk = chr(10).join(src[a:b + 1])
+    for has, want in ((True, "duration objects"), (False, "numbers")):
+        rt = LuaRuntime()
+        rt.execute(f"""
+          lib = {{}}; WoWRetail = false; buildNumber = "70009"
+          C_ActionBar = {{ GetActionCooldownDuration = function() end }}
+          function CreateFrame(kind) local f = {{}} if {str(has).lower()} then function f:SetCooldownFromDurationObject() end end return f end
+        """)
+        rt.execute(chunk)
+        assert rt.eval("lib.cooldownPath") == want
+
+
+def test_hidden_cooldown_numbers_go_straight_to_the_swipe():
+    from lupa.lua51 import LuaRuntime
+    src = _lab_src().splitlines()
+    a = next(k for k, l in enumerate(src) if l.startswith("\tfunction lib.hhSecretCooldown(self)"))
+    b = next(k for k in range(a + 1, len(src)) if src[k] == "\tend")
+    rt = LuaRuntime()
+    rt.execute("""
+      lib = {}
+      SECRET = {}
+      function issecretvalue(v) return type(v) == "table" and v.secret == true end
+      local function secret(n) return { secret = true, n = n } end
+      CALLS = {}
+      local cd = { SetCooldown = function(self, s, d) CALLS[#CALLS + 1] = { s, d } end }
+      HIDDEN = { cooldown = cd, GetCooldown = function() return secret(100), secret(1.5) end }
+      PLAIN = { cooldown = cd, GetCooldown = function() return 100, 1.5 end }
+    """)
+    rt.execute(chr(10).join(src[a:b + 1]))
+    assert rt.eval("lib.hhSecretCooldown(PLAIN)") is False and rt.eval("#CALLS") == 0     # plain numbers: the lib's own path
+    assert rt.eval("lib.hhSecretCooldown(HIDDEN)") is True and rt.eval("#CALLS") == 1     # hidden: handed to the widget
+    assert rt.eval("CALLS[1][2].n") == 1.5 and "hidden" in rt.eval("lib.cooldownPath")
+    assert "if lib.hhSecretCooldown(self) then return end" in _lab_src()                    # wired in front of the maths
