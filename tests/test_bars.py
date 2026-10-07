@@ -137,7 +137,7 @@ def test_the_flat_look_and_blizzards_bars_gone(bars):
 def test_drag_under_unlock_saves_the_spot(bars):
     assert bars.eval('HogUIBar1.handle:IsShown()') is False
     bars.execute('HogHeals:SlashCommand("unlock")')
-    assert bars.eval('HogUIBar1.handle:IsShown()') is True and bars.eval('HogUIBar1.handle.label._text') == "Bar 1"
+    assert bars.eval('HogUIBar1.handle:IsShown()') is True and bars.eval('HogUIBar1.handle.label._text') == "Bar 1  -  drag"
     bars.execute('''
       local h = HogUIBar1.handle
       h:GetScript("OnDragStart")(h); HogUIBar1:ClearAllPoints(); HogUIBar1:SetPoint("CENTER", UIParent, "CENTER", 12, -34); h:GetScript("OnDragStop")(h)
@@ -400,6 +400,49 @@ def test_hidden_cooldown_numbers_go_straight_to_the_swipe():
     assert rt.eval("lib.hhSecretCooldown(HIDDEN)") is True and rt.eval("#CALLS") == 1     # hidden: handed to the widget
     assert rt.eval("CALLS[1][2].n") == 1.5 and "hidden" in rt.eval("lib.cooldownPath")
     assert "if lib.hhSecretCooldown(self) then return end" in _lab_src()                    # wired in front of the maths
+
+
+def test_unlock_shows_a_top_layer_box_per_bar_and_dragging_saves_under_the_layouts_key(xbars):
+    # Sean 2026-10-06: "the action bars need to be movable in the unlock"
+    xbars.execute('HogHealsBars.Bars.bars[2]:SetAlpha(0.3); HogHeals:SlashCommand("unlock")')
+    h2 = 'HogHealsBars.Bars.bars[2].handle'
+    assert xbars.eval(f'{h2}:IsShown()') is True and xbars.eval(f'{h2}:GetParent() == UIParent') is True
+    assert xbars.eval(f'{h2}._last.SetFrameStrata[1]') == "DIALOG"
+    assert xbars.eval(f'{h2}.label._text') == "Bar 2  -  drag"
+    assert xbars.eval('HogHealsBars.Bars.bars[2]._alpha') == 1                                   # fully visible while unlocked
+    assert any("drag the cyan boxes" in m for m in xbars.eval("MockLog.chat").values())
+    # drag the pet bar: saved under "pet", which is what its layout reads
+    xbars.execute("""
+      local h = HogHealsBars.Bars.bars.pet.handle
+      h:GetScript("OnDragStart")(h)
+      HogUIPetBar:ClearAllPoints(); HogUIPetBar:SetPoint("BOTTOM", UIParent, "BOTTOM", 25, 300)
+      h:GetScript("OnDragStop")(h)
+    """)
+    assert xbars.eval('HogHeals.db.profile.bars.list.pet.y') == 300 and xbars.eval('rawget(HogHeals.db.profile.bars.list, "Pet")') is None
+    xbars.execute('HogHealsBars.Bars.Layout(HogUIPetBar)')
+    assert xbars.eval('HogUIPetBar._points[1][5]') == 300                                         # stays where it was put
+    assert xbars.eval('HogHealsBars.Bars.bars.pet.handle.label._text') == "Pet bar  -  drag"
+    xbars.execute('HogHeals:SlashCommand("lock")')
+    assert xbars.eval(f'{h2}:IsShown()') is False
+    assert errors(xbars) == []
+
+
+def test_old_pet_key_is_migrated_and_reset_puts_bars_back(lua):
+    lua.execute(CLIENT + EXTRA_CLIENT)
+    lua.load_addon("HogHeals")
+    lua.execute('HogHealsDB = { profileKeys = {}, profiles = { Default = { bars = { list = { Pet = { x = -0.8, y = 178 }, [2] = { x = 40, y = 250, scale = 1.3 } } } } } }')
+    lua.load_addon("HogHeals_Bars")
+    lua.player_login()
+    lst = 'HogHeals.db.profile.bars.list'
+    assert lua.eval(f'rawget({lst}, "Pet")') is None
+    assert lua.eval(f'{lst}.pet.y') == 178 and lua.eval(f'{lst}.pet.x') == pytest.approx(-0.8)
+    lua.execute('HogHeals:SlashCommand("bars reset")')
+    assert lua.eval(f'{lst}[2].y') == 100 and lua.eval(f'{lst}[2].x') == 0 and lua.eval(f'{lst}[2].scale') == 1   # defaults again
+    assert lua.eval(f'{lst}.pet.y') == 184
+    assert lua.eval('HogUIBar2._points[1][5]') == 100
+    lua.execute('HogHeals:SlashCommand("barsdiag")')
+    assert any("bar 2: scale 1.00" in m for m in lua.eval("MockLog.chat").values())
+    assert [e["msg"] for e in lua.eval('HogHeals.errors').values()] == []
 
 
 def test_flyout_scan_survives_a_flyout_with_no_slot_count():
