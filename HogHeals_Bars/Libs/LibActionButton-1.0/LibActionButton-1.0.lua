@@ -1250,6 +1250,18 @@ function ForAllButtonsWithSpell(spellID, method, ...)
 end
 
 function InitializeEventHandler()
+	-- HogTron UI patch (2026-10-06): WoW: Forever throws on event names it does not know (LEARNED_SPELL_IN_TAB),
+	-- and one throw here skipped every RegisterEvent after it. Each registration is tried on its own; misses are listed.
+	if not lib.eventFrame.hhSafeRegister then
+		local register = lib.eventFrame.RegisterEvent
+		lib.unknownEvents = lib.unknownEvents or {}
+		lib.eventFrame.RegisterEvent = function(self, event, ...)
+			local ok = pcall(register, self, event, ...)
+			if not ok then lib.unknownEvents[event] = true end
+			return ok
+		end
+		lib.eventFrame.hhSafeRegister = true
+	end
 	lib.eventFrame:SetScript("OnEvent", OnEvent)
 	lib.eventFrame:RegisterEvent("CVAR_UPDATE")
 	lib.eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -1295,11 +1307,9 @@ function InitializeEventHandler()
 		lib.eventFrame:RegisterEvent("COMPANION_UPDATE")
 	end
 
-	if Midnight or WoWBCC then
-		lib.eventFrame:RegisterEvent("LEARNED_SPELL_IN_SKILL_LINE")
-	else
-		lib.eventFrame:RegisterEvent("LEARNED_SPELL_IN_TAB")
-	end
+	-- HogTron UI patch: ask for both names; the client keeps the one it knows
+	lib.eventFrame:RegisterEvent("LEARNED_SPELL_IN_SKILL_LINE")
+	lib.eventFrame:RegisterEvent("LEARNED_SPELL_IN_TAB")
 
 	-- With those two, do we still need the ACTIONBAR equivalents of them?
 	lib.eventFrame:RegisterEvent("SPELL_UPDATE_COOLDOWN")
@@ -2038,10 +2048,21 @@ local defaultChargeInfo = { currentCharges = 0; maxCharges = 0; cooldownStartTim
 local defaultLossOfControlInfo = { startTime = 0; duration = 0; modRate = 0; isActive = false; shouldReplaceNormalCooldown = false; }
 
 local _, buildNumber = GetBuildInfo()
-local SecretCooldownsUseDuration = WoWRetail and tonumber(buildNumber) >= 66562
+-- HogTron UI patch (2026-10-06): WoW: Forever is not WOW_PROJECT_MAINLINE, so the duration-object path below was never
+-- taken there and the old path did maths on cooldown numbers the client hides from addons -> no swipe, no GCD on any
+-- button (in game). Take the duration-object path wherever the client actually has it.
+local function HHDurationObjectsAvailable()
+	if not (C_ActionBar and C_ActionBar.GetActionCooldownDuration) then return false end
+	local ok, cd = pcall(CreateFrame, "Cooldown")
+	return (ok and cd and type(cd.SetCooldownFromDurationObject) == "function") and true or false
+end
+local SecretCooldownsUseDuration = (WoWRetail and tonumber(buildNumber) >= 66562) or HHDurationObjectsAvailable()
+lib.cooldownPath = SecretCooldownsUseDuration and "duration objects" or "numbers"
 if SecretCooldownsUseDuration then
 	local function SetOrClearCooldown(cooldown, shouldShow, durationObject)
 		if not cooldown then return end
+		-- HogTron UI patch: a hidden (secret) flag may not be tested; the duration object knows whether it runs
+		if issecretvalue and issecretvalue(shouldShow) then shouldShow = true end
 		if not shouldShow or not durationObject then
 			cooldown:Clear()
 			return
@@ -2054,16 +2075,32 @@ if SecretCooldownsUseDuration then
 		local chargeInfo = self:GetChargeInfo() or defaultChargeInfo
 		local locInfo = self:GetLoCCooldownInfo() or defaultLossOfControlInfo
 
+		-- HogTron UI patch: tables without isActive (older shapes) leave the call to the duration object
+		local function active(v) if v == nil then return true end return v end
 		local showLoC = locInfo.isActive
 		local showCharge = not locInfo.shouldReplaceNormalCooldown and chargeInfo.isActive
-		local showNormal = not locInfo.shouldReplaceNormalCooldown and cooldownInfo.isActive
+		local showNormal = not locInfo.shouldReplaceNormalCooldown and active(cooldownInfo.isActive)
 
 		SetOrClearCooldown(self.cooldown, showNormal, self:GetCooldownDuration())
 		SetOrClearCooldown(self.chargeCooldown, showCharge, self:GetChargeDuration())
 		SetOrClearCooldown(self.lossOfControlCooldown, showLoC, self:GetLoCCooldownDuration())
 	end
 else
+	-- HogTron UI patch: hidden cooldown numbers go straight to the swipe widget (it accepts them); the comparisons
+	-- below would throw on them. Returns true when it handled the button.
+	function lib.hhSecretCooldown(self)
+		if not issecretvalue or not self.GetCooldown then return false end
+		local ok, start, duration = pcall(self.GetCooldown, self)
+		if not ok then return false end
+		if not (issecretvalue(start) or issecretvalue(duration)) then return false end
+		lib.cooldownPath = "numbers, hidden by the client: drawn without maths"
+		if self.cooldown then pcall(self.cooldown.SetCooldown, self.cooldown, start, duration) end
+		if self.chargeCooldown and self.chargeCooldown.Hide then pcall(self.chargeCooldown.Hide, self.chargeCooldown) end
+		return true
+	end
+
 	function UpdateCooldown(self)
+		if lib.hhSecretCooldown(self) then return end
 		local chargeInfo
 		local cooldownInfo
 		local lossOfControlInfo = {}

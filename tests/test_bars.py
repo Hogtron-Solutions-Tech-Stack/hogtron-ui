@@ -305,3 +305,98 @@ def test_stance_bar_forms_spells_and_layout(xbars):
     xbars.execute('FORMS = {}; MockFire("UPDATE_SHAPESHIFT_FORMS")')
     assert xbars.eval('HogUIStanceBar:IsShown()') is False and xbars.eval('HogHealsBars.Extra.formCount') == 0
     assert errors(xbars) == []
+
+
+def test_pet_flags_as_this_client_sends_them_1_and_nil(xbars):
+    # in game 2026-10-06: Attack / Follow / Move To came up blank - the client says isToken = 1, not true
+    xbars.execute("""
+      PET_ATTACK_TEXTURE = "Interface/Icons/Ability_GhoulFrenzy"
+      PET_MOVE_TO_TEXTURE = "Interface/Icons/Ability_Hunter_Pet_Goto"
+      PET = { { "Attack", "PET_ATTACK_TEXTURE", 1, nil, nil, nil },
+              { "Follow", "PET_FOLLOW_TEXTURE", 1, 1, nil, nil },
+              { "Move To", "PET_MOVE_TO_TEXTURE", 1, nil, nil, nil },
+              { "Growl", "Interface/Icons/Growl", nil, nil, 1, 1 } }
+      HogHealsBars.Extra.UpdatePet()
+    """)
+    b = 'HogUIPetBar.buttons'
+    assert xbars.eval(f'{b}[1].icon._texture') == "Interface/Icons/Ability_GhoulFrenzy"
+    assert xbars.eval(f'{b}[2].icon._texture') == "Interface/Icons/Ability_Tracking"
+    assert xbars.eval(f'{b}[3].icon._texture') == "Interface/Icons/Ability_Hunter_Pet_Goto"
+    assert xbars.eval(f'{b}[2]._last.SetChecked[1]') is True and xbars.eval(f'{b}[1]._last.SetChecked[1]') is False
+    assert xbars.eval(f'{b}[4].hh.edges[1]._color[2]') == pytest.approx(0.83)                 # autocast 1 = on
+    assert errors(xbars) == []
+
+
+def test_an_unknown_event_no_longer_stops_the_bar_library_registering_the_rest():
+    # in game 2026-10-06: "Attempt to register unknown event LEARNED_SPELL_IN_TAB" x28 from the REAL vendored lib
+    # (the tests above use a fake one). Run the real InitializeEventHandler against a frame that throws like Forever.
+    from pathlib import Path as _P
+    from lupa.lua51 import LuaRuntime
+    src = (_P(__file__).resolve().parents[1] / "HogHeals_Bars/Libs/LibActionButton-1.0/LibActionButton-1.0.lua").read_text(encoding="utf-8").splitlines()
+    a = next(k for k, l in enumerate(src) if l.startswith("function InitializeEventHandler()"))
+    b = next(k for k in range(a + 1, len(src)) if src[k] == "end")
+    rt = LuaRuntime()
+    rt.execute("""
+      UNKNOWN = { LEARNED_SPELL_IN_TAB = true, GAME_PAD_ACTIVE_CHANGED = true }
+      REG = {}
+      local frame = {}
+      function frame:SetScript() end
+      function frame:Show() end
+      function frame:Hide() end
+      function frame:RegisterEvent(e) if UNKNOWN[e] then error('Attempt to register unknown event "' .. e .. '"') end REG[e] = true end
+      function frame:RegisterUnitEvent(e) REG[e] = true end
+      lib = { eventFrame = frame }
+    """)
+    rt.execute(chr(10).join(src[a:b + 1]))
+    rt.execute("InitializeEventHandler()")
+    assert rt.eval("lib.unknownEvents.LEARNED_SPELL_IN_TAB") is True
+    for ev in ("SPELL_UPDATE_COOLDOWN", "SPELL_UPDATE_USABLE", "PLAYER_EQUIPMENT_CHANGED", "LEARNED_SPELL_IN_SKILL_LINE", "ACTIONBAR_SLOT_CHANGED"):
+        assert rt.eval(f'REG["{ev}"]') is True, ev
+    rt.execute("InitializeEventHandler()")                      # second call: wrapper not stacked
+    assert rt.eval("lib.eventFrame.hhSafeRegister") is True
+
+
+def _lab_src():
+    from pathlib import Path as _P
+    return (_P(__file__).resolve().parents[1] / "HogHeals_Bars/Libs/LibActionButton-1.0/LibActionButton-1.0.lua").read_text(encoding="utf-8")
+
+
+def test_duration_object_path_is_taken_wherever_the_client_has_it():
+    # in game 2026-10-06: no swipes / GCD on any button - Forever is not "Retail", so the lib never used duration objects
+    from lupa.lua51 import LuaRuntime
+    src = _lab_src().splitlines()
+    a = next(k for k, l in enumerate(src) if l.startswith("local function HHDurationObjectsAvailable()"))
+    b = next(k for k in range(a, len(src)) if src[k].startswith("lib.cooldownPath ="))
+    chunk = chr(10).join(src[a:b + 1])
+    for has, want in ((True, "duration objects"), (False, "numbers")):
+        rt = LuaRuntime()
+        rt.execute(f"""
+          lib = {{}}; WoWRetail = false; buildNumber = "70009"
+          C_ActionBar = {{ GetActionCooldownDuration = function() end }}
+          function CreateFrame(kind) local f = {{}} if {str(has).lower()} then function f:SetCooldownFromDurationObject() end end return f end
+        """)
+        rt.execute(chunk)
+        assert rt.eval("lib.cooldownPath") == want
+
+
+def test_hidden_cooldown_numbers_go_straight_to_the_swipe():
+    from lupa.lua51 import LuaRuntime
+    src = _lab_src().splitlines()
+    a = next(k for k, l in enumerate(src) if l.startswith("\tfunction lib.hhSecretCooldown(self)"))
+    b = next(k for k in range(a + 1, len(src)) if src[k] == "\tend")
+    rt = LuaRuntime()
+    rt.execute("""
+      lib = {}
+      SECRET = {}
+      function issecretvalue(v) return type(v) == "table" and v.secret == true end
+      local function secret(n) return { secret = true, n = n } end
+      CALLS = {}
+      local cd = { SetCooldown = function(self, s, d) CALLS[#CALLS + 1] = { s, d } end }
+      HIDDEN = { cooldown = cd, GetCooldown = function() return secret(100), secret(1.5) end }
+      PLAIN = { cooldown = cd, GetCooldown = function() return 100, 1.5 end }
+    """)
+    rt.execute(chr(10).join(src[a:b + 1]))
+    assert rt.eval("lib.hhSecretCooldown(PLAIN)") is False and rt.eval("#CALLS") == 0     # plain numbers: the lib's own path
+    assert rt.eval("lib.hhSecretCooldown(HIDDEN)") is True and rt.eval("#CALLS") == 1     # hidden: handed to the widget
+    assert rt.eval("CALLS[1][2].n") == 1.5 and "hidden" in rt.eval("lib.cooldownPath")
+    assert "if lib.hhSecretCooldown(self) then return end" in _lab_src()                    # wired in front of the maths

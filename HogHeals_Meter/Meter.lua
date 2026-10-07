@@ -398,6 +398,14 @@ local function newRow(i)
   return row
 end
 
+--- An inline icon for a tooltip line ("|T...|t "), or "" when there is no readable icon.
+function Meter.IconTag(icon, size)
+  if icon == nil or isSecret(icon) then return "" end
+  if type(icon) ~= "number" and type(icon) ~= "string" then return "" end
+  size = size or 14
+  return ("|T%s:%d:%d:0:0:64:64:5:59:5:59|t "):format(tostring(icon), size, size)
+end
+
 --- Tooltip for a player row: the spells behind the number. In the drill view a spell row gets its own line.
 function Meter.ShowTooltip(row)
   if not GameTooltip or not GameTooltip.SetOwner then return end
@@ -405,7 +413,7 @@ function Meter.ShowTooltip(row)
     local sp = row.spell
     if not sp then return end
     GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
-    GameTooltip:AddLine(sp.name, CREAM[1], CREAM[2], CREAM[3])
+    GameTooltip:AddLine(Meter.IconTag(sp.icon, 16) .. sp.name, CREAM[1], CREAM[2], CREAM[3])
     local cnt = fmtPer(sp.count)
     if cnt then GameTooltip:AddDoubleLine("Hits / ticks", cnt, GREY[1], GREY[2], GREY[3], CREAM[1], CREAM[2], CREAM[3]) end
     GameTooltip:Show()
@@ -424,7 +432,7 @@ function Meter.ShowTooltip(row)
       local right = fmtAmount(sp.amount)
       local cnt = fmtPer(sp.count)
       if cnt then right = right .. "  (" .. cnt .. ")" end
-      GameTooltip:AddDoubleLine(sp.name, right, CREAM[1], CREAM[2], CREAM[3], CREAM[1], CREAM[2], CREAM[3])
+      GameTooltip:AddDoubleLine(Meter.IconTag(sp.icon) .. sp.name, right, CREAM[1], CREAM[2], CREAM[3], CREAM[1], CREAM[2], CREAM[3])
     end
     GameTooltip:AddLine("click: spell bars    right-click: back", GREY[1], GREY[2], GREY[3])
   end
