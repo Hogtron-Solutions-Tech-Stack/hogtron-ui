@@ -16,6 +16,8 @@ local LINE = { 0.20, 0.20, 0.25 }
 local function cfg() return HH.db.profile.bars end
 local function isSecret(v) return type(issecretvalue) == "function" and issecretvalue(v) and true or false end
 local function num(v) if type(v) == "number" and not isSecret(v) then return v end end
+-- Classic-family clients answer flags with 1 / nil, newer ones with true / false; a secret is never a yes we can read.
+local function yes(v) return v ~= nil and v ~= false and v ~= 0 and not isSecret(v) end
 local function call(f, ...)
   if type(f) ~= "function" then return nil end
   local r = { pcall(f, ...) }
@@ -115,10 +117,10 @@ function Extra.UpdatePet()
     if name ~= nil then
       n = n + 1
       local icon = texture
-      if isToken == true and type(texture) == "string" then icon = rawget(_G, texture) or texture end
+      if yes(isToken) and type(texture) == "string" then icon = rawget(_G, texture) or texture end
       b.icon:SetTexture(icon)
-      if b.SetChecked then call(b.SetChecked, b, isActive == true) end
-      local on = autoCastEnabled == true
+      if b.SetChecked then call(b.SetChecked, b, yes(isActive)) end
+      local on = yes(autoCastEnabled)
       if b.hh and b.hh.edges then for _, e in ipairs(b.hh.edges) do e:SetColorTexture(on and CYAN[1] or LINE[1], on and CYAN[2] or LINE[2], on and CYAN[3] or LINE[3], 1) end end
       paintCooldown(b, call(GetPetActionCooldown, i))
     else
@@ -171,7 +173,7 @@ function Extra.UpdateStance()
       local icon, a2, a3, a4 = call(GetShapeshiftFormInfo, i)
       -- modern: icon, isActive, isCastable, spellID; classic: icon, name, isActive, isCastable
       local isActive, spell
-      if type(a2) == "string" then spell, isActive = a2, a3 == true else isActive, spell = a2 == true, a4 end
+      if type(a2) == "string" then spell, isActive = a2, yes(a3) else isActive, spell = yes(a2), a4 end
       b.icon:SetTexture(icon)
       if b.SetChecked then call(b.SetChecked, b, isActive) end
       if spell ~= nil and not (type(InCombatLockdown) == "function" and InCombatLockdown()) then

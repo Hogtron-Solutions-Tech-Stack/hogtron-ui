@@ -215,7 +215,8 @@ def test_hover_a_row_lists_the_spells_behind_it(meter):
     """)
     meter.execute(f'{r1}:GetScript("OnEnter")({r1})')
     assert meter.eval('#HH_tt') == 4 and meter.eval('HH_tt[1][2]').startswith("Hog Tistic")           # title, 2 spells, hint
-    assert meter.eval('HH_tt[2][2]') == "Chain Heal" and meter.eval('HH_tt[3][2]') == "Healing Wave"
+    assert meter.eval('HH_tt[2][2]').endswith("Chain Heal") and meter.eval('HH_tt[3][2]').endswith("Healing Wave")   # icon tag in front when the client gives one
+    assert meter.eval('HH_tt[2][2]').startswith("|T") or meter.eval('HH_tt[2][2]') == "Chain Heal"
     assert "2.4k" in meter.eval('MockUnwrap(HH_tt[3][3])') and "(9)" in meter.eval('MockUnwrap(HH_tt[3][3])')   # a secret count makes the line a secret string: shown, never read
     assert meter.eval('HH_ttShown') >= 1 and meter.eval('HogHealsMeter.Meter.sourceForm') == "type3"
     # the first shape seen is written to the diag so the SV tells us what the client really sends
@@ -296,3 +297,12 @@ def test_source_call_falls_back_to_the_list_index_and_keeps_every_failure(meter)
     chat = " | ".join(meter.eval('MockLog.chat').values())
     assert "per-source form type3i" in chat and "sourceIndex))" in chat
     assert errors(meter) == []
+
+
+def test_icon_tag_for_tooltip_lines(meter):
+    M = "HogHealsMeter.Meter"
+    assert meter.eval(f'{M}.IconTag(135812)') == "|T135812:14:14:0:0:64:64:5:59:5:59|t "
+    assert meter.eval(f'{M}.IconTag("Interface/Icons/Ability_Hunter_SwiftStrike", 16)').startswith("|TInterface/Icons/Ability_Hunter_SwiftStrike:16:16")
+    assert meter.eval(f'{M}.IconTag(nil)') == "" and meter.eval(f'{M}.IconTag({{}})') == ""
+    meter.execute('MockSetSecrets(true)')
+    assert meter.eval(f'{M}.IconTag(MockSecret(135812))') == ""

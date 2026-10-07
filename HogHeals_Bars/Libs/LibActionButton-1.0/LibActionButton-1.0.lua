@@ -1250,6 +1250,18 @@ function ForAllButtonsWithSpell(spellID, method, ...)
 end
 
 function InitializeEventHandler()
+	-- HogTron UI patch (2026-10-06): WoW: Forever throws on event names it does not know (LEARNED_SPELL_IN_TAB),
+	-- and one throw here skipped every RegisterEvent after it. Each registration is tried on its own; misses are listed.
+	if not lib.eventFrame.hhSafeRegister then
+		local register = lib.eventFrame.RegisterEvent
+		lib.unknownEvents = lib.unknownEvents or {}
+		lib.eventFrame.RegisterEvent = function(self, event, ...)
+			local ok = pcall(register, self, event, ...)
+			if not ok then lib.unknownEvents[event] = true end
+			return ok
+		end
+		lib.eventFrame.hhSafeRegister = true
+	end
 	lib.eventFrame:SetScript("OnEvent", OnEvent)
 	lib.eventFrame:RegisterEvent("CVAR_UPDATE")
 	lib.eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -1295,11 +1307,9 @@ function InitializeEventHandler()
 		lib.eventFrame:RegisterEvent("COMPANION_UPDATE")
 	end
 
-	if Midnight or WoWBCC then
-		lib.eventFrame:RegisterEvent("LEARNED_SPELL_IN_SKILL_LINE")
-	else
-		lib.eventFrame:RegisterEvent("LEARNED_SPELL_IN_TAB")
-	end
+	-- HogTron UI patch: ask for both names; the client keeps the one it knows
+	lib.eventFrame:RegisterEvent("LEARNED_SPELL_IN_SKILL_LINE")
+	lib.eventFrame:RegisterEvent("LEARNED_SPELL_IN_TAB")
 
 	-- With those two, do we still need the ACTIONBAR equivalents of them?
 	lib.eventFrame:RegisterEvent("SPELL_UPDATE_COOLDOWN")
