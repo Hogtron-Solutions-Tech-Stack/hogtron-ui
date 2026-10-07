@@ -216,7 +216,7 @@ def test_bind_mode_refuses_combat_and_ends_when_combat_starts(bars):
 EXTRA_CLIENT = """
 PET = { { "Attack", "Interface/Icons/Ability_GhoulFrenzy", false, true, true, true }, { "Follow", "PET_FOLLOW_TEXTURE", true, false, false, false }, { "Growl", "Interface/Icons/Growl", false, false, true, false } }
 PET_FOLLOW_TEXTURE = "Interface/Icons/Ability_Tracking"
-function GetPetActionInfo(i) local p = PET[i] if not p then return nil end return unpack(p) end
+function GetPetActionInfo(i) local p = PET[i] if not p then return nil end return unpack(p, 1, 6) end   -- all six, nil gaps included, like the client
 function GetPetActionCooldown(i) if i == 3 then return 100, 8, 1 end return 0, 0, 0 end
 function PetHasActionBar() return true end
 FORMS = { { "Interface/Icons/Ability_Warrior_OffensiveStance", true, true, 2457 }, { "Interface/Icons/Ability_Warrior_DefensiveStance", false, true, 71 }, { "Interface/Icons/Ability_Warrior_Berserk", false, false, 2458 } }
@@ -273,8 +273,8 @@ def test_pet_bar_actions_autocast_cooldown_and_bind_targets(xbars):
     assert xbars.eval(f'{b}[1]:GetAttribute("type")') == "pet" and xbars.eval(f'{b}[3]:GetAttribute("action")') == 3
     assert xbars.eval(f'{b}[1].icon._texture') == "Interface/Icons/Ability_GhoulFrenzy"
     assert xbars.eval(f'{b}[2].icon._texture') == "Interface/Icons/Ability_Tracking"             # token resolved
-    assert xbars.eval(f'{b}[1].hh.edges[1]._color[2]') == pytest.approx(0.83)                 # autocast on = cyan edge
-    assert xbars.eval(f'{b}[3].hh.edges[1]._color[2]') == pytest.approx(0.20)
+    assert xbars.eval(f'{b}[1].hh.glow:IsShown()') is True                                 # autocast on = pulsing glow
+    assert xbars.eval(f'{b}[3].hh.glow:IsShown()') is False and xbars.eval(f'{b}[3].hh.canAuto:IsShown()') is True   # allowed, off
     assert xbars.eval(f'{b}[3].cooldown._last.SetCooldown[1]') == 100 and xbars.eval(f'{b}[3].cooldown._last.SetCooldown[2]') == 8
     assert xbars.eval(f'{b}[4].icon._texture') is None and xbars.eval('HogHealsBars.Extra.petCount') == 3
     assert xbars.eval(f'{b}[1].keyBoundTarget') == "BONUSACTIONBUTTON1" and xbars.eval(f'{b}[1]:GetBindingAction()') == "BONUSACTIONBUTTON1"
@@ -323,7 +323,7 @@ def test_pet_flags_as_this_client_sends_them_1_and_nil(xbars):
     assert xbars.eval(f'{b}[2].icon._texture') == "Interface/Icons/Ability_Tracking"
     assert xbars.eval(f'{b}[3].icon._texture') == "Interface/Icons/Ability_Hunter_Pet_Goto"
     assert xbars.eval(f'{b}[2]._last.SetChecked[1]') is True and xbars.eval(f'{b}[1]._last.SetChecked[1]') is False
-    assert xbars.eval(f'{b}[4].hh.edges[1]._color[2]') == pytest.approx(0.83)                 # autocast 1 = on
+    assert xbars.eval(f'{b}[4].hh.glow:IsShown()') is True                                  # autocast 1 = on
     assert errors(xbars) == []
 
 
@@ -400,3 +400,36 @@ def test_hidden_cooldown_numbers_go_straight_to_the_swipe():
     assert rt.eval("lib.hhSecretCooldown(HIDDEN)") is True and rt.eval("#CALLS") == 1     # hidden: handed to the widget
     assert rt.eval("CALLS[1][2].n") == 1.5 and "hidden" in rt.eval("lib.cooldownPath")
     assert "if lib.hhSecretCooldown(self) then return end" in _lab_src()                    # wired in front of the maths
+
+
+def test_active_pet_command_and_stance_light_up_and_autocast_pulses(xbars):
+    # in game 2026-10-06: "these aren't glowing when they are active"
+    xbars.execute("""
+      PET = { { "Attack", "Interface/Icons/A", 1, nil, nil, nil },
+              { "Follow", "Interface/Icons/F", 1, 1, nil, nil },
+              { "Growl", "Interface/Icons/G", nil, nil, 1, 1 },
+              { "Cower", "Interface/Icons/C", nil, nil, 1, nil } }
+      HogHealsBars.Extra.UpdatePet()
+    """)
+    b = 'HogUIPetBar.buttons'
+    assert xbars.eval(f'{b}[2].hh.activeFill:IsShown()') is True and xbars.eval(f'{b}[2].hh.active[1]:IsShown()') is True
+    assert xbars.eval(f'{b}[1].hh.activeFill:IsShown()') is False
+    assert xbars.eval(f'{b}[3].hh.glow:IsShown()') is True and xbars.eval(f'{b}[3].hh.pulse._calls.Play') >= 1
+    assert xbars.eval(f'{b}[4].hh.glow:IsShown()') is False and xbars.eval(f'{b}[4].hh.canAuto:IsShown()') is True
+    assert xbars.eval(f'{b}[3].hh.canAuto:IsShown()') is False                                  # on: the glow says it
+    # turning autocast off stops the pulse; the pet changing command moves the active mark
+    xbars.execute('PET[3][6] = nil; PET[2][4] = nil; PET[1][4] = 1; HogHealsBars.Extra.UpdatePet()')
+    assert xbars.eval(f'{b}[3].hh.glow:IsShown()') is False and xbars.eval(f'{b}[3].hh.pulse._calls.Stop') >= 1
+    assert xbars.eval(f'{b}[1].hh.activeFill:IsShown()') is True and xbars.eval(f'{b}[2].hh.activeFill:IsShown()') is False
+    # the stance you are in lights up the same way (form 1 is active in the test client)
+    assert xbars.eval('HogUIStanceBar.buttons[1].hh.activeFill:IsShown()') is True
+    assert xbars.eval('HogUIStanceBar.buttons[2].hh.activeFill:IsShown()') is False
+    assert errors(xbars) == []
+
+
+def test_call_helper_keeps_every_return_value_past_a_nil(xbars):
+    # the real bug behind "autocast never shows": nil gaps in GetPetActionInfo's answer cut the later flags off
+    xbars.execute('PET = { { "Cower", "Interface/Icons/C", nil, nil, 1, nil } }; HogHealsBars.Extra.UpdatePet()')
+    st = xbars.eval('HogUIPetBar.buttons[1].hh.state')
+    assert st["autoAllowed"] is True and st["autoOn"] is False and st["active"] is False
+    assert xbars.eval('HogUIPetBar.buttons[1].hh.canAuto:IsShown()') is True
