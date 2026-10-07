@@ -42,6 +42,7 @@ TRY THESE (five minutes)
   /hh train         after one visit to your class trainer: what is waiting, what comes next, what it costs
   /hh session       time played, xp an hour, time to the next level
   /hh perf 30       thirty seconds of CPU / memory per module - paste the summary line in your report
+  /hh look          HogTron or Classic look, font (inter | manrope | barlow), shadow | outline, pixel-perfect scale
   Fight something:  swing timer under the cast bar; DoT a mob and watch for the skull / red X by its plate.
 
 KNOWN LIMITS ON FOREVER

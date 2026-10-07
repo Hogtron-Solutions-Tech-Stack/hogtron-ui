@@ -155,7 +155,7 @@ end
 -- ------------------------------------------------------------------------------------------------ window
 local ROWS = 34
 local function fs(parent, color, justify, template)
-  local t = parent:CreateFontString(nil, "OVERLAY", template or "GameFontHighlightSmall")
+  local t = parent:CreateFontString(nil, "OVERLAY", template or "HogTronFontSmall")
   t:SetTextColor(color[1], color[2], color[3])
   t:SetJustifyH(justify or "LEFT")
   if t.SetWordWrap then t:SetWordWrap(false) end
@@ -181,7 +181,7 @@ function T.Build()
   f.rule:SetPoint("TOPRIGHT", f, "TOPRIGHT", 0, -24)
   f.rule:SetHeight(1)
   f.rule:SetColorTexture(CYAN[1], CYAN[2], CYAN[3], 1)
-  f.title = fs(f, CREAM, "LEFT", "GameFontNormal")
+  f.title = fs(f, CREAM, "LEFT", "HogTronFontNormal")
   f.title:SetPoint("TOPLEFT", f, "TOPLEFT", 10, -6)
   f.title:SetText("|cffF5EBDCHOG|r|cff21D4E0TRON UI|r  TRAINING")
   f.close = CreateFrame("Button", nil, f)

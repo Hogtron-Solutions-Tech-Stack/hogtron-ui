@@ -11,6 +11,7 @@
 embeds.xml
 Media\palette.lua
 Core.lua
+Core\Look.lua
 Core\GroupSize.lua
 Core\Queue.lua
 Core\ClassData.lua

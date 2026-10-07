@@ -132,7 +132,7 @@ end
 
 -- ------------------------------------------------------------------------------------------------ tracker row
 local function fs(parent, color, justify)
-  local t = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  local t = parent:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
   t:SetTextColor(color[1], color[2], color[3])
   t:SetJustifyH(justify or "LEFT")
   if t.SetWordWrap then t:SetWordWrap(false) end
