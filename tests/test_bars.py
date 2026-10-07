@@ -400,3 +400,30 @@ def test_hidden_cooldown_numbers_go_straight_to_the_swipe():
     assert rt.eval("lib.hhSecretCooldown(HIDDEN)") is True and rt.eval("#CALLS") == 1     # hidden: handed to the widget
     assert rt.eval("CALLS[1][2].n") == 1.5 and "hidden" in rt.eval("lib.cooldownPath")
     assert "if lib.hhSecretCooldown(self) then return end" in _lab_src()                    # wired in front of the maths
+
+
+def test_flyout_scan_survives_a_flyout_with_no_slot_count():
+    # in game 2026-10-06: LibActionButton.lua:1026 "'for' limit must be a number" - GetFlyoutInfo succeeded, numSlots nil
+    from lupa.lua51 import LuaRuntime
+    src = _lab_src().splitlines()
+    a = next(k for k, l in enumerate(src) if l.startswith(chr(9) + "function HHFlyoutCount(n)"))
+    b = next(k for k in range(a, len(src)) if src[k].startswith(chr(9) + "function UpdateFlyoutSpells()"))
+    c = next(k for k in range(b + 1, len(src)) if src[k] == chr(9) + "end")
+    rt = LuaRuntime()
+    rt.execute("""
+      lib = { FlyoutInfo = {} }
+      FLY = { [1] = { nil, nil }, [2] = { 2, true }, [3] = { "secret", true } }
+      function issecretvalue(v) return v == "secret" end
+      function GetFlyoutInfo(id) local f = FLY[id] if not f then error("no flyout") end return "Name", "desc", f[1], f[2] end
+      function GetFlyoutSlotInfo(id, slot) return 1000 + slot, nil, true end
+      function GetCallPetSpellInfo() return nil end
+      function SyncFlyoutInfoToHandler() SYNCED = (SYNCED or 0) + 1 end
+      function InCombatLockdown() return false end
+    """)
+    rt.execute(chr(10).join(src[a:c + 1]))
+    rt.execute("DiscoverFlyoutSpells()")
+    assert rt.eval("lib.FlyoutInfo[1]") is None and rt.eval("lib.FlyoutInfo[3]") is None    # no count / secret count: skipped
+    assert rt.eval("lib.FlyoutInfo[2].slots[2].spellID") == 1002
+    rt.execute("FLY[2] = { 3, true }; lib.FlyoutInfo[1] = { slots = {} }; FLY[1] = { nil, nil }; UpdateFlyoutSpells()")
+    assert rt.eval("lib.FlyoutInfo[2].slots[3].spellID") == 1003                               # grew since discovery
+    assert rt.eval("SYNCED") == 2
