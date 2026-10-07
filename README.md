@@ -70,6 +70,10 @@ What tests cannot prove: secure-frame behaviour in combat, real header child cre
 - `docs/superpowers/research/2026-09-13-healing-addon-research.md` — what VuhDo/HealBot/Cell/Grid/Clique/Danders each do best
 - `docs/superpowers/plans/2026-09-13-hogheals-frames.md` — implementation plan
 
+## Look
+
+`/hh` > General > Look, or `/hh look ...`: **HogTron** style (shipped fonts, flat bars, Blizzard's windows skinned) or **Classic** (Blizzard's font, bars and windows, every feature kept; needs a `/reload`). Font **Inter** (default), **Manrope** or **Barlow Condensed**; soft shadow or outline; text size; one-click **pixel-perfect** UI scale with undo.
+
 ## Licence
 
-MIT. Vendored libraries keep their own licences (see `LICENSE`).
+MIT. Vendored libraries keep their own licences (see `LICENSE`). Fonts: Inter, Manrope and Barlow Condensed under the SIL Open Font License 1.1 - licence texts in `HogHeals/Media/Fonts/`.

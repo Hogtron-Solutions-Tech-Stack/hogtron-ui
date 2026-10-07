@@ -133,9 +133,9 @@ function UnitButton.Setup(button)
   button.power:SetFrameLevel(button:GetFrameLevel() + 2)
   button.overlay:SetFrameLevel(button:GetFrameLevel() + 6)
 
-  button.name = button.overlay:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  button.name = button.overlay:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
   button.name:SetPoint("TOP", button, "TOP", 0, -3)
-  button.healthText = button.overlay:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  button.healthText = button.overlay:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
   button.healthText:SetPoint("BOTTOM", button, "BOTTOM", 0, 4)
 
   button.dispelBorder = mkBorder(button.overlay, "OVERLAY", 1, 2)
@@ -180,7 +180,7 @@ function UnitButton.Setup(button)
   button.shieldIcon:SetSize(10, 10)
   button.shieldIcon:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -1, 4)
   button.shieldIcon:Hide()
-  button.shieldText = button.overlay:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  button.shieldText = button.overlay:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
   button.shieldText:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -12, 4)
   button.shieldText:Hide()
 
@@ -234,8 +234,8 @@ function UnitButton.ApplyAppearance(button)
   if not d then return end
   local ap = d.appearance
   local LSM = LibStub("LibSharedMedia-3.0", true)
-  local font = LSM and LSM:Fetch("font", ap.font) or STANDARD_TEXT_FONT
-  local tex = LSM and LSM:Fetch("statusbar", ap.texture) or "Interface\\TargetingFrame\\UI-StatusBar"
+  local font = HH.Look.Font(ap.font)
+  local tex = HH.Look.Bar(ap.texture)
   button.health:SetStatusBarTexture(tex)
   button.power:SetStatusBarTexture(tex)
   button.power:SetHeight(ap.powerHeight or 3)

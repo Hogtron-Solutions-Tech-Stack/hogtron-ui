@@ -390,7 +390,7 @@ function Window.Build()
     local c = A.cfg()
     if type(point) == "string" then c.point, c.x, c.y = point, x or 0, y or 0 end
   end)
-  f.title = A.text(bar, C.cream, "LEFT", "GameFontNormal")
+  f.title = A.text(bar, C.cream, "LEFT", "HogTronFontNormal")
   f.title:SetPoint("LEFT", bar, "LEFT", PAD, 0)
   f.title:SetText("|cffF5EBDCHOG|r|cff21D4E0UI|r  |cffF5EBDCATLAS|r")
   f.close = A.button(bar, "x", 24, 20, function() f:Hide() end)

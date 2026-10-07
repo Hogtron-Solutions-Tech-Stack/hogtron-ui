@@ -115,10 +115,10 @@ local function build(f)
     if sp[4] then e:SetHeight(sp[4]) end
     strip.edge[i] = e
   end
-  strip.player = strip:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  strip.player = strip:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
   strip.player:SetPoint("LEFT", strip, "LEFT", 8, 0)
   strip.player:SetTextColor(CREAM[1], CREAM[2], CREAM[3])
-  strip.cursor = strip:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  strip.cursor = strip:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
   strip.cursor:SetPoint("RIGHT", strip, "RIGHT", -8, 0)
   strip.cursor:SetTextColor(CYAN[1], CYAN[2], CYAN[3])
   local acc = 0
@@ -133,7 +133,7 @@ local function build(f)
 end
 
 local function setFont(fs, size)
-  if fs and fs.SetFont then call(fs.SetFont, fs, STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", size, "OUTLINE") end
+  if fs and fs.SetFont then call(fs.SetFont, fs, HogHeals.Look.Font() or STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", size, "OUTLINE") end
 end
 
 --- Refresh the coordinates line. Returns the two texts (tests).

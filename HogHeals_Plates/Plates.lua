@@ -55,7 +55,7 @@ end
 
 local function fontPath()
   local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
-  local p = LSM and call(LSM.Fetch, LSM, "font", cfg().font or "Friz Quadrata TT")
+  local p = HogHeals.Look.Font(cfg().font)
   return p or STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
 end
 
@@ -88,7 +88,7 @@ function Plates.Skin(uf)
     e:Hide()
     hh.edges[i] = e
   end
-  hh.health = hh.overlay:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  hh.health = hh.overlay:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
   hh.health:SetPoint("CENTER", anchor, "CENTER", 0, 0)
   -- Target mark (Sean 2026-09-23: no box, no arrows, no magnify). hh.arrows stays an empty table for the code paths
   -- that iterate it.
@@ -96,7 +96,7 @@ function Plates.Skin(uf)
   Plates.MakeGlow(uf, anchor)
   Plates.MakeBrackets(uf, anchor)
   -- Level: right of the bar, clear of the target brackets (they reach gap + thick = 5 px out)
-  hh.level = hh.overlay:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  hh.level = hh.overlay:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
   hh.level:SetPoint("LEFT", anchor, "RIGHT", 9, 0)
   hh.level:SetJustifyH("LEFT")
   hh.level:Hide()
@@ -116,12 +116,12 @@ function Plates.Skin(uf)
   hh.questEdge:SetPoint("TOPLEFT", hh.questFrame, "TOPLEFT", -1, 1)
   hh.questEdge:SetPoint("BOTTOMRIGHT", hh.questFrame, "BOTTOMRIGHT", 1, -1)
   hh.questEdge:SetColorTexture(0.05, 0.05, 0.06, 1)
-  hh.questGlyph = hh.questFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  hh.questGlyph = hh.questFrame:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
   hh.questGlyph:SetPoint("CENTER", hh.questFrame, "CENTER", 0, 0)
   hh.questGlyph:SetText("!")
   hh.questGlyph:SetTextColor(0.07, 0.07, 0.09)
   if hh.questDrawn then hh.quest:SetColorTexture(0.95, 0.65, 0.15, 1) else hh.questEdge:Hide() hh.questGlyph:Hide() end
-  hh.progress = hh.questFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  hh.progress = hh.questFrame:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
   hh.progress:SetPoint("RIGHT", hh.questFrame, "LEFT", -3, 0)
   hh.progress:SetJustifyH("RIGHT")
   hh.progress:SetTextColor(0.95, 0.65, 0.15)
@@ -667,7 +667,7 @@ function Plates.ApplyLook(uf)
     return
   end
   if hh.bar then
-    call(hh.bar.SetStatusBarTexture, hh.bar, FLAT)
+    call(hh.bar.SetStatusBarTexture, hh.bar, HogHeals.Look.Bar())
     hh.bg:Show()
     -- bar height (Sean 2026-09-23: "make the health bar bigger"); width comes from the nameplateHorizontalScale cvar
     if d.barHeight then call(hh.bar.SetHeight, hh.bar, d.barHeight) end
@@ -695,7 +695,7 @@ function Plates.SkinCastbar(uf)
   if not cb and type(container) == "table" then cb = rawget(container, "castBar") or rawget(container, "CastBar") end
   if type(cb) ~= "table" or not cb.SetStatusBarTexture then return nil end
   hh.castSkinned, hh.castBar = true, cb
-  call(cb.SetStatusBarTexture, cb, FLAT)
+  call(cb.SetStatusBarTexture, cb, HogHeals.Look.Bar())
   for _, k in ipairs({ "Border", "Background", "TextBorder", "Flash" }) do
     local r = rawget(cb, k)
     if type(r) == "table" and r.SetAlpha then call(r.SetAlpha, r, 0) end

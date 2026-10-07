@@ -118,7 +118,7 @@ function Chat.ShowURL(url)
     f.rule:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0)
     f.rule:SetPoint("TOPRIGHT", f, "TOPRIGHT", 0, 0)
     f.rule:SetHeight(1)
-    f.label = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    f.label = f:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
     f.label:SetPoint("TOPLEFT", f, "TOPLEFT", 8, -6)
     f.label:SetText("Ctrl+C to copy, Escape to close")
     f.label:SetTextColor(0.55, 0.55, 0.60)
@@ -127,7 +127,7 @@ function Chat.ShowURL(url)
     f.box:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -8, 6)
     f.box:SetHeight(20)
     if f.box.SetAutoFocus then f.box:SetAutoFocus(false) end
-    if f.box.SetFontObject then f.box:SetFontObject("GameFontHighlight") end
+    if f.box.SetFontObject then f.box:SetFontObject("HogTronFontHighlight") end
     f.box:SetScript("OnEscapePressed", function(self) self:ClearFocus() f:Hide() end)
     f.box:SetScript("OnEnterPressed", function(self) self:ClearFocus() f:Hide() end)
     Chat.urlFrame = f

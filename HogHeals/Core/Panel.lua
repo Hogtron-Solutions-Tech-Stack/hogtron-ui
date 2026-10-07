@@ -53,7 +53,7 @@ local function setBorder(f, c)
 end
 
 local function text(parent, template, c, justify)
-  local fs = parent:CreateFontString(nil, "OVERLAY", template or "GameFontHighlight")
+  local fs = parent:CreateFontString(nil, "OVERLAY", template or "HogTronFontHighlight")
   c = c or CREAM
   fs:SetTextColor(c[1], c[2], c[3])
   if justify then fs:SetJustifyH(justify) end
@@ -131,7 +131,7 @@ local function flatButton(parent, w, h)
   local b = CreateFrame("Button", nil, parent)
   b:SetSize(w, h)
   skin(b, RAISED, LINE)
-  b.label = text(b, "GameFontHighlightSmall", CREAM)
+  b.label = text(b, "HogTronFontSmall", CREAM)
   b.label:SetPoint("CENTER", b, "CENTER", 0, 0)
   b.hover = function(on) if not b.off then setBorder(b, on and CYAN or LINE) end end
   b:SetScript("OnEnter", function() b.hover(true) end)
@@ -167,13 +167,13 @@ local function build()
   f.accent:SetHeight(2)
 
   -- Two-tone wordmark (brand rule): HOG in cream, HEALS in cyan.
-  f.titleHog = text(bar, "GameFontNormalLarge", CREAM)
+  f.titleHog = text(bar, "HogTronFontNormalLarge", CREAM)
   f.titleHog:SetPoint("LEFT", bar, "LEFT", PAD, 0)
   f.titleHog:SetText("HOG")
-  f.titleHeals = text(bar, "GameFontNormalLarge", CYAN)
+  f.titleHeals = text(bar, "HogTronFontNormalLarge", CYAN)
   f.titleHeals:SetPoint("LEFT", f.titleHog, "RIGHT", 0, 0)
   f.titleHeals:SetText("TRON UI")
-  f.version = text(bar, "GameFontHighlightSmall", GREY)
+  f.version = text(bar, "HogTronFontSmall", GREY)
   f.version:SetPoint("LEFT", f.titleHeals, "RIGHT", 10, -1)
   f.version:SetText("v" .. tostring(HH.version or "dev"))
 
@@ -265,7 +265,7 @@ local function openMenu(anchor, entries, current, onPick)
       it.bg = solid(it, "BACKGROUND", CYAN, 0.18)
       it.bg:SetAllPoints(it)
       it.bg:Hide()
-      it.label = text(it, "GameFontHighlightSmall", CREAM, "LEFT")
+      it.label = text(it, "HogTronFontSmall", CREAM, "LEFT")
       it.label:SetPoint("LEFT", it, "LEFT", 8, 0)
       it:SetScript("OnEnter", function(self) self.bg:Show() end)
       it:SetScript("OnLeave", function(self) self.bg:Hide() end)
@@ -291,7 +291,7 @@ end
 local function rowFrame() return CreateFrame("Frame", nil, Panel.frame.content) end
 
 local function labelOn(row)
-  row.label = row.label or text(row, "GameFontHighlightSmall", CREAM, "LEFT")
+  row.label = row.label or text(row, "HogTronFontSmall", CREAM, "LEFT")
   return row.label
 end
 
@@ -303,7 +303,7 @@ local makers, fillers = {}, {}
 
 makers.header = function()
   local r = rowFrame()
-  r.text = text(r, "GameFontNormalSmall", CYAN, "LEFT")
+  r.text = text(r, "HogTronFontNormalSmall", CYAN, "LEFT")
   r.text:SetPoint("BOTTOMLEFT", r, "BOTTOMLEFT", 0, 6)
   r.rule = solid(r, "ARTWORK", LINE)
   r.rule:SetPoint("BOTTOMLEFT", r, "BOTTOMLEFT", 0, 0)
@@ -318,7 +318,7 @@ end
 
 makers.description = function()
   local r = rowFrame()
-  r.text = text(r, "GameFontHighlightSmall", { 0.78, 0.75, 0.70 }, "LEFT")
+  r.text = text(r, "HogTronFontSmall", { 0.78, 0.75, 0.70 }, "LEFT")
   r.text:SetPoint("TOPLEFT", r, "TOPLEFT", 0, -2)
   r.text:SetPoint("RIGHT", r, "RIGHT", 0, 0)
   if r.text.SetJustifyV then r.text:SetJustifyV("TOP") end
@@ -381,7 +381,7 @@ end
 makers.range = function()
   local r = rowFrame()
   labelOn(r):SetPoint("TOPLEFT", r, "TOPLEFT", 0, -2)
-  r.valueText = text(r, "GameFontHighlightSmall", CYAN, "RIGHT")
+  r.valueText = text(r, "HogTronFontSmall", CYAN, "RIGHT")
   r.valueText:SetPoint("TOPRIGHT", r, "TOPRIGHT", 0, -2)
   local s = CreateFrame("Slider", nil, r)
   s:SetOrientation("HORIZONTAL")
@@ -443,7 +443,7 @@ makers.select = function()
   r.button:SetPoint("TOPRIGHT", r, "TOPRIGHT", 0, -18)
   r.button.label:ClearAllPoints()
   r.button.label:SetPoint("LEFT", r.button, "LEFT", 8, 0)
-  r.button.arrow = text(r.button, "GameFontHighlightSmall", CYAN)
+  r.button.arrow = text(r.button, "HogTronFontSmall", CYAN)
   r.button.arrow:SetPoint("RIGHT", r.button, "RIGHT", -8, 0)
   r.button.arrow:SetText("v")
   return r
@@ -477,7 +477,7 @@ makers.input = function()
   e:SetPoint("TOPLEFT", r.well, "TOPLEFT", 6, -4)
   e:SetPoint("BOTTOMRIGHT", r.well, "BOTTOMRIGHT", -6, 4)
   e:SetAutoFocus(false)
-  if e.SetFontObject then e:SetFontObject("GameFontHighlightSmall") end
+  if e.SetFontObject then e:SetFontObject("HogTronFontSmall") end
   e:SetTextColor(CREAM[1], CREAM[2], CREAM[3])
   e:SetScript("OnEditFocusGained", function() setBorder(r.well, CYAN) end)
   e:SetScript("OnEditFocusLost", function() setBorder(r.well, LINE) end)
@@ -625,7 +625,7 @@ local function navButton(i)
   b.mark:SetPoint("TOPLEFT", b, "TOPLEFT", 0, 0)
   b.mark:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 0, 0)
   b.mark:SetWidth(3)
-  b.label = text(b, "GameFontHighlight", CREAM, "LEFT")
+  b.label = text(b, "HogTronFontHighlight", CREAM, "LEFT")
   b.label:SetPoint("LEFT", b, "LEFT", PAD, 0)
   b:SetScript("OnClick", function(self) Panel.Select(self.key) end)
   navPool[i] = b
@@ -637,7 +637,7 @@ local function tabButton(i)
   if b then return b end
   b = CreateFrame("Button", nil, Panel.frame.tabbar)
   b:SetHeight(26)
-  b.label = text(b, "GameFontHighlightSmall", CREAM)
+  b.label = text(b, "HogTronFontSmall", CREAM)
   b.label:SetPoint("CENTER", b, "CENTER", 0, 1)
   b.mark = solid(b, "ARTWORK", CYAN)
   b.mark:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 0, 0)

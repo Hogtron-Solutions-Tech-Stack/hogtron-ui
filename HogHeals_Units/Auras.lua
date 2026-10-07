@@ -99,12 +99,12 @@ local function newIcon(parent, unit)
   -- the swipe shows the time; Blizzard's countdown numbers were far too big for a 22 px icon (in game 2026-09-23)
   if b.cd.SetHideCountdownNumbers then b.cd:SetHideCountdownNumbers(true) end
   if b.cd.SetDrawEdge then b.cd:SetDrawEdge(false) end
-  b.count = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  b.count = b:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
   b.count:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 1, 0)
   b.count:SetJustifyH("RIGHT")
   -- seconds left, our own text (Blizzard's countdown numbers were too big for these icons); only when the times are
   -- plain numbers - a secret expiry keeps the swipe and no text
-  b.timer = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  b.timer = b:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
   b.timer:SetPoint("CENTER", b, "CENTER", 0, 0)
   b.timer:SetTextColor(0.96, 0.92, 0.86)
   b:SetScript("OnEnter", function(self)
@@ -137,7 +137,7 @@ local function paint(b, a, size)
     b.cd:Hide()
   end
   b.expires = (dur and exp and dur > 0) and exp or nil
-  if b.timer.SetFont then call(b.timer.SetFont, b.timer, STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", math.max(8, math.floor(size * 0.5)), "OUTLINE") end
+  if b.timer.SetFont then call(b.timer.SetFont, b.timer, HogHeals.Look.Font() or STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", math.max(8, math.floor(size * 0.5)), "OUTLINE") end
   b.timer:SetText("")
   b:Show()
 end

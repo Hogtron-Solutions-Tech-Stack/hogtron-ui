@@ -43,7 +43,7 @@ end
 
 local function fontPath()
   local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
-  local p = LSM and call(LSM.Fetch, LSM, "font", cfg().font or "Friz Quadrata TT")
+  local p = HogHeals.Look.Font(cfg().font)
   return p or STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
 end
 local function setFont(fs, size) call(fs.SetFont, fs, fontPath(), size, "OUTLINE") end
@@ -65,7 +65,7 @@ function Castbar.Build(uf)
   local parent = hh.overlay or uf
   local bar = CreateFrame("StatusBar", nil, parent)
   bar.uf = uf
-  bar:SetStatusBarTexture(FLAT)          -- texture first, anchors after (Units.lua header: texture-first bars)
+  bar:SetStatusBarTexture(HogHeals.Look.Bar())          -- texture first, anchors after (Units.lua header: texture-first bars)
   bar:SetStatusBarColor(CYAN[1], CYAN[2], CYAN[3])
   bar:SetMinMaxValues(0, 1)
   bar:SetValue(0)
@@ -93,13 +93,13 @@ function Castbar.Build(uf)
   bar.icon = bar:CreateTexture(nil, "ARTWORK")
   bar.icon:SetPoint("RIGHT", bar, "LEFT", -3, 0)
   if bar.icon.SetTexCoord then call(bar.icon.SetTexCoord, bar.icon, 0.08, 0.92, 0.08, 0.92) end
-  bar.text = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  bar.text = bar:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
   bar.text:SetPoint("LEFT", bar, "LEFT", 3, 0)
   bar.text:SetPoint("RIGHT", bar, "RIGHT", -3, 0)
   bar.text:SetTextColor(CREAM[1], CREAM[2], CREAM[3])
   if bar.text.SetJustifyH then call(bar.text.SetJustifyH, bar.text, "LEFT") end
   if bar.text.SetWordWrap then call(bar.text.SetWordWrap, bar.text, false) end
-  bar.time = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  bar.time = bar:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
   bar.time:SetPoint("RIGHT", bar, "RIGHT", -3, 0)
   bar.time:SetTextColor(CREAM[1], CREAM[2], CREAM[3])
   if bar.time.SetJustifyH then call(bar.time.SetJustifyH, bar.time, "RIGHT") end
@@ -123,7 +123,7 @@ function Castbar.Place(uf)
   bar:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -gap)
   bar:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT", 0, -gap)
   bar:SetHeight(h)
-  bar:SetStatusBarTexture(FLAT)
+  bar:SetStatusBarTexture(HogHeals.Look.Bar())
   bar.icon:SetSize(h, h)
   bar.icon:SetShown(c.icon ~= false)
   bar.time:SetShown(c.time ~= false)

@@ -62,7 +62,7 @@ end
 
 function Skin.font()
   local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
-  local p = LSM and call(LSM.Fetch, LSM, "font", Skin.cfg().font or "Friz Quadrata TT")
+  local p = HogHeals.Look.Font(Skin.cfg().font)
   return p or STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
 end
 
@@ -289,7 +289,8 @@ local Module = {}
 HHS.module = Module
 
 function Module:OnEnable()
-  if Skin.cfg().enabled == false then return end
+  -- Classic look: Blizzard's windows, bags, bars and tooltips are left exactly as Blizzard draws them
+  if Skin.cfg().enabled == false or (HogHeals.Look and HogHeals.Look.Classic()) then return end
   Skin.ApplyAll("enable")
   local ev = CreateFrame("Frame")
   for _, e in ipairs({ "PLAYER_ENTERING_WORLD", "BAG_UPDATE", "BAG_UPDATE_DELAYED", "ACTIONBAR_PAGE_CHANGED", "UPDATE_BINDINGS", "PLAYER_REGEN_ENABLED", "MERCHANT_SHOW", "ADDON_LOADED",

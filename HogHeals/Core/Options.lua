@@ -27,6 +27,39 @@ local function generalTab()
         type = "execute", order = 5, name = "Show caught errors",
         func = function() HH:SlashCommand("errors") end,
       },
+      look = {
+        type = "group", inline = true, order = 10, name = "Look",
+        args = {
+          about = { type = "description", order = 0, name = "HogTron: our fonts, flat bars, Blizzard's windows in the same look. Classic: Blizzard's font, bars and windows - every feature stays. Font, text edge and size change live; the style needs a /reload." },
+          style = { type = "select", order = 1, name = "Style", values = { hogtron = "HogTron", classic = "Classic (Blizzard look)" },
+            get = function() return HH.db.profile.look.style or "hogtron" end,
+            set = function(_, v) HH.db.profile.look.style = v; HH:Print("look: type /reload (or press Apply) to switch.") end },
+          apply = { type = "execute", order = 1.5, name = "Apply (reload)", desc = "Reloads the UI so the style takes effect.",
+            func = function() if type(ReloadUI) == "function" then ReloadUI() end end },
+          font = { type = "select", order = 2, name = "Font", values = { ["Inter"] = "Inter", ["Manrope"] = "Manrope", ["Barlow Condensed"] = "Barlow Condensed" },
+            disabled = function() return HH.Look.Classic() end,
+            get = function() return HH.db.profile.look.font or "Inter" end,
+            set = function(_, v) HH.db.profile.look.font = v; HH.Look.Apply(); HH.Look.RefreshModules() end },
+          edge = { type = "select", order = 3, name = "Text edge", values = { shadow = "Soft shadow (cleaner)", outline = "Outline" },
+            desc = "Window and panel text. Text drawn on a bar (names on frames, plate text) keeps its outline either way.",
+            disabled = function() return HH.Look.Classic() end,
+            get = function() return HH.db.profile.look.edge or "shadow" end,
+            set = function(_, v) HH.db.profile.look.edge = v; HH.Look.Apply() end },
+          size = { type = "range", order = 4, name = "Text size", min = -2, max = 4, step = 1,
+            get = function() return HH.db.profile.look.size or 0 end,
+            set = function(_, v) HH.db.profile.look.size = v; HH.Look.Apply(); HH.Look.RefreshModules() end },
+          scale = { type = "description", order = 5, name = function()
+            local p = HH.Look.PerfectScale()
+            return ("UI scale now %.3f. Pixel-perfect for your screen: %s."):format(HH.Look.CurrentScale(), p and ("%.3f"):format(p) or "unknown")
+          end },
+          pixel = { type = "execute", order = 6, name = "Make it pixel-perfect",
+            desc = "Sets the whole UI scale so every line and letter lands on a real screen pixel (Blizzard's UI resizes too). Undo puts your old scale back.",
+            func = function() HH:SlashCommand("look pixel") end },
+          unpixel = { type = "execute", order = 7, name = "Undo pixel scale",
+            disabled = function() return not HH.db.profile.look.pixel end,
+            func = function() HH:SlashCommand("look unpixel") end },
+        },
+      },
     },
   }
 end

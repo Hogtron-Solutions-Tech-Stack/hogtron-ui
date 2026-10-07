@@ -155,7 +155,7 @@ function Frames.HealthTest()
     sbg:SetAllPoints(sb)
     sbg:SetColorTexture(0.2, 0.2, 0.2, 1)
     local ok, err = pcall(fill, sb)
-    local fs = holder:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    local fs = holder:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
     fs:SetPoint("RIGHT", sb, "LEFT", -6, 0)
     fs:SetText(label .. (ok and "" or " ERR"))
     if not ok then HH:Print("healthtest " .. label .. ": " .. tostring(err)) end
