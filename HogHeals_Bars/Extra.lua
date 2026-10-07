@@ -18,10 +18,12 @@ local function isSecret(v) return type(issecretvalue) == "function" and issecret
 local function num(v) if type(v) == "number" and not isSecret(v) then return v end end
 -- Classic-family clients answer flags with 1 / nil, newer ones with true / false; a secret is never a yes we can read.
 local function yes(v) return v ~= nil and v ~= false and v ~= 0 and not isSecret(v) end
+-- Every return value, nils included. The old { pcall(...) } + unpack(r) stopped at the first nil: this client answers
+-- "no" with nil, so GetPetActionInfo's later flags (autocast allowed / on) were dropped in game (2026-10-06).
+local function pass(ok, ...) if ok then return ... end end
 local function call(f, ...)
   if type(f) ~= "function" then return nil end
-  local r = { pcall(f, ...) }
-  if r[1] then return select(2, unpack(r)) end
+  return pass(pcall(f, ...))
 end
 
 -- ------------------------------------------------------------------------------------------------ bindings mixin
@@ -66,8 +68,80 @@ local function newButton(bar, name, i, target)
   b.cooldown:SetAllPoints(b)
   bindMixin(b, target)
   Bars.Dress(b)
+  Extra.MakeStateLayers(b)
   if b.HotKey.SetFont then call(b.HotKey.SetFont, b.HotKey, HogHeals.Look.Font() or STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", cfg().hotkeySize or 10, "OUTLINE") end
   return b
+end
+
+-- ------------------------------------------------------------------------------------------------ active / autocast
+-- In game 2026-10-06 (Sean): "these aren't glowing when they are active". These are CheckButtons with no Blizzard art
+-- (Bars.Dress strips it), so SetChecked drew nothing, and autocast was a 1 px cyan edge nobody could see. Our own marks:
+--   active (Follow, Assist, the stance you are in)  cyan wash + 2 px cyan border inside the button
+--   autocast on                                     a cyan glow around the button, pulsing
+--   autocast available but off                      a small cyan corner, like Blizzard's corner arrows
+local function edgesOn(parent, layer, sub, inset, thick, color, alpha)
+  local out = {}
+  local spec = { { "TOPLEFT", "TOPRIGHT", nil, thick }, { "BOTTOMLEFT", "BOTTOMRIGHT", nil, thick },
+    { "TOPLEFT", "BOTTOMLEFT", thick, nil }, { "TOPRIGHT", "BOTTOMRIGHT", thick, nil } }
+  local off = { TOPLEFT = { inset, -inset }, TOPRIGHT = { -inset, -inset }, BOTTOMLEFT = { inset, inset }, BOTTOMRIGHT = { -inset, inset } }
+  for i, sp in ipairs(spec) do
+    local e = parent:CreateTexture(nil, layer, nil, sub)
+    e:SetColorTexture(color[1], color[2], color[3], alpha or 1)
+    e:SetPoint(sp[1], parent, sp[1], off[sp[1]][1], off[sp[1]][2])
+    e:SetPoint(sp[2], parent, sp[2], off[sp[2]][1], off[sp[2]][2])
+    if sp[3] then e:SetWidth(sp[3]) end
+    if sp[4] then e:SetHeight(sp[4]) end
+    out[i] = e
+  end
+  return out
+end
+
+function Extra.MakeStateLayers(b)
+  local hh = b.hh
+  if not hh or hh.active then return end
+  hh.activeFill = b:CreateTexture(nil, "OVERLAY", nil, 1)
+  hh.activeFill:SetAllPoints(b)
+  hh.activeFill:SetColorTexture(CYAN[1], CYAN[2], CYAN[3], 0.22)
+  hh.active = edgesOn(b, "OVERLAY", 2, 1, 2, CYAN, 1)
+  -- the glow sits on a child frame so one alpha animation pulses all four sides
+  local g = CreateFrame("Frame", nil, b)
+  g:SetPoint("TOPLEFT", b, "TOPLEFT", -3, 3)
+  g:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 3, -3)
+  g:SetFrameLevel(((b.GetFrameLevel and b:GetFrameLevel()) or 1) + 2)
+  hh.glowEdges = edgesOn(g, "OVERLAY", 3, 0, 2, CYAN, 0.95)
+  local ag = g.CreateAnimationGroup and g:CreateAnimationGroup()
+  if ag then
+    local a = ag:CreateAnimation("Alpha")
+    if a then
+      if a.SetFromAlpha then a:SetFromAlpha(1) a:SetToAlpha(0.3) end
+      if a.SetDuration then a:SetDuration(0.7) end
+    end
+    if ag.SetLooping then ag:SetLooping("BOUNCE") end
+  end
+  hh.glow, hh.pulse = g, ag
+  g:Hide()
+  hh.canAuto = b:CreateTexture(nil, "OVERLAY", nil, 4)
+  hh.canAuto:SetSize(6, 6)
+  hh.canAuto:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 1, 1)
+  hh.canAuto:SetColorTexture(CYAN[1], CYAN[2], CYAN[3], 0.85)
+  Extra.SetState(b, false, false, false)
+end
+
+--- Show the marks for one button. Pure on the button: no API reads.
+function Extra.SetState(b, active, autoAllowed, autoOn)
+  local hh = b.hh
+  if not hh or not hh.active then return end
+  hh.activeFill:SetShown(active and true or false)
+  for _, e in ipairs(hh.active) do e:SetShown(active and true or false) end
+  if autoOn then
+    hh.glow:Show()
+    if hh.pulse and hh.pulse.Play and not (hh.pulse.IsPlaying and hh.pulse:IsPlaying()) then hh.pulse:Play() end
+  else
+    if hh.pulse and hh.pulse.Stop then hh.pulse:Stop() end
+    hh.glow:Hide()
+  end
+  hh.canAuto:SetShown((autoAllowed and not autoOn) and true or false)
+  hh.state = { active = active and true or false, autoAllowed = autoAllowed and true or false, autoOn = autoOn and true or false }
 end
 
 local function paintCooldown(b, start, duration, enable)
@@ -101,7 +175,7 @@ function Extra.CreatePet()
     bar.buttons[i] = b
   end
   bar.visPrefix = "[nopet]hide;"   -- no pet, no bar - whatever the visibility option says
-  bar.handle = Bars.DragHandle(bar, "Pet")
+  bar.handle = Bars.DragHandle(bar, "Pet bar")
   bar.describe = function() return ("pet bar: %d actions, %s"):format(Extra.petCount or 0, Bars.bars.pet:IsShown() and "shown" or "hidden") end
   Bars.bars.pet = bar
   return bar
@@ -120,12 +194,12 @@ function Extra.UpdatePet()
       if yes(isToken) and type(texture) == "string" then icon = rawget(_G, texture) or texture end
       b.icon:SetTexture(icon)
       if b.SetChecked then call(b.SetChecked, b, yes(isActive)) end
-      local on = yes(autoCastEnabled)
-      if b.hh and b.hh.edges then for _, e in ipairs(b.hh.edges) do e:SetColorTexture(on and CYAN[1] or LINE[1], on and CYAN[2] or LINE[2], on and CYAN[3] or LINE[3], 1) end end
+      Extra.SetState(b, yes(isActive), yes(autoCastAllowed), yes(autoCastEnabled))
       paintCooldown(b, call(GetPetActionCooldown, i))
     else
       b.icon:SetTexture(nil)
       if b.SetChecked then call(b.SetChecked, b, false) end
+      Extra.SetState(b, false, false, false)
       b.cooldown:Hide()
     end
     b:UpdateHotkeys()
@@ -154,7 +228,7 @@ function Extra.CreateStance()
     b:SetScript("OnLeave", function() if GameTooltip and GameTooltip.Hide then GameTooltip:Hide() end end)
     bar.buttons[i] = b
   end
-  bar.handle = Bars.DragHandle(bar, "Stances")
+  bar.handle = Bars.DragHandle(bar, "Stance bar")
   bar.describe = function() return ("stance bar: %d forms"):format(Extra.formCount or 0) end
   Bars.bars.stance = bar
   return bar
@@ -176,12 +250,14 @@ function Extra.UpdateStance()
       if type(a2) == "string" then spell, isActive = a2, yes(a3) else isActive, spell = yes(a2), a4 end
       b.icon:SetTexture(icon)
       if b.SetChecked then call(b.SetChecked, b, isActive) end
+      Extra.SetState(b, isActive, false, false)
       if spell ~= nil and not (type(InCombatLockdown) == "function" and InCombatLockdown()) then
         if b:GetAttribute("spell") ~= spell then b:SetAttribute("spell", spell) end
       end
       paintCooldown(b, call(GetShapeshiftFormCooldown, i))
     else
       b.icon:SetTexture(nil)
+      Extra.SetState(b, false, false, false)
       b.cooldown:Hide()
     end
     b:UpdateHotkeys()

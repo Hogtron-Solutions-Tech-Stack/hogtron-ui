@@ -989,11 +989,20 @@ if UseCustomFlyout then
 	end
 
 	-- discover all possible flyouts
+	-- HogTron UI patch: a slot count we can loop over - a plain, non-secret number
+	function HHFlyoutCount(n)
+		if type(n) ~= "number" then return false end
+		if issecretvalue and issecretvalue(n) then return false end
+		return true
+	end
+
 	function DiscoverFlyoutSpells()
 		-- 300 is a safe upper limit in 10.0.2, the highest known spell is 229
 		for flyoutID = 1, 300 do
 			local success, _, _, numSlots, isKnown = pcall(GetFlyoutInfo, flyoutID)
-			if success then
+			-- HogTron UI patch (2026-10-06, in game): WoW: Forever answers GetFlyoutInfo with success but no slot count;
+			-- the loop below then threw "'for' limit must be a number". A flyout without a readable count is skipped.
+			if success and HHFlyoutCount(numSlots) then
 				lib.FlyoutInfo[flyoutID] = { numSlots = numSlots, isKnown = isKnown, slots = {} }
 				for slotID = 1, numSlots do
 					local spellID, overrideSpellID, isKnownSlot = GetFlyoutSlotInfo(flyoutID, slotID)
@@ -1021,7 +1030,7 @@ if UseCustomFlyout then
 
 		for flyoutID, data in pairs(lib.FlyoutInfo) do
 			local success, _, _, numSlots, isKnown = pcall(GetFlyoutInfo, flyoutID)
-			if success then
+			if success and HHFlyoutCount(numSlots) then   -- HogTron UI patch: see DiscoverFlyoutSpells
 				data.isKnown = isKnown
 				for slotID = 1, numSlots do
 					local spellID, overrideSpellID, isKnownSlot = GetFlyoutSlotInfo(flyoutID, slotID)
@@ -1032,6 +1041,7 @@ if UseCustomFlyout then
 						isKnownSlot = false
 					end
 
+					data.slots[slotID] = data.slots[slotID] or {}   -- HogTron UI patch: a flyout that grew since discovery
 					data.slots[slotID].spellID = spellID
 					data.slots[slotID].overrideSpellID = overrideSpellID
 					data.slots[slotID].isKnown = isKnownSlot

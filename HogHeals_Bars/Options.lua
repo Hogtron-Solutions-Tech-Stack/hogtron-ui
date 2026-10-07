@@ -28,6 +28,11 @@ function Options.Build()
     grid = toggle(root, "grid", "Always show empty slots (grid)", 2, nil, "full"),
     hotkeySize = range(root, "hotkeySize", "Keybind text size", 3, 7, 16, 1, 10),
     hideNames = toggle(root, "hideNames", "Hide macro names on buttons", 4),
+    unlock = { type = "execute", name = function() return HH.db.profile.locked == false and "Lock the bars" or "Unlock to move the bars" end, order = 4.5,
+      func = function() HH:SetLocked(HH.db.profile.locked == false) end },
+    reset = { type = "execute", name = "Reset bar positions", order = 4.6, desc = "Every bar back to its default place and scale.",
+      confirm = true, confirmText = "Put every action bar back where it started?",
+      func = function() HH:SlashCommand("bars reset") end },
     bind = { type = "execute", name = "Key bindings (hover a slot, press a key)", order = 5, width = "full",
       func = function() if HHB.Bind and HHB.Bind.Toggle then HHB.Bind.Toggle() else HH:Print("Bind mode lands in the next step.") end end },
   }

@@ -137,7 +137,7 @@ def test_the_flat_look_and_blizzards_bars_gone(bars):
 def test_drag_under_unlock_saves_the_spot(bars):
     assert bars.eval('HogUIBar1.handle:IsShown()') is False
     bars.execute('HogHeals:SlashCommand("unlock")')
-    assert bars.eval('HogUIBar1.handle:IsShown()') is True and bars.eval('HogUIBar1.handle.label._text') == "Bar 1"
+    assert bars.eval('HogUIBar1.handle:IsShown()') is True and bars.eval('HogUIBar1.handle.label._text') == "Bar 1  -  drag"
     bars.execute('''
       local h = HogUIBar1.handle
       h:GetScript("OnDragStart")(h); HogUIBar1:ClearAllPoints(); HogUIBar1:SetPoint("CENTER", UIParent, "CENTER", 12, -34); h:GetScript("OnDragStop")(h)
@@ -216,7 +216,7 @@ def test_bind_mode_refuses_combat_and_ends_when_combat_starts(bars):
 EXTRA_CLIENT = """
 PET = { { "Attack", "Interface/Icons/Ability_GhoulFrenzy", false, true, true, true }, { "Follow", "PET_FOLLOW_TEXTURE", true, false, false, false }, { "Growl", "Interface/Icons/Growl", false, false, true, false } }
 PET_FOLLOW_TEXTURE = "Interface/Icons/Ability_Tracking"
-function GetPetActionInfo(i) local p = PET[i] if not p then return nil end return unpack(p) end
+function GetPetActionInfo(i) local p = PET[i] if not p then return nil end return unpack(p, 1, 6) end   -- all six, nil gaps included, like the client
 function GetPetActionCooldown(i) if i == 3 then return 100, 8, 1 end return 0, 0, 0 end
 function PetHasActionBar() return true end
 FORMS = { { "Interface/Icons/Ability_Warrior_OffensiveStance", true, true, 2457 }, { "Interface/Icons/Ability_Warrior_DefensiveStance", false, true, 71 }, { "Interface/Icons/Ability_Warrior_Berserk", false, false, 2458 } }
@@ -273,8 +273,8 @@ def test_pet_bar_actions_autocast_cooldown_and_bind_targets(xbars):
     assert xbars.eval(f'{b}[1]:GetAttribute("type")') == "pet" and xbars.eval(f'{b}[3]:GetAttribute("action")') == 3
     assert xbars.eval(f'{b}[1].icon._texture') == "Interface/Icons/Ability_GhoulFrenzy"
     assert xbars.eval(f'{b}[2].icon._texture') == "Interface/Icons/Ability_Tracking"             # token resolved
-    assert xbars.eval(f'{b}[1].hh.edges[1]._color[2]') == pytest.approx(0.83)                 # autocast on = cyan edge
-    assert xbars.eval(f'{b}[3].hh.edges[1]._color[2]') == pytest.approx(0.20)
+    assert xbars.eval(f'{b}[1].hh.glow:IsShown()') is True                                 # autocast on = pulsing glow
+    assert xbars.eval(f'{b}[3].hh.glow:IsShown()') is False and xbars.eval(f'{b}[3].hh.canAuto:IsShown()') is True   # allowed, off
     assert xbars.eval(f'{b}[3].cooldown._last.SetCooldown[1]') == 100 and xbars.eval(f'{b}[3].cooldown._last.SetCooldown[2]') == 8
     assert xbars.eval(f'{b}[4].icon._texture') is None and xbars.eval('HogHealsBars.Extra.petCount') == 3
     assert xbars.eval(f'{b}[1].keyBoundTarget') == "BONUSACTIONBUTTON1" and xbars.eval(f'{b}[1]:GetBindingAction()') == "BONUSACTIONBUTTON1"
@@ -323,7 +323,7 @@ def test_pet_flags_as_this_client_sends_them_1_and_nil(xbars):
     assert xbars.eval(f'{b}[2].icon._texture') == "Interface/Icons/Ability_Tracking"
     assert xbars.eval(f'{b}[3].icon._texture') == "Interface/Icons/Ability_Hunter_Pet_Goto"
     assert xbars.eval(f'{b}[2]._last.SetChecked[1]') is True and xbars.eval(f'{b}[1]._last.SetChecked[1]') is False
-    assert xbars.eval(f'{b}[4].hh.edges[1]._color[2]') == pytest.approx(0.83)                 # autocast 1 = on
+    assert xbars.eval(f'{b}[4].hh.glow:IsShown()') is True                                  # autocast 1 = on
     assert errors(xbars) == []
 
 
@@ -400,3 +400,105 @@ def test_hidden_cooldown_numbers_go_straight_to_the_swipe():
     assert rt.eval("lib.hhSecretCooldown(HIDDEN)") is True and rt.eval("#CALLS") == 1     # hidden: handed to the widget
     assert rt.eval("CALLS[1][2].n") == 1.5 and "hidden" in rt.eval("lib.cooldownPath")
     assert "if lib.hhSecretCooldown(self) then return end" in _lab_src()                    # wired in front of the maths
+
+
+def test_unlock_shows_a_top_layer_box_per_bar_and_dragging_saves_under_the_layouts_key(xbars):
+    # Sean 2026-10-06: "the action bars need to be movable in the unlock"
+    xbars.execute('HogHealsBars.Bars.bars[2]:SetAlpha(0.3); HogHeals:SlashCommand("unlock")')
+    h2 = 'HogHealsBars.Bars.bars[2].handle'
+    assert xbars.eval(f'{h2}:IsShown()') is True and xbars.eval(f'{h2}:GetParent() == UIParent') is True
+    assert xbars.eval(f'{h2}._last.SetFrameStrata[1]') == "DIALOG"
+    assert xbars.eval(f'{h2}.label._text') == "Bar 2  -  drag"
+    assert xbars.eval('HogHealsBars.Bars.bars[2]._alpha') == 1                                   # fully visible while unlocked
+    assert any("drag the cyan boxes" in m for m in xbars.eval("MockLog.chat").values())
+    # drag the pet bar: saved under "pet", which is what its layout reads
+    xbars.execute("""
+      local h = HogHealsBars.Bars.bars.pet.handle
+      h:GetScript("OnDragStart")(h)
+      HogUIPetBar:ClearAllPoints(); HogUIPetBar:SetPoint("BOTTOM", UIParent, "BOTTOM", 25, 300)
+      h:GetScript("OnDragStop")(h)
+    """)
+    assert xbars.eval('HogHeals.db.profile.bars.list.pet.y') == 300 and xbars.eval('rawget(HogHeals.db.profile.bars.list, "Pet")') is None
+    xbars.execute('HogHealsBars.Bars.Layout(HogUIPetBar)')
+    assert xbars.eval('HogUIPetBar._points[1][5]') == 300                                         # stays where it was put
+    assert xbars.eval('HogHealsBars.Bars.bars.pet.handle.label._text') == "Pet bar  -  drag"
+    xbars.execute('HogHeals:SlashCommand("lock")')
+    assert xbars.eval(f'{h2}:IsShown()') is False
+    assert errors(xbars) == []
+
+
+def test_old_pet_key_is_migrated_and_reset_puts_bars_back(lua):
+    lua.execute(CLIENT + EXTRA_CLIENT)
+    lua.load_addon("HogHeals")
+    lua.execute('HogHealsDB = { profileKeys = {}, profiles = { Default = { bars = { list = { Pet = { x = -0.8, y = 178 }, [2] = { x = 40, y = 250, scale = 1.3 } } } } } }')
+    lua.load_addon("HogHeals_Bars")
+    lua.player_login()
+    lst = 'HogHeals.db.profile.bars.list'
+    assert lua.eval(f'rawget({lst}, "Pet")') is None
+    assert lua.eval(f'{lst}.pet.y') == 178 and lua.eval(f'{lst}.pet.x') == pytest.approx(-0.8)
+    lua.execute('HogHeals:SlashCommand("bars reset")')
+    assert lua.eval(f'{lst}[2].y') == 100 and lua.eval(f'{lst}[2].x') == 0 and lua.eval(f'{lst}[2].scale') == 1   # defaults again
+    assert lua.eval(f'{lst}.pet.y') == 184
+    assert lua.eval('HogUIBar2._points[1][5]') == 100
+    lua.execute('HogHeals:SlashCommand("barsdiag")')
+    assert any("bar 2: scale 1.00" in m for m in lua.eval("MockLog.chat").values())
+    assert [e["msg"] for e in lua.eval('HogHeals.errors').values()] == []
+
+
+def test_flyout_scan_survives_a_flyout_with_no_slot_count():
+    # in game 2026-10-06: LibActionButton.lua:1026 "'for' limit must be a number" - GetFlyoutInfo succeeded, numSlots nil
+    from lupa.lua51 import LuaRuntime
+    src = _lab_src().splitlines()
+    a = next(k for k, l in enumerate(src) if l.startswith(chr(9) + "function HHFlyoutCount(n)"))
+    b = next(k for k in range(a, len(src)) if src[k].startswith(chr(9) + "function UpdateFlyoutSpells()"))
+    c = next(k for k in range(b + 1, len(src)) if src[k] == chr(9) + "end")
+    rt = LuaRuntime()
+    rt.execute("""
+      lib = { FlyoutInfo = {} }
+      FLY = { [1] = { nil, nil }, [2] = { 2, true }, [3] = { "secret", true } }
+      function issecretvalue(v) return v == "secret" end
+      function GetFlyoutInfo(id) local f = FLY[id] if not f then error("no flyout") end return "Name", "desc", f[1], f[2] end
+      function GetFlyoutSlotInfo(id, slot) return 1000 + slot, nil, true end
+      function GetCallPetSpellInfo() return nil end
+      function SyncFlyoutInfoToHandler() SYNCED = (SYNCED or 0) + 1 end
+      function InCombatLockdown() return false end
+    """)
+    rt.execute(chr(10).join(src[a:c + 1]))
+    rt.execute("DiscoverFlyoutSpells()")
+    assert rt.eval("lib.FlyoutInfo[1]") is None and rt.eval("lib.FlyoutInfo[3]") is None    # no count / secret count: skipped
+    assert rt.eval("lib.FlyoutInfo[2].slots[2].spellID") == 1002
+    rt.execute("FLY[2] = { 3, true }; lib.FlyoutInfo[1] = { slots = {} }; FLY[1] = { nil, nil }; UpdateFlyoutSpells()")
+    assert rt.eval("lib.FlyoutInfo[2].slots[3].spellID") == 1003                               # grew since discovery
+    assert rt.eval("SYNCED") == 2
+
+def test_active_pet_command_and_stance_light_up_and_autocast_pulses(xbars):
+    # in game 2026-10-06: "these aren't glowing when they are active"
+    xbars.execute("""
+      PET = { { "Attack", "Interface/Icons/A", 1, nil, nil, nil },
+              { "Follow", "Interface/Icons/F", 1, 1, nil, nil },
+              { "Growl", "Interface/Icons/G", nil, nil, 1, 1 },
+              { "Cower", "Interface/Icons/C", nil, nil, 1, nil } }
+      HogHealsBars.Extra.UpdatePet()
+    """)
+    b = 'HogUIPetBar.buttons'
+    assert xbars.eval(f'{b}[2].hh.activeFill:IsShown()') is True and xbars.eval(f'{b}[2].hh.active[1]:IsShown()') is True
+    assert xbars.eval(f'{b}[1].hh.activeFill:IsShown()') is False
+    assert xbars.eval(f'{b}[3].hh.glow:IsShown()') is True and xbars.eval(f'{b}[3].hh.pulse._calls.Play') >= 1
+    assert xbars.eval(f'{b}[4].hh.glow:IsShown()') is False and xbars.eval(f'{b}[4].hh.canAuto:IsShown()') is True
+    assert xbars.eval(f'{b}[3].hh.canAuto:IsShown()') is False                                  # on: the glow says it
+    # turning autocast off stops the pulse; the pet changing command moves the active mark
+    xbars.execute('PET[3][6] = nil; PET[2][4] = nil; PET[1][4] = 1; HogHealsBars.Extra.UpdatePet()')
+    assert xbars.eval(f'{b}[3].hh.glow:IsShown()') is False and xbars.eval(f'{b}[3].hh.pulse._calls.Stop') >= 1
+    assert xbars.eval(f'{b}[1].hh.activeFill:IsShown()') is True and xbars.eval(f'{b}[2].hh.activeFill:IsShown()') is False
+    # the stance you are in lights up the same way (form 1 is active in the test client)
+    assert xbars.eval('HogUIStanceBar.buttons[1].hh.activeFill:IsShown()') is True
+    assert xbars.eval('HogUIStanceBar.buttons[2].hh.activeFill:IsShown()') is False
+    assert errors(xbars) == []
+
+
+def test_call_helper_keeps_every_return_value_past_a_nil(xbars):
+    # the real bug behind "autocast never shows": nil gaps in GetPetActionInfo's answer cut the later flags off
+    xbars.execute('PET = { { "Cower", "Interface/Icons/C", nil, nil, 1, nil } }; HogHealsBars.Extra.UpdatePet()')
+    st = xbars.eval('HogUIPetBar.buttons[1].hh.state')
+    assert st["autoAllowed"] is True and st["autoOn"] is False and st["active"] is False
+    assert xbars.eval('HogUIPetBar.buttons[1].hh.canAuto:IsShown()') is True
