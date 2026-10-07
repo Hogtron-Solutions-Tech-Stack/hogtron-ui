@@ -137,7 +137,7 @@ def test_the_flat_look_and_blizzards_bars_gone(bars):
 def test_drag_under_unlock_saves_the_spot(bars):
     assert bars.eval('HogUIBar1.handle:IsShown()') is False
     bars.execute('HogHeals:SlashCommand("unlock")')
-    assert bars.eval('HogUIBar1.handle:IsShown()') is True and bars.eval('HogUIBar1.handle.label._text') == "Bar 1  -  drag"
+    assert bars.eval('HogUIBar1.handle:IsShown()') is True and bars.eval('HogUIBar1.handle.label._text') == "Action bar 1  -  drag, or click for settings"
     bars.execute('''
       local h = HogUIBar1.handle
       h:GetScript("OnDragStart")(h); HogUIBar1:ClearAllPoints(); HogUIBar1:SetPoint("CENTER", UIParent, "CENTER", 12, -34); h:GetScript("OnDragStop")(h)
@@ -408,7 +408,7 @@ def test_unlock_shows_a_top_layer_box_per_bar_and_dragging_saves_under_the_layou
     h2 = 'HogHealsBars.Bars.bars[2].handle'
     assert xbars.eval(f'{h2}:IsShown()') is True and xbars.eval(f'{h2}:GetParent() == UIParent') is True
     assert xbars.eval(f'{h2}._last.SetFrameStrata[1]') == "DIALOG"
-    assert xbars.eval(f'{h2}.label._text') == "Bar 2  -  drag"
+    assert xbars.eval(f'{h2}.label._text') == "Action bar 2  -  drag, or click for settings"
     assert xbars.eval('HogHealsBars.Bars.bars[2]._alpha') == 1                                   # fully visible while unlocked
     assert any("drag the cyan boxes" in m for m in xbars.eval("MockLog.chat").values())
     # drag the pet bar: saved under "pet", which is what its layout reads
@@ -421,7 +421,7 @@ def test_unlock_shows_a_top_layer_box_per_bar_and_dragging_saves_under_the_layou
     assert xbars.eval('HogHeals.db.profile.bars.list.pet.y') == 300 and xbars.eval('rawget(HogHeals.db.profile.bars.list, "Pet")') is None
     xbars.execute('HogHealsBars.Bars.Layout(HogUIPetBar)')
     assert xbars.eval('HogUIPetBar._points[1][5]') == 300                                         # stays where it was put
-    assert xbars.eval('HogHealsBars.Bars.bars.pet.handle.label._text') == "Pet bar  -  drag"
+    assert xbars.eval('HogHealsBars.Bars.bars.pet.handle.label._text') == "Pet bar  -  drag, or click for settings"
     xbars.execute('HogHeals:SlashCommand("lock")')
     assert xbars.eval(f'{h2}:IsShown()') is False
     assert errors(xbars) == []
