@@ -138,6 +138,8 @@ end
 local function attachClick(t)
   local f = t.clickFrame or t.mover
   EM.byFrame[f] = t
+  -- say what a click does (Sean 2026-10-06: "what cyan block on the action bar?")
+  if f.label and f.label.SetText then f.label:SetText(t.title .. "  -  drag, or click for settings") end
   if EM.attached[f] or not f.HookScript then return end
   EM.attached[f] = true
   f:HookScript("OnDragStart", function(self) self.hhDragged = true end)

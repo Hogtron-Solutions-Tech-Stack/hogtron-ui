@@ -90,3 +90,10 @@ def test_a_gear_opens_the_unit_frames_settings_and_all_settings_opens_the_full_t
     assert ed.eval("HogHeals.Panel.selected") == "Units" and ed.eval("HogHeals.Panel.selectedTab") == "player"
     assert ed.eval("HogHeals.Panel.compact") is False
     assert errors(ed) == []
+
+
+def test_drag_boxes_say_a_click_opens_settings(ed):
+    ed.execute('HogHeals:SlashCommand("unlock")')
+    assert ed.eval("HogHealsBars.Bars.bars[2].handle.label._text") == "Action bar 2  -  drag, or click for settings"
+    assert ed.eval("HogHealsAnchor.label._text") == "Party / raid frames  -  drag, or click for settings"
+    assert ed.eval("HogHealsHUDAnchor.label._text") == "HUD  -  drag, or click for settings"
