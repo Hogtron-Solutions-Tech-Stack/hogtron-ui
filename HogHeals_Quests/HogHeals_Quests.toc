@@ -1,6 +1,6 @@
 ## Interface: 20505,20506,11508,11509,16001
 ## Title: |cffF5EBDCHog|r|cff21D4E0UI|r Quests & Map
-## Notes: Quest tracker window, square HogHeals minimap, optional quest pins.
+## Notes: Quest tracker window, square HogHeals minimap, optional quest pins, auto accept / turn-in, party announce, quest tooltips.
 ## Author: HogTron Solutions (Sean Bilger)
 ## Version: 0.1.0
 ## Dependencies: HogHeals
@@ -13,5 +13,8 @@ Minimap.lua
 MapSkin.lua
 WorldMap.lua
 Buttons.lua
+Auto.lua
+Announce.lua
+Tooltip.lua
 Options.lua
 Quests.lua

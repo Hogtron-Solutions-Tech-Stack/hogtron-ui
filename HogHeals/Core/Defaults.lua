@@ -118,6 +118,12 @@ HH.defaults = {
       -- the GO row on the tracker (Go.lua): the quest to do next by rule fastest | balanced | travel; superTrack = the
       -- game's own arrow follows the pick
       go = { enabled = true, rule = "balanced", superTrack = true },
+      -- Questie's quality-of-life half without its database (Auto / Announce / Tooltip.lua); each defers to Questie when
+      -- it is loaded. auto: pauseKey SHIFT | CTRL | ALT | NONE held = nothing automatic; chooseReward false = a real
+      -- choice (2+ items) is always yours. announce: party = PARTY / RAID when grouped, self = your own chat frame.
+      auto = { enabled = true, accept = true, turnIn = true, gossip = true, chooseReward = false, acceptTrivial = true, pauseKey = "SHIFT" },
+      announce = { enabled = true, party = true, self = false, accepted = false, turnedIn = false },
+      tooltip = { enabled = true, units = true, items = true },
       minimap = { enabled = true, edge = true, watchedOnly = false, turnInInRange = false, size = 16 },   -- Forever draws areas only, not points
       map = { enabled = true, fill = true, size = 180, zoneText = true, wheelZoom = true, hideDecor = true, dockButtons = true },
       -- the world map (M): coordinates strip, scale, fade while moving, border art off (skipped when Leatrix Maps runs)
