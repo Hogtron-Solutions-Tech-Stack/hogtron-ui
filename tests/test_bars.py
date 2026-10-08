@@ -502,3 +502,55 @@ def test_call_helper_keeps_every_return_value_past_a_nil(xbars):
     st = xbars.eval('HogUIPetBar.buttons[1].hh.state')
     assert st["autoAllowed"] is True and st["autoOn"] is False and st["active"] is False
     assert xbars.eval('HogUIPetBar.buttons[1].hh.canAuto:IsShown()') is True
+
+
+
+# ---------------------------------------------------------------- hover / pressed / active marks (2026-10-08)
+def test_every_bar_button_gets_the_pet_bar_marks_and_blizzard_art_goes(bars):
+    b = "HogUIBar1.buttons[2]"
+    bars.execute(f"{b}._hasAction = true; HogHealsBars.Bars.Lib().callbacks:Fire('OnButtonUpdate', {b})")
+    assert bars.eval(f"{b}.hh.hover ~= nil and {b}.hh.pressFill ~= nil and {b}.hh.active ~= nil")
+    assert bars.eval(f"{b}.hh.hover[1]:IsShown()") is False
+    bars.execute(f"{b}:GetScript('OnEnter')({b})")
+    assert bars.eval(f"{b}.hh.hover[1]:IsShown()") is True
+    bars.execute(f"{b}:GetScript('OnMouseDown')({b})")
+    assert bars.eval(f"{b}.hh.pressFill:IsShown()") is True
+    bars.execute(f"{b}:GetScript('OnMouseUp')({b})")
+    assert bars.eval(f"{b}.hh.pressFill:IsShown()") is False
+    bars.execute(f"{b}:GetScript('OnLeave')({b})")
+    assert bars.eval(f"{b}.hh.hover[1]:IsShown()") is False
+    # active = the pet-command look; hovering an active button adds nothing on top
+    bars.execute(f"HogHealsBars.Extra.SetActive({b}, true); {b}:GetScript('OnEnter')({b})")
+    assert bars.eval(f"{b}.hh.activeFill:IsShown()") is True and bars.eval(f"{b}.hh.active[1]:IsShown()") is True
+    assert bars.eval(f"{b}.hh.hover[1]:IsShown()") is False
+    bars.execute(f"HogHealsBars.Extra.SetActive({b}, false)")
+    assert bars.eval(f"{b}.hh.activeFill:IsShown()") is False and bars.eval(f"{b}.hh.hover[1]:IsShown()") is True   # still hovered
+    # an empty slot with the grid off shows no hover either
+    e = "HogUIBar1.buttons[3]"
+    bars.execute(f"HogHeals.OptionsTable().args.Bars.args.grid.set(nil, false); {e}:GetScript('OnEnter')({e})")
+    assert bars.eval(f"{e}.hh.hover[1]:IsShown()") is False
+    assert errors(bars) == []
+
+
+def test_blizzard_state_art_is_made_transparent_and_stays_so(bars):
+    bars.execute("""
+      HH_t = { a = 1, SetAlpha = function(self, a) self.a = a end }
+      HH_fake = { HighlightTexture = HH_t, GetCheckedTexture = function() return HH_t end }
+      HogHealsBars.Extra.HideStateArt(HH_fake)
+    """)
+    assert bars.eval("HH_t.a") == 0
+    # the lib re-pins the art on every update; UpdateCell puts it back to 0 each time
+    b = "HogUIBar1.buttons[1]"
+    bars.execute(f"{b}.HighlightTexture = {{ a = 1, SetAlpha = function(self, a) self.a = a end }}; HogHealsBars.Bars.Lib().callbacks:Fire('OnButtonUpdate', {b})")
+    assert bars.eval(f"{b}.HighlightTexture.a") == 0
+
+
+def test_the_libs_checked_state_drives_the_active_mark(bars):
+    lua = bars
+    b = "HogUIBar1.buttons[1]"
+    assert lua.eval(f"{b}.hh.checkedHooked") is True                       # the lib button is a CheckButton: hooked at dress
+    lua.execute(f"{b}:SetChecked(true)")
+    assert lua.eval(f"{b}.hh.activeFill:IsShown()") is True
+    lua.execute(f"{b}:SetChecked(false)")
+    assert lua.eval(f"{b}.hh.activeFill:IsShown()") is False
+    assert errors(lua) == []

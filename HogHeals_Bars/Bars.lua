@@ -93,6 +93,8 @@ function Bars.Dress(b)
     if sp[4] then e:SetHeight(sp[4]) end
     hh.edges[i] = e
   end
+  -- hover / pressed / active marks, the pet bar's look (Extra.lua); Blizzard's pinned state art off
+  if HHB.Extra and HHB.Extra.MakeMarks then HHB.Extra.MakeMarks(b) end
   return hh
 end
 
@@ -107,6 +109,7 @@ function Bars.UpdateCell(b)
   local show = has == true or grid
   if show then hh.backdrop:Show() for _, e in ipairs(hh.edges) do e:Show() end
   else hh.backdrop:Hide() for _, e in ipairs(hh.edges) do e:Hide() end end
+  if HHB.Extra and HHB.Extra.HideStateArt then HHB.Extra.HideStateArt(b) HHB.Extra.HookChecked(b) end   -- the lib re-pins its art on every update
   -- click-through: an empty slot lets the mouse through to the world; a filled one must keep it (it casts)
   local through = bar and cfg().list[bar.n] and cfg().list[bar.n].clickThrough
   if b.EnableMouse then b:EnableMouse(not (through and has ~= true)) end
