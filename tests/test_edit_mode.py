@@ -116,16 +116,16 @@ def test_compact_window_opens_toward_the_middle_of_the_screen(ed):
     # live: bar 2 sits at the bottom centre -> the window hangs above it, not beside it
     ed.execute('HogHeals:SlashCommand("unlock")')
     h = "HogHealsBars.Bars.bars[2].handle"
-    ed.execute(f"{h}._cx, {h}._cy = 960, 100; {h}:GetScript('OnMouseUp')({h}, 'LeftButton')")
+    ed.execute(f"HogUIBar2._cx, HogUIBar2._cy = 960, 100; {h}:GetScript('OnMouseUp')({h}, 'LeftButton')")   # the mover is the bar itself
     pt = ed.eval(f"{{ {P}.frame:GetPoint() }}")
     assert ed.eval(f"{P}.side") == "above"
     assert pt[1] == "BOTTOM" and pt[3] == "TOP" and pt[4] == 0 and pt[5] == 12
-    assert ed.eval(f"select(2, {P}.frame:GetPoint()) == {h}") is True
+    assert ed.eval(f"select(2, {P}.frame:GetPoint()) == HogUIBar2") is True
     # a frame hugging the right edge: window to its left
-    ed.execute(f"{P}.frame:Hide(); {h}._cx, {h}._cy = 1880, 540; {h}:GetScript('OnMouseUp')({h}, 'LeftButton')")
+    ed.execute(f"{P}.frame:Hide(); HogUIBar2._cx, HogUIBar2._cy = 1880, 540; {h}:GetScript('OnMouseUp')({h}, 'LeftButton')")
     pt = ed.eval(f"{{ {P}.frame:GetPoint() }}")
     assert pt[1] == "RIGHT" and pt[3] == "LEFT" and pt[4] == -12
     # no centre known: the middle of the screen
-    ed.execute(f"{P}.frame:Hide(); {h}.GetCenter = function() return nil end; {h}:GetScript('OnMouseUp')({h}, 'LeftButton')")
-    assert ed.eval(f"{P}.side") is None and ed.eval(f"{P}.frame:GetPoint()") == "CENTER"
+    ed.execute(f"{P}.frame:Hide(); HogUIBar2.GetCenter = function() return nil end; {h}:GetScript('OnMouseUp')({h}, 'LeftButton')")
+    assert ed.eval(f"{P}.side") is None and ed.eval(f"({P}.frame:GetPoint())") == "CENTER"
     assert errors(ed) == []
