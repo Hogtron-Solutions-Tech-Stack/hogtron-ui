@@ -110,6 +110,7 @@ function Options.Build()
           alpha = range(bt, "alpha", "Drawer opacity", 3.5, 0.3, 1, 0.05, br),
           columns = range(bt, "columns", "Columns", 2, 1, 10, 1, br),
           size = range(bt, "size", "Icon size", 3, 16, 40, 2, br),
+          hogui = toggle(bt, "hogui", "HogTron UI settings in the drawer (one glyph per thing: bars, menu bar, quests...)", 1.2, br),
           hover = toggle(bt, "hover", "Open on mouse-over", 4, br),
           autoClose = toggle(bt, "autoClose", "Close when the mouse leaves", 5, br),
         } },
