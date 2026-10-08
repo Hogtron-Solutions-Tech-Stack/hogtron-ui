@@ -88,6 +88,7 @@ function Options.Build()
         scale = range(wp, "scale", "Size", 8, 0.5, 2, 0.05, wpr),
         fontSize = range(wp, "fontSize", "Font size", 9, 8, 24, 1, wpr),
         diag = { type = "execute", name = "Print waypoint diagnostics to chat", order = 10, func = function() HH:SlashCommand("wpdiag") end },
+      } },
       qol = { type = "group", name = "Questing", order = 2.7, args = {
         about = { type = "description", order = 0, name = "The chores Questie does, without its database: accept what you click, hand in what you finished, take the only reward, pick the one quest on a gossip menu; tell the party when an objective moves; name the quest on a mob or item tooltip. All of it steps aside when Questie is loaded. Hold the pause key while talking to an NPC and nothing is automatic." },
         autoHeader = { type = "header", name = "At the quest giver", order = 1 },
