@@ -6,6 +6,7 @@ local Module = {}
 A.module = Module
 
 function Module:OnEnable()
+  HH:SafeCall(A.Attune, "Start")
   A.cfg()
   A.Store.db()
   HH:SafeCall(A.Capture, "Start")
@@ -63,6 +64,10 @@ HH:RegisterSlash("atlas", function(rest)
   end
   A.Window.Toggle(rest ~= "" and rest or nil)
 end, "dungeon guide: loot, quests, levels (/hh atlas scan = read the game's journal)")
+HH:RegisterSlash("attune", function(rest)
+  if (rest or ""):lower() == "show" then A.Window.Toggle("attune") return end
+  for _, l in ipairs(A.Attune.Say()) do HH:Print(l) end
+end, "attunements and keys: where you stand on each (/hh attune show = the window)")
 HH:RegisterSlash("gear", function() A.Window.Toggle("upgrades") end, "gear upgrades for your role")
 HH:RegisterSlash("sets", function() A.Window.Toggle("sets") end, "saved gear sets")
 HH:RegisterSlash("wish", function() A.Window.Toggle("wish") end, "your wishlist")
