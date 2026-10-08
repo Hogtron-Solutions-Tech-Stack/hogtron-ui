@@ -36,7 +36,7 @@ def xp(lua):
     lua.load_addon("HogHeals_Frames")
     lua.load_addon("HogHeals_HUD")
     lua.player_login()
-    lua.execute(f"HH_x = HogHealsHUD.HUD.rows.xp; HH_x:SetWidth(200); {X}.Update()")
+    lua.execute(f"HH_x = HogHealsHUD.HUD.rows.xp; HH_x:SetWidth(400); {X}.Update()")   # 400 px: everything fits (6 px a char in the mock)
     return lua
 
 
@@ -85,8 +85,8 @@ def test_fill_and_left_text(xp):
 def test_rested_overlay_and_text(xp):
     xp.execute(f"RESTED = 2000; {X}.Update()")
     assert xp.eval("HH_x.rested:IsShown()") is True
-    # overlay runs from the fill head to xp+rested: 10% -> 30% of a 200 px bar = 40 px wide
-    assert xp.eval("HH_x.rested:GetWidth()") == 40
+    # overlay runs from the fill head to xp+rested: 10% -> 30% of a 400 px bar = 80 px wide
+    assert xp.eval("HH_x.rested:GetWidth()") == pytest.approx(80)
     assert "+20% rested" in xp.eval("HH_x.right:GetText()")
     xp.execute(f"RESTED = 0; {X}.Update()")
     assert xp.eval("HH_x.rested:IsShown()") is False
@@ -96,7 +96,7 @@ def test_quest_xp_counts_turn_in_ready_quests_by_default(xp):
     assert xp.eval(f"{X}.QuestXP()") == 500
     assert xp.eval(f"{X}.path.reward") == "GetQuestLogRewardXP(questID)"
     assert xp.eval("HH_x.quest:IsShown()") is True
-    assert xp.eval("HH_x.quest:GetWidth()") == pytest.approx(10)     # 5% of 200
+    assert xp.eval("HH_x.quest:GetWidth()") == pytest.approx(20)     # 5% of 400
     assert "+5% quests" in xp.eval("HH_x.right:GetText()")
 
 
@@ -216,3 +216,28 @@ def test_options_group_and_diag(xp):
     lines = xp.eval(f"{X}.Lines()")
     joined = " ".join(lines.values())
     assert "1,000 / 10,000" in joined and "quests" in joined
+
+
+
+# ------------------------------------------------------------------------------------------------ fitting
+def test_texts_fit_the_bar_dropping_the_least_important_first(xp):
+    # Sean 2026-10-08 in game: "Lv 14 +7% rested 9(+4% quests 109k xp/h lvl in <1m" crunched into one 300 px row
+    xp.execute(f"""
+      RESTED = 700; HogHeals.Session.Reset(); MockState.time = 1060; XP = 1600; MockFire("PLAYER_XP_UPDATE")
+      HH_p = {X}.Parts({X}.Compute(1600, 10000, 700, 500), 14, 1600, 10000, 500)
+    """)
+    parts = [v["text"] for v in xp.eval("HH_p.parts").values()]
+    assert parts == ["+7% rested", "+5% quests", "36k xp/h", "lvl in 14m"]
+    assert xp.eval("HH_p.longLeft") == "Lv 14  1,600 / 10,000  16%" and xp.eval("HH_p.shortLeft") == "Lv 14  16%"
+    fit = lambda w: list(xp.eval(f"{{ {X}.Fit({w}, HH_p, function(t) return #t * 6 end) }}").values())
+    assert fit(600) == ["Lv 14  1,600 / 10,000  16%", "+7% rested   +5% quests   36k xp/h   lvl in 14m"]
+    assert fit(380) == ["Lv 14  16%", "+7% rested   +5% quests   36k xp/h   lvl in 14m"]   # short left first
+    assert fit(300) == ["Lv 14  16%", "+5% quests   36k xp/h   lvl in 14m"]                # rested goes first
+    assert fit(220) == ["Lv 14  16%", "36k xp/h   lvl in 14m"]                             # then quests
+    assert fit(150) == ["Lv 14  16%", "36k xp/h"]                                          # then the eta; the rate last
+    assert fit(60) == ["Lv 14  16%", ""]
+    assert fit(0) == ["Lv 14  1,600 / 10,000  16%", "+7% rested   +5% quests   36k xp/h   lvl in 14m"]   # unknown width: everything
+    # live: a 300 px bar
+    xp.execute(f"HH_x:SetWidth(300); {X}.Update()")
+    assert xp.eval("HH_x.left:GetText()") == "Lv 20  16%"
+    assert "rested" not in xp.eval("HH_x.right:GetText()") and "xp/h" in xp.eval("HH_x.right:GetText()")

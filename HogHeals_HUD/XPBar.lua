@@ -150,16 +150,58 @@ local function pace()
   return s
 end
 
---- Left and right strings for the readings (pure; c = XP.Compute result or nil).
-function XP.Texts(c, lvl, xp, max, quest)
+--- The pieces of the two texts (pure; c = XP.Compute result or nil): a long and a short left, and the right-hand
+-- parts in display order, each with a priority (higher = kept longer when the bar is too narrow for all of them).
+-- Sean 2026-10-08 in game: on a 300 px strip the two texts ran into each other.
+function XP.Parts(c, lvl, xp, max, quest)
   local o = cfg()
-  if not c then return "-", "" end
-  local left = ("Lv %s  %s / %s  %.0f%%"):format(lvl and tostring(lvl) or "?", XP.Commas(xp), XP.Commas(max), c.percent)
+  if not c then return { longLeft = "-", shortLeft = "-", parts = {} } end
+  local L = lvl and tostring(lvl) or "?"
+  local p = { longLeft = ("Lv %s  %s / %s  %.0f%%"):format(L, XP.Commas(xp), XP.Commas(max), c.percent),
+    shortLeft = ("Lv %s  %.0f%%"):format(L, c.percent), parts = {} }
+  local function add(text, prio) p.parts[#p.parts + 1] = { text = text, prio = prio } end
+  if o.showRested ~= false and c.restedPercent > 0 then add(("+%.0f%% rested"):format(c.restedPercent), 1) end
+  if o.showQuest ~= false and (quest or 0) > 0 then add(("+%.0f%% quests"):format(c.questPercent), 2) end
+  if o.showPace ~= false then
+    local S = HH.Session
+    local st = S and S.Stats()
+    if st and not st.hidden and st.rate then
+      add(S.FormatNumber(st.rate) .. " xp/h", 4)
+      if st.toLevel then add("lvl in " .. S.FormatTime(st.toLevel), 3) end
+    end
+  end
+  return p
+end
+
+--- Fit the texts into `width` px: the long left with everything, else the short left, then drop right-hand parts
+-- lowest priority first. measure(text) -> px. Pure.
+function XP.Fit(width, p, measure)
+  local GAP = 16
   local parts = {}
-  if o.showRested ~= false and c.restedPercent > 0 then parts[#parts + 1] = ("+%.0f%% rested"):format(c.restedPercent) end
-  if o.showQuest ~= false and (quest or 0) > 0 then parts[#parts + 1] = ("+%.0f%% quests"):format(c.questPercent) end
-  if o.showPace ~= false then local p = pace() if p then parts[#parts + 1] = p end end
-  return left, table.concat(parts, "   ")
+  for i, x in ipairs(p.parts) do parts[i] = x end
+  local function join()
+    local t = {}
+    for _, x in ipairs(parts) do t[#t + 1] = x.text end
+    return table.concat(t, "   ")
+  end
+  local left = p.longLeft
+  if type(width) ~= "number" or width <= 0 then return left, join() end
+  while true do
+    local right = join()
+    if measure(left) + (right ~= "" and measure(right) or 0) + GAP <= width then return left, right end
+    if left ~= p.shortLeft then left = p.shortLeft
+    elseif #parts > 0 then
+      local idx, low = 1, math.huge
+      for i, x in ipairs(parts) do if x.prio < low then low, idx = x.prio, i end end
+      table.remove(parts, idx)
+    else return left, "" end
+  end
+end
+
+--- Left and right strings for the readings, fitted to `width` when given (pure apart from measure).
+function XP.Texts(c, lvl, xp, max, quest, width, measure)
+  local p = XP.Parts(c, lvl, xp, max, quest)
+  return XP.Fit(width, p, measure or function(t) return #t * 6 end)
 end
 
 -- ------------------------------------------------------------------------------------------------ draw
@@ -204,7 +246,11 @@ function XP.Update()
     if b.rested then b.rested:Hide() end
     if b.quest then b.quest:Hide() end
   end
-  local left, right = XP.Texts(c, lvl, xp, max, quest)
+  local function measure(t)
+    b.left:SetText(t)
+    return num(b.left:GetStringWidth()) or (#t * 6)
+  end
+  local left, right = XP.Texts(c, lvl, xp, max, quest, width(b), measure)
   b.left:SetText(o.text ~= false and left or "")
   b.right:SetText(o.text ~= false and right or "")
   XP.last = { xp = xp, max = max, lvl = lvl, rested = rested, quest = quest }
