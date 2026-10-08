@@ -118,6 +118,10 @@ HH.defaults = {
       -- the GO row on the tracker (Go.lua): the quest to do next by rule fastest | balanced | travel; superTrack = the
       -- game's own arrow follows the pick
       go = { enabled = true, rule = "balanced", superTrack = true },
+      -- the marker in the world over the super-tracked quest (Waypoint.lua): anchored to Blizzard's navigation frame,
+      -- hideBlizzard = its icon / text transparent under ours; eta at your pace; arrow = edge arrow when off-screen;
+      -- near = yards inside which the marker dims to nearAlpha
+      waypoint = { enabled = true, hideBlizzard = true, title = true, eta = true, progress = true, arrow = true, near = 10, nearAlpha = 0.5, scale = 1, fontSize = 12 },
       minimap = { enabled = true, edge = true, watchedOnly = false, turnInInRange = false, size = 16 },   -- Forever draws areas only, not points
       map = { enabled = true, fill = true, size = 180, zoneText = true, wheelZoom = true, hideDecor = true, dockButtons = true },
       -- the world map (M): coordinates strip, scale, fade while moving, border art off (skipped when Leatrix Maps runs)
