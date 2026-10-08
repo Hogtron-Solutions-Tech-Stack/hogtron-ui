@@ -50,6 +50,7 @@ local function layoutGroup()
     showSwing = toggle(hud, "showSwing", "Swing timer row", 6.2),
     swingHeight = range(hud, "swingHeight", "Swing timer height", 6.4, 4, 30, 1),
     showMana = toggle(hud, "showMana", "Mana row", 7),
+    showXP = toggle(hud, "showXP", "Experience row", 7.5),
     manaHeight = range(hud, "manaHeight", "Mana height", 8, 6, 30, 1),
     showInfo = toggle(hud, "showInfo", "Info line", 9),
     infoHeight = range(hud, "infoHeight", "Info height", 10, 10, 30, 1),
@@ -100,6 +101,26 @@ local function swingGroup()
   } }
 end
 
+local function xpcfg() return HH.db.profile.hud.xp end
+local function xpGroup()
+  return { type = "group", name = "Experience bar", order = 3.5, args = {
+    note = { type = "description", order = 0, name = "Under the mana bar: your experience, a faint overlay for the rested bonus, a green one for what the quests in your log will pay. Right side: xp an hour and time to the next level from this sitting (/hh session)." },
+    enabled = toggle(hud, "showXP", "Experience bar on", 1),
+    hideAtMax = toggle(xpcfg, "hideAtMax", "Hide at the level cap", 2),
+    text = toggle(xpcfg, "text", "Texts", 3),
+    showRested = toggle(xpcfg, "showRested", "Rested overlay", 4),
+    showQuest = toggle(xpcfg, "showQuest", "Quests-in-log overlay", 5),
+    questMode = select_(xpcfg, "questMode", "Which quests count", 5.1, { complete = "Ready to turn in", all = "Every quest in the log" }),
+    showPace = toggle(xpcfg, "showPace", "Pace (xp/h, time to level)", 6),
+    sizeHeader = { type = "header", name = "Size and look", order = 7 },
+    height = range(hud, "xpHeight", "Height", 7.1, 4, 30, 1),
+    fontSize = range(xpcfg, "fontSize", "Font size (0 = strip font, one step smaller)", 7.2, 0, 30, 1),
+    color = colour(xpcfg, "color", "Fill", 7.3),
+    questColor = colour(xpcfg, "questColor", "Quests overlay", 7.4),
+    diag = { type = "execute", name = "Print readings to chat", order = 9, func = function() HH:SlashCommand("xpdiag") end },
+  } }
+end
+
 local function manaGroup()
   local m = function() return hud().mana end
   return { type = "group", name = "Mana & five-second rule", order = 3, args = {
@@ -141,6 +162,6 @@ end
 
 function Options.Build()
   return { type = "group", name = "HUD", childGroups = "tab", args = {
-    layout = layoutGroup(), castbar = castbarGroup(), swing = swingGroup(), mana = manaGroup(), pacing = pacingGroup(), advisor = advisorGroup(),
+    layout = layoutGroup(), castbar = castbarGroup(), swing = swingGroup(), mana = manaGroup(), xp = xpGroup(), pacing = pacingGroup(), advisor = advisorGroup(),
   } }
 end

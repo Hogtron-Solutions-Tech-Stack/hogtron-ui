@@ -160,8 +160,8 @@ HH.defaults = {
     },
     hud = {
       x = 0, y = -180, width = 300, followFrames = false,
-      castbarHeight = 18, swingHeight = 16, manaHeight = 12, infoHeight = 14, rowSpacing = 2,
-      showCastbar = true, showSwing = true, showMana = true, showInfo = true,
+      castbarHeight = 18, swingHeight = 16, manaHeight = 12, xpHeight = 10, infoHeight = 14, rowSpacing = 2,
+      showCastbar = true, showSwing = true, showMana = true, showXP = true, showInfo = true,
       font = "HogTron", fontSize = 11, texture = "Solid",
       castbar = {
         icon = true, showTarget = true, latency = true, gcd = false, hideBlizzard = true, precision = 1,
@@ -173,6 +173,11 @@ HH.defaults = {
       -- ink frame; fontSize 0 = the strip's font one step larger (Sean 2026-10-05: bigger, wider, cleaner)
       swing = { color = { 0.96, 0.92, 0.86 }, text = true, precision = 1, hideWhenIdle = true, width = 0, spark = true, outline = true, fontSize = 0 },
       mana = { textMode = "cur", showTicks = true, showFsrText = true, fsrColor = { 0.13, 0.83, 0.88 }, tickColor = { 0.96, 0.92, 0.86 } },
+      -- experience bar (XPBar.lua): showXP above is the on / off. questMode "complete" = reward xp of the quests ready
+      -- to turn in, "all" = every quest in the log; hideAtMax = gone at the level cap; fontSize 0 = strip font one step smaller
+      xp = { color = { 0.13, 0.83, 0.88 }, restedColor = { 0.13, 0.83, 0.88 }, restedAlpha = 0.35, questColor = { 0.25, 0.80, 0.35 },
+        questAlpha = 0.55, text = true, showRested = true, showQuest = true, showPace = true, questMode = "complete",
+        hideAtMax = true, fontSize = 0 },
       pacing = { enabled = true, targetLength = 300, amber = 60, red = 20, showProjection = true },
       advisor = { enabled = true, margin = 0.9, onFrame = false, spells = {} },
     },
