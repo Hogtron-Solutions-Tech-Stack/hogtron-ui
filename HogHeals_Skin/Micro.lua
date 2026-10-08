@@ -15,6 +15,14 @@ Part.MICRO_CONTAINERS = { "MicroMenuContainer", "MicroMenu", "MicroButtonAndBags
 Part.BAGS = { "MainMenuBarBackpackButton", "CharacterBag0Slot", "CharacterBag1Slot", "CharacterBag2Slot", "CharacterBag3Slot",
   "CharacterReagentBag0Slot", "KeyRingButton" }
 Part.BAG_HIDE = { "BagBarExpandToggle" }
+-- Sean 2026-10-08 in game, /fstack on the two stray borders bottom-right: BagsBar.BorderArt, MicroMenu.BorderArt and
+-- MicroMenu.BackgroundArt, StoreMicroButton.Background, and the key ring's own slot art (an ItemButton the sweep
+-- had not taken). Named here and killed by path - the walk-up sweep has a budget and these sat past it.
+Part.LOOSE_ART = { "BagsBar.BorderArt", "BagsBar.Art", "MicroMenu.BorderArt", "MicroMenu.BackgroundArt", "MicroMenu.Background",
+  "StoreMicroButton.Background", "KeyRingButton.NormalTexture", "KeyRingButton.HighlightTexture", "KeyRingButton.SlotHighlightTexture",
+  "KeyRingButton.QuickKeybindHighlightTexture", "KeyRingButton.IconBorder", "KeyRingButton.AnimIcon", "KeyRingButtonNormalTexture" }
+-- and the buttons themselves faded with the rest while our strip / Bags cell stands in (back when it does not)
+Part.ALSO_SILENCE = { "KeyRingButton", "StoreMicroButton" }
 Part.BAG_CONTAINERS = { "BagsBar", "MicroButtonAndBagsBar" }
 
 local function present(names)
@@ -583,8 +591,30 @@ function Part.SweepBagArt(bags)
   return out
 end
 
+--- The loose art by path: every piece found goes transparent; the names found / missing go to the diag.
+function Part.KillLooseArt()
+  local found, n = {}, 0
+  for _, p in ipairs(Part.LOOSE_ART) do
+    local v = Skin.Path(p)
+    if type(v) == "table" then
+      if v.GetObjectType and v:GetObjectType() == "Texture" then if Skin.Kill(v) then n = n + 1 end
+      else n = n + Skin.KillRegions(v) end
+      found[#found + 1] = p
+    end
+  end
+  Part.looseDiag = ("loose art: %d killed (%s)"):format(n, #found > 0 and table.concat(found, ",") or "none found")
+  return n
+end
+
 function Part.Apply()
   local d = Skin.cfg()
+  local standingIn = (d.micro and d.micro.enabled ~= false and d.micro.strip ~= false) or (d.bagBar and d.bagBar.enabled ~= false and Part.BagsAsButton())
+  if standingIn then
+    Part.KillLooseArt()
+    for _, n in ipairs(Part.ALSO_SILENCE) do local f = Skin.G(n) if type(f) == "table" then silence(f) end end
+  else
+    for _, n in ipairs(Part.ALSO_SILENCE) do local f = Skin.G(n) if type(f) == "table" then unsilence(f) end end
+  end
   if d.bagBar and d.bagBar.enabled ~= false then
     local bags = Part.BagButtons()
     for _, n in ipairs(Part.BAG_HIDE) do Skin.HideFrame(Skin.G(n)) end
