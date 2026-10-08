@@ -236,7 +236,12 @@ local function titleButton(i)
   b:SetScript("OnClick", function(self, button)
     local q = self.quest
     if not q then return end
-    if button == "RightButton" or (IsShiftKeyDown and IsShiftKeyDown()) then
+    local shift = IsShiftKeyDown and IsShiftKeyDown()
+    if button == "RightButton" and not shift then
+      -- the menu (Menu.lua); a client with no menu system gets the old toggle
+      local ok, shown = pcall(HHQ.Menu and HHQ.Menu.Show or function() return false end, self, q)
+      if not (ok and shown) then HHQ.Data.SetWatched(q, not q.watched) Tracker.Schedule() end
+    elseif button == "RightButton" or shift then
       HHQ.Data.SetWatched(q, not q.watched)
       Tracker.Schedule()
     else
@@ -247,7 +252,7 @@ local function titleButton(i)
     if not GameTooltip or not self.quest then return end
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
     GameTooltip:AddLine(self.quest.title or "?")
-    GameTooltip:AddLine("Left: open in quest log   Right: " .. (self.quest.watched and "stop watching" or "watch"), 0.6, 0.6, 0.6)
+    GameTooltip:AddLine("Left: open in quest log   Right: menu (watch, share, abandon)   Shift-click: " .. (self.quest.watched and "stop watching" or "watch"), 0.6, 0.6, 0.6)
     GameTooltip:Show()
   end)
   b:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)

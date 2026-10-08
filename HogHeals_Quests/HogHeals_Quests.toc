@@ -8,6 +8,7 @@
 
 Data.lua
 Tracker.lua
+Menu.lua
 Go.lua
 Minimap.lua
 MapSkin.lua
