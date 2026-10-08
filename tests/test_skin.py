@@ -862,3 +862,32 @@ def test_decorations_that_come_back_over_the_menu_buttons_and_the_bar_are_swept_
     assert "SpellbookMicroButtonAlertGlow" in diag and "BackpackHighlightAgain" in diag          # /hh skindiag names them
     assert skin.eval("HogHealsMicroBar._alpha") == 1 and skin.eval("HogHealsMicroBarBags._alpha") == 1
     assert errors(skin) == []
+
+
+
+def test_the_two_stray_borders_bottom_right_go_too(skin):
+    # Sean 2026-10-08 in game, /fstack: BagsBar.BorderArt, MicroMenu.BorderArt / BackgroundArt, StoreMicroButton.Background,
+    # and the key ring (an ItemButton) still wearing its slot art beside our bar
+    skin.execute("""
+      BagsBar.BorderArt = BagsBar:CreateTexture(); BagsBar.BorderArt:SetTexture("bag-border")
+      MicroMenu.BorderArt = MicroMenu:CreateTexture(); MicroMenu.BorderArt:SetTexture("menu-border")
+      MicroMenu.BackgroundArt = MicroMenu:CreateTexture(); MicroMenu.BackgroundArt:SetTexture("menu-bg")
+      StoreMicroButton = StoreMicroButton or CreateFrame("Button", "StoreMicroButton", MicroMenu)
+      function StoreMicroButton:GetLeft() return 470 end
+      function StoreMicroButton:GetRight() return 480 end
+      StoreMicroButton.Background = StoreMicroButton:CreateTexture(); StoreMicroButton.Background:SetTexture("store-bg")
+      KeyRingButton = CreateFrame("ItemButton", "KeyRingButton", BagsBar)
+      KeyRingButton.NormalTexture = KeyRingButton:CreateTexture(); KeyRingButton.NormalTexture:SetTexture("slot-frame")
+      KeyRingButton.SlotHighlightTexture = KeyRingButton:CreateTexture(); KeyRingButton.SlotHighlightTexture:SetTexture("slot-hl")
+      HogHealsSkin.Micro.Apply()
+    """)
+    for tex in ("BagsBar.BorderArt", "MicroMenu.BorderArt", "MicroMenu.BackgroundArt", "StoreMicroButton.Background", "KeyRingButton.NormalTexture", "KeyRingButton.SlotHighlightTexture"):
+        assert skin.eval(f"{tex}._alpha") == 0 and skin.eval(f"{tex}._texture") is None, tex
+    assert skin.eval("KeyRingButton._alpha") == 0 and skin.eval("StoreMicroButton._alpha") == 0
+    skin.execute("KeyRingButton:SetAlpha(1); StoreMicroButton:SetAlpha(1)")       # Blizzard shows them again: kept faded
+    assert skin.eval("KeyRingButton._alpha") == 0 and skin.eval("StoreMicroButton._alpha") == 0
+    assert "BagsBar.BorderArt" in skin.eval("HogHealsSkin.Micro.looseDiag")
+    # the strip off and the Bags cell off: both come back
+    skin.execute('HogHeals.db.profile.skin.micro.strip = false; HogHeals.db.profile.skin.bagBar.mode = "slots"; HogHealsSkin.Micro.Apply()')
+    assert skin.eval("StoreMicroButton._alpha") == 1
+    assert errors(skin) == []
