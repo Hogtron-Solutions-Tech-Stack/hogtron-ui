@@ -127,5 +127,5 @@ def test_compact_window_opens_toward_the_middle_of_the_screen(ed):
     assert pt[1] == "RIGHT" and pt[3] == "LEFT" and pt[4] == -12
     # no centre known: the middle of the screen
     ed.execute(f"{P}.frame:Hide(); HogUIBar2.GetCenter = function() return nil end; {h}:GetScript('OnMouseUp')({h}, 'LeftButton')")
-    assert ed.eval(f"{P}.side") is None and ed.eval(f"{P}.frame:GetPoint()") == "CENTER"
+    assert ed.eval(f"{P}.side") is None and ed.eval(f"({P}.frame:GetPoint())") == "CENTER"
     assert errors(ed) == []
