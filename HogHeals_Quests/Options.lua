@@ -32,6 +32,10 @@ function Options.Build()
   local br = function() HH:SafeCall(HHQ.Buttons, "Refresh") end
   local wp = function() return HH.db.profile.quests.waypoint end
   local wpr = function() HH:SafeCall(HHQ.Waypoint, "Refresh") end
+  local au = function() return HH.db.profile.quests.auto end
+  local an = function() return HH.db.profile.quests.announce end
+  local tt = function() return HH.db.profile.quests.tooltip end
+  local nop = function() end
   return {
     type = "group", name = "Quests", order = 35,
     args = {
@@ -84,6 +88,25 @@ function Options.Build()
         scale = range(wp, "scale", "Size", 8, 0.5, 2, 0.05, wpr),
         fontSize = range(wp, "fontSize", "Font size", 9, 8, 24, 1, wpr),
         diag = { type = "execute", name = "Print waypoint diagnostics to chat", order = 10, func = function() HH:SlashCommand("wpdiag") end },
+      qol = { type = "group", name = "Questing", order = 2.7, args = {
+        about = { type = "description", order = 0, name = "The chores Questie does, without its database: accept what you click, hand in what you finished, take the only reward, pick the one quest on a gossip menu; tell the party when an objective moves; name the quest on a mob or item tooltip. All of it steps aside when Questie is loaded. Hold the pause key while talking to an NPC and nothing is automatic." },
+        autoHeader = { type = "header", name = "At the quest giver", order = 1 },
+        accept = toggle(au, "accept", "Accept the quest you clicked", 1.1, nop),
+        turnIn = toggle(au, "turnIn", "Hand in finished quests and take the only reward", 1.2, nop),
+        chooseReward = toggle(au, "chooseReward", "(reserved) never pick between rewards - a real choice is always yours", 1.25, nop, "Kept off: with two or more rewards on offer the page waits for you."),
+        gossip = toggle(au, "gossip", "Pick the one quest on a gossip page / hand in finished ones", 1.3, nop),
+        acceptTrivial = toggle(au, "acceptTrivial", "Also take grey (trivial) quests from gossip pages", 1.4, nop),
+        pauseKey = { type = "select", name = "Pause key (held = nothing automatic)", order = 1.5, values = { SHIFT = "Shift", CTRL = "Ctrl", ALT = "Alt", NONE = "None" },
+          get = function() return au().pauseKey or "SHIFT" end, set = function(_, v) au().pauseKey = v end },
+        announceHeader = { type = "header", name = "Tell the party", order = 2 },
+        party = toggle(an, "party", "Objective progress to party / raid chat", 2.1, nop),
+        self = toggle(an, "self", "Also to your own chat frame (solo too)", 2.2, nop),
+        accepted = toggle(an, "accepted", "Say when you accept a quest", 2.3, nop),
+        turnedIn = toggle(an, "turnedIn", "Say when you turn one in", 2.4, nop),
+        tooltipHeader = { type = "header", name = "Tooltips", order = 3 },
+        units = toggle(tt, "units", "Quest name + count on mobs you need", 3.1, nop),
+        items = toggle(tt, "items", "Quest name + count on items you need", 3.2, nop),
+        diag = { type = "execute", name = "Print diagnostics to chat", order = 9, func = function() HH:SlashCommand("autodiag") HH:SlashCommand("announcediag") end },
       } },
       worldmap = { type = "group", name = "World map", order = 3, args = {
         about = { type = "description", order = 0, name = "The map you open with M: size slider and fade while moving. Opt-ins (off - this client's map already shows your coordinates, and its combined map + quest log frame does not take the ink panel well): a coordinates strip with the cursor position, and the ink panel. Revealing unexplored terrain the way Leatrix Maps does needs its hand-built zone data; run Leatrix Maps alongside for that - when it is loaded, this leaves the map's look to it." },

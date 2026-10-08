@@ -122,6 +122,12 @@ HH.defaults = {
       -- hideBlizzard = its icon / text transparent under ours; eta at your pace; arrow = edge arrow when off-screen;
       -- near = yards inside which the marker dims to nearAlpha
       waypoint = { enabled = true, hideBlizzard = true, title = true, eta = true, progress = true, arrow = true, near = 10, nearAlpha = 0.5, scale = 1, fontSize = 12 },
+      -- Questie's quality-of-life half without its database (Auto / Announce / Tooltip.lua); each defers to Questie when
+      -- it is loaded. auto: pauseKey SHIFT | CTRL | ALT | NONE held = nothing automatic; chooseReward false = a real
+      -- choice (2+ items) is always yours. announce: party = PARTY / RAID when grouped, self = your own chat frame.
+      auto = { enabled = true, accept = true, turnIn = true, gossip = true, chooseReward = false, acceptTrivial = true, pauseKey = "SHIFT" },
+      announce = { enabled = true, party = true, self = false, accepted = false, turnedIn = false },
+      tooltip = { enabled = true, units = true, items = true },
       minimap = { enabled = true, edge = true, watchedOnly = false, turnInInRange = false, size = 16 },   -- Forever draws areas only, not points
       map = { enabled = true, fill = true, size = 180, zoneText = true, wheelZoom = true, hideDecor = true, dockButtons = true },
       -- the world map (M): coordinates strip, scale, fade while moving, border art off (skipped when Leatrix Maps runs)
