@@ -1,6 +1,6 @@
 ## Interface: 20505,20506,11508,11509,16001
 ## Title: |cffF5EBDCHog|r|cff21D4E0UI|r Atlas
-## Notes: Dungeon guide: levels, bosses, loot, dungeon quests, gear upgrades, sets, wishlist.
+## Notes: Dungeon guide: levels, bosses, loot, dungeon quests, attunements and keys, gear upgrades, sets, wishlist.
 ## Author: HogTron Solutions (Sean Bilger)
 ## Version: 0.1.0
 ## Dependencies: HogHeals
@@ -13,6 +13,7 @@ Data\Quests.lua
 Data\Loot.lua
 Data\Zones.lua
 Data\LootNames.lua
+Data\Attunements.lua
 Levels.lua
 Store.lua
 Journal.lua
@@ -20,6 +21,7 @@ Capture.lua
 Stats.lua
 Gear.lua
 DungeonQuests.lua
+Attune.lua
 WhereNext.lua
 Tooltip.lua
 Share.lua
