@@ -97,3 +97,35 @@ def test_drag_boxes_say_a_click_opens_settings(ed):
     assert ed.eval("HogHealsBars.Bars.bars[2].handle.label._text") == "Action bar 2  -  drag, or click for settings"
     assert ed.eval("HogHealsAnchor.label._text") == "Party / raid frames  -  drag, or click for settings"
     assert ed.eval("HogHealsHUDAnchor.label._text") == "HUD  -  drag, or click for settings"
+
+
+
+def test_compact_window_opens_toward_the_middle_of_the_screen(ed):
+    # Sean 2026-10-08: "should not open over the bars ... open towards the center of the screen"
+    P = "HogHeals.Panel"
+    side = lambda cx, cy, aw=0, ah=0: ed.eval(f"{P}.Side({cx}, {cy}, {aw}, {ah}, 1920, 1080)")
+    assert side(960, 100, 500, 40) == "above"       # bar along the bottom -> above it
+    assert side(1880, 540, 40, 500) == "left"       # bar down the right edge -> left of it
+    assert side(40, 540, 40, 500) == "right"
+    assert side(960, 1000, 500, 40) == "below"
+    assert side(600, 400) == "right"                # unit frame left of centre, nearer the middle vertically
+    assert side(960, 540) == "above"                # dead centre: ties go vertical
+    assert side(960, 300, 500, 40) == "above"       # 300 from the bottom: a 460 window fits above, not below
+    assert side(960, 540, 40, 1000) == "right"      # as tall as the screen: no room above, so beside it
+    assert ed.eval(f"{P}.Side(nil, 1)") is None
+    # live: bar 2 sits at the bottom centre -> the window hangs above it, not beside it
+    ed.execute('HogHeals:SlashCommand("unlock")')
+    h = "HogHealsBars.Bars.bars[2].handle"
+    ed.execute(f"{h}._cx, {h}._cy = 960, 100; {h}:GetScript('OnMouseUp')({h}, 'LeftButton')")
+    pt = ed.eval(f"{{ {P}.frame:GetPoint() }}")
+    assert ed.eval(f"{P}.side") == "above"
+    assert pt[1] == "BOTTOM" and pt[3] == "TOP" and pt[4] == 0 and pt[5] == 12
+    assert ed.eval(f"select(2, {P}.frame:GetPoint()) == {h}") is True
+    # a frame hugging the right edge: window to its left
+    ed.execute(f"{P}.frame:Hide(); {h}._cx, {h}._cy = 1880, 540; {h}:GetScript('OnMouseUp')({h}, 'LeftButton')")
+    pt = ed.eval(f"{{ {P}.frame:GetPoint() }}")
+    assert pt[1] == "RIGHT" and pt[3] == "LEFT" and pt[4] == -12
+    # no centre known: the middle of the screen
+    ed.execute(f"{P}.frame:Hide(); {h}.GetCenter = function() return nil end; {h}:GetScript('OnMouseUp')({h}, 'LeftButton')")
+    assert ed.eval(f"{P}.side") is None and ed.eval(f"{P}.frame:GetPoint()") == "CENTER"
+    assert errors(ed) == []

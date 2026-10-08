@@ -751,6 +751,30 @@ end
 
 --- Full window (sidebar, two columns, centred) or compact (one section, one column, beside a frame: edit mode).
 -- opts = { compact = true, anchor = frame, title = "Action bar 2" }
+--- Which side of a frame the compact window goes on: the side facing the middle of the screen, on the axis the
+-- frame is further from the middle on (a bar along the bottom -> above it; a bar on the right edge -> left of it;
+-- a unit frame left of centre -> right of it). Sean 2026-10-08: "should not open over the bars ... open towards the
+-- center". The other axis is the fallback when there is no room; nil = no idea (no centre), caller centres it.
+-- cx, cy = the frame's centre; aw, ah = its size; sw, sh = the screen; cw, ch = the window's size.
+function Panel.Side(cx, cy, aw, ah, sw, sh, cw, ch)
+  if type(cx) ~= "number" or type(cy) ~= "number" then return nil end
+  aw, ah = aw or 0, ah or 0
+  sw, sh = sw or 1920, sh or 1080
+  cw, ch = cw or CW, ch or CH
+  local dx, dy = sw / 2 - cx, sh / 2 - cy
+  local h = dx >= 0 and "right" or "left"
+  local v = dy >= 0 and "above" or "below"
+  local roomH = dx >= 0 and (sw - (cx + aw / 2)) or (cx - aw / 2)
+  local roomV = dy >= 0 and (sh - (cy + ah / 2)) or (cy - ah / 2)
+  local first, second = h, v
+  local roomFirst, roomSecond = roomH, roomV
+  if math.abs(dy) / sh >= math.abs(dx) / sw then first, second, roomFirst, roomSecond = v, h, roomV, roomH end
+  local need = { above = ch + 12, below = ch + 12, left = cw + 12, right = cw + 12 }
+  if roomFirst >= need[first] then return first end
+  if roomSecond >= need[second] then return second end
+  return roomFirst >= roomSecond and first or second
+end
+
 function Panel.Layout(opts)
   local f = Panel.frame
   opts = opts or {}
@@ -766,14 +790,24 @@ function Panel.Layout(opts)
     f.version:SetText(opts.title or "")
     f:ClearAllPoints()
     local a = opts.anchor
-    local right = a and a.GetRight and a:GetRight()
-    local sw = (type(GetScreenWidth) == "function" and GetScreenWidth()) or 1920
-    if right and type(right) == "number" then
+    local side
+    if a and a.GetCenter then
+      local ok, cx, cy = pcall(a.GetCenter, a)
       local s = (a.GetEffectiveScale and a:GetEffectiveScale() or 1) / (UIParent:GetEffectiveScale() or 1)
-      if right * s + CW + 16 < sw then f:SetPoint("LEFT", a, "RIGHT", 12, 0) else f:SetPoint("RIGHT", a, "LEFT", -12, 0) end
-    else
-      f:SetPoint("CENTER", UIParent, "CENTER", 0, 20)
+      local sw = (type(GetScreenWidth) == "function" and GetScreenWidth()) or 1920
+      local sh = (type(GetScreenHeight) == "function" and GetScreenHeight()) or 1080
+      if ok and type(cx) == "number" and type(cy) == "number" then
+        local aw = (a.GetWidth and a:GetWidth() or 0) * s
+        local ah = (a.GetHeight and a:GetHeight() or 0) * s
+        side = Panel.Side(cx * s, cy * s, aw, ah, sw, sh)
+      end
     end
+    Panel.side = side
+    if side == "above" then f:SetPoint("BOTTOM", a, "TOP", 0, 12)
+    elseif side == "below" then f:SetPoint("TOP", a, "BOTTOM", 0, -12)
+    elseif side == "right" then f:SetPoint("LEFT", a, "RIGHT", 12, 0)
+    elseif side == "left" then f:SetPoint("RIGHT", a, "LEFT", -12, 0)
+    else f:SetPoint("CENTER", UIParent, "CENTER", 0, 20) end
   else
     f:SetSize(W, H)
     f.side:Show()
