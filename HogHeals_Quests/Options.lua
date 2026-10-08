@@ -30,6 +30,8 @@ function Options.Build()
   local wr = function() HH:SafeCall(HHQ.WorldMap, "Refresh") end
   local sr = function() HHQ.MapSkin.Refresh() HH:SafeCall(HHQ.Buttons, "Anchor") end
   local br = function() HH:SafeCall(HHQ.Buttons, "Refresh") end
+  local wp = function() return HH.db.profile.quests.waypoint end
+  local wpr = function() HH:SafeCall(HHQ.Waypoint, "Refresh") end
   return {
     type = "group", name = "Quests", order = 35,
     args = {
@@ -69,6 +71,19 @@ function Options.Build()
         fontSize = range(t, "fontSize", "Text size", 8, 8, 28, 1, tr),
         scale = range(t, "scale", "Scale (whole window)", 8.5, 0.6, 2.5, 0.05, tr),
         backgroundAlpha = range(t, "backgroundAlpha", "Background opacity", 9, 0, 1, 0.05, tr),
+      } },
+      waypoint = { type = "group", name = "Waypoint", order = 2.5, args = {
+        about = { type = "description", order = 0, name = "The quest you are tracking, marked in the world: name, yards and how long at your pace, 4/10 or ready to turn in. Sits on Blizzard's own navigation marker (so it needs a client that has one - /hh wpdiag says). Off-screen: an arrow on the edge pointing the way." },
+        enabled = toggle(wp, "enabled", "Waypoint marker", 1, wpr),
+        hideBlizzard = toggle(wp, "hideBlizzard", "Hide Blizzard's icon and distance under ours", 2, wpr),
+        title = toggle(wp, "title", "Quest name", 3, wpr),
+        eta = toggle(wp, "eta", "Time to reach it at your pace", 4, wpr),
+        progress = toggle(wp, "progress", "Objective progress / ready to turn in", 5, wpr),
+        arrow = toggle(wp, "arrow", "Arrow on the screen edge when off-screen", 6, wpr),
+        near = range(wp, "near", "Dim inside (yards, 0 = never)", 7, 0, 50, 1, wpr),
+        scale = range(wp, "scale", "Size", 8, 0.5, 2, 0.05, wpr),
+        fontSize = range(wp, "fontSize", "Font size", 9, 8, 24, 1, wpr),
+        diag = { type = "execute", name = "Print waypoint diagnostics to chat", order = 10, func = function() HH:SlashCommand("wpdiag") end },
       } },
       worldmap = { type = "group", name = "World map", order = 3, args = {
         about = { type = "description", order = 0, name = "The map you open with M: size slider and fade while moving. Opt-ins (off - this client's map already shows your coordinates, and its combined map + quest log frame does not take the ink panel well): a coordinates strip with the cursor position, and the ink panel. Revealing unexplored terrain the way Leatrix Maps does needs its hand-built zone data; run Leatrix Maps alongside for that - when it is loaded, this leaves the map's look to it." },
