@@ -213,3 +213,16 @@ end
 HH:RegisterSlash("autodiag", function()
   for _, l in ipairs(Auto.Lines()) do HH:Print(l) end
 end, "auto accept / turn-in / gossip: what fired, what was skipped")
+
+--- /hh auto: the switches from chat. Sean 2026-10-08 in game: "the auto-accept works - is there a way to turn that off?"
+HH:RegisterSlash("auto", function(rest)
+  local o, an = HH.db.profile.quests.auto, HH.db.profile.quests.announce
+  local what, val = (rest or ""):lower():match("^%s*(%a*)%s*(%a*)")
+  local function say(k, v) HH:Print(("auto: %s %s"):format(k, v and "on" or "off")) end
+  if what == "on" or what == "off" then o.enabled = what == "on" say("everything (accept, turn in, gossip)", o.enabled) return end
+  local keys = { accept = "accept", turnin = "turnIn", gossip = "gossip" }
+  if keys[what] and (val == "on" or val == "off") then o[keys[what]] = val == "on" say(what, o[keys[what]]) return end
+  if what == "announce" and (val == "on" or val == "off") then an.enabled = val == "on" say("announce", an.enabled) return end
+  if what == "" then for _, l in ipairs(Auto.Lines()) do HH:Print(l) end return end
+  HH:Print("usage: /hh auto on|off  -  /hh auto accept|turnin|gossip|announce on|off  -  or hold Shift at the NPC")
+end, "auto quests on / off: /hh auto off, /hh auto accept off, /hh auto announce off")

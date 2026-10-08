@@ -247,3 +247,17 @@ def test_options_and_diag(qol):
     text = " ".join(list(qol.eval(f"{A}.Lines()").values()) + list(qol.eval(f"{AN}.Lines()").values()) + list(qol.eval(f"{TT}.Lines()").values()))
     assert "auto quests: on" in text and "announce: on" in text and "quest tooltips: on" in text
     assert errors(qol) == []
+
+
+
+def test_slash_switches(qol):
+    qol.execute('HogHeals:SlashCommand("auto accept off"); MockFire("QUEST_DETAIL")')
+    assert calls(qol) == [] and qol.eval("HogHeals.db.profile.quests.auto.accept") is False
+    qol.execute('HogHeals:SlashCommand("auto accept on"); MockFire("QUEST_DETAIL")')
+    assert calls(qol) == [["AcceptQuest"]]
+    qol.execute('CALLS = {}; HogHeals:SlashCommand("auto off"); MockFire("QUEST_DETAIL"); MockFire("QUEST_PROGRESS")')
+    assert calls(qol) == [] and qol.eval("HogHeals.db.profile.quests.auto.enabled") is False
+    qol.execute('HogHeals:SlashCommand("auto on"); HogHeals:SlashCommand("auto announce off")')
+    assert qol.eval("HogHeals.db.profile.quests.auto.enabled") is True and qol.eval("HogHeals.db.profile.quests.announce.enabled") is False
+    qol.execute('HogHeals:SlashCommand("auto bogus")')
+    assert any("usage: /hh auto" in m for m in qol.eval("MockLog.chat").values())
