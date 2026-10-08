@@ -99,6 +99,17 @@ function ClickCast.Init()
   local class = playerClass()
   local saved = db and db.bindings and db.bindings[class]
   ClickCast.bindings = saved or ClickCast.Defaults(class)
+  -- a reserved key (Enter = chat) that an older build let through is dropped here, said once, and saved without it
+  if HH.ChatKey and HH.ChatKey.Strip then
+    local kept, gone = HH.ChatKey.Strip(ClickCast.bindings)
+    if #gone > 0 then
+      ClickCast.bindings = kept
+      if db then db.bindings = db.bindings or {} db.bindings[class] = kept end
+      local names = {}
+      for _, b in ipairs(gone) do names[#names + 1] = tostring(b.key) .. " (" .. tostring(b.value) .. ")" end
+      HH:Print("Hover-heal: dropped " .. table.concat(names, ", ") .. " - that key is for chat.")
+    end
+  end
   ClickCast.ApplyGlobal()
 end
 

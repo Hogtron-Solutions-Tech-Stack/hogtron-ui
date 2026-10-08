@@ -58,6 +58,8 @@ end
 function Bind.Press(key)
   local b = Bind.target
   if not b then return nil end
+  local reserved = key ~= "ESCAPE" and HH.ChatKey and HH.ChatKey.Reserved(key)
+  if reserved then HH:Print(("Key bindings: %s is for %s, not for a slot."):format(key == "ENTER" and "Enter" or key, reserved)) return nil end
   if key == "ESCAPE" then
     call(b.ClearBindings, b)
     save()
