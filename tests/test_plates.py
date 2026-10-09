@@ -846,7 +846,26 @@ def test_platecvars_lists_what_the_client_has(plates):
     assert n == 3 and list(lines.values()) == ["NameplateShowFriendlyNPCs=0", "UnitNameFriendlyPetName=0", "nameplateShowFriends=1"]
     plates.execute('HogHeals:SlashCommand("platecvars pet")')
     assert any("UnitNameFriendlyPetName=0" in m for m in plates.eval("MockLog.chat").values())
-    plates.execute("C_Console = nil")
+    plates.execute("C_Console = nil; function GetCVar() return nil end; GetCVarInfo = nil")   # no list, no answers: nothing found
     lines, n = list(plates.eval("{ HogHealsPlates.Plates.CVarProbe() }").values())
     assert n == 0 and "no console list" in lines[1]
+    assert errors(plates) == []
+
+
+
+def test_platecvars_asks_by_name_when_there_is_no_list(plates):
+    plates.execute("""
+      C_Console = nil; ConsoleGetAllCommands = nil
+      function GetCVar(k) if k == "nameplateShowFriends" then return "1" end return nil end
+      function GetCVarInfo(k) if k == "UnitNameFriendlyPetName" then return "0", "0" end return nil end
+    """)
+    lines, n = list(plates.eval("{ HogHealsPlates.Plates.CVarProbe() }").values())
+    text = list(lines.values())
+    assert n == 2 and text[0].startswith("this client gives addons no console list")
+    assert "HAS  nameplateShowFriends=1" in text and "HAS  UnitNameFriendlyPetName" in " ".join(text)
+    assert any(l.startswith("no   nameplateShowFriendlyPets") for l in text)
+    # the legacy global list is honoured too
+    plates.execute("function ConsoleGetAllCommands() return { { command = 'nameplateShowAll' } } end")
+    lines, n = list(plates.eval("{ HogHealsPlates.Plates.CVarProbe() }").values())
+    assert n == 1 and list(lines.values()) == ["nameplateShowAll=nil"]
     assert errors(plates) == []
