@@ -415,6 +415,9 @@ local function ownCell(i)
   c.letter = c:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
   c.letter:SetPoint("CENTER", c, "CENTER", 0, 0)
   c.letter:SetTextColor(CYAN[1], CYAN[2], CYAN[3])
+  c.icon = c:CreateTexture(nil, "ARTWORK")
+  c.icon:SetPoint("CENTER", c, "CENTER", 0, 0)
+  c.icon:Hide()
   c:SetScript("OnClick", function(self)
     if not self.entry or not HH.Tray then return end
     HH.Tray.Open(self.entry, Drawer.launcher)
@@ -444,10 +447,16 @@ function Drawer.OwnCells()
     return out
   end
   local entries = HH.Tray.Available()
+  local size = cfg().size or 28
   for i, e in ipairs(entries) do
     local c = ownCell(i)
     c.entry = e
     c.letter:SetText(e.letter)
+    -- the glyph when the client takes the file, the letter when it does not (same rule as the menu bar)
+    local took = e.icon and (c.icon:SetTexture((HH.Tray.MEDIA or "") .. e.icon) ~= false)
+    c.icon:SetSize(size - 6, size - 6)
+    if took then c.icon:Show() c.letter:Hide() else c.icon:Hide() c.letter:Show() end
+    c.glyph = took and e.icon or nil
     out[#out + 1] = c
   end
   for i = #entries + 1, #Drawer.own do Drawer.own[i]:Hide() end

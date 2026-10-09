@@ -94,3 +94,19 @@ def test_option_off_hides_our_cells_and_the_tooltip_says_what_is_there(tray):
     assert "HogTron UI" in lines and "settings, lock, key binds" in lines
     assert "tray:" in " ".join(tray.eval(f"{T}.Lines()").values())
     assert errors(tray) == []
+
+
+
+def test_entries_draw_their_glyph_with_the_letter_as_fallback(tray):
+    import pathlib
+    media = pathlib.Path(__file__).resolve().parents[1] / "HogHeals" / "Media"
+    for e in tray.eval(f"{T}.ENTRIES").values():
+        assert e["icon"], e["key"]
+        assert (media / (e["icon"] + ".tga")).exists(), e["icon"]                  # every glyph is shipped
+    c = f"{D}.own[1]"
+    assert tray.eval(f"{c}.icon:IsShown()") is True and tray.eval(f"{c}.letter:IsShown()") is False
+    assert tray.eval(f"{c}.glyph") == tray.eval(f"{c}.entry.icon")
+    assert tray.eval(f"{c}.icon._texture").endswith(tray.eval(f"{c}.entry.icon"))
+    # a client that refuses the file: the letter stands in
+    tray.execute(f"{c}.icon.SetTexture = function() return false end; {D}.OwnCells()")
+    assert tray.eval(f"{c}.letter:IsShown()") is True and tray.eval(f"{c}.icon:IsShown()") is False
