@@ -97,3 +97,19 @@ def test_drag_boxes_say_a_click_opens_settings(ed):
     assert ed.eval("HogHealsBars.Bars.bars[2].handle.label._text") == "Action bar 2  -  drag, or click for settings"
     assert ed.eval("HogHealsAnchor.label._text") == "Party / raid frames  -  drag, or click for settings"
     assert ed.eval("HogHealsHUDAnchor.label._text") == "HUD  -  drag, or click for settings"
+
+
+
+def test_the_frames_settings_carry_test_buttons_in_the_footer(ed):
+    ed.execute('HogHeals:SlashCommand("unlock")')
+    ed.execute("HogHeals.EditMode.Open((function() for _, t in ipairs(HogHeals.EditMode.Targets()) do if t.key == 'frames' then return t end end end)())")
+    P = "HogHeals.Panel"
+    assert ed.eval(f"{P}.frame.footer:IsShown()") is True
+    labels = [ed.eval(f"{P}.frame.footer.buttons[{i}].label:GetText()") for i in (1, 2, 3)]
+    assert labels == ["Test 5", "Test 25", "Stop test"]
+    ed.execute(f"{P}.frame.footer.buttons[1]:Click()")
+    assert ed.eval("HogHealsFrames.TestMode.active") is True
+    ed.execute(f"{P}.frame.footer.buttons[3]:Click()")
+    assert ed.eval("HogHealsFrames.TestMode.active") is not True
+    assert ed.eval(f"{P}.ActionsFor('plates')") is None
+    assert errors(ed) == []

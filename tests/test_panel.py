@@ -177,3 +177,69 @@ def test_handler_method_names_resolve_like_aceconfig(core):
 def test_real_profiles_tab_renders_without_errors(frames):
     frames.execute('wipe(HogHeals.errors); HogHeals.Panel.Open(); HogHeals.Panel.Select("Frames"); HogHeals.Panel.SelectTab("profiles")')
     assert [e["msg"] for e in frames.eval('HogHeals.errors').values()] == []
+
+
+
+# ---------------------------------------------------------------- resize, wrapping tabs, footer (2026-10-08)
+def test_window_resizes_by_the_grip_and_remembers_per_mode(panel):
+    P = "HogHeals.Panel"
+    f = f"{P}.frame"
+    assert panel.eval(f"{f}:GetWidth()") == 860 and panel.eval(f"{f}.grip ~= nil")
+    panel.execute(f"{f}.grip:GetScript('OnMouseDown')({f}.grip); {f}:SetSize(1000, 700); {f}.grip:GetScript('OnMouseUp')({f}.grip)")
+    assert panel.eval(f"{f}:GetWidth()") == 1000 and panel.eval("HogHeals.db.global.panel.w") == 1000
+    assert panel.eval(f"{f}.content:GetWidth()") == 1000 - 170 - 32 - 8
+    # below the minimum: clamped
+    panel.execute(f"{f}:SetSize(100, 100); {f}.grip:GetScript('OnMouseUp')({f}.grip)")
+    assert panel.eval(f"{f}:GetWidth()") == 600 and panel.eval(f"{f}:GetHeight()") == 400
+    # the compact window has its own size
+    panel.execute(f"{P}.Open(HH_sample, {{ compact = true, title = 'Frames' }})")
+    assert panel.eval(f"{f}:GetWidth()") == 400
+    panel.execute(f"{f}:SetSize(520, 600); {f}.grip:GetScript('OnMouseUp')({f}.grip)")
+    assert panel.eval("HogHeals.db.global.panel.cw") == 520 and panel.eval("HogHeals.db.global.panel.w") == 600
+    assert panel.eval(f"{P}.cols") == 1
+    # right-click on the grip: back to the default size
+    panel.execute(f"{f}.grip:GetScript('OnClick')({f}.grip, 'RightButton')")
+    assert panel.eval(f"{f}:GetWidth()") == 400 and panel.eval("HogHeals.db.global.panel.cw") is None
+    assert [e["msg"] for e in panel.eval("HogHeals.errors").values()] == []
+
+
+def test_tab_row_wraps_in_a_narrow_window(panel):
+    # six tabs at ~70-90 px each cannot sit on one 400 px row
+    panel.execute("""
+      HH_many = function()
+        local args = {}
+        for i = 1, 6 do args["t" .. i] = { type = "group", name = "Tab number " .. i, order = i, args = {
+          x = { type = "toggle", order = 1, name = "x" .. i, get = function() return true end, set = function() end } } } end
+        return { type = "group", args = { m = { type = "group", name = "Mod", childGroups = "tab", args = args } } }
+      end
+      HogHeals.Panel.Open(HH_many, { compact = true, title = "Mod" })
+    """)
+    P = "HogHeals.Panel"
+    rows = sorted({panel.eval(f"{P}.tabs[{i}].row") for i in range(1, 7)})
+    assert rows == [0, 1] or rows == [0, 1, 2]
+    assert panel.eval(f"{P}.tabRows") == len(rows)
+    assert panel.eval(f"{P}.frame.tabbar:GetHeight()") == len(rows) * 28 - 2
+    # every tab stays inside the window
+    for i in range(1, 7):
+        x = list(panel.eval(f"{{ {P}.tabs[{i}]:GetPoint() }}").values())[3]
+        assert x + panel.eval(f"{P}.tabs[{i}]:GetWidth()") <= 400 - 32 + 8
+    # wide again: one row
+    panel.execute(f"{P}.Open(HH_many)")
+    assert panel.eval(f"{P}.tabRows") == 1
+
+
+def test_compact_footer_carries_the_modules_actions(panel):
+    P = "HogHeals.Panel"
+    panel.execute("""
+      HH_hits = {}
+      HogHeals.Panel.Open(HH_sample, { compact = true, title = "Frames", actions = {
+        { text = "Test 5", func = function() HH_hits[#HH_hits + 1] = 5 end },
+        { text = function() return "Dyn" end, func = function() HH_hits[#HH_hits + 1] = "d" end } } })
+    """)
+    assert panel.eval(f"{P}.frame.footer:IsShown()") is True
+    assert panel.eval(f"{P}.frame.footer.buttons[1].label:GetText()") == "Test 5" and panel.eval(f"{P}.frame.footer.buttons[2].label:GetText()") == "Dyn"
+    panel.execute(f"{P}.frame.footer.buttons[1]:Click()")
+    assert list(panel.eval("HH_hits").values()) == [5]
+    assert panel.eval(f"select(2, {P}.frame.scroll:GetPoint(2)) == {P}.frame.footer") is True   # the scroll stops above the footer
+    panel.execute(f"{P}.Open(HH_sample)")
+    assert panel.eval(f"{P}.frame.footer:IsShown()") is False
