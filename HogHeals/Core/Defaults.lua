@@ -133,10 +133,10 @@ HH.defaults = {
     },
     plates = {
       enabled = true,                 -- restyle Blizzard's nameplates (flat bar, outline, health text)
-      -- friendlyPets: pets get a plate (nameplateShowFriendlyPets), so their names are ours too - without one the
-      -- engine draws its own small blue name that no addon can touch (Sean 2026-10-08). friendlyOthers: guardians,
-      -- minions, totems the same way (noisy, off).
-      friendlyPets = true, friendlyOthers = false,
+      -- friendlyPets: pets, minions (warlock demons) and guardians get a plate (nameplateShowFriendlyPets / Minions /
+      -- Guardians), so their names are ours too - without one the engine draws its own small blue name that no addon
+      -- can touch (Sean 2026-10-08, "Villa Voodoo's Minion"). friendlyTotems: totems the same way (noisy, off).
+      friendlyPets = true, friendlyTotems = false,
       font = "HogTron", fontSize = 13, healthText = "percent",   -- "percent" | "value" | "none"
       barHeight = 14, widthScale = 1.3,   -- bar height in px; plate width as a multiple of Blizzard's (cvar)
       flatBar = true,                 -- plain flat bar: all of Blizzard's art on the health bar hidden (heal / absorb kept)
