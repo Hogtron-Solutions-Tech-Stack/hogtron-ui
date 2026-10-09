@@ -989,6 +989,12 @@ function Plates.ApplyCVars()
   if d.maxDistance then pcall(SetCVar, "nameplateMaxDistance", tostring(d.maxDistance)) end
   -- plate width: the client sizes the plate from these; the bar follows (Sean 2026-09-23: "health bar bigger")
   if d.widthScale then pcall(SetCVar, "nameplateHorizontalScale", tostring(d.widthScale)) end
+  -- Friendly pets with a plate wear our font; without one the engine prints its own small blue name over them, which
+  -- no addon can size or colour (Sean 2026-10-08: "their pet names are different than their nameplates").
+  pcall(SetCVar, "nameplateShowFriendlyPets", d.friendlyPets ~= false and "1" or "0")
+  for _, k in ipairs({ "nameplateShowFriendlyGuardians", "nameplateShowFriendlyMinions", "nameplateShowFriendlyTotems" }) do
+    pcall(SetCVar, k, d.friendlyOthers and "1" or "0")
+  end
 end
 
 function Module:OnEnable()
@@ -1025,6 +1031,8 @@ function Plates.Diagnose()
   out[#out + 1] = ("cvars: nameplateShowEnemies=%s nameplateShowAll=%s nameplateShowFriends=%s"):format(cvar("nameplateShowEnemies"), cvar("nameplateShowAll"), cvar("nameplateShowFriends"))
   if cvar("nameplateShowEnemies") == "0" then out[#out + 1] = "ENEMY NAMEPLATES ARE OFF (the V key toggles them) - what you see over heads are the engine's unit names, not plates" end
   if cvar("nameplateShowFriends") == "0" then out[#out + 1] = "friendly nameplates are off (Shift-V toggles them)" end
+  out[#out + 1] = ("friendly pets: plates %s (nameplateShowFriendlyPets=%s); a pet with no plate shows the engine's own blue name, not ours"):format(
+    cfg().friendlyPets ~= false and "on" or "off", cvar("nameplateShowFriendlyPets"))
   out[#out + 1] = ("distance: nameplateMaxDistance=%s (names further out are the engine's unit names: UnitNameFriendlyPlayerName=%s, not plates) scale min/max=%s/%s"):format(
     cvar("nameplateMaxDistance"), cvar("UnitNameFriendlyPlayerName"), cvar("nameplateMinScale"), cvar("nameplateMaxScale"))
   local plates = type(C_NamePlate) == "table" and call(C_NamePlate.GetNamePlates) or nil
