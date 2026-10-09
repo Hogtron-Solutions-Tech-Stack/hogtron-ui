@@ -110,3 +110,20 @@ def test_entries_draw_their_glyph_with_the_letter_as_fallback(tray):
     # a client that refuses the file: the letter stands in
     tray.execute(f"{c}.icon.SetTexture = function() return false end; {D}.OwnCells()")
     assert tray.eval(f"{c}.letter:IsShown()") is True and tray.eval(f"{c}.icon:IsShown()") is False
+
+
+
+def test_an_entry_passes_its_quick_actions_to_the_compact_window(tray):
+    # with Panel.ActionsFor (fix/panel-resize) present, the frames entry gets Test 5 / Test 25 / Stop in the footer;
+    # without it (this branch alone) the window simply has no footer
+    tray.execute("""
+      HH_opts = nil
+      local orig = HogHeals.Panel.Open
+      HogHeals.Panel.Open = function(src, opts) HH_opts = opts return orig(src, opts) end
+      HogHeals.Panel.ActionsFor = function(key) if key == 'map' then return { { text = 'Hi', func = function() end } } end end
+    """)
+    tray.execute(f"{T}.Open('map')")
+    assert tray.eval("HH_opts.actions[1].text") == "Hi" and tray.eval("HH_opts.compact") is True
+    tray.execute("HogHeals.Panel.ActionsFor = nil")
+    tray.execute(f"{T}.Open('quests')")
+    assert tray.eval("HH_opts.actions") is None

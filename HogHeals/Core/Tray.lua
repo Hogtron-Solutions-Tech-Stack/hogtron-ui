@@ -83,7 +83,7 @@ function T.Open(e, anchor)
     local g = root and root.args and root.args[name]
     if not g then return { type = "group", args = {} } end
     return { type = "group", handler = root.handler, args = { [name] = g } }
-  end, { compact = true, anchor = anchor, title = e.title })
+  end, { compact = true, anchor = anchor, title = e.title, actions = P.ActionsFor and P.ActionsFor(e.key) or nil })   -- Test 5 / 25 / Stop on the frames (Panel.ActionsFor, PR fix/panel-resize)
   T.last = e.key
   return true
 end
