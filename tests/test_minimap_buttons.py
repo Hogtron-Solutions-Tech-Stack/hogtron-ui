@@ -61,6 +61,7 @@ def test_collects_addon_buttons_and_leaves_blizzard_alone(lua):
 
 def test_grid_lays_out_shown_buttons_only_and_follows_show_hide(lua):
     boot(lua, MINIMAP)
+    lua.execute('HogHeals.db.profile.quests.buttons.hogui = false')   # this test is about the icon grid; our entries (test_tray) off
     lua.execute('HogHeals.db.profile.quests.buttons.columns = 2; HogHeals.db.profile.quests.buttons.size = 28')
     assert lua.eval('HogHealsQuests.Buttons.Layout()') == 3          # HogHeals' own icon is hidden by default
     scale = lua.eval('LibDBIcon10_Bagnon._last.SetScale[1]')

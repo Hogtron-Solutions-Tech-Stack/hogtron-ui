@@ -149,9 +149,10 @@ local function build()
     if cfg().hover then Drawer.Toggle(true) end
     if GameTooltip and GameTooltip.SetOwner then
       GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-      GameTooltip:AddLine("Addon buttons", CREAM[1], CREAM[2], CREAM[3])
+      GameTooltip:AddLine("HogTron UI", CREAM[1], CREAM[2], CREAM[3])
+      if cfg().hogui ~= false and HH.Tray then GameTooltip:AddLine(("%d settings, lock, key binds"):format(#HH.Tray.Available()), GREY[1], GREY[2], GREY[3]) end
       local n, shown = Drawer.Count()
-      GameTooltip:AddLine(("%d collected, %d shown"):format(n, shown), GREY[1], GREY[2], GREY[3])
+      GameTooltip:AddLine(("%d addon buttons collected, %d shown"):format(n, shown), GREY[1], GREY[2], GREY[3])
       local listed = 0
       for _, c in ipairs(Drawer.list) do
         if call(c.IsShown, c) then
@@ -344,10 +345,22 @@ function Drawer.Layout()
   local dy = corner == "BOTTOMRIGHT" and 1 or -1
   f.bg:SetColorTexture(INK[1], INK[2], INK[3], d.alpha or 0.92)
   Drawer.cells = Drawer.cells or {}
+  local own = Drawer.OwnCells()
   local shown = {}
   for _, b in ipairs(Drawer.list) do if call(b.IsShown, b) then shown[#shown + 1] = b end end
-  for i, b in ipairs(shown) do
+  -- our entries first (a whole number of rows, so the addons' icons start on a fresh row), then the collected icons
+  local ownRows = #own > 0 and math.ceil(#own / cols) or 0
+  for i, c in ipairs(own) do
     local col, row = (i - 1) % cols, math.floor((i - 1) / cols)
+    c:ClearAllPoints()
+    c:SetSize(size, size)
+    c:SetPoint(corner, f, corner, dx * (PAD + col * (size + PAD)), dy * (PAD + row * (size + PAD)))
+    local fs = c.letter
+    if fs.SetFont and HH.Look and HH.Look.Font then pcall(fs.SetFont, fs, HH.Look.Font(), math.max(9, math.floor(size * 0.5)), "OUTLINE") end
+    c:Show()
+  end
+  for i, b in ipairs(shown) do
+    local col, row = (i - 1) % cols, ownRows + math.floor((i - 1) / cols)
     local ox, oy = dx * (PAD + col * (size + PAD)), dy * (PAD + row * (size + PAD))
     local cell = Drawer.cells[i]
     if not cell then
@@ -371,10 +384,11 @@ function Drawer.Layout()
   end
   for i = #shown + 1, #Drawer.cells do Drawer.cells[i]:Hide() end
   local n = #shown
-  local c = math.min(math.max(n, 1), cols)
-  local r = math.max(1, math.ceil(n / cols))
+  local total = n + #own
+  local c = math.min(math.max(total, 1), cols)
+  local r = math.max(1, ownRows + math.ceil(n / cols))
   f:SetSize(PAD + c * (size + PAD), PAD + r * (size + PAD))
-  if n == 0 then
+  if total == 0 then
     f.empty:Show()
     f:SetWidth(150)
   else
@@ -383,6 +397,62 @@ function Drawer.Layout()
   Drawer.shown = n
   Drawer.laying = nil
   return n
+end
+
+-- ------------------------------------------------------------------------------------------------ HogTron UI entries
+-- Sean 2026-10-08: "we have a lot in this add-on now ... broken down into separate things and put into this tray".
+-- Core/Tray.lua lists them; here each is an ink cell with a cyan letter, first in the grid, click = that module's
+-- settings in the compact window beside the launcher (or the action: lock, key binds).
+Drawer.own = {}
+local function ownCell(i)
+  local c = Drawer.own[i]
+  if c then return c end
+  local f = Drawer.frame
+  c = CreateFrame("Button", nil, f)
+  c.bg = solid(c, "BACKGROUND", CELL)
+  c.bg:SetAllPoints(c)
+  c.edges = outline(c)
+  c.letter = c:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
+  c.letter:SetPoint("CENTER", c, "CENTER", 0, 0)
+  c.letter:SetTextColor(CYAN[1], CYAN[2], CYAN[3])
+  c:SetScript("OnClick", function(self)
+    if not self.entry or not HH.Tray then return end
+    HH.Tray.Open(self.entry, Drawer.launcher)
+    if cfg().autoClose ~= false then Drawer.Toggle(false) end
+  end)
+  c:SetScript("OnEnter", function(self)
+    paintEdges(self.edges, CYAN)
+    if not GameTooltip or not GameTooltip.SetOwner or not self.entry then return end
+    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+    GameTooltip:AddLine(HH.Tray.Title(self.entry), CREAM[1], CREAM[2], CREAM[3])
+    GameTooltip:AddLine(self.entry.desc or "", GREY[1], GREY[2], GREY[3], true)
+    GameTooltip:Show()
+  end)
+  c:SetScript("OnLeave", function(self)
+    paintEdges(self.edges, LINE)
+    if GameTooltip and GameTooltip.Hide then GameTooltip:Hide() end
+  end)
+  Drawer.own[i] = c
+  return c
+end
+
+--- Our cells for this build, painted; { cell } in drawer order (empty when the option is off or the tray is absent).
+function Drawer.OwnCells()
+  local out = {}
+  if cfg().hogui == false or not HH.Tray or not Drawer.frame then
+    for _, c in ipairs(Drawer.own) do c:Hide() end
+    return out
+  end
+  local entries = HH.Tray.Available()
+  for i, e in ipairs(entries) do
+    local c = ownCell(i)
+    c.entry = e
+    c.letter:SetText(e.letter)
+    out[#out + 1] = c
+  end
+  for i = #entries + 1, #Drawer.own do Drawer.own[i]:Hide() end
+  Drawer.ownCount = #out
+  return out
 end
 
 -- ------------------------------------------------------------------------------------------------ open / close
