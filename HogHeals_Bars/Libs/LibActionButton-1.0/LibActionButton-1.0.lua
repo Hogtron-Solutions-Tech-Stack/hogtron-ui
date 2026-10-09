@@ -2719,6 +2719,29 @@ local GetActionCount = GetActionCount
 -- the remaining uses of GetActionCount can't deal with secrets, so disable on Midnight
 if Midnight then
 	GetActionCount = function() return 0 end
+elseif type(issecretvalue) == "function" then
+	-- HogTron UI patch (2026-10-09): WoW: Forever reports interface 16001, so `Midnight` is false there, yet it hands
+	-- back SECRET counts for some actions -> "attempt to compare a secret number value" in IsConsumableOrStackable on
+	-- every slot update (in game: HogUIBar2Button8, action 68). Plain counts pass through untouched; a secret one reads
+	-- as 0 for the lib's maths, and GetDisplayCount hands it straight to the font string (SetText takes secrets).
+	local RawGetActionCount = GetActionCount
+	GetActionCount = function(action)
+		local n = RawGetActionCount(action)
+		if issecretvalue(n) then return 0 end
+		return n
+	end
+	local TruncateWhenZero = C_StringUtil and C_StringUtil.TruncateWhenZero
+	Action.GetDisplayCount = function(self)
+		local action = self._state_action
+		local n = RawGetActionCount(action)
+		if not issecretvalue(n) then return Generic.GetDisplayCount(self) end
+		if IsConsumableAction(action) or IsStackableAction(action) then return n end
+		if TruncateWhenZero and not IsItemAction(action) then
+			local ok, text = pcall(TruncateWhenZero, n)
+			if ok then return text end
+		end
+		return ""
+	end
 end
 
 local GetActionChargeInfoFallback
