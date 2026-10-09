@@ -216,7 +216,9 @@ HH.defaults = {
       micro = { enabled = true, scale = 1, strip = true, size = 30, tint = true, tintStrength = 0.6 },   -- strip: HogTron UI glyph buttons instead of Blizzard's art; point/x/y once dragged; tint = colour per glyph
       bagBar = { enabled = true, mode = "button", scale = 1.2 },   -- mode: button = one Bags cell in the menu bar (slots hidden) | slots = Blizzard's slots flattened; scale for slots
       bags = { enabled = true, qualityMin = 2, fontSize = 12, backgroundAlpha = 0.85 },
-      tooltips = { enabled = true, alpha = 0.9, fontSize = nil, anchorCursor = false },
+      -- anchor = tooltips with no spot of their own dock to the HogHealsTooltipAnchor box (drag it in /hh unlock; the
+      -- gear on it opens these settings); anchorCursor wins over it. point/x/y = the box, saved by dragging.
+      tooltips = { enabled = true, alpha = 0.9, fontSize = nil, anchorCursor = false, anchor = true, point = "BOTTOMRIGHT", x = -40, y = 120, width = 220, height = 90 },
       extras = { buffs = true, xpBar = true, mirror = true, durationSize = 10 },   -- mirror = breath / fatigue timers
       infoBar = { enabled = true, width = 640, height = 18, fontSize = 11, backgroundAlpha = 0.8, refresh = 1,
         time24 = false, serverTime = false, point = "BOTTOM", x = 0, y = 0,
