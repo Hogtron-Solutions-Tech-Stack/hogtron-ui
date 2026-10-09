@@ -36,7 +36,7 @@ def xp(lua):
     lua.load_addon("HogHeals_Frames")
     lua.load_addon("HogHeals_HUD")
     lua.player_login()
-    lua.execute(f"HH_x = HogHealsHUD.HUD.rows.xp; HH_x:SetWidth(400); {X}.Update()")   # 400 px: everything fits (6 px a char in the mock)
+    lua.execute(f"HH_x = HogHealsXPBar; HH_x:SetWidth(400); {X}.Update()")   # the bar of its own (default); 400 px: everything fits (6 px a char in the mock)
     return lua
 
 
@@ -66,6 +66,8 @@ def test_commas(xp):
 # ------------------------------------------------------------------------------------------------ the row
 def test_row_exists_and_is_in_the_strip(xp):
     assert xp.eval("HogHealsHUD.HUD.rows.xp ~= nil")
+    xp.execute(f'HogHeals.db.profile.hud.xp.mode = "row"; {X}.Refresh()')      # the strip row is the other mode
+    assert xp.eval("HogHealsXPBar:IsShown()") is False and xp.eval("HogHeals.XPBarOwned") is False
     d = xp.eval("HogHeals.db.profile.hud")
     h = xp.eval("HogHealsHUD.HUD.Layout()")
     assert h == d["castbarHeight"] + d["swingHeight"] + d["manaHeight"] + d["xpHeight"] + d["infoHeight"] + 4 * d["rowSpacing"]
@@ -73,6 +75,37 @@ def test_row_exists_and_is_in_the_strip(xp):
     h2 = xp.eval("HogHealsHUD.HUD.Layout()")
     assert h2 == h - d["xpHeight"] - d["rowSpacing"]
     assert xp.eval("HogHealsHUD.HUD.rows.xp:IsShown()") is False
+
+
+def test_its_own_bar_along_the_top_drags_when_unlocked_and_owns_blizzards(xp):
+    # Sean 2026-10-08 in game: the level / rested / quests "should go up in the XP bar at the top, or wherever they move it"
+    assert xp.eval("HogHealsXPBar:IsShown()") is True and xp.eval("HogHealsHUD.HUD.rows.xp:IsShown()") is False
+    xp.execute(f"{X}.Place()")
+    assert xp.eval("HogHealsXPBar:GetWidth()") == 1920 and xp.eval("HogHealsXPBar:GetHeight()") == 10   # the whole screen, flush top
+    pt = list(xp.eval("{ HogHealsXPBar:GetPoint() }").values())
+    assert pt[0] == "TOP" and pt[3] == 0 and pt[4] == 0
+    assert xp.eval("HogHeals.XPBarOwned") is True
+    assert "bar: shown" in " ".join(xp.eval(f"{X}.Lines()").values())
+    # locked: mouse-through, ink edges; unlocked: cyan edges, drags, saves point/x/y
+    assert xp.eval("HogHealsXPBar.edges[1]._color[1]") == pytest.approx(0.20)
+    xp.execute('HogHeals:SlashCommand("unlock")')
+    assert xp.eval("HogHealsXPBar.edges[1]._color[1]") == pytest.approx(0.13)
+    xp.execute("""
+      HogHealsXPBar:GetScript("OnDragStart")(HogHealsXPBar)
+      HogHealsXPBar:ClearAllPoints(); HogHealsXPBar:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 200)
+      HogHealsXPBar:GetScript("OnDragStop")(HogHealsXPBar)
+    """)
+    c = xp.eval("HogHeals.db.profile.hud.xp")
+    assert c["point"] == "BOTTOM" and c["y"] == 200
+    xp.execute(f'HogHeals:SlashCommand("lock"); HogHeals.db.profile.hud.xp.width = 600; {X}.Place()')
+    assert xp.eval("HogHealsXPBar:GetWidth()") == 600 and list(xp.eval("{ HogHealsXPBar:GetPoint() }").values())[0] == "BOTTOM"
+    xp.execute(f"{X}.ResetPosition()")
+    assert list(xp.eval("{ HogHealsXPBar:GetPoint() }").values())[0] == "TOP"
+    # edit mode lists it; the row mode gives Blizzard's bar back
+    assert "xp" in [t["key"] for t in xp.eval("HogHeals.EditMode.Targets()").values()]
+    xp.execute(f'HogHeals.db.profile.hud.xp.mode = "row"; {X}.Refresh()')
+    assert xp.eval("HogHeals.XPBarOwned") is False
+    assert xp.eval("HogHeals.OptionsTable().args.HUD.args.xp.args.mode ~= nil")
 
 
 def test_fill_and_left_text(xp):

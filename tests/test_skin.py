@@ -862,3 +862,15 @@ def test_decorations_that_come_back_over_the_menu_buttons_and_the_bar_are_swept_
     assert "SpellbookMicroButtonAlertGlow" in diag and "BackpackHighlightAgain" in diag          # /hh skindiag names them
     assert skin.eval("HogHealsMicroBar._alpha") == 1 and skin.eval("HogHealsMicroBarBags._alpha") == 1
     assert errors(skin) == []
+
+
+
+def test_blizzards_xp_bar_hides_while_the_hogtron_ui_bar_owns_it(skin):
+    skin.execute("MainMenuExpBar = MainMenuExpBar or CreateFrame('StatusBar', 'MainMenuExpBar', UIParent); MainMenuExpBar:Show()")
+    skin.execute("HogHeals.XPBarOwned = true; HogHealsSkin.Extras.SkinXP()")
+    assert skin.eval("MainMenuExpBar:IsShown()") is False and skin.eval("HogHealsSkin.Extras.blizzardXP") == "hidden"
+    skin.execute("MainMenuExpBar:Show()")                                   # Blizzard shows it again: kept hidden
+    assert skin.eval("MainMenuExpBar:IsShown()") is False
+    skin.execute("HogHeals.XPBarOwned = false; HogHealsSkin.Extras.SkinXP()")
+    assert skin.eval("MainMenuExpBar:IsShown()") is True and skin.eval("HogHealsSkin.Extras.blizzardXP") == "shown"
+    assert errors(skin) == []

@@ -175,9 +175,11 @@ HH.defaults = {
       mana = { textMode = "cur", showTicks = true, showFsrText = true, fsrColor = { 0.13, 0.83, 0.88 }, tickColor = { 0.96, 0.92, 0.86 } },
       -- experience bar (XPBar.lua): showXP above is the on / off. questMode "complete" = reward xp of the quests ready
       -- to turn in, "all" = every quest in the log; hideAtMax = gone at the level cap; fontSize 0 = strip font one step smaller
-      xp = { color = { 0.13, 0.83, 0.88 }, restedColor = { 0.13, 0.83, 0.88 }, restedAlpha = 0.35, questColor = { 0.25, 0.80, 0.35 },
-        questAlpha = 0.55, text = true, showRested = true, showQuest = true, showPace = true, questMode = "complete",
-        hideAtMax = true, fontSize = 0 },
+      -- mode "bar" = its own bar, the whole screen width along the top until dragged (point/x/y), width 0 = screen;
+      -- "row" = a row in the strip (xpHeight). Blizzard's experience bar is hidden while ours is the bar.
+      xp = { mode = "bar", height = 10, width = 0, color = { 0.13, 0.83, 0.88 }, restedColor = { 0.13, 0.83, 0.88 }, restedAlpha = 0.35,
+        questColor = { 0.25, 0.80, 0.35 }, questAlpha = 0.55, text = true, showRested = true, showQuest = true, showPace = true,
+        questMode = "complete", hideAtMax = true, fontSize = 0 },
       pacing = { enabled = true, targetLength = 300, amber = 60, red = 20, showProjection = true },
       advisor = { enabled = true, margin = 0.9, onFrame = false, spells = {} },
     },

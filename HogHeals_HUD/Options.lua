@@ -104,8 +104,13 @@ end
 local function xpcfg() return HH.db.profile.hud.xp end
 local function xpGroup()
   return { type = "group", name = "Experience bar", order = 3.5, args = {
-    note = { type = "description", order = 0, name = "Under the mana bar: your experience, a faint overlay for the rested bonus, a green one for what the quests in your log will pay. Right side: xp an hour and time to the next level from this sitting (/hh session)." },
+    note = { type = "description", order = 0, name = "Your experience: a faint overlay for the rested bonus, a green one for what the quests in your log will pay, level and numbers left, xp an hour and time to the next level right (/hh session). Its own bar along the top by default - drag it anywhere in /hh unlock - or a row in the HUD strip." },
     enabled = toggle(hud, "showXP", "Experience bar on", 1),
+    mode = select_(xpcfg, "mode", "Where", 1.5, { bar = "Its own bar (drag it in /hh unlock)", row = "A row in the HUD strip" }),
+    barHeight = range(xpcfg, "height", "Bar height (its own bar)", 1.6, 4, 30, 1),
+    width = { type = "range", name = "Bar width (0 = the whole screen)", order = 1.7, min = 0, max = 2000, step = 10,
+      get = function() return xpcfg().width or 0 end, set = function(_, v) xpcfg().width = v; refresh() end },
+    resetPos = { type = "execute", name = "Reset position (back to the top)", order = 1.8, func = function() HHD.XPBar.ResetPosition() refresh() end },
     hideAtMax = toggle(xpcfg, "hideAtMax", "Hide at the level cap", 2),
     text = toggle(xpcfg, "text", "Texts", 3),
     showRested = toggle(xpcfg, "showRested", "Rested overlay", 4),
@@ -113,7 +118,7 @@ local function xpGroup()
     questMode = select_(xpcfg, "questMode", "Which quests count", 5.1, { complete = "Ready to turn in", all = "Every quest in the log" }),
     showPace = toggle(xpcfg, "showPace", "Pace (xp/h, time to level)", 6),
     sizeHeader = { type = "header", name = "Size and look", order = 7 },
-    height = range(hud, "xpHeight", "Height", 7.1, 4, 30, 1),
+    height = range(hud, "xpHeight", "Row height (in the strip)", 7.1, 4, 30, 1),
     fontSize = range(xpcfg, "fontSize", "Font size (0 = strip font, one step smaller)", 7.2, 0, 30, 1),
     color = colour(xpcfg, "color", "Fill", 7.3),
     questColor = colour(xpcfg, "questColor", "Quests overlay", 7.4),

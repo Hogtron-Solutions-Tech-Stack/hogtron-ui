@@ -181,6 +181,7 @@ function HUD.Layout()
   for _, name in ipairs(HUD.order) do
     local row = HUD.rows[name]
     local enabled = d[ROW_SHOW[name]] ~= false
+    if name == "xp" and d.xp and (d.xp.mode or "bar") ~= "row" then enabled = false end   -- its own bar instead (XPBar.lua)
     if enabled then
       local h = d[ROW_HEIGHT[name]] or 12
       row:ClearAllPoints()
@@ -259,6 +260,7 @@ end
 function Module:OnProfileChanged() HUD.Refresh() end
 
 function Module:SetLocked(locked)
+  if HHD.XPBar and HHD.XPBar.SetUnlocked then HHD.XPBar.SetUnlocked(not locked) end
   if not HUD.anchor then return end
   HUD.anchor:EnableMouse(not locked)
   if locked then HUD.anchor:Hide() else HUD.anchor:Show() end
