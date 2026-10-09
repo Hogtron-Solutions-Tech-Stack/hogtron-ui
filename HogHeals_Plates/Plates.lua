@@ -1109,6 +1109,40 @@ HH:RegisterSlash("questmob", function()
   for _, l in ipairs(lines) do HH:Print(l) end
 end, "why my target is / is not marked as a quest mob")
 
+--- Every console variable this client knows whose name mentions nameplates or unit names, with its value. Sean
+-- 2026-10-08: nameplateShowFriendlyPets / Minions / Guardians / Totems are all nil on Forever, so pets keep the
+-- engine's blue name; this is the honest way to find out what the client DOES have before giving up.
+function Plates.CVarProbe(needles)
+  needles = needles or { "nameplate", "unitname" }
+  local C = rawget(_G, "C_Console")
+  local list = type(C) == "table" and type(C.GetAllCommands) == "function" and select(2, pcall(C.GetAllCommands)) or nil
+  if type(list) ~= "table" then return { "this client gives addons no console list (C_Console.GetAllCommands)" }, 0 end
+  local out, n = {}, 0
+  for _, e in ipairs(list) do
+    local name = type(e) == "table" and e.command or nil
+    if type(name) == "string" then
+      local lower = name:lower()
+      for _, nd in ipairs(needles) do
+        if lower:find(nd, 1, true) then
+          local v = type(GetCVar) == "function" and select(2, pcall(GetCVar, name)) or nil
+          out[#out + 1] = ("%s=%s"):format(name, tostring(v))
+          n = n + 1
+          break
+        end
+      end
+    end
+  end
+  table.sort(out)
+  return out, n
+end
+
+HH:RegisterSlash("platecvars", function(rest)
+  local needles = rest and rest ~= "" and { rest:lower() } or nil
+  local lines, n = Plates.CVarProbe(needles)
+  HH:Print(("console variables matching %s: %d"):format(needles and needles[1] or "nameplate / unitname", n))
+  for _, l in ipairs(lines) do HH:Print("  " .. l) end
+end, "list this client's nameplate / unit-name console variables (/hh platecvars <word> for another word)")
+
 HH:RegisterSlash("platediag", function()
   local ok, lines = pcall(Plates.Diagnose)
   if not ok then HH:Print("platediag failed: " .. tostring(lines)) return end

@@ -833,3 +833,20 @@ def test_friendly_pets_get_a_plate_through_the_cvar(plates):
     assert plates.eval("CV.nameplateShowFriendlyTotems") == "1"
     assert any("friendly pets" in l for l in plates.eval("HogHealsPlates.Plates.Diagnose()").values())
     assert errors(plates) == []
+
+
+
+def test_platecvars_lists_what_the_client_has(plates):
+    plates.execute("""
+      C_Console = { GetAllCommands = function() return {
+        { command = "nameplateShowFriends" }, { command = "NameplateShowFriendlyNPCs" }, { command = "UnitNameFriendlyPetName" }, { command = "cameraDistance" } } end }
+      function GetCVar(k) return k == "nameplateShowFriends" and "1" or "0" end
+    """)
+    lines, n = list(plates.eval("{ HogHealsPlates.Plates.CVarProbe() }").values())
+    assert n == 3 and list(lines.values()) == ["NameplateShowFriendlyNPCs=0", "UnitNameFriendlyPetName=0", "nameplateShowFriends=1"]
+    plates.execute('HogHeals:SlashCommand("platecvars pet")')
+    assert any("UnitNameFriendlyPetName=0" in m for m in plates.eval("MockLog.chat").values())
+    plates.execute("C_Console = nil")
+    lines, n = list(plates.eval("{ HogHealsPlates.Plates.CVarProbe() }").values())
+    assert n == 0 and "no console list" in lines[1]
+    assert errors(plates) == []
