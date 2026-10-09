@@ -9,10 +9,11 @@ def test_anchor_and_rows_exist(hud):
 def test_layout_stacks_rows_and_collapses_disabled(hud):
     h = hud.eval('HogHealsHUD.HUD.Layout()')
     d = hud.eval('HogHeals.db.profile.hud')
-    assert h == d["castbarHeight"] + d["swingHeight"] + d["manaHeight"] + d["xpHeight"] + d["infoHeight"] + 4 * d["rowSpacing"]
+    # the experience row is off the strip by default (its own bar, hud.xp.mode = "bar")
+    assert h == d["castbarHeight"] + d["swingHeight"] + d["manaHeight"] + d["infoHeight"] + 3 * d["rowSpacing"]
     hud.execute('HogHeals.db.profile.hud.showMana = false')
     h2 = hud.eval('HogHealsHUD.HUD.Layout()')
-    assert h2 == d["castbarHeight"] + d["swingHeight"] + d["xpHeight"] + d["infoHeight"] + 3 * d["rowSpacing"]
+    assert h2 == d["castbarHeight"] + d["swingHeight"] + d["infoHeight"] + 2 * d["rowSpacing"]
     assert hud.eval('HogHealsHUD.HUD.rows.mana:IsShown()') is False
     # info row sits directly under the swing row when mana is hidden; swing off -> directly under the castbar
     # (the xp row, which also sits between them since 2026-10-08, off for these two checks)

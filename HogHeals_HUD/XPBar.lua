@@ -21,9 +21,16 @@ HHD.XPBar = XP
 
 local CYAN, GREEN = { 0.13, 0.83, 0.88 }, { 0.25, 0.80, 0.35 }
 
+local CYAN_EDGE, LINE = { 0.13, 0.83, 0.88 }, { 0.20, 0.20, 0.25 }
+
 local function cfg() return HH.db.profile.hud.xp or {} end
 local function hud() return HH.db.profile.hud end
-local function bar() return HHD.HUD and HHD.HUD.rows and HHD.HUD.rows.xp end
+--- mode "bar" (default): its own bar, full width along the top until you drag it (Sean 2026-10-08: "the level, the
+-- rested and the quests should go up in the XP bar at the top, or wherever they choose to move it"); "row": a row
+-- in the HUD strip.
+function XP.Standalone() return (cfg().mode or "bar") ~= "row" end
+local function row() return HHD.HUD and HHD.HUD.rows and HHD.HUD.rows.xp end
+local function bar() if XP.Standalone() then return XP.bar end return row() end
 local function isSecret(v) return type(issecretvalue) == "function" and issecretvalue(v) and true or false end
 local function num(v) if type(v) == "number" and not isSecret(v) then return v end end
 local function g(name) local f = rawget(_G, name) if type(f) == "function" then return f end end
@@ -223,15 +230,114 @@ local function overlay(b, tex, from, to, shown)
   tex:Show()
 end
 
+-- ------------------------------------------------------------------------------------------------ the bar of its own
+local function screenWidth()
+  local w = type(UIParent) == "table" and UIParent.GetWidth and num(UIParent:GetWidth()) or nil
+  if w and w > 0 then return w end
+  return (g("GetScreenWidth") and num(GetScreenWidth())) or 1920
+end
+
+function XP.CreateBar()
+  if XP.bar then return XP.bar end
+  local b = CreateFrame("StatusBar", "HogHealsXPBar", UIParent)
+  b:SetFrameStrata("MEDIUM")
+  b:SetMinMaxValues(0, 1)
+  b:SetValue(0)
+  b.bg = b:CreateTexture(nil, "BACKGROUND")
+  b.bg:SetAllPoints(b)
+  b.bg:SetColorTexture(0.07, 0.07, 0.09, 0.7)
+  b.rested = b:CreateTexture(nil, "ARTWORK", nil, 1)
+  b.rested:SetColorTexture(CYAN[1], CYAN[2], CYAN[3], 0.35)
+  b.rested:Hide()
+  b.quest = b:CreateTexture(nil, "ARTWORK", nil, 2)
+  b.quest:SetColorTexture(GREEN[1], GREEN[2], GREEN[3], 0.55)
+  b.quest:Hide()
+  b.left = b:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
+  b.left:SetPoint("LEFT", b, "LEFT", 6, 0)
+  b.left:SetJustifyH("LEFT")
+  b.right = b:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
+  b.right:SetPoint("RIGHT", b, "RIGHT", -6, 0)
+  b.right:SetJustifyH("RIGHT")
+  -- a 1 px line all round: ink while locked, cyan while unlocked (the drag handle is the whole bar)
+  b.edges = {}
+  local spec = { { "TOPLEFT", "TOPRIGHT", nil, 1 }, { "BOTTOMLEFT", "BOTTOMRIGHT", nil, 1 }, { "TOPLEFT", "BOTTOMLEFT", 1, nil }, { "TOPRIGHT", "BOTTOMRIGHT", 1, nil } }
+  for i, sp in ipairs(spec) do
+    local e = b:CreateTexture(nil, "OVERLAY", nil, 3)
+    e:SetColorTexture(LINE[1], LINE[2], LINE[3], 1)
+    e:SetPoint(sp[1], b, sp[1], 0, 0)
+    e:SetPoint(sp[2], b, sp[2], 0, 0)
+    if sp[3] then e:SetWidth(sp[3]) end
+    if sp[4] then e:SetHeight(sp[4]) end
+    b.edges[i] = e
+  end
+  if b.SetMovable then b:SetMovable(true) end
+  if b.SetClampedToScreen then b:SetClampedToScreen(true) end
+  if b.RegisterForDrag then b:RegisterForDrag("LeftButton") end
+  b:EnableMouse(false)
+  b:SetScript("OnDragStart", function(self) if HH.db.profile.locked == false and self.StartMoving then self:StartMoving() end end)
+  b:SetScript("OnDragStop", function(self)
+    if self.StopMovingOrSizing then self:StopMovingOrSizing() end
+    local point, _, _, x, y = self:GetPoint(1)
+    if point then local o = cfg() o.point, o.x, o.y = point, x, y end
+  end)
+  b:Hide()
+  XP.bar = b
+  return b
+end
+
+--- Size and spot from the settings: width 0 = the whole screen; point/x/y once dragged (TOP, flush, until then).
+function XP.Place()
+  local b = XP.bar
+  if not b then return end
+  local o = cfg()
+  local w = (o.width or 0) > 0 and o.width or screenWidth()
+  b:SetSize(w, o.height or 10)
+  b:ClearAllPoints()
+  b:SetPoint(o.point or "TOP", UIParent, o.point or "TOP", o.x or 0, o.y or 0)
+end
+
+function XP.ResetPosition()
+  local o = cfg()
+  o.point, o.x, o.y = nil, nil, nil
+  XP.Place()
+end
+
+--- Unlocked: the bar takes the mouse and shows cyan edges; locked: mouse-through, ink edges.
+function XP.SetUnlocked(unlocked)
+  local b = XP.bar
+  if not b then return end
+  b:EnableMouse(unlocked and true or false)
+  local c = unlocked and CYAN_EDGE or LINE
+  for _, e in ipairs(b.edges or {}) do e:SetColorTexture(c[1], c[2], c[3], 1) end
+  XP.unlocked = unlocked and true or false
+end
+
+--- Tell the skin whether we own the experience bar (it hides Blizzard's while we do).
+local function claim(owned)
+  if HH.XPBarOwned == owned then return end
+  HH.XPBarOwned = owned
+  local S = rawget(_G, "HogHealsSkin")
+  if type(S) == "table" and type(S.Extras) == "table" and type(S.Extras.SkinXP) == "function" then pcall(S.Extras.SkinXP) end
+end
+
 function XP.Update()
   local b = bar()
   if not b then return end
   count("updates")
   local o = cfg()
   local xp, max, lvl = readXP()
+  if XP.Standalone() then
+    local r = row()
+    if r then r:Hide() end
+    if hud().showXP == false then b:Hide() claim(false) return end
+  elseif XP.bar then
+    XP.bar:Hide()
+    claim(false)
+  end
   if b.enabled == false then b:Hide() return end
-  if o.hideAtMax ~= false and XP.AtCap(lvl) then b:Hide() return end
+  if o.hideAtMax ~= false and XP.AtCap(lvl) then b:Hide() if XP.Standalone() then claim(false) end return end
   b:Show()
+  if XP.Standalone() then claim(true) end
   local rested = o.showRested ~= false and readRested() or 0
   local quest = o.showQuest ~= false and XP.QuestXP() or 0
   local c = XP.Compute(xp, max, rested, quest)
@@ -265,6 +371,7 @@ function XP.OnUpdate(_, elapsed)
 end
 
 function XP.Refresh()
+  if XP.Standalone() then XP.CreateBar() XP.Place() XP.SetUnlocked(HH.db.profile.locked == false) end
   local b = bar()
   if not b then return end
   local o = cfg()
@@ -280,6 +387,7 @@ end
 
 -- ------------------------------------------------------------------------------------------------ wiring
 function XP.Init()
+  if XP.Standalone() then XP.CreateBar() end
   local b = bar()
   if not b or XP.frame then XP.Refresh() return end
   local f = CreateFrame("Frame")
@@ -289,7 +397,9 @@ function XP.Init()
   end
   f:SetScript("OnEvent", function() XP.Update() end)
   XP.frame = f
-  b:SetScript("OnUpdate", function(self, elapsed) XP.OnUpdate(self, elapsed) end)
+  for _, target in ipairs({ XP.bar, row() }) do
+    if target then target:SetScript("OnUpdate", function(self, elapsed) XP.OnUpdate(self, elapsed) end) end
+  end
   XP.Refresh()
 end
 
@@ -302,7 +412,8 @@ function XP.Lines()
   out[#out + 1] = ("paths: log=%s reward=%s; secret xp reads %d, updates %d"):format(XP.path.log, XP.path.reward,
     XP.seen.secretXP or 0, XP.seen.updates or 0)
   local b = bar()
-  out[#out + 1] = ("row: %s, at cap %s"):format(b and (b:IsShown() and "shown" or "hidden") or "missing", tostring(XP.AtCap(l.lvl)))
+  out[#out + 1] = ("%s: %s, at cap %s%s"):format(XP.Standalone() and "bar" or "row", b and (b:IsShown() and "shown" or "hidden") or "missing",
+    tostring(XP.AtCap(l.lvl)), XP.Standalone() and (", Blizzard's bar " .. (HH.XPBarOwned and "hidden" or "left alone")) or "")
   return out
 end
 

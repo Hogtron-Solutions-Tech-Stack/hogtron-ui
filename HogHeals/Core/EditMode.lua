@@ -46,6 +46,7 @@ function EM.Targets()
   end
   add({ key = "frames", path = "Frames.layout", title = "Party / raid frames", mover = G("HogHealsAnchor"), how = "click" })
   add({ key = "hud", path = "HUD.layout", title = "HUD", mover = G("HogHealsHUDAnchor"), how = "click" })
+  add({ key = "xp", path = "HUD.xp", title = "Experience bar", mover = G("HogHealsXPBar"), how = "gear" })
   local tracker = G("HogHealsQuestTracker")
   add({ key = "tracker", path = "Quests.tracker", title = "Quest tracker", mover = tracker, saver = tracker and tracker.header, how = "gear" })
   local meter = G("HogHealsMeterFrame")

@@ -928,4 +928,12 @@ def test_tooltips_dock_to_the_anchor_box_which_drags_when_unlocked(skin):
     # edit mode lists it as a gear target
     keys = [t["key"] for t in skin.eval("HogHeals.EditMode.Targets()").values()]
     assert "tooltip" in keys
+def test_blizzards_xp_bar_hides_while_the_hogtron_ui_bar_owns_it(skin):
+    skin.execute("MainMenuExpBar = MainMenuExpBar or CreateFrame('StatusBar', 'MainMenuExpBar', UIParent); MainMenuExpBar:Show()")
+    skin.execute("HogHeals.XPBarOwned = true; HogHealsSkin.Extras.SkinXP()")
+    assert skin.eval("MainMenuExpBar:IsShown()") is False and skin.eval("HogHealsSkin.Extras.blizzardXP") == "hidden"
+    skin.execute("MainMenuExpBar:Show()")                                   # Blizzard shows it again: kept hidden
+    assert skin.eval("MainMenuExpBar:IsShown()") is False
+    skin.execute("HogHeals.XPBarOwned = false; HogHealsSkin.Extras.SkinXP()")
+    assert skin.eval("MainMenuExpBar:IsShown()") is True and skin.eval("HogHealsSkin.Extras.blizzardXP") == "shown"
     assert errors(skin) == []
