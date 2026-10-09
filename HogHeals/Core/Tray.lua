@@ -12,25 +12,27 @@ local HH = HogHeals
 local T = { seen = {} }
 HH.Tray = T
 
--- key, letter (the glyph when no art), title (tooltip + window title), desc (one tooltip line), then either
+T.MEDIA = "Interface\\AddOns\\HogHeals\\Media\\"
+-- key, letter (the fallback when the client refuses the file), icon (HogHeals/Media/<icon>.tga, drawn in
+-- dev/icons/icons.html - Sean 2026-10-08: "just the letters are terrible and confusing"), title, desc, then either
 -- module [+ tab] or action (a /hh word). Order = order in the drawer.
 T.ENTRIES = {
-  { key = "bars", letter = "B", title = "Bars", desc = "Action bars: layout, size, grid, paging.", module = "Bars" },
-  { key = "menu", letter = "M", title = "Menu bar", desc = "The bottom menu buttons and the bag cell.", module = "Skin", tab = "micro" },
-  { key = "frames", letter = "F", title = "Party / raid frames", desc = "Healer frames: layout, sizes, what they show.", module = "Frames" },
-  { key = "units", letter = "U", title = "Unit frames", desc = "Player, target, pet, focus frames.", module = "Units" },
-  { key = "hud", letter = "H", title = "HUD", desc = "Castbar, swing, mana, experience.", module = "HUD" },
-  { key = "quests", letter = "Q", title = "Quests", desc = "Tracker, GO row, auto accept, announce.", module = "Quests", tab = "tracker" },
-  { key = "map", letter = "W", title = "Map & minimap", desc = "Minimap, quest markers, world map.", module = "Quests", tab = "minimap" },
-  { key = "chat", letter = "C", title = "Chat", desc = "Chat windows and tabs.", module = "Chat" },
-  { key = "tips", letter = "T", title = "Tooltips", desc = "Tooltip look and where it sits.", module = "Skin", tab = "tooltips" },
-  { key = "atlas", letter = "A", title = "Atlas", desc = "Dungeon guide: loot, quests, attunements.", module = "Atlas" },
-  { key = "meter", letter = "D", title = "Meter", desc = "Healing / damage meter.", module = "Meter" },
-  { key = "plates", letter = "N", title = "Nameplates", desc = "Nameplates over units.", module = "Plates" },
-  { key = "lock", letter = "L", title = "Unlock / lock", desc = "Drag frames, click a box or gear for its settings.", action = "toggleLock" },
-  { key = "bind", letter = "K", title = "Key binds", desc = "Hover a bar slot, press a key.", action = "bind", needs = "Bars" },
-  { key = "hover", letter = "V", title = "Hover-heal keys", desc = "Keys that heal whoever is under the mouse.", action = "hoverbind", needs = "Frames" },
-  { key = "all", letter = "=", title = "All settings", desc = "The whole HogTron UI options window.", action = "config" },
+  { key = "bars", letter = "B", icon = "tray_bars", title = "Bars", desc = "Action bars: layout, size, grid, paging.", module = "Bars" },
+  { key = "menu", letter = "M", icon = "tray_menu", title = "Menu bar", desc = "The bottom menu buttons and the bag cell.", module = "Skin", tab = "micro" },
+  { key = "frames", letter = "F", icon = "tray_frames", title = "Party / raid frames", desc = "Healer frames: layout, sizes, what they show.", module = "Frames" },
+  { key = "units", letter = "U", icon = "tray_units", title = "Unit frames", desc = "Player, target, pet, focus frames.", module = "Units" },
+  { key = "hud", letter = "H", icon = "tray_hud", title = "HUD", desc = "Castbar, swing, mana, experience.", module = "HUD" },
+  { key = "quests", letter = "Q", icon = "micro_quests", title = "Quests", desc = "Tracker, GO row, auto accept, announce.", module = "Quests", tab = "tracker" },
+  { key = "map", letter = "W", icon = "micro_map", title = "Map & minimap", desc = "Minimap, quest markers, world map.", module = "Quests", tab = "minimap" },
+  { key = "chat", letter = "C", icon = "tray_chat", title = "Chat", desc = "Chat windows and tabs.", module = "Chat" },
+  { key = "tips", letter = "T", icon = "tray_tips", title = "Tooltips", desc = "Tooltip look and where it sits.", module = "Skin", tab = "tooltips" },
+  { key = "atlas", letter = "A", icon = "tray_atlas", title = "Atlas", desc = "Dungeon guide: loot, quests, attunements.", module = "Atlas" },
+  { key = "meter", letter = "D", icon = "tray_meter", title = "Meter", desc = "Healing / damage meter.", module = "Meter" },
+  { key = "plates", letter = "N", icon = "tray_plates", title = "Nameplates", desc = "Nameplates over units.", module = "Plates" },
+  { key = "lock", letter = "L", icon = "tray_lock", title = "Unlock / lock", desc = "Drag frames, click a box or gear for its settings.", action = "toggleLock" },
+  { key = "bind", letter = "K", icon = "tray_bind", title = "Key binds", desc = "Hover a bar slot, press a key.", action = "bind", needs = "Bars" },
+  { key = "hover", letter = "V", icon = "tray_hover", title = "Hover-heal keys", desc = "Keys that heal whoever is under the mouse.", action = "hoverbind", needs = "Frames" },
+  { key = "all", letter = "=", icon = "tray_all", title = "All settings", desc = "The whole HogTron UI options window.", action = "config" },
 }
 
 local function moduleTab(name, tab)
