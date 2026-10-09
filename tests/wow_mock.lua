@@ -365,6 +365,8 @@ function Region:SetID(i) self._id = i end
 function Region:GetID() return self._id end
 function Region:GetChildren() return unpack(self._children) end
 function Region:GetRegions() return unpack(self._children) end
+function Region:SetAtlas(a) self._atlas = a self._texture = nil end
+function Region:GetAtlas() return self._atlas end
 function Region:CreateTexture(name, layer) local r = newRegion("Texture", name, self) r._layer = layer return r end
 -- Forever beta: FontString:SetText() on a font string with no font THROWS "Font not set".
 function Region:CreateFontString(name, layer, template) local r = newRegion("FontString", name, self); r._font = template; return r end

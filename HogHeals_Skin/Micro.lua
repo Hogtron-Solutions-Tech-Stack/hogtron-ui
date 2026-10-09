@@ -534,7 +534,11 @@ function Part.SweepSoon(why)
   Part.sweepPending = true
   local function run()
     Part.sweepPending = nil
-    pcall(Part.SweepBagOverlays, Part.BagsAsButton() and Part.BagButtons() or {})
+    local bags = Part.BagsAsButton() and Part.BagButtons() or {}
+    -- the bag bar can be rebuilt after login (edit-mode layouts): the slots we faded come back as new frames
+    for _, b in ipairs(bags) do silence(b) Part.StripSlotArt(b) end
+    if #bags > 0 then Part.HideSlots(bags, true) end
+    pcall(Part.SweepBagOverlays, bags)
   end
   if C_Timer and C_Timer.After then C_Timer.After(0.2, run) else run() end
 end
@@ -557,10 +561,58 @@ end
 
 --- The bag slots in the micro bar's look: flat cell, scaled up, cyan outline under the mouse, the art around
 -- them cleared (same walk as the micro buttons: the slot's ancestors, 3 levels, never UIParent).
+-- Sean 2026-10-08 after a restart, /fstack on the last stray piece: MainMenuBarBackpackButton's own slot art -
+-- NormalTexture / PushedTexture / HighlightTexture / SlotHighlightTexture / QuickKeybindHighlightTexture, all the
+-- "ui-hud-actionbar-iconframe-bags" atlas, plus an unnamed mouseover atlas. Skin.KillArt sweeps plain Frames only
+-- (an ItemButton returns 0) and Skin.IconButton knows the classic names, so these lived on. By getter, by key, and
+-- by atlas name for the unnamed ones; the icon itself is never touched.
+Part.SLOT_ART_KEYS = { "NormalTexture", "PushedTexture", "HighlightTexture", "SlotHighlightTexture", "QuickKeybindHighlightTexture",
+  "IconBorder", "IconOverlay", "IconOverlay2", "AnimIcon", "ItemContextOverlay", "SlotBackground", "SlotArt", "Border", "FloatingBG" }
+Part.SLOT_ART_ATLAS = { "iconframe", "mouseover", "slot" }
+function Part.StripSlotArt(b)
+  if type(b) ~= "table" then return 0 end
+  local n = 0
+  local name = Skin.call(b.GetName, b)
+  for _, getter in ipairs({ "GetNormalTexture", "GetPushedTexture", "GetHighlightTexture" }) do
+    local t = Skin.call(b[getter], b)
+    if type(t) == "table" and Skin.Kill(t) then n = n + 1 end
+  end
+  for _, k in ipairs(Part.SLOT_ART_KEYS) do
+    local t = rawget(b, k) or (type(name) == "string" and rawget(_G, name .. k))
+    if type(t) == "table" and Skin.Kill(t) then n = n + 1 end
+  end
+  local icon = rawget(b, "icon") or rawget(b, "Icon") or (type(name) == "string" and (rawget(_G, name .. "IconTexture") or rawget(_G, name .. "Icon")))
+  for _, r in ipairs(Skin.all(b.GetRegions, b)) do
+    if r ~= icon and not r.hhOurs and r.GetObjectType and r:GetObjectType() == "Texture" then
+      local tex = (r.GetAtlas and Skin.call(r.GetAtlas, r)) or (r.GetTexture and Skin.call(r.GetTexture, r))
+      tex = type(tex) == "string" and tex:lower() or ""
+      for _, pat in ipairs(Part.SLOT_ART_ATLAS) do
+        if tex:find(pat, 1, true) then if Skin.Kill(r) then n = n + 1 end break end
+      end
+    end
+  end
+  if type(icon) == "table" then icon.hhOurs = true end
+  return n
+end
+
+--- Bags-cell mode: the slots hidden outright (kept hidden) as well as faded; back when the mode changes.
+function Part.HideSlots(bags, hide)
+  for _, b in ipairs(bags) do
+    if hide then
+      b.hhUnhidden = nil
+      if Skin.HideFrame then Skin.HideFrame(b) end
+    elseif b.hhHideHooked then
+      b.hhUnhidden = true
+      Skin.call(b.Show, b)
+    end
+  end
+end
+
 function Part.StyleBags(bags, d)
   local scale = d.scale or 1.2
   for _, b in ipairs(bags) do
     Skin.IconButton(b, { hotkeySize = 10 })
+    Part.StripSlotArt(b)
     Skin.call(b.SetScale, b, scale)
     if not b.hhHover and b.HookScript then
       b.hhHover = true
@@ -619,9 +671,10 @@ function Part.Apply()
     local bags = Part.BagButtons()
     for _, n in ipairs(Part.BAG_HIDE) do Skin.HideFrame(Skin.G(n)) end
     if Part.BagsAsButton() then
-      -- the Bags cell in the bar stands in: Blizzard's slots faded and kept faded, their art cleared, no strip
+      -- the Bags cell in the bar stands in: Blizzard's slots faded, hidden and kept so, their art cleared, no strip
       Part.SweepBagArt(bags)
-      for _, b in ipairs(bags) do silence(b) end
+      for _, b in ipairs(bags) do silence(b) Part.StripSlotArt(b) end
+      Part.HideSlots(bags, true)
       if Part.strips and Part.strips.bags then Part.strips.bags:Hide() end
       Part.bagMode = "button"
       Part.SweepBagOverlays(bags)
@@ -630,6 +683,7 @@ function Part.Apply()
         for _, secs in ipairs({ 1, 5, 15 }) do C_Timer.After(secs, function() Part.SweepSoon("late" .. secs) end) end
       end
     else
+      Part.HideSlots(bags, false)
       for _, b in ipairs(bags) do unsilence(b) end
       for _, f in ipairs(Part.overlays or {}) do unsilence(f) end
       Part.overlays = {}

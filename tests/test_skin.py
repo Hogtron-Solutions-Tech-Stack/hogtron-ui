@@ -937,3 +937,30 @@ def test_blizzards_xp_bar_hides_while_the_hogtron_ui_bar_owns_it(skin):
     skin.execute("HogHeals.XPBarOwned = false; HogHealsSkin.Extras.SkinXP()")
     assert skin.eval("MainMenuExpBar:IsShown()") is True and skin.eval("HogHealsSkin.Extras.blizzardXP") == "shown"
     assert errors(skin) == []
+
+
+
+def test_the_backpacks_own_slot_art_goes_and_the_slots_hide_in_bags_cell_mode(skin):
+    # Sean 2026-10-08 after a restart: MainMenuBarBackpackButton still wore ui-hud-actionbar-iconframe-bags on its
+    # NormalTexture / SlotHighlightTexture plus an unnamed mouseover atlas ("the worm")
+    skin.execute("""
+      local b = MainMenuBarBackpackButton
+      b.NormalTexture = b:CreateTexture(); b.NormalTexture:SetAtlas("ui-hud-actionbar-iconframe-bags")
+      b.SlotHighlightTexture = b:CreateTexture(); b.SlotHighlightTexture:SetAtlas("ui-hud-actionbar-iconframe-bags")
+      b.unnamed = b:CreateTexture(); b.unnamed:SetAtlas("UI-HUD-ActionBar-IconFrame-Mouseover")
+      HogHealsSkin.Micro.Apply()
+    """)
+    for tex in ("NormalTexture", "SlotHighlightTexture", "unnamed"):
+        assert skin.eval(f"MainMenuBarBackpackButton.{tex}._alpha") == 0, tex
+    assert skin.eval("MainMenuBarBackpackButton.icon._alpha") == 1                        # the icon stays
+    assert skin.eval("MainMenuBarBackpackButton:IsShown()") is False                      # hidden outright in Bags-cell mode
+    skin.execute("MainMenuBarBackpackButton:Show()")
+    assert skin.eval("MainMenuBarBackpackButton:IsShown()") is False                      # and kept so
+    # a late sweep (the bar rebuilt after login) does it again without error
+    skin.execute("HogHealsSkin.Micro.SweepSoon('late'); MockAdvance(0.3)")
+    assert skin.eval("MainMenuBarBackpackButton:IsShown()") is False
+    # slots mode: the button is back, its art still flat
+    skin.execute('HogHeals.db.profile.skin.bagBar.mode = "slots"; HogHealsSkin.Micro.Apply()')
+    assert skin.eval("MainMenuBarBackpackButton:IsShown()") is True
+    assert skin.eval("MainMenuBarBackpackButton.NormalTexture._alpha") == 0
+    assert errors(skin) == []
