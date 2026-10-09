@@ -54,6 +54,7 @@ function EM.Targets()
     add({ key = "unit:" .. unit, path = "Units." .. unit, title = EM.UNIT_LABEL[unit], mover = G(name), how = "gear" })
   end
   add({ key = "infobar", path = "Skin.infobar", title = "Info bar", mover = G("HogUIInfoBar"), how = "gear" })
+  add({ key = "tooltip", path = "Skin.tooltips", title = "Tooltips", mover = G("HogHealsTooltipAnchor"), how = "gear" })
   add({ key = "micro", path = "Skin.micro", title = "Menu bar", mover = G("HogHealsMicroBar"), how = "gear" })
   table.sort(out, function(a, b) return a.key < b.key end)
   return out

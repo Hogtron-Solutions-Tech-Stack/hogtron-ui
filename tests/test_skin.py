@@ -862,3 +862,45 @@ def test_decorations_that_come_back_over_the_menu_buttons_and_the_bar_are_swept_
     assert "SpellbookMicroButtonAlertGlow" in diag and "BackpackHighlightAgain" in diag          # /hh skindiag names them
     assert skin.eval("HogHealsMicroBar._alpha") == 1 and skin.eval("HogHealsMicroBarBags._alpha") == 1
     assert errors(skin) == []
+
+
+
+def test_tooltips_dock_to_the_anchor_box_which_drags_when_unlocked(skin):
+    # Sean 2026-10-08 in game: "I want to be able to move the tooltip ... when we do /hh unlock"
+    T = "HogHealsSkin.Tooltip"
+    assert skin.eval("HogHealsTooltipAnchor ~= nil")
+    pt = list(skin.eval("{ HogHealsTooltipAnchor:GetPoint() }").values())
+    assert pt[0] == "BOTTOMRIGHT" and pt[3] == -40 and pt[4] == 120
+    skin.execute("GameTooltip_SetDefaultAnchor(GameTooltip, UIParent)")
+    assert skin.eval("GameTooltip._anchor") == "ANCHOR_NONE"
+    tp = list(skin.eval("{ GameTooltip:GetPoint() }").values())
+    assert tp[0] == "BOTTOMRIGHT" and skin.eval("select(2, GameTooltip:GetPoint()) == HogHealsTooltipAnchor") is True
+    assert skin.eval(f"{T}.docked") == 1
+    # locked: invisible and mouse-through; unlocked: cyan box, drags, saves
+    assert skin.eval("HogHealsTooltipAnchor.bg:IsShown()") is False and skin.eval("HogHealsTooltipAnchor:IsShown()") is True
+    skin.execute('HogHeals:SlashCommand("unlock")')
+    assert skin.eval("HogHealsTooltipAnchor.bg:IsShown()") is True and skin.eval("HogHealsTooltipAnchor.label:IsShown()") is True
+    skin.execute("""
+      HogHealsTooltipAnchor:GetScript("OnDragStart")(HogHealsTooltipAnchor)
+      HogHealsTooltipAnchor:ClearAllPoints(); HogHealsTooltipAnchor:SetPoint("CENTER", UIParent, "CENTER", 300, -200)
+      HogHealsTooltipAnchor:GetScript("OnDragStop")(HogHealsTooltipAnchor)
+    """)
+    c = skin.eval("HogHeals.db.profile.skin.tooltips")
+    assert c["point"] == "CENTER" and c["x"] == 300 and c["y"] == -200
+    skin.execute('HogHeals:SlashCommand("lock")')
+    assert skin.eval("HogHealsTooltipAnchor.bg:IsShown()") is False
+    # the cursor option wins; the box option off = Blizzard's own spot
+    skin.execute("HogHeals.db.profile.skin.tooltips.anchorCursor = true")
+    assert skin.eval(f"{T}.Dock(GameTooltip, UIParent)") == "cursor" and skin.eval("GameTooltip._anchor") == "ANCHOR_CURSOR"
+    skin.execute("HogHeals.db.profile.skin.tooltips.anchorCursor = false; HogHeals.db.profile.skin.tooltips.anchor = false")
+    assert skin.eval(f"{T}.Dock(GameTooltip, UIParent)") == "blizzard"
+    # reset + size from the options
+    skin.execute(f"HogHeals.db.profile.skin.tooltips.anchor = true; {T}.ResetAnchor()")
+    pt = list(skin.eval("{ HogHealsTooltipAnchor:GetPoint() }").values())
+    assert pt[0] == "BOTTOMRIGHT" and pt[3] == -40
+    skin.execute("HogHeals.OptionsTable().args.Skin.args.tooltips.args.width.set(nil, 300)")
+    assert skin.eval("HogHealsTooltipAnchor:GetWidth()") == 300
+    # edit mode lists it as a gear target
+    keys = [t["key"] for t in skin.eval("HogHeals.EditMode.Targets()").values()]
+    assert "tooltip" in keys
+    assert errors(skin) == []
