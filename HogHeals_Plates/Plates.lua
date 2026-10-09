@@ -1116,7 +1116,20 @@ function Plates.CVarProbe(needles)
   needles = needles or { "nameplate", "unitname" }
   local C = rawget(_G, "C_Console")
   local list = type(C) == "table" and type(C.GetAllCommands) == "function" and select(2, pcall(C.GetAllCommands)) or nil
-  if type(list) ~= "table" then return { "this client gives addons no console list (C_Console.GetAllCommands)" }, 0 end
+  if type(list) ~= "table" and type(rawget(_G, "ConsoleGetAllCommands")) == "function" then list = select(2, pcall(ConsoleGetAllCommands)) end
+  if type(list) ~= "table" then
+    -- no list on this client (Forever 2026-10-08): ask about the names we know, one by one; GetCVarInfo / GetCVar
+    -- answer nil for a name the client does not have
+    local out, n = { "this client gives addons no console list; asking by name instead:" }, 0
+    local info = (type(rawget(_G, "C_CVar")) == "table" and C_CVar.GetCVarInfo) or rawget(_G, "GetCVarInfo")
+    for _, name in ipairs(Plates.CVAR_CANDIDATES) do
+      local v = type(GetCVar) == "function" and select(2, pcall(GetCVar, name)) or nil
+      local has = v ~= nil or (type(info) == "function" and select(2, pcall(info, name)) ~= nil)
+      if has then n = n + 1 end
+      out[#out + 1] = ("%s %s%s"):format(has and "HAS " or "no  ", name, has and ("=" .. tostring(v)) or "")
+    end
+    return out, n
+  end
   local out, n = {}, 0
   for _, e in ipairs(list) do
     local name = type(e) == "table" and e.command or nil
@@ -1135,6 +1148,14 @@ function Plates.CVarProbe(needles)
   table.sort(out)
   return out, n
 end
+
+Plates.CVAR_CANDIDATES = { "nameplateShowFriends", "nameplateShowFriendlyNPCs", "nameplateShowFriendlyPets", "nameplateShowFriendlyGuardians",
+  "nameplateShowFriendlyMinions", "nameplateShowFriendlyTotems", "nameplateShowAll", "nameplateShowOnlyNames", "nameplateShowOnlyNameForFriendlyNPCs",
+  "nameplateShowEnemies", "nameplateShowEnemyPets", "nameplateShowEnemyGuardians", "nameplateShowEnemyMinions", "nameplateShowEnemyTotems",
+  "nameplateShowFriendlyBuffs", "nameplateShowDebuffsOnFriendly", "nameplateShowSelf", "nameplatePlayerNameAlpha",
+  "UnitNameOwn", "UnitNameNPC", "UnitNamePlayerGuild", "UnitNameFriendlyPlayerName", "UnitNameFriendlyPetName", "UnitNameFriendlyMinionName",
+  "UnitNameFriendlyGuardianName", "UnitNameFriendlyTotemName", "UnitNameEnemyPlayerName", "UnitNameEnemyPetName", "UnitNameEnemyMinionName",
+  "UnitNameForceHideMinus", "UnitNameInteractiveNPC", "UnitNameHostleNPC", "UnitNameNonCombatCreatureName", "ShowClassColorInFriendlyNameplate" }
 
 HH:RegisterSlash("platecvars", function(rest)
   local needles = rest and rest ~= "" and { rest:lower() } or nil
