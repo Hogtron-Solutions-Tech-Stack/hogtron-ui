@@ -122,7 +122,7 @@ function EM.Open(t)
   if not EM.Find(t.path) then HH:Print(("edit: no settings found for %s (%s)"):format(t.title, t.path)) end
   local P = HH.Panel
   if not P or not P.Open then return false end
-  P.Open(EM.Source(t), { compact = true, anchor = t.mover, title = t.title })
+  P.Open(EM.Source(t), { compact = true, anchor = t.mover, title = t.title, actions = P.ActionsFor and P.ActionsFor(t.key) or nil })
   EM.current = t
   return true
 end

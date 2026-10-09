@@ -128,4 +128,16 @@ def test_compact_window_opens_toward_the_middle_of_the_screen(ed):
     # no centre known: the middle of the screen
     ed.execute(f"{P}.frame:Hide(); HogUIBar2.GetCenter = function() return nil end; {h}:GetScript('OnMouseUp')({h}, 'LeftButton')")
     assert ed.eval(f"{P}.side") is None and ed.eval(f"({P}.frame:GetPoint())") == "CENTER"
+def test_the_frames_settings_carry_test_buttons_in_the_footer(ed):
+    ed.execute('HogHeals:SlashCommand("unlock")')
+    ed.execute("HogHeals.EditMode.Open((function() for _, t in ipairs(HogHeals.EditMode.Targets()) do if t.key == 'frames' then return t end end end)())")
+    P = "HogHeals.Panel"
+    assert ed.eval(f"{P}.frame.footer:IsShown()") is True
+    labels = [ed.eval(f"{P}.frame.footer.buttons[{i}].label:GetText()") for i in (1, 2, 3)]
+    assert labels == ["Test 5", "Test 25", "Stop test"]
+    ed.execute(f"{P}.frame.footer.buttons[1]:Click()")
+    assert ed.eval("HogHealsFrames.TestMode.active") is True
+    ed.execute(f"{P}.frame.footer.buttons[3]:Click()")
+    assert ed.eval("HogHealsFrames.TestMode.active") is not True
+    assert ed.eval(f"{P}.ActionsFor('plates')") is None
     assert errors(ed) == []
