@@ -819,3 +819,17 @@ def test_hots_secret_duration_is_shown_not_dropped_and_enemies_untouched(plates)
     plates.execute('HogHeals.db.profile.plates.buffs.enabled = false; HogHealsPlates.Plates.Refresh()')
     assert plates.eval(f'{uf}.hh.hots:IsShown()') is False and plates.eval(f'{uf}.BuffFrame._alpha') == 1
     assert errors(plates) == []
+
+
+
+def test_friendly_pets_get_a_plate_through_the_cvar(plates):
+    # Sean 2026-10-08: a pet's small blue name is the engine's, not a plate; a plate for it wears our font
+    plates.execute("CV = {}; function SetCVar(k, v) CV[k] = v end; HogHealsPlates.Plates.ApplyCVars()")
+    assert plates.eval("CV.nameplateShowFriendlyPets") == "1" and plates.eval("CV.nameplateShowFriendlyMinions") == "1" and plates.eval("CV.nameplateShowFriendlyGuardians") == "1"
+    assert plates.eval("CV.nameplateShowFriendlyTotems") == "0"
+    plates.execute("HogHeals.OptionsTable().args.Plates.args.look.args.friendlyPets.set(nil, false)")
+    assert plates.eval("CV.nameplateShowFriendlyPets") == "0" and plates.eval("CV.nameplateShowFriendlyMinions") == "0"
+    plates.execute("HogHeals.OptionsTable().args.Plates.args.look.args.friendlyTotems.set(nil, true)")
+    assert plates.eval("CV.nameplateShowFriendlyTotems") == "1"
+    assert any("friendly pets" in l for l in plates.eval("HogHealsPlates.Plates.Diagnose()").values())
+    assert errors(plates) == []

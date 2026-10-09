@@ -245,6 +245,8 @@ end
 function HoverBind.Press(key)
   local r = HoverBind.target
   if not r or not r.spell then return nil end
+  local reserved = key ~= "ESCAPE" and HH.ChatKey and HH.ChatKey.Reserved(key)
+  if reserved then HH:Print(("Hover-heal: %s is for %s, not for a spell."):format(key == "ENTER" and "Enter" or key, reserved)) return nil end
   local current = HHF.ClickCast.bindings or {}
   local list = {}
   if key == "ESCAPE" then

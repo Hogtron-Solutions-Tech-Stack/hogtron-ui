@@ -20,6 +20,56 @@ local LINE = { 0.20, 0.20, 0.25 }
 local W, H, SIDEBAR, TITLE, PAD = 860, 580, 170, 40, 16
 local COLS, GUTTER = 2, 18
 local CW, CH = 400, 460   -- compact window (edit mode: one frame's settings beside the frame)
+local MIN_W, MIN_H, MIN_CW, MIN_CH = 600, 400, 320, 260
+local TAB_H, FOOTER_H = 26, 30
+
+-- Sean 2026-10-08 in game (the compact window from the tray): "the menu is cut off ... the user should be able to
+-- resize this window, or any window". Sizes live in the account-wide db (HH.db.global.panel: w/h for the full
+-- window, cw/ch for the compact one); the tab row wraps instead of running off the edge; a grip bottom-right.
+local function saved()
+  local g = HH.db and HH.db.global
+  if not g then return {} end
+  g.panel = g.panel or {}
+  return g.panel
+end
+
+--- Width and height for the current mode (saved, else the defaults), never under the minimums.
+function Panel.Size()
+  local s = saved()
+  if Panel.compact then return math.max(MIN_CW, s.cw or CW), math.max(MIN_CH, s.ch or CH) end
+  return math.max(MIN_W, s.w or W), math.max(MIN_H, s.h or H)
+end
+
+--- The width the content column(s) get for the current mode.
+function Panel.ContentWidth()
+  local w = Panel.Size()
+  if Panel.compact then return w - PAD * 2 - 8 end
+  return w - SIDEBAR - PAD * 2 - 8
+end
+
+--- Remember the window's size for this mode (after a resize) and lay the inside out again.
+function Panel.SaveSize(w, h)
+  local s = saved()
+  if Panel.compact then s.cw, s.ch = math.max(MIN_CW, w), math.max(MIN_CH, h) else s.w, s.h = math.max(MIN_W, w), math.max(MIN_H, h) end
+  Panel.Relayout()
+end
+
+function Panel.ResetSize()
+  local s = saved()
+  if Panel.compact then s.cw, s.ch = nil, nil else s.w, s.h = nil, nil end
+  Panel.Relayout()
+end
+
+--- Apply the current size to the frame and its parts (same position), then repaint.
+function Panel.Relayout()
+  local f = Panel.frame
+  if not f then return end
+  local w, h = Panel.Size()
+  f:SetSize(w, h)
+  f.content:SetWidth(Panel.ContentWidth())
+  Panel.cols = (Panel.compact or Panel.ContentWidth() < 560) and 1 or nil
+  Panel.Refresh()
+end
 
 -- ------------------------------------------------------------------------------------------------ helpers
 local function solid(parent, layer, c, a)
@@ -213,6 +263,48 @@ local function build()
   content:SetSize(W - SIDEBAR - PAD * 2 - 8, 10)   -- 8 px shy of the viewport: the right column was being clipped
   scroll:SetScrollChild(content)
   f.scroll, f.content = scroll, content
+
+  -- a footer for a module's quick actions in the compact window (Test 5 / Test 25 / Stop for the frames, ...)
+  local footer = CreateFrame("Frame", nil, f)
+  footer:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", PAD, 6)
+  footer:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -PAD, 6)
+  footer:SetHeight(FOOTER_H)
+  footer.buttons = {}
+  footer:Hide()
+  f.footer = footer
+
+  -- the resize grip: drag the corner, the size is kept for this mode
+  if f.SetResizable then f:SetResizable(true) end
+  if f.SetResizeBounds then pcall(f.SetResizeBounds, f, MIN_CW, MIN_CH) elseif f.SetMinResize then pcall(f.SetMinResize, f, MIN_CW, MIN_CH) end
+  local grip = CreateFrame("Button", nil, f)
+  grip:SetSize(16, 16)
+  grip:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -2, 2)
+  grip:SetFrameLevel(f:GetFrameLevel() + 5)
+  grip.tex = grip:CreateTexture(nil, "OVERLAY")
+  grip.tex:SetAllPoints(grip)
+  if grip.tex:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up") == false then
+    grip.tex:SetColorTexture(CYAN[1], CYAN[2], CYAN[3], 0.9)
+  else
+    grip.tex:SetVertexColor(CYAN[1], CYAN[2], CYAN[3])
+  end
+  grip:SetScript("OnMouseDown", function() Panel.sizing = true if f.StartSizing then f:StartSizing("BOTTOMRIGHT") end end)
+  grip:SetScript("OnMouseUp", function()
+    Panel.sizing = nil
+    if f.StopMovingOrSizing then f:StopMovingOrSizing() end
+    local w, h = f:GetSize()
+    if type(w) == "number" and type(h) == "number" then Panel.SaveSize(w, h) end
+  end)
+  grip:SetScript("OnEnter", function()
+    if not GameTooltip then return end
+    GameTooltip:SetOwner(grip, "ANCHOR_LEFT")
+    GameTooltip:AddLine("Drag to resize", 0.96, 0.92, 0.86)
+    GameTooltip:AddLine("Right-click: back to the default size", 0.6, 0.6, 0.6)
+    GameTooltip:Show()
+  end)
+  grip:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+  grip:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  grip:SetScript("OnClick", function(_, button) if button == "RightButton" then Panel.ResetSize() end end)
+  f.grip = grip
 
   f:SetScript("OnHide", function() if Panel.menu then Panel.menu:Hide() end end)
   Panel.frame = f
@@ -707,7 +799,8 @@ function Panel.Refresh()
   Panel.selectedTab = tab and tab.key or nil
   for _, b in ipairs(tabPool) do b:Hide() end
   Panel.tabs = {}
-  local x = 0
+  local x, rowN = 0, 0
+  local avail = Panel.ContentWidth() + 8
   for i, a in ipairs(subs) do
     local b = tabButton(i)
     Panel.tabs[i] = b
@@ -715,9 +808,11 @@ function Panel.Refresh()
     local label = tostring(val(a.opt.name, mkInfo(current.key .. "." .. a.key, a.opt)) or a.key)
     b.label:SetText(label)
     local w = math.max(70, (b.label:GetStringWidth() or (#label * 7)) + 24)
+    if x > 0 and x + w > avail then x, rowN = 0, rowN + 1 end   -- the row is full: the next tab starts a new one
     b:ClearAllPoints()
-    b:SetPoint("BOTTOMLEFT", f.tabbar, "BOTTOMLEFT", x, 0)
+    b:SetPoint("TOPLEFT", f.tabbar, "TOPLEFT", x, -rowN * (TAB_H + 2))
     b:SetWidth(w)
+    b.row = rowN
     x = x + w + 4
     local on = a.key == Panel.selectedTab
     if on then b.mark:Show() else b.mark:Hide() end
@@ -725,6 +820,8 @@ function Panel.Refresh()
     b.label:SetTextColor(c[1], c[2], c[3])
     b:Show()
   end
+  Panel.tabRows = #subs > 0 and rowN + 1 or 0
+  f.tabbar:SetHeight(math.max(TAB_H, Panel.tabRows * (TAB_H + 2) - 2))
 
   if current then
     local h1 = current.opt.handler or root.handler
@@ -751,39 +848,137 @@ end
 
 --- Full window (sidebar, two columns, centred) or compact (one section, one column, beside a frame: edit mode).
 -- opts = { compact = true, anchor = frame, title = "Action bar 2" }
+--- Which side of a frame the compact window goes on: the side facing the middle of the screen, on the axis the
+-- frame is further from the middle on (a bar along the bottom -> above it; a bar on the right edge -> left of it;
+-- a unit frame left of centre -> right of it). Sean 2026-10-08: "should not open over the bars ... open towards the
+-- center". The other axis is the fallback when there is no room; nil = no idea (no centre), caller centres it.
+-- cx, cy = the frame's centre; aw, ah = its size; sw, sh = the screen; cw, ch = the window's size.
+function Panel.Side(cx, cy, aw, ah, sw, sh, cw, ch)
+  if type(cx) ~= "number" or type(cy) ~= "number" then return nil end
+  aw, ah = aw or 0, ah or 0
+  sw, sh = sw or 1920, sh or 1080
+  cw, ch = cw or CW, ch or CH
+  local dx, dy = sw / 2 - cx, sh / 2 - cy
+  local h = dx >= 0 and "right" or "left"
+  local v = dy >= 0 and "above" or "below"
+  local roomH = dx >= 0 and (sw - (cx + aw / 2)) or (cx - aw / 2)
+  local roomV = dy >= 0 and (sh - (cy + ah / 2)) or (cy - ah / 2)
+  local first, second = h, v
+  local roomFirst, roomSecond = roomH, roomV
+  if math.abs(dy) / sh >= math.abs(dx) / sw then first, second, roomFirst, roomSecond = v, h, roomV, roomH end
+  local need = { above = ch + 12, below = ch + 12, left = cw + 12, right = cw + 12 }
+  if roomFirst >= need[first] then return first end
+  if roomSecond >= need[second] then return second end
+  return roomFirst >= roomSecond and first or second
+end
+
 function Panel.Layout(opts)
   local f = Panel.frame
   opts = opts or {}
   local was = Panel.compact
   Panel.compact = opts.compact and true or false
   f.tabbar:ClearAllPoints()
+  Panel.actions = opts.actions
   if Panel.compact then
-    f:SetSize(CW, CH)
+    f:SetSize(Panel.Size())
     f.side:Hide()
     f.tabbar:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -(TITLE + 10))
-    f.content:SetWidth(CW - PAD * 2 - 8)
+    f.content:SetWidth(Panel.ContentWidth())
     Panel.cols = 1
     f.version:SetText(opts.title or "")
     f:ClearAllPoints()
     local a = opts.anchor
-    local right = a and a.GetRight and a:GetRight()
-    local sw = (type(GetScreenWidth) == "function" and GetScreenWidth()) or 1920
-    if right and type(right) == "number" then
+    local side
+    if a and a.GetCenter then
+      local ok, cx, cy = pcall(a.GetCenter, a)
       local s = (a.GetEffectiveScale and a:GetEffectiveScale() or 1) / (UIParent:GetEffectiveScale() or 1)
-      if right * s + CW + 16 < sw then f:SetPoint("LEFT", a, "RIGHT", 12, 0) else f:SetPoint("RIGHT", a, "LEFT", -12, 0) end
-    else
-      f:SetPoint("CENTER", UIParent, "CENTER", 0, 20)
+      local sw = (type(GetScreenWidth) == "function" and GetScreenWidth()) or 1920
+      local sh = (type(GetScreenHeight) == "function" and GetScreenHeight()) or 1080
+      if ok and type(cx) == "number" and type(cy) == "number" then
+        local aw = (a.GetWidth and a:GetWidth() or 0) * s
+        local ah = (a.GetHeight and a:GetHeight() or 0) * s
+        side = Panel.Side(cx * s, cy * s, aw, ah, sw, sh)
+      end
     end
+    Panel.side = side
+    if side == "above" then f:SetPoint("BOTTOM", a, "TOP", 0, 12)
+    elseif side == "below" then f:SetPoint("TOP", a, "BOTTOM", 0, -12)
+    elseif side == "right" then f:SetPoint("LEFT", a, "RIGHT", 12, 0)
+    elseif side == "left" then f:SetPoint("RIGHT", a, "LEFT", -12, 0)
+    else f:SetPoint("CENTER", UIParent, "CENTER", 0, 20) end
   else
-    f:SetSize(W, H)
+    f:SetSize(Panel.Size())
     f.side:Show()
     f.tabbar:SetPoint("TOPLEFT", f.side, "TOPRIGHT", PAD, -10)
-    f.content:SetWidth(W - SIDEBAR - PAD * 2 - 8)
-    Panel.cols = nil
+    f.content:SetWidth(Panel.ContentWidth())
+    Panel.cols = Panel.ContentWidth() < 560 and 1 or nil
     f.version:SetText("v" .. tostring(HH.version or "dev"))
     if was then f:ClearAllPoints() f:SetPoint("CENTER", UIParent, "CENTER", 0, 20) end
   end
   f.tabbar:SetPoint("RIGHT", f, "RIGHT", -PAD, 0)
+  if f.SetResizeBounds then pcall(f.SetResizeBounds, f, Panel.compact and MIN_CW or MIN_W, Panel.compact and MIN_CH or MIN_H)
+  elseif f.SetMinResize then pcall(f.SetMinResize, f, Panel.compact and MIN_CW or MIN_W, Panel.compact and MIN_CH or MIN_H) end
+  Panel.LayoutFooter()
+end
+
+--- Quick actions for a module's compact window (its footer), by the key the tray / edit mode uses. Sean 2026-10-08:
+-- "there should just be a test button built right into here" (the party / raid frames).
+function Panel.ActionsFor(key)
+  local acts = {}
+  if key == "frames" then
+    local F = rawget(_G, "HogHealsFrames")
+    local TM = type(F) == "table" and F.TestMode or nil
+    if TM and TM.Start then
+      acts[#acts + 1] = { text = "Test 5", func = function() TM.Start(5) end }
+      acts[#acts + 1] = { text = "Test 25", func = function() TM.Start(25) end }
+      acts[#acts + 1] = { text = "Stop test", func = function() if TM.Stop then TM.Stop() end end }
+    end
+  elseif key == "bars" then
+    acts[#acts + 1] = { text = "Key binds", func = function() HH:SlashCommand("bind") end }
+  elseif key == "units" or key == "hud" or key == "menu" or key == "tips" or key == "tooltip" or key == "infobar" or key == "xp" then
+    acts[#acts + 1] = { text = function() return HH.db.profile.locked and "Unlock to drag" or "Lock" end,
+      func = function() HH:SlashCommand(HH.db.profile.locked and "unlock" or "lock") end }
+  end
+  return #acts > 0 and acts or nil
+end
+
+--- The compact window's footer: one flat button per action ({ text, func }); none = no footer, the scroll runs to
+-- the bottom edge.
+function Panel.LayoutFooter()
+  local f = Panel.frame
+  local acts = Panel.compact and Panel.actions or nil
+  f.scroll:ClearAllPoints()
+  f.scroll:SetPoint("TOPLEFT", f.tabbar, "BOTTOMLEFT", 0, -10)
+  if not acts or #acts == 0 then
+    f.scroll:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -PAD, PAD)
+    f.footer:Hide()
+    for _, b in ipairs(f.footer.buttons) do b:Hide() end
+    return 0
+  end
+  f.scroll:SetPoint("BOTTOMRIGHT", f.footer, "TOPRIGHT", 0, 6)
+  local w = Panel.Size()
+  local n = #acts
+  local bw = math.floor((w - PAD * 2 - 6 * (n - 1)) / n)
+  for i, a in ipairs(acts) do
+    local b = f.footer.buttons[i]
+    if not b then
+      b = flatButton(f.footer, bw, FOOTER_H - 6)
+      f.footer.buttons[i] = b
+    end
+    b:SetSize(bw, FOOTER_H - 6)
+    b:ClearAllPoints()
+    b:SetPoint("LEFT", f.footer, "LEFT", (i - 1) * (bw + 6), 0)
+    b.label:SetText(tostring(type(a.text) == "function" and a.text() or a.text))
+    b:SetScript("OnClick", function()
+      local ok, err = pcall(a.func)
+      if not ok then HH:LogError("panel action " .. tostring(a.text) .. ": " .. tostring(err)) end
+      Panel.LayoutFooter()   -- a label can change with the state (Lock / Unlock)
+    end)
+    b:Show()
+  end
+  for i = n + 1, #f.footer.buttons do f.footer.buttons[i]:Hide() end
+  f.footer:Show()
+  return n
 end
 
 --- Open the window. source = optional function returning an options table (defaults to the live HogHeals one);

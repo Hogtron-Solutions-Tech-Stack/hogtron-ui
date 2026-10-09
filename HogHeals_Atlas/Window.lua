@@ -19,7 +19,7 @@ local PAD, TOP = 10, 58
 local ROW = 18
 local BODY_ROWS = 26
 
-local TABS = { { "next", "Where next" }, { "dungeons", "Dungeons" }, { "upgrades", "Upgrades" }, { "sets", "Sets" }, { "wish", "Wishlist" }, { "log", "Loot log" } }
+local TABS = { { "next", "Where next" }, { "dungeons", "Dungeons" }, { "attune", "Attunements" }, { "upgrades", "Upgrades" }, { "sets", "Sets" }, { "wish", "Wishlist" }, { "log", "Loot log" } }
 local DETAILS = { { "loot", "Loot" }, { "quests", "Quests" }, { "guide", "Guide" } }
 local BADGE = { seen = "seen", group = "group", journal = "journal", reported = "reported" }
 local BADGE_COLOR = { seen = C.green, group = C.green, journal = C.cyan, reported = C.grey }
@@ -221,6 +221,14 @@ function Window.GuideRows()
   end
   local q, active, ready = A.DungeonQuests.Summary(d.key)
   pair("Quests in your log", q or "none", (ready or 0) > 0 and C.green or C.cream)
+  -- attunement / key for this dungeon (Attune.lua), when it has one
+  if A.Attune and A.Attune.GuideRows then
+    local ok, ar = pcall(A.Attune.GuideRows, d.key)
+    if ok and ar then
+      rows[#rows + 1] = { text = "" }
+      for _, r in ipairs(ar) do rows[#rows + 1] = r end
+    end
+  end
   if d.where then
     rows[#rows + 1] = { text = "" }
     rows[#rows + 1] = { header = true, text = "How to get there" }
@@ -498,6 +506,18 @@ function Window.Build()
     elseif row.item then Window.ItemClick(row.item, btn) end
   end, -24, 270)
 
+  -- Attunements (Attune.lua): raids, keys, Forever's new chains; a row with a dungeon opens it
+  p = pane(f, "attune")
+  Window.sayAttune = A.button(p, "To chat", 80, 20, function() for _, l in ipairs(A.Attune.Say()) do HH:Print(l) end end)
+  Window.sayAttune:SetPoint("TOPLEFT", p, "TOPLEFT", 0, 0)
+  Window.lists.attune = column(p, 0, 880, BODY_ROWS - 2, function(row)
+    if row.dungeon then
+      Window.dungeon, Window.boss, Window.detail = row.dungeon, nil, "guide"
+      Window.lists.bosses.offset, Window.lists.detail.offset = 0, 0
+      Window.SetTab("dungeons")
+    end
+  end, -24, 330)
+
   -- Wishlist
   p = pane(f, "wish")
   Window.lists.wish = column(p, 0, 880, BODY_ROWS, itemClick, nil, 300)
@@ -551,6 +571,9 @@ function Window.Refresh()
     local jr = A.Journal.last
     status = ("%d dungeons, %d drops known. Red too low, orange hard, green right, grey outgrown. +N = better than what you wear.%s"):format(
       #rows, A.Store.db().count, jr and ("  Journal: " .. tostring(jr.status) .. ".") or "")
+  elseif Window.tab == "attune" then
+    L.attune:SetData(A.Attune.Rows())
+    status = "Green = attuned / done. Amber = in progress. ? = the game cannot tell us (no id). Click a dungeon row to open its guide."
   elseif Window.tab == "next" then
     Window.showAll:SetOn(A.cfg().nextAll)
     L.next:SetData(A.WhereNext.Rows({ all = A.cfg().nextAll }))

@@ -127,6 +127,78 @@ function Extra.MakeStateLayers(b)
   Extra.SetState(b, false, false, false)
 end
 
+-- ------------------------------------------------------------------------------------------------ marks on every bar
+-- Sean 2026-10-08 in game, after resizing the bars: "the highlighting is slightly off ... just do the highlighting
+-- that's in the pet bar". Blizzard's hover / active box is pinned by the lib to 52 x 51 at a fixed offset (and
+-- re-pinned on every update), so any other button size shows it askew. Off, and the pet bar's marks everywhere:
+--   hover    cyan edges at half strength
+--   pressed  cyan wash while the mouse is down
+--   active   the lib's SetChecked (current action, auto-repeat): full edges + wash, as a pet command
+--- Blizzard's state art transparent (called at dress and after every lib update, which re-pins it).
+function Extra.HideStateArt(b)
+  for _, getter in ipairs({ "GetHighlightTexture", "GetCheckedTexture", "GetPushedTexture" }) do
+    local t = call(b[getter], b)
+    if type(t) == "table" and t.SetAlpha then call(t.SetAlpha, t, 0) end
+  end
+  for _, k in ipairs({ "HighlightTexture", "CheckedTexture", "PushedTexture" }) do
+    local t = rawget(b, k)
+    if type(t) == "table" and t.SetAlpha then call(t.SetAlpha, t, 0) end
+  end
+end
+
+function Extra.SetHover(b, on)
+  local hh = b.hh
+  if not hh or not hh.hover then return end
+  local show = on and not (hh.state and hh.state.active) and hh.backdrop and hh.backdrop:IsShown()
+  for _, e in ipairs(hh.hover) do e:SetShown(show and true or false) end
+  hh.hovered = on and true or false
+end
+
+function Extra.SetPressed(b, on)
+  local hh = b.hh
+  if hh and hh.pressFill then hh.pressFill:SetShown(on and true or false) end
+end
+
+--- The lib's checked state -> the active mark (1 / true both mean on).
+function Extra.SetActive(b, on)
+  local hh = b.hh
+  if not hh or not hh.active then return end
+  on = on == true or on == 1
+  Extra.SetState(b, on, hh.state and hh.state.autoAllowed, hh.state and hh.state.autoOn)
+  if on then for _, e in ipairs(hh.hover or {}) do e:Hide() end elseif hh.hovered then Extra.SetHover(b, true) end
+end
+
+--- Give a bar button the marks and the hooks that drive them. Once per button.
+function Extra.MakeMarks(b)
+  local hh = b.hh
+  if not hh or hh.hover then return end
+  Extra.MakeStateLayers(b)
+  hh.hover = edgesOn(b, "OVERLAY", 1, 1, 2, CYAN, 0.55)
+  for _, e in ipairs(hh.hover) do e:Hide() end
+  hh.pressFill = b:CreateTexture(nil, "OVERLAY", nil, 0)
+  hh.pressFill:SetAllPoints(b)
+  hh.pressFill:SetColorTexture(CYAN[1], CYAN[2], CYAN[3], 0.30)
+  hh.pressFill:Hide()
+  Extra.HideStateArt(b)
+  if b.HookScript then
+    pcall(b.HookScript, b, "OnEnter", function(self) Extra.SetHover(self, true) end)
+    pcall(b.HookScript, b, "OnLeave", function(self) Extra.SetHover(self, false) Extra.SetPressed(self, false) end)
+    pcall(b.HookScript, b, "OnMouseDown", function(self) Extra.SetPressed(self, true) end)
+    pcall(b.HookScript, b, "OnMouseUp", function(self) Extra.SetPressed(self, false) end)
+  end
+  Extra.HookChecked(b)
+end
+
+--- The lib's SetChecked -> our active mark. Lazy: a button may grow SetChecked after it is dressed.
+function Extra.HookChecked(b)
+  local hh = b.hh
+  if not hh or hh.checkedHooked then return end
+  if type(b.SetChecked) == "function" and type(hooksecurefunc) == "function" then
+    local ok = pcall(hooksecurefunc, b, "SetChecked", function(self, on) Extra.SetActive(self, on) end)
+    hh.checkedHooked = ok and true or nil
+  end
+end
+
 --- Show the marks for one button. Pure on the button: no API reads.
 function Extra.SetState(b, active, autoAllowed, autoOn)
   local hh = b.hh

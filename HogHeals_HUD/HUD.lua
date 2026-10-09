@@ -3,15 +3,15 @@ HogHealsHUD = HogHealsHUD or {}
 local HHD = HogHealsHUD
 local HH = HogHeals
 
-local HUD = { rows = {}, order = { "castbar", "swing", "mana", "info" } }
+local HUD = { rows = {}, order = { "castbar", "swing", "mana", "xp", "info" } }
 HHD.HUD = HUD
 
 local function db() return HH.db.profile.hud end
 
-local ROW_SHOW = { castbar = "showCastbar", swing = "showSwing", mana = "showMana", info = "showInfo" }
-local ROW_HEIGHT = { castbar = "castbarHeight", swing = "swingHeight", mana = "manaHeight", info = "infoHeight" }
+local ROW_SHOW = { castbar = "showCastbar", swing = "showSwing", mana = "showMana", xp = "showXP", info = "showInfo" }
+local ROW_HEIGHT = { castbar = "castbarHeight", swing = "swingHeight", mana = "manaHeight", xp = "xpHeight", info = "infoHeight" }
 -- rows that show themselves only while something is happening (the slot stays reserved)
-local SELF_SHOWING = { castbar = true, swing = true }
+local SELF_SHOWING = { castbar = true, swing = true, xp = true }   -- xp hides itself at the level cap (XPBar.lua)
 
 function HUD.Create()
   if HUD.anchor then return end
@@ -140,6 +140,29 @@ function HUD.Create()
   mana.tick:Hide()
   HUD.rows.mana = mana
 
+  -- experience: flat fill, rested + quest overlays from the fill head (XPBar.lua draws them), level / numbers left,
+  -- pace right
+  local xp = CreateFrame("StatusBar", "HogHealsHUDXP", container)
+  xp:SetMinMaxValues(0, 1)
+  xp:SetValue(0)
+  xp.bg = xp:CreateTexture(nil, "BACKGROUND")
+  xp.bg:SetAllPoints(xp)
+  xp.bg:SetColorTexture(0.07, 0.07, 0.09, 0.7)
+  xp.rested = xp:CreateTexture(nil, "ARTWORK", nil, 1)
+  xp.rested:SetColorTexture(0.13, 0.83, 0.88, 0.35)
+  xp.rested:Hide()
+  xp.quest = xp:CreateTexture(nil, "ARTWORK", nil, 2)
+  xp.quest:SetColorTexture(0.25, 0.80, 0.35, 0.55)
+  xp.quest:Hide()
+  xp.left = xp:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
+  xp.left:SetPoint("LEFT", xp, "LEFT", 4, 0)
+  xp.left:SetJustifyH("LEFT")
+  xp.right = xp:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
+  xp.right:SetPoint("RIGHT", xp, "RIGHT", -4, 0)
+  xp.right:SetJustifyH("RIGHT")
+  xp:Hide()
+  HUD.rows.xp = xp
+
   local info = CreateFrame("Frame", "HogHealsHUDInfo", container)
   info.left = info:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
   info.left:SetPoint("LEFT", info, "LEFT", 2, 0)
@@ -158,6 +181,7 @@ function HUD.Layout()
   for _, name in ipairs(HUD.order) do
     local row = HUD.rows[name]
     local enabled = d[ROW_SHOW[name]] ~= false
+    if name == "xp" and d.xp and (d.xp.mode or "bar") ~= "row" then enabled = false end   -- its own bar instead (XPBar.lua)
     if enabled then
       local h = d[ROW_HEIGHT[name]] or 12
       row:ClearAllPoints()
@@ -194,8 +218,9 @@ function HUD.ApplyAppearance()
   local font = HH.Look.Font(d.font)
   local tex = HH.Look.Bar(d.texture)
   local size = d.fontSize or 11
-  local cb, mana, info, sw = HUD.rows.castbar, HUD.rows.mana, HUD.rows.info, HUD.rows.swing
+  local cb, mana, info, sw, xp = HUD.rows.castbar, HUD.rows.mana, HUD.rows.info, HUD.rows.swing, HUD.rows.xp
   cb:SetStatusBarTexture(tex); cb.gcd:SetStatusBarTexture(tex); mana:SetStatusBarTexture(tex); sw:SetStatusBarTexture(tex)
+  if xp then xp:SetStatusBarTexture(tex) end
   cb.text:SetFont(font, size, "OUTLINE"); cb.time:SetFont(font, size, "OUTLINE")
   local ss = (d.swing and (d.swing.fontSize or 0) > 0) and d.swing.fontSize or (size + 1)
   sw.text:SetFont(font, ss, "OUTLINE"); sw.time:SetFont(font, ss, "OUTLINE")
@@ -211,7 +236,7 @@ end
 function HUD.Refresh()
   HUD.Layout()
   HUD.ApplyAppearance()
-  for _, part in ipairs({ "Castbar", "Swing", "Mana", "Pacing", "RankAdvisor" }) do
+  for _, part in ipairs({ "Castbar", "Swing", "Mana", "XPBar", "Pacing", "RankAdvisor" }) do
     local p = HHD[part]
     if p and p.Refresh then HH:SafeCall(p, "Refresh") end
   end
@@ -225,7 +250,7 @@ function Module:OnEnable()
   HUD.Create()
   HUD.Layout()
   HUD.ApplyAppearance()
-  for _, part in ipairs({ "Castbar", "Swing", "Mana", "Pacing", "RankAdvisor" }) do
+  for _, part in ipairs({ "Castbar", "Swing", "Mana", "XPBar", "Pacing", "RankAdvisor" }) do
     local p = HHD[part]
     if p and p.Init then HH:SafeCall(p, "Init") end
   end
@@ -235,6 +260,7 @@ end
 function Module:OnProfileChanged() HUD.Refresh() end
 
 function Module:SetLocked(locked)
+  if HHD.XPBar and HHD.XPBar.SetUnlocked then HHD.XPBar.SetUnlocked(not locked) end
   if not HUD.anchor then return end
   HUD.anchor:EnableMouse(not locked)
   if locked then HUD.anchor:Hide() else HUD.anchor:Show() end

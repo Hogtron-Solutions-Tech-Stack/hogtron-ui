@@ -149,6 +149,10 @@ function Module:OnEnable()
   HH:SafeCall(HHQ.WorldMap, "Apply")
   HH:SafeCall(HHQ.Buttons, "Apply")
   HHQ.Pins.Start()
+  HH:SafeCall(HHQ.Waypoint, "Start")
+  HH:SafeCall(HHQ.Auto, "Start")
+  HH:SafeCall(HHQ.Announce, "Start")
+  HH:SafeCall(HHQ.Tooltip, "Start")
   -- position + quest data are not ready at login on every client: probe a few seconds in
   if C_Timer and C_Timer.After then C_Timer.After(5, function() HH:SafeCall(Module, "WriteProbe") end) end
 end
@@ -163,6 +167,7 @@ end
 function Module:OnProfileChanged()
   HHQ.Tracker.Refresh()
   HHQ.Pins.Refresh()
+  HH:SafeCall(HHQ.Waypoint, "Refresh")
   HH:SafeCall(HHQ.MapSkin, "Refresh")
   HH:SafeCall(HHQ.WorldMap, "Refresh")
   HH:SafeCall(HHQ.Buttons, "Refresh")

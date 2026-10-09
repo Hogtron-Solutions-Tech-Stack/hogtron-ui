@@ -862,3 +862,105 @@ def test_decorations_that_come_back_over_the_menu_buttons_and_the_bar_are_swept_
     assert "SpellbookMicroButtonAlertGlow" in diag and "BackpackHighlightAgain" in diag          # /hh skindiag names them
     assert skin.eval("HogHealsMicroBar._alpha") == 1 and skin.eval("HogHealsMicroBarBags._alpha") == 1
     assert errors(skin) == []
+
+
+
+def test_the_two_stray_borders_bottom_right_go_too(skin):
+    # Sean 2026-10-08 in game, /fstack: BagsBar.BorderArt, MicroMenu.BorderArt / BackgroundArt, StoreMicroButton.Background,
+    # and the key ring (an ItemButton) still wearing its slot art beside our bar
+    skin.execute("""
+      BagsBar.BorderArt = BagsBar:CreateTexture(); BagsBar.BorderArt:SetTexture("bag-border")
+      MicroMenu.BorderArt = MicroMenu:CreateTexture(); MicroMenu.BorderArt:SetTexture("menu-border")
+      MicroMenu.BackgroundArt = MicroMenu:CreateTexture(); MicroMenu.BackgroundArt:SetTexture("menu-bg")
+      StoreMicroButton = StoreMicroButton or CreateFrame("Button", "StoreMicroButton", MicroMenu)
+      function StoreMicroButton:GetLeft() return 470 end
+      function StoreMicroButton:GetRight() return 480 end
+      StoreMicroButton.Background = StoreMicroButton:CreateTexture(); StoreMicroButton.Background:SetTexture("store-bg")
+      KeyRingButton = CreateFrame("ItemButton", "KeyRingButton", BagsBar)
+      KeyRingButton.NormalTexture = KeyRingButton:CreateTexture(); KeyRingButton.NormalTexture:SetTexture("slot-frame")
+      KeyRingButton.SlotHighlightTexture = KeyRingButton:CreateTexture(); KeyRingButton.SlotHighlightTexture:SetTexture("slot-hl")
+      HogHealsSkin.Micro.Apply()
+    """)
+    for tex in ("BagsBar.BorderArt", "MicroMenu.BorderArt", "MicroMenu.BackgroundArt", "StoreMicroButton.Background", "KeyRingButton.NormalTexture", "KeyRingButton.SlotHighlightTexture"):
+        assert skin.eval(f"{tex}._alpha") == 0 and skin.eval(f"{tex}._texture") is None, tex
+    assert skin.eval("KeyRingButton._alpha") == 0 and skin.eval("StoreMicroButton._alpha") == 0
+    skin.execute("KeyRingButton:SetAlpha(1); StoreMicroButton:SetAlpha(1)")       # Blizzard shows them again: kept faded
+    assert skin.eval("KeyRingButton._alpha") == 0 and skin.eval("StoreMicroButton._alpha") == 0
+    assert "BagsBar.BorderArt" in skin.eval("HogHealsSkin.Micro.looseDiag")
+    # the strip off and the Bags cell off: both come back
+    skin.execute('HogHeals.db.profile.skin.micro.strip = false; HogHeals.db.profile.skin.bagBar.mode = "slots"; HogHealsSkin.Micro.Apply()')
+    assert skin.eval("StoreMicroButton._alpha") == 1
+def test_tooltips_dock_to_the_anchor_box_which_drags_when_unlocked(skin):
+    # Sean 2026-10-08 in game: "I want to be able to move the tooltip ... when we do /hh unlock"
+    T = "HogHealsSkin.Tooltip"
+    assert skin.eval("HogHealsTooltipAnchor ~= nil")
+    pt = list(skin.eval("{ HogHealsTooltipAnchor:GetPoint() }").values())
+    assert pt[0] == "BOTTOMRIGHT" and pt[3] == -40 and pt[4] == 120
+    skin.execute("GameTooltip_SetDefaultAnchor(GameTooltip, UIParent)")
+    assert skin.eval("GameTooltip._anchor") == "ANCHOR_NONE"
+    tp = list(skin.eval("{ GameTooltip:GetPoint() }").values())
+    assert tp[0] == "BOTTOMRIGHT" and skin.eval("select(2, GameTooltip:GetPoint()) == HogHealsTooltipAnchor") is True
+    assert skin.eval(f"{T}.docked") == 1
+    # locked: invisible and mouse-through; unlocked: cyan box, drags, saves
+    assert skin.eval("HogHealsTooltipAnchor.bg:IsShown()") is False and skin.eval("HogHealsTooltipAnchor:IsShown()") is True
+    skin.execute('HogHeals:SlashCommand("unlock")')
+    assert skin.eval("HogHealsTooltipAnchor.bg:IsShown()") is True and skin.eval("HogHealsTooltipAnchor.label:IsShown()") is True
+    skin.execute("""
+      HogHealsTooltipAnchor:GetScript("OnDragStart")(HogHealsTooltipAnchor)
+      HogHealsTooltipAnchor:ClearAllPoints(); HogHealsTooltipAnchor:SetPoint("CENTER", UIParent, "CENTER", 300, -200)
+      HogHealsTooltipAnchor:GetScript("OnDragStop")(HogHealsTooltipAnchor)
+    """)
+    c = skin.eval("HogHeals.db.profile.skin.tooltips")
+    assert c["point"] == "CENTER" and c["x"] == 300 and c["y"] == -200
+    skin.execute('HogHeals:SlashCommand("lock")')
+    assert skin.eval("HogHealsTooltipAnchor.bg:IsShown()") is False
+    # the cursor option wins; the box option off = Blizzard's own spot
+    skin.execute("HogHeals.db.profile.skin.tooltips.anchorCursor = true")
+    assert skin.eval(f"{T}.Dock(GameTooltip, UIParent)") == "cursor" and skin.eval("GameTooltip._anchor") == "ANCHOR_CURSOR"
+    skin.execute("HogHeals.db.profile.skin.tooltips.anchorCursor = false; HogHeals.db.profile.skin.tooltips.anchor = false")
+    assert skin.eval(f"{T}.Dock(GameTooltip, UIParent)") == "blizzard"
+    # reset + size from the options
+    skin.execute(f"HogHeals.db.profile.skin.tooltips.anchor = true; {T}.ResetAnchor()")
+    pt = list(skin.eval("{ HogHealsTooltipAnchor:GetPoint() }").values())
+    assert pt[0] == "BOTTOMRIGHT" and pt[3] == -40
+    skin.execute("HogHeals.OptionsTable().args.Skin.args.tooltips.args.width.set(nil, 300)")
+    assert skin.eval("HogHealsTooltipAnchor:GetWidth()") == 300
+    # edit mode lists it as a gear target
+    keys = [t["key"] for t in skin.eval("HogHeals.EditMode.Targets()").values()]
+    assert "tooltip" in keys
+def test_blizzards_xp_bar_hides_while_the_hogtron_ui_bar_owns_it(skin):
+    skin.execute("MainMenuExpBar = MainMenuExpBar or CreateFrame('StatusBar', 'MainMenuExpBar', UIParent); MainMenuExpBar:Show()")
+    skin.execute("HogHeals.XPBarOwned = true; HogHealsSkin.Extras.SkinXP()")
+    assert skin.eval("MainMenuExpBar:IsShown()") is False and skin.eval("HogHealsSkin.Extras.blizzardXP") == "hidden"
+    skin.execute("MainMenuExpBar:Show()")                                   # Blizzard shows it again: kept hidden
+    assert skin.eval("MainMenuExpBar:IsShown()") is False
+    skin.execute("HogHeals.XPBarOwned = false; HogHealsSkin.Extras.SkinXP()")
+    assert skin.eval("MainMenuExpBar:IsShown()") is True and skin.eval("HogHealsSkin.Extras.blizzardXP") == "shown"
+    assert errors(skin) == []
+
+
+
+def test_the_backpacks_own_slot_art_goes_and_the_slots_hide_in_bags_cell_mode(skin):
+    # Sean 2026-10-08 after a restart: MainMenuBarBackpackButton still wore ui-hud-actionbar-iconframe-bags on its
+    # NormalTexture / SlotHighlightTexture plus an unnamed mouseover atlas ("the worm")
+    skin.execute("""
+      local b = MainMenuBarBackpackButton
+      b.NormalTexture = b:CreateTexture(); b.NormalTexture:SetAtlas("ui-hud-actionbar-iconframe-bags")
+      b.SlotHighlightTexture = b:CreateTexture(); b.SlotHighlightTexture:SetAtlas("ui-hud-actionbar-iconframe-bags")
+      b.unnamed = b:CreateTexture(); b.unnamed:SetAtlas("UI-HUD-ActionBar-IconFrame-Mouseover")
+      HogHealsSkin.Micro.Apply()
+    """)
+    for tex in ("NormalTexture", "SlotHighlightTexture", "unnamed"):
+        assert skin.eval(f"MainMenuBarBackpackButton.{tex}._alpha") == 0, tex
+    assert skin.eval("MainMenuBarBackpackButton.icon._alpha") == 1                        # the icon stays
+    assert skin.eval("MainMenuBarBackpackButton:IsShown()") is False                      # hidden outright in Bags-cell mode
+    skin.execute("MainMenuBarBackpackButton:Show()")
+    assert skin.eval("MainMenuBarBackpackButton:IsShown()") is False                      # and kept so
+    # a late sweep (the bar rebuilt after login) does it again without error
+    skin.execute("HogHealsSkin.Micro.SweepSoon('late'); MockAdvance(0.3)")
+    assert skin.eval("MainMenuBarBackpackButton:IsShown()") is False
+    # slots mode: the button is back, its art still flat
+    skin.execute('HogHeals.db.profile.skin.bagBar.mode = "slots"; HogHealsSkin.Micro.Apply()')
+    assert skin.eval("MainMenuBarBackpackButton:IsShown()") is True
+    assert skin.eval("MainMenuBarBackpackButton.NormalTexture._alpha") == 0
+    assert errors(skin) == []

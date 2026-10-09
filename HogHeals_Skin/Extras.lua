@@ -175,8 +175,31 @@ function Part.ProbeXP()
   return out
 end
 
+-- Blizzard's experience bar off while the HogTron UI bar owns it (HH.XPBarOwned, HogHeals_HUD/XPBar.lua), back when not.
+Part.XP_FRAMES = { "StatusTrackingBarManager", "MainMenuExpBar", "ReputationWatchBar" }
+function Part.HideBlizzardXP(hide)
+  local n = 0
+  for _, name in ipairs(Part.XP_FRAMES) do
+    local f = Skin.G(name)
+    if type(f) == "table" and f.Hide then
+      if hide then
+        f.hhUnhidden = nil
+        if Skin.HideFrame then Skin.HideFrame(f) else Skin.call(f.Hide, f) end
+        n = n + 1
+      elseif f.hhHideHooked then
+        f.hhUnhidden = true
+        Skin.call(f.Show, f)
+      end
+    end
+  end
+  Part.blizzardXP = hide and "hidden" or "shown"
+  return n
+end
+
 function Part.SkinXP()
   local d = Skin.cfg().extras
+  Part.HideBlizzardXP(HH.XPBarOwned == true)
+  if HH.XPBarOwned then return 0 end
   if not d or d.xpBar == false then return 0 end
   local n = 0
   for _, a in ipairs(Part.XP_ART) do Skin.Kill(Skin.G(a)) end

@@ -46,6 +46,7 @@ function EM.Targets()
   end
   add({ key = "frames", path = "Frames.layout", title = "Party / raid frames", mover = G("HogHealsAnchor"), how = "click" })
   add({ key = "hud", path = "HUD.layout", title = "HUD", mover = G("HogHealsHUDAnchor"), how = "click" })
+  add({ key = "xp", path = "HUD.xp", title = "Experience bar", mover = G("HogHealsXPBar"), how = "gear" })
   local tracker = G("HogHealsQuestTracker")
   add({ key = "tracker", path = "Quests.tracker", title = "Quest tracker", mover = tracker, saver = tracker and tracker.header, how = "gear" })
   local meter = G("HogHealsMeterFrame")
@@ -54,6 +55,7 @@ function EM.Targets()
     add({ key = "unit:" .. unit, path = "Units." .. unit, title = EM.UNIT_LABEL[unit], mover = G(name), how = "gear" })
   end
   add({ key = "infobar", path = "Skin.infobar", title = "Info bar", mover = G("HogUIInfoBar"), how = "gear" })
+  add({ key = "tooltip", path = "Skin.tooltips", title = "Tooltips", mover = G("HogHealsTooltipAnchor"), how = "gear" })
   add({ key = "micro", path = "Skin.micro", title = "Menu bar", mover = G("HogHealsMicroBar"), how = "gear" })
   table.sort(out, function(a, b) return a.key < b.key end)
   return out
@@ -120,7 +122,7 @@ function EM.Open(t)
   if not EM.Find(t.path) then HH:Print(("edit: no settings found for %s (%s)"):format(t.title, t.path)) end
   local P = HH.Panel
   if not P or not P.Open then return false end
-  P.Open(EM.Source(t), { compact = true, anchor = t.mover, title = t.title })
+  P.Open(EM.Source(t), { compact = true, anchor = t.mover, title = t.title, actions = P.ActionsFor and P.ActionsFor(t.key) or nil })
   EM.current = t
   return true
 end

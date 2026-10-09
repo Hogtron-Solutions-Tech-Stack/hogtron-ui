@@ -118,13 +118,23 @@ HH.defaults = {
       -- the GO row on the tracker (Go.lua): the quest to do next by rule fastest | balanced | travel; superTrack = the
       -- game's own arrow follows the pick
       go = { enabled = true, rule = "balanced", superTrack = true },
+      -- the marker in the world over the super-tracked quest (Waypoint.lua): anchored to Blizzard's navigation frame,
+      -- hideBlizzard = its icon / text transparent under ours; eta at your pace; arrow = edge arrow when off-screen;
+      -- near = yards inside which the marker dims to nearAlpha
+      waypoint = { enabled = true, hideBlizzard = true, title = true, eta = true, progress = true, arrow = true, near = 10, nearAlpha = 0.5, scale = 1, fontSize = 12 },
+      -- Questie's quality-of-life half without its database (Auto / Announce / Tooltip.lua); each defers to Questie when
+      -- it is loaded. auto: pauseKey SHIFT | CTRL | ALT | NONE held = nothing automatic; chooseReward false = a real
+      -- choice (2+ items) is always yours. announce: party = PARTY / RAID when grouped, self = your own chat frame.
+      auto = { enabled = true, accept = true, turnIn = true, gossip = true, chooseReward = false, acceptTrivial = true, pauseKey = "SHIFT" },
+      announce = { enabled = true, party = true, self = false, accepted = false, turnedIn = false },
+      tooltip = { enabled = true, units = true, items = true },
       minimap = { enabled = true, edge = true, watchedOnly = false, turnInInRange = false, size = 16 },   -- Forever draws areas only, not points
       map = { enabled = true, fill = true, size = 180, zoneText = true, wheelZoom = true, hideDecor = true, dockButtons = true },
       -- the world map (M): coordinates strip, scale, fade while moving, border art off (skipped when Leatrix Maps runs)
       -- coords + skin OFF: in game 2026-09-23 this client's "Map & Quest Log" frame already prints the player's
       -- coordinates, and hiding its art left holes ("this looks terrible"). Both stay as opt-ins.
       worldMap = { enabled = true, coords = false, scale = 1.0, fadeWhileMoving = true, skin = false, alpha = 0.95 },
-      buttons = { enabled = true, side = "left", columns = 4, size = 28, alpha = 0.92, hover = false, autoClose = true },   -- addon minimap icons in one drawer; side: left (opens toward the screen) | right (opens down); point/x/y once dragged
+      buttons = { enabled = true, side = "left", columns = 4, size = 28, alpha = 0.92, hover = false, autoClose = true, hogui = true },   -- hogui = the HogTron UI entries (Core/Tray.lua) first in the drawer   -- addon minimap icons in one drawer; side: left (opens toward the screen) | right (opens down); point/x/y once dragged
     },
     training = { enabled = true, nudge = true },   -- HogHeals_Training: learned at the trainer; nudge = chat line on level-up
     chat = {
@@ -133,6 +143,10 @@ HH.defaults = {
     },
     plates = {
       enabled = true,                 -- restyle Blizzard's nameplates (flat bar, outline, health text)
+      -- friendlyPets: pets, minions (warlock demons) and guardians get a plate (nameplateShowFriendlyPets / Minions /
+      -- Guardians), so their names are ours too - without one the engine draws its own small blue name that no addon
+      -- can touch (Sean 2026-10-08, "Villa Voodoo's Minion"). friendlyTotems: totems the same way (noisy, off).
+      friendlyPets = true, friendlyTotems = false,
       font = "HogTron", fontSize = 13, healthText = "percent",   -- "percent" | "value" | "none"
       barHeight = 14, widthScale = 1.3,   -- bar height in px; plate width as a multiple of Blizzard's (cvar)
       flatBar = true,                 -- plain flat bar: all of Blizzard's art on the health bar hidden (heal / absorb kept)
@@ -160,8 +174,8 @@ HH.defaults = {
     },
     hud = {
       x = 0, y = -180, width = 300, followFrames = false,
-      castbarHeight = 18, swingHeight = 16, manaHeight = 12, infoHeight = 14, rowSpacing = 2,
-      showCastbar = true, showSwing = true, showMana = true, showInfo = true,
+      castbarHeight = 18, swingHeight = 16, manaHeight = 12, xpHeight = 10, infoHeight = 14, rowSpacing = 2,
+      showCastbar = true, showSwing = true, showMana = true, showXP = true, showInfo = true,
       font = "HogTron", fontSize = 11, texture = "Solid",
       castbar = {
         icon = true, showTarget = true, latency = true, gcd = false, hideBlizzard = true, precision = 1,
@@ -173,6 +187,13 @@ HH.defaults = {
       -- ink frame; fontSize 0 = the strip's font one step larger (Sean 2026-10-05: bigger, wider, cleaner)
       swing = { color = { 0.96, 0.92, 0.86 }, text = true, precision = 1, hideWhenIdle = true, width = 0, spark = true, outline = true, fontSize = 0 },
       mana = { textMode = "cur", showTicks = true, showFsrText = true, fsrColor = { 0.13, 0.83, 0.88 }, tickColor = { 0.96, 0.92, 0.86 } },
+      -- experience bar (XPBar.lua): showXP above is the on / off. questMode "complete" = reward xp of the quests ready
+      -- to turn in, "all" = every quest in the log; hideAtMax = gone at the level cap; fontSize 0 = strip font one step smaller
+      -- mode "bar" = its own bar, the whole screen width along the top until dragged (point/x/y), width 0 = screen;
+      -- "row" = a row in the strip (xpHeight). Blizzard's experience bar is hidden while ours is the bar.
+      xp = { mode = "bar", height = 10, width = 0, color = { 0.13, 0.83, 0.88 }, restedColor = { 0.13, 0.83, 0.88 }, restedAlpha = 0.35,
+        questColor = { 0.25, 0.80, 0.35 }, questAlpha = 0.55, text = true, showRested = true, showQuest = true, showPace = true,
+        questMode = "complete", hideAtMax = true, fontSize = 0 },
       pacing = { enabled = true, targetLength = 300, amber = 60, red = 20, showProjection = true },
       advisor = { enabled = true, margin = 0.9, onFrame = false, spells = {} },
     },
@@ -201,7 +222,9 @@ HH.defaults = {
       micro = { enabled = true, scale = 1, strip = true, size = 30, tint = true, tintStrength = 0.6 },   -- strip: HogTron UI glyph buttons instead of Blizzard's art; point/x/y once dragged; tint = colour per glyph
       bagBar = { enabled = true, mode = "button", scale = 1.2 },   -- mode: button = one Bags cell in the menu bar (slots hidden) | slots = Blizzard's slots flattened; scale for slots
       bags = { enabled = true, qualityMin = 2, fontSize = 12, backgroundAlpha = 0.85 },
-      tooltips = { enabled = true, alpha = 0.9, fontSize = nil, anchorCursor = false },
+      -- anchor = tooltips with no spot of their own dock to the HogHealsTooltipAnchor box (drag it in /hh unlock; the
+      -- gear on it opens these settings); anchorCursor wins over it. point/x/y = the box, saved by dragging.
+      tooltips = { enabled = true, alpha = 0.9, fontSize = nil, anchorCursor = false, anchor = true, point = "BOTTOMRIGHT", x = -40, y = 120, width = 220, height = 90 },
       extras = { buffs = true, xpBar = true, mirror = true, durationSize = 10 },   -- mirror = breath / fatigue timers
       infoBar = { enabled = true, width = 640, height = 18, fontSize = 11, backgroundAlpha = 0.8, refresh = 1,
         time24 = false, serverTime = false, point = "BOTTOM", x = 0, y = 0,

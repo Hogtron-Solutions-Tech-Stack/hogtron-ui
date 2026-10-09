@@ -147,7 +147,7 @@ def test_tracker_click_opens_and_right_click_toggles_watch(modern):
       HogHealsQuests.Tracker.titles[1]:Click("LeftButton")
     ''')
     assert modern.eval('OPENED') == 7
-    modern.execute('HogHealsQuests.Tracker.titles[1]:Click("RightButton")')
+    modern.execute('HogHealsQuests.Tracker.titles[1]:Click("RightButton")')   # no menu system in the mock -> the old toggle
     assert modern.eval('QWatched[7]') is None
 
 
