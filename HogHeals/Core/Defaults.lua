@@ -137,6 +137,7 @@ HH.defaults = {
       buttons = { enabled = true, side = "left", columns = 4, size = 28, alpha = 0.92, hover = false, autoClose = true, hogui = true },   -- hogui = the HogTron UI entries (Core/Tray.lua) first in the drawer   -- addon minimap icons in one drawer; side: left (opens toward the screen) | right (opens down); point/x/y once dragged
     },
     training = { enabled = true, nudge = true },   -- HogHeals_Training: learned at the trainer; nudge = chat line on level-up
+    journal = { enabled = true, autoOpen = true, partySummary = false, scale = 1 },   -- HogHeals_Journal: healer's dungeon journal; autoOpen = first dungeon entry per session; partySummary = one party-chat line (OFF)
     chat = {
       enabled = true, backgroundAlpha = 0.6, fontSize = nil, outline = false,   -- fontSize nil = keep Blizzard's size
       shortChannels = true, classNames = true, fade = true, hideButtons = true, hideMenuButtons = false, urlCopy = true,
