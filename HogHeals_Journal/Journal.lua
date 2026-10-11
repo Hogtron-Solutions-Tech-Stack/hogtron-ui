@@ -135,6 +135,9 @@ function J.Dungeon(what)
   local w = what:lower()
   for _, d in ipairs(D) do if d.key == w then return d end end
   for _, d in ipairs(D) do if d.name:lower() == w then return d end end
+  -- Forever's Group Finder says "Deadmines"; the old game said "The Deadmines": a leading "the" never decides
+  local bare = w:gsub("^the ", "")
+  for _, d in ipairs(D) do if d.name:lower():gsub("^the ", "") == bare then return d end end
 end
 
 function J.Dungeons() return J.Data.Dungeons end

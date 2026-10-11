@@ -94,7 +94,7 @@ def test_wailing_caverns_is_the_proof_of_concept(jr):
     assert "Mutanus the Devourer" in names and "Verdan the Everliving" in names
     assert jr.eval(f"{J}.Dungeon('wc').inst") == 43
     assert jr.eval(f"{J}.Dungeon('wailing caverns').key") == "wc"
-    assert jr.eval(f"{J}.Dungeon(36)") is None and jr.eval(f"{J}.Dungeon('deadmines')") is None
+    assert jr.eval(f"{J}.Dungeon(246)") is None and jr.eval(f"{J}.Dungeon('scholomance')") is None
     assert "not verified on Forever" in jr.eval(f"{J}.Data.SOURCE")
 
 
@@ -180,12 +180,12 @@ def test_auto_open_option_off_keeps_it_closed(jr):
 
 
 def test_unknown_dungeon_says_so_once_and_does_not_open(jr):
-    enter(jr, inst=36, name="The Deadmines")
+    enter(jr, inst=9999, name="Hall of Thanes")
     assert jr.eval(f"{J}.module.last") == "no data"
-    assert "no page for The Deadmines yet (instance 36)" in chat(jr)
+    assert "no page for Hall of Thanes yet (instance 9999)" in chat(jr)
     assert jr.eval(f"{J}.Window.frame") is None
     jr.execute("wipe(MockLog.chat)")
-    enter(jr, inst=36, name="The Deadmines")
+    enter(jr, inst=9999, name="Hall of Thanes")
     assert "no page for" not in chat(jr)   # once per session (the core's own zone-in lines may print)
 
 
@@ -219,8 +219,11 @@ def test_window_lists_bosses_left_and_detail_right(jr):
     assert errors(jr) == []
 
 
-def test_every_shipped_page_fits_the_right_pane(jr):
-    jr.execute('HogHeals:SlashCommand("journal wc")')
+@pytest.mark.parametrize("key", ["rfc", "wc", "vc", "sfk"])
+def test_every_shipped_page_fits_the_right_pane(jr, key):
+    jr.execute(f'HogHeals:SlashCommand("journal {key}")')
+    assert jr.eval(f"{J}.Window.dungeon.key") == key
+    jr.execute(f'{J}.Window.SetTab("bosses")')
     n = jr.eval(f"#{J}.Window.leftRows")
     for i in range(1, n + 1):
         jr.execute(f"{J}.Window.ClickLeft({i})")
@@ -232,12 +235,23 @@ def test_every_shipped_page_fits_the_right_pane(jr):
         assert jr.eval(f"{J}.Window.rightOverflow") == 0, jr.eval(f"{J}.Window.leftRows[{i}].text")
 
 
+def test_lookup_forgives_a_leading_the_and_knows_forevers_new_dungeons_have_no_page(jr):
+    assert jr.eval(f"{J}.Dungeon('Deadmines').key") == "vc"          # Forever's Group Finder name
+    assert jr.eval(f"{J}.Dungeon('The Deadmines').key") == "vc"      # the old name
+    assert jr.eval(f"{J}.Dungeon(389).key") == "rfc" and jr.eval(f"{J}.Dungeon(33).key") == "sfk"
+    for name in ("Ruins of Lordaeron", "City of Dalaran", "Excavation Site: Wetlands", "Hall of Thanes"):
+        assert jr.eval(f"{J}.Dungeon('{name}')") is None, name
+    enter(jr, inst=9999, name="Ruins of Lordaeron")
+    assert jr.eval(f"{J}.module.last") == "no data" and "no page for Ruins of Lordaeron yet" in chat(jr)
+
+
 def test_no_dungeon_shows_the_list_and_the_stub(jr):
     jr.execute('HogHeals:SlashCommand("journal")')
     left = vals(jr.eval(f"{J}.Window.leftRows"))
-    assert left[0]["kind"] == "dungeon" and left[0]["text"] == "Wailing Caverns" and left[0]["right"] == "17-24"
+    assert left[0]["kind"] == "dungeon" and left[0]["text"] == "Ragefire Chasm" and left[0]["right"] == "13-18"
+    assert [r["text"] for r in left] == ["Ragefire Chasm", "Wailing Caverns", "The Deadmines", "Shadowfang Keep"]
     assert jr.eval(f"{J}.Window.rightRows[1].text") == "Pick a dungeon on the left."
-    jr.execute(f"{J}.Window.ClickLeft(1)")
+    jr.execute(f"{J}.Window.ClickLeft(2)")
     assert jr.eval(f"{J}.Window.dungeon.key") == "wc"
     # inside an unknown dungeon the stub names it
     jr.execute(f'{J}.Window.SetDungeon(nil); INST = {{ id = 36, name = "The Deadmines" }}; {J}.Window.Refresh()')

@@ -11,11 +11,11 @@ local Window = { tab = "bosses", boss = 1, quest = 1 }
 J.Window = Window
 
 local C = J.COLORS
-local W, H = 760, 470
+local W, H = 760, 480
 local TOP, PAD = 30, 10
 local LEFT_W = 230
 local LEFT_ROWS, LEFT_ROW_H = 20, 19
-local RIGHT_ROWS, RIGHT_ROW_H = 24, 15
+local RIGHT_ROWS, RIGHT_ROW_H = 30, 13   -- Arugal's page is 29 rows
 local TABS = { { "bosses", "Bosses" }, { "quests", "Quests" } }
 
 local function fs(parent, color, justify, template)
