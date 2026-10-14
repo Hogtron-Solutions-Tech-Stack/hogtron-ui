@@ -71,6 +71,7 @@ jobs:
           name: HogTronUI-build
           path: .release/HogTronUI-*.zip
           if-no-files-found: error
+          include-hidden-files: true   # .release/ is a dot-dir; v4 skips those by default
 
       - name: Upload (tag only)
         if: env.IS_TAG == 'true'
