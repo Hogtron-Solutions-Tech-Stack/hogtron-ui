@@ -1,15 +1,32 @@
 package-as: HogHeals
 
 # Libraries are vendored in HogHeals/Libs (no externals) so local dev == packaged build.
+#
+# The repo root holds every addon folder side by side. The packager copies the root into
+# .release/HogHeals, so each folder is moved up one level to sit next to it in the zip.
+# Core (HogHeals/HogHeals) MUST stay last: it moves into the package dir itself, and by then
+# the other folders have to be gone from it. A folder missing here ships nested and the game
+# never loads it - .github/workflows/release.yml checks the zip has every HogHeals* folder.
 
 move-folders:
+  HogHeals/HogHeals_Atlas: HogHeals_Atlas
+  HogHeals/HogHeals_Bars: HogHeals_Bars
+  HogHeals/HogHeals_Chat: HogHeals_Chat
   HogHeals/HogHeals_Frames: HogHeals_Frames
   HogHeals/HogHeals_HUD: HogHeals_HUD
+  HogHeals/HogHeals_Meter: HogHeals_Meter
+  HogHeals/HogHeals_Plates: HogHeals_Plates
+  HogHeals/HogHeals_Quests: HogHeals_Quests
+  HogHeals/HogHeals_Skin: HogHeals_Skin
+  HogHeals/HogHeals_Training: HogHeals_Training
+  HogHeals/HogHeals_Units: HogHeals_Units
+  HogHeals/HogHeals: HogHeals
 
 ignore:
   - tests
   - docs
   - dev
+  - dist
   - .github
   - .gitattributes
   - requirements-dev.txt

@@ -4,12 +4,14 @@ Usage: python dev/package.py                 # dry run: lists what would go in, 
        python dev/package.py --write         # writes dist/HogTronUI-<version>.zip
        python dev/package.py --write --version 0.1.0-beta.1
 
-The version defaults to the ## Version in HogHeals/HogHeals.toc. The zip unpacks straight into Interface/AddOns:
+The version defaults to `git describe --tags` (tocs carry the packager token @project-version@, which this script
+rewrites to the version in every .toc and .lua it zips, same as the CurseForge build). The zip unpacks straight into Interface/AddOns:
 every HogHeals*/ folder at the top level (Lua, toc, xml, Libs, Media), with tests, dev tooling, docs and dotfiles
 left out. Refuses to write when a folder's toc lists a file that is missing (same check as dev/lint.py).
 """
 from __future__ import annotations
 
+import subprocess
 import sys
 import zipfile
 from pathlib import Path
@@ -19,11 +21,20 @@ KEEP = {".lua", ".toc", ".xml", ".tga", ".blp", ".ttf", ".otf", ".txt", ".md"}
 SKIP_DIRS = {"__pycache__", ".git", ".scratch"}
 
 
+TOKEN = "@project-version@"
+
+
 def version() -> str:
     for line in (ROOT / "HogHeals" / "HogHeals.toc").read_text(encoding="utf-8").splitlines():
         if line.startswith("## Version:"):
-            return line.split(":", 1)[1].strip()
-    return "0.0.0"
+            v = line.split(":", 1)[1].strip()
+            if v and not v.startswith("@"):
+                return v
+    try:
+        out = subprocess.run(["git", "describe", "--tags", "--always"], cwd=ROOT, capture_output=True, text=True, check=True)
+        return out.stdout.strip().removeprefix("v") or "dev"
+    except (OSError, subprocess.CalledProcessError):
+        return "dev"
 
 
 def addon_files() -> list[Path]:
@@ -78,7 +89,13 @@ def main() -> int:
     out = dist / f"HogTronUI-{ver}.zip"
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
         for f in files:
-            z.write(f, f.relative_to(ROOT).as_posix())
+            arc = f.relative_to(ROOT).as_posix()
+            if f.suffix.lower() in (".toc", ".lua") and "/Libs/" not in f"/{arc}":
+                text = f.read_text(encoding="utf-8")
+                if TOKEN in text:
+                    z.writestr(arc, text.replace(TOKEN, ver))
+                    continue
+            z.write(f, arc)
     print(f"wrote {out} ({out.stat().st_size / 1e6:.1f} MB)")
     return 0
 
