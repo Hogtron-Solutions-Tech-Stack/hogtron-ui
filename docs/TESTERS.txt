@@ -49,11 +49,11 @@ KNOWN LIMITS ON FOREVER
 -----------------------
 The Forever client hides some numbers from addons in combat (health, auras, names can be "secret").
 Where that happens a feature goes quiet instead of erroring: incoming heals, missing-buff warnings,
-the DoT skull. /hh diag and /hh platediag print what this client allowed.
+the DoT skull. /hh apicheck and /hh platediag print what this client allowed.
 
 WHEN SOMETHING BREAKS
 ---------------------
-1. /hh diag          then /reload. The diagnostics are written to
+1. /hh errors        then /reload. The diagnostics are written to
    WTF\Account\<you>\SavedVariables\HogHeals.lua - attach that file.
 2. A screenshot of the problem, with the chat window visible if there was an error.
 3. One line: what you did, what you expected, what you saw.
