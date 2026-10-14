@@ -59,7 +59,11 @@ local function metadata(key)
   if C_AddOns and C_AddOns.GetAddOnMetadata then return C_AddOns.GetAddOnMetadata(ADDON, key) end
   if GetAddOnMetadata then return GetAddOnMetadata(ADDON, key) end
 end
-HH.version = metadata("Version") or "dev"
+-- Release zips get the tag here (the packager rewrites @project-version@); a git checkout still has the raw
+-- token, which reads as "dev" so nobody reports a bug against "@project-version@".
+local tocVersion = metadata("Version")
+-- Tags are v1.2.3 and the panel already prints "v" .. version, so the leading v goes.
+HH.version = (tocVersion and tocVersion ~= "" and not tocVersion:find("^@")) and (tocVersion:gsub("^v", "")) or "dev"
 
 --- Register a child module. tbl may define OnInitialize(), OnEnable(), OnProfileChanged(), GetOptions().
 function HH:RegisterModule(name, tbl)
