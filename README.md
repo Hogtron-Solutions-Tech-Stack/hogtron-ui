@@ -3,7 +3,7 @@
 HogTron's UI suite for **World of Warcraft: Forever** (Classic+), Anniversary (TBC) and Classic Era: healer frames (HogHeals), HUD, meter, quests & map, nameplates, chat, unit frames and a skin for Blizzard's bars, bags and tooltips.
 Opinionated, small, mouseover-first. Not another ElvUI — the one good thing from each, nothing else.
 
-> Naming: **HogTron UI** is the umbrella; **HogHeals** is the healer-frames module it grew out of. Addon folders keep the `HogHeals_*` names until the first public release (saved variables and every module namespace key off them).
+> Naming: **HogTron UI** is the umbrella; **HogHeals** is the healer-frames module it grew out of. Addon folders keep the `HogHeals_*` names for good: saved variables and every module namespace key off them, and a rename would reset every player's settings. Players see "HogTron UI" in the addon list and on CurseForge.
 
 **Status:** public beta (0.1.0-beta.1). Built and unit-tested; in-game testing is what the beta is for - see [docs/TESTERS.txt](docs/TESTERS.txt).
 
