@@ -14,7 +14,7 @@ Files in this folder:
    ```
    ## X-Curse-Project-ID: 123456
    ```
-4. **API token:** go to https://authors.curseforge.com/account/api-tokens, create a token named `hogtron-ui github`, then:
+4. **API token:** go to https://authors.curseforge.com/#/settings/api-tokens, create a token named `hogtron-ui github`, then:
    ```bash
    gh secret set CF_API_TOKEN --repo Hogtron-Solutions-Tech-Stack/hogtron-ui
    ```
