@@ -4,6 +4,7 @@
 ## Author: HogTron Solutions (Sean Bilger)
 ## Version: @project-version@
 ## Dependencies: HogHeals
+## SavedVariablesPerCharacter: HogHealsFramesCharDB
 ## X-License: MIT
 
 Compat.lua
@@ -29,6 +30,12 @@ Elements\Highlight.lua
 Elements\HealPrediction.lua
 ClickCast.lua
 HoverBind.lua
+defaults\clickcast\priest.lua
+defaults\clickcast\paladin.lua
+defaults\clickcast\druid.lua
+defaults\clickcast\shaman.lua
+ClickGrid.lua
+ClickGridUI.lua
 RequestDispel.lua
 TestMode.lua
 Frames.lua

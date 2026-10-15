@@ -27,6 +27,7 @@ local function setupChild(button, cfg)
     if button.RegisterForClicks then button:RegisterForClicks("AnyDown") end
     HHF.UnitButton.Setup(button)
     if HHF.ClickCast and HHF.ClickCast.ApplyTo then HHF.ClickCast.ApplyTo(button) end
+    if HHF.ClickGrid and HHF.ClickGrid.ApplyTo then HHF.ClickGrid.ApplyTo(button) end   -- after: grid wins a shared mouse slot
   end
   button:SetSize(cfg.width, cfg.height)
   -- The header assigned "unit" before our OnAttributeChanged handler existed; replay it.

@@ -312,6 +312,31 @@ local function highlightGroup()
   return { type = "group", name = "Highlight", order = 3.5, args = args }
 end
 
+-- Click-cast tab: the mouse grid (ClickGrid.lua / ClickGridUI.lua). Keyboard hover-binds stay on the Bindings tab.
+local function clickCastGroup()
+  local G = function() return HHF.ClickGrid end
+  local blocked = function() return G().controlledBy == "Clique" end
+  return {
+    type = "group", name = "Click-cast", order = 4.5,
+    args = {
+      clique = { type = "description", order = 0, name = function() return "|cffF5A623" .. G().CLIQUE_TEXT .. "|r\nClique owns clicks on the frames. Unload Clique (or untick it in AddOns) and /reload to use this grid." end,
+        hidden = function() return not blocked() end },
+      intro = { type = "description", order = 1, name =
+        "Click a frame with a mouse button + modifier to cast on that player. |cff21D4E0Right-click a slot|r to pick a spell from your spellbook; left-click a bound slot to set its rank and resurrect.\n"
+        .. "Two input layers, independent of each other: |cff21D4E0Click-cast|r (this tab, mouse) and |cff21D4E0hover-binds|r (Bindings tab, keyboard keys). Set both and both fire. "
+        .. "If a Bindings entry uses the same mouse button + modifier as a slot here, this grid wins.\n"
+        .. "Saved for this character only. Plain Left / Right click keep target / menu unless you bind them. Works in combat; changes made in combat apply when it ends." },
+      grid = { type = "description", order = 2, width = "full", name = "The click-cast grid needs the HogTron UI window: type /hh click-cast.",
+        hhAttach = function(row, width) return HHF.ClickGridUI.Attach(row, width) end },
+      reset = { type = "execute", order = 10, name = "Reset to suggested class layout", disabled = blocked,
+        desc = "Replace this character's grid with the suggested layout for your class (Priest, Paladin, Druid, Shaman; other classes: empty).",
+        func = function() G().ResetToDefaults() end },
+      clearAll = { type = "execute", order = 11, name = "Clear all slots", disabled = blocked,
+        func = function() G().ClearAll() end },
+    },
+  }
+end
+
 local function profilesGroup()
   local AceDBOptions = LibStub("AceDBOptions-3.0", true)
   local t = AceDBOptions and AceDBOptions:GetOptionsTable(HH.db) or { type = "group", name = "Profiles", args = {} }
@@ -334,6 +359,8 @@ function HHF.module:GetOptions()
       indicators = indicatorsGroup(),
       bindings = bindingsGroup(),
       highlight = highlightGroup(),
+
+      clickcast = clickCastGroup(),
       profiles = profilesGroup(),
     },
   }
@@ -371,6 +398,17 @@ function HHF.ImportProfile(str)
   HH:Print("Profile imported.")
   return true
 end
+
+--- /hh click-cast: open the window on Frames > Click-cast.
+local function openClickCast()
+  local P = HH.Panel
+  if not (P and P.Open) then HH:OpenOptions() return end
+  P.Open()
+  P.Select("Frames")
+  P.SelectTab("clickcast")
+end
+HH:RegisterSlash("click-cast", openClickCast, "open the click-cast grid (mouse button + modifier -> spell)")
+HH:RegisterSlash("clickcast", openClickCast, "same as click-cast")
 
 HH:RegisterSlash("macro", function(rest)
   rest = strtrim(rest or "")
