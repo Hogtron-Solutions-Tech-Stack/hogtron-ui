@@ -891,6 +891,12 @@ end
 
 Plates.skips = {}
 function Plates.Added(unit)
+  -- a game object's plate (the ore vein / herb / chest the game picked for the interact key) belongs to ObjectGlow:
+  -- skinning it as a unit plate would hang a health bar under a herb
+  if call(rawget(_G, "UnitIsGameObject"), unit) == true then
+    Plates.skips["game object"] = (Plates.skips["game object"] or 0) + 1
+    return
+  end
   local uf, why = Plates.FrameFor(unit)
   if not uf then
     why = type(why) == "string" and why:gsub("nameplate%d+", "nameplateN") or "?"
@@ -1012,9 +1018,10 @@ function Module:OnEnable()
   end)
   Module.events = ev
   Plates.Scan()
+  HH:SafeCall(HHP.ObjectGlow, "Start")
 end
 
-function Module:OnProfileChanged() Plates.Refresh() end
+function Module:OnProfileChanged() Plates.Refresh() HH:SafeCall(HHP.ObjectGlow, "Apply") end
 
 function Module:GetOptions()
   if HHP.Options and HHP.Options.Build then return HHP.Options.Build() end
