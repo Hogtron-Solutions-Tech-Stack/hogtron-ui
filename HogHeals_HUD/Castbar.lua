@@ -52,10 +52,11 @@ function Castbar.Pretty(name, texture)
   return name, texture
 end
 
-local function begin(state, name, texture, startMS, endMS, notInterruptible, channel)
+local function begin(state, name, texture, startMS, endMS, notInterruptible, channel, spellID, isTradeSkill, forceTheme)
   local b = bar()
   name, texture = Castbar.Pretty(name, texture)
   state.casting, state.channel = true, channel and true or false
+  if not forceTheme then state.preview = nil end   -- a real cast ends a theme preview (PreviewThemes stops on it)
   state.name = name
   state.startTime, state.endTime = startMS / 1000, endMS / 1000
   state.notInterruptible = notInterruptible and true or false
@@ -67,6 +68,17 @@ local function begin(state, name, texture, startMS, endMS, notInterruptible, cha
   local c = cfg()
   if state.notInterruptible then setColour(b, c.uninterruptibleColor)
   elseif channel then setColour(b, c.channelColor) else setColour(b, c.castColor) end
+  -- the cast's theme (CastThemes.lua), read off the client; never in place of the can't-interrupt grey
+  local T = HHD.CastThemes
+  if T then
+    local key, why = forceTheme, forceTheme and "preview" or nil
+    if not key then
+      local _, class = UnitClass("player")
+      key, why = T.Resolve(name, spellID, isTradeSkill, class)
+    end
+    state.theme, state.themeWhy, state.spellID = key, why, spellID
+    if state.notInterruptible then T.Clear(b) else T.Apply(b, key, state.startTime) end
+  end
   local dur = state.endTime - state.startTime
   if c.latency and dur > 0 and state.latency > 0 then
     b.latency:SetWidth(math.min(b:GetWidth(), b:GetWidth() * (state.latency / dur)))
@@ -85,6 +97,7 @@ end
 local function finish(state)
   local b = bar()
   state.casting, state.channel = false, false
+  if HHD.CastThemes then HHD.CastThemes.Clear(b) end
   b:SetScript("OnUpdate", nil)
   b.spark:Hide()
   b.latency:Hide()
@@ -97,6 +110,7 @@ function Castbar.OnUpdate(b)
   local now = GetTime()
   local p = Castbar.Progress(state, now)
   b:SetValue(p)
+  if HHD.CastThemes then HHD.CastThemes.Tick(b, p, now) end
   local remaining = math.max(0, state.endTime - now)
   local places = cfg().precision or 1
   b.time:SetText(("%." .. places .. "f"):format(round(remaining, places)))
@@ -118,9 +132,9 @@ end
 local handlers = {}
 
 function handlers.UNIT_SPELLCAST_START()
-  local name, _, texture, startMS, endMS, _, _, notInterruptible = UnitCastingInfo("player")
+  local name, _, texture, startMS, endMS, isTradeSkill, _, notInterruptible, spellID = UnitCastingInfo("player")
   if not name then return end
-  begin(Castbar.state, name, texture, startMS, endMS, notInterruptible, false)
+  begin(Castbar.state, name, texture, startMS, endMS, notInterruptible, false, spellID, isTradeSkill)
 end
 
 function handlers.UNIT_SPELLCAST_DELAYED()
@@ -130,9 +144,9 @@ function handlers.UNIT_SPELLCAST_DELAYED()
 end
 
 function handlers.UNIT_SPELLCAST_CHANNEL_START()
-  local name, _, texture, startMS, endMS, _, notInterruptible = UnitChannelInfo("player")
+  local name, _, texture, startMS, endMS, isTradeSkill, notInterruptible, spellID = UnitChannelInfo("player")
   if not name then return end
-  begin(Castbar.state, name, texture, startMS, endMS, notInterruptible, true)
+  begin(Castbar.state, name, texture, startMS, endMS, notInterruptible, true, spellID, isTradeSkill)
 end
 
 function handlers.UNIT_SPELLCAST_CHANNEL_UPDATE()
@@ -157,6 +171,7 @@ local function failed(label)
   b:SetScript("OnUpdate", nil)
   b.spark:Hide()
   b.latency:Hide()
+  if HHD.CastThemes then HHD.CastThemes.Clear(b) end
   setColour(b, cfg().failColor)
   b.text:SetText(label)
   b:SetValue(1)
@@ -225,11 +240,42 @@ function Castbar.Diagnose()
   local lines = {
     ("last cast: %s   texture=%s (%s%s)   casting=%s channel=%s"):format(tostring(s.name), tostring(s.texture), type(s.texture), secret and ", SECRET" or "", tostring(s.casting), tostring(s.channel)),
   }
+  if HHD.CastThemes then lines[#lines + 1] = HHD.CastThemes.Line(s) .. ("   spell id=%s"):format(tostring(s.spellID)) end
   if b and b.icon then
     lines[#lines + 1] = ("icon: shown=%s size=%sx%s texture now=%s"):format(tostring(b.icon:IsShown()), tostring(b.icon:GetWidth()), tostring(b.icon:GetHeight()), tostring(b.icon.GetTexture and b.icon:GetTexture()))
   end
   return lines
 end
+
+--- Every theme on the HUD cast bar in turn, 2 s each (options button, /hh casttheme preview). A fake cast: no spell.
+function Castbar.PreviewThemes()
+  local T = HHD.CastThemes
+  if not T then return end
+  local samples = { holy = "Flash Heal", fire = "Fireball", frost = "Frostbolt", arcane = "Arcane Missiles", shadow = "Mind Flay",
+    nature = "Lightning Bolt", earth = "Mining", herb = "Herb Gathering", leather = "Skinning", water = "Fishing",
+    gold = "Opening", craft = "Linen Bandage", aim = "Aimed Shot" }
+  local function step(i)
+    local key = T.ORDER[i]
+    if not key or Castbar.state.casting and not Castbar.state.preview then
+      if Castbar.state.preview then finish(Castbar.state) Castbar.state.preview = nil end
+      return
+    end
+    local now = GetTime()
+    begin(Castbar.state, samples[key] .. "  (preview)", "Interface\\Icons\\INV_Misc_QuestionMark", now * 1000, (now + 1.9) * 1000, false, key == "water", nil, nil, key)
+    Castbar.state.preview = true
+    C_Timer.After(2, function() step(i + 1) end)
+  end
+  step(1)
+end
+
+HH:RegisterSlash("casttheme", function(rest)
+  local o = HH.db.profile.hud.castbar.themes
+  local w = (rest or ""):lower():match("^%s*(%a*)")
+  if w == "on" or w == "off" then o.enabled = w == "on" HH:Print("cast bar themes: " .. w) return end
+  if w == "preview" then Castbar.PreviewThemes() return end
+  HH:Print(HHD.CastThemes.Line(Castbar.state))
+  HH:Print("usage: /hh casttheme on|off|preview")
+end, "cast bar themes (holy, fire, frost, mining...): on, off, preview")
 
 HH:RegisterSlash("castdiag", function()
   for _, l in ipairs(Castbar.Diagnose()) do HH:Print(l) end
