@@ -236,3 +236,17 @@ def test_options(th):
     args = opts["args"]["castbar"]["args"]
     assert args["themesOn"]["type"] == "toggle" and args["themesPreview"]["type"] == "execute"
     assert th.eval("#HogHeals.errors") == 0
+
+
+def test_preview_never_shows_a_question_mark(th):
+    # Sean 2026-10-14 in game: the preview's icon was a question mark. Known spell = the client's own icon ...
+    th.execute("HogHealsHUD.Castbar.PreviewThemes()")
+    tex = th.eval("HH_cb.icon._texture")
+    assert tex and "QuestionMark" not in tex
+    # ... a spell you do not know = the theme's usual icon
+    th.execute("HogHealsHUD.Castbar.state.preview = nil; HogHealsHUD.Castbar.state.casting = false")
+    th.execute("C_Spell.GetSpellTexture = function() return nil end; GetSpellTexture = function() return nil end")
+    th.execute("HogHealsHUD.Castbar.PreviewThemes()")
+    assert th.eval("HH_cb.icon._texture").endswith("Spell_Holy_FlashHeal")
+    for key in th.eval("HogHealsHUD.CastThemes.ORDER").values():
+        assert th.eval(f'HogHealsHUD.Castbar.PreviewIcon("Unknown", "{key}")').startswith("Interface"), key
