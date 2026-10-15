@@ -27,6 +27,12 @@ local function colour(tbl, key, name, order)
 end
 
 function Options.Build()
+  local t = Options.Table()
+  Options.AddKindToggles(t)
+  return t
+end
+
+function Options.Table()
   return {
     type = "group", name = "Nameplates", order = 36,
     args = {
@@ -80,6 +86,28 @@ function Options.Build()
         channelColor = colour(sub("cast"), "channelColor", "Channel colour", 7),
         lockedColor = colour(sub("cast"), "lockedColor", "Uninterruptible colour", 8),
       } },
+      objectGlow = { type = "group", name = "Object glow", order = 1.8, args = {
+        about = { type = "description", order = 0, name = "Ore veins, herbs, chests, quest objects and your fishing bobber glow when you come near - the one the game picks for the interact key, tinted by kind (green herb, orange ore, gold chest, cyan quest). Grey and still = you cannot use it yet. Works through Blizzard's soft targeting: the settings it changes are given back when you turn this off and at logout." },
+        enabled = { type = "toggle", name = "Object glow", order = 1, width = "full",
+          get = function() return HH.db.profile.plates.objectGlow.enabled ~= false end,
+          set = function(_, v) HH.db.profile.plates.objectGlow.enabled = v and true or false; HH:SafeCall(HHP.ObjectGlow, "Apply") end },
+        range = { type = "range", name = "How far the game looks (yards)", order = 2, min = 5, max = 40, step = 1,
+          get = function() return HH.db.profile.plates.objectGlow.range or 15 end,
+          set = function(_, v) HH.db.profile.plates.objectGlow.range = v; HH:SafeCall(HHP.ObjectGlow, "Apply") end },
+        kindsHeader = { type = "header", name = "Glow on", order = 3 },
+        size = { type = "range", name = "Size", order = 4, min = 24, max = 120, step = 2,
+          get = function() return HH.db.profile.plates.objectGlow.size or 56 end, set = function(_, v) HH.db.profile.plates.objectGlow.size = v end },
+        intensity = { type = "range", name = "Brightness", order = 5, min = 0.2, max = 1, step = 0.05,
+          get = function() return HH.db.profile.plates.objectGlow.intensity or 0.9 end, set = function(_, v) HH.db.profile.plates.objectGlow.intensity = v end },
+        offset = { type = "range", name = "Up / down from the object's plate", order = 6, min = -60, max = 60, step = 2,
+          get = function() return HH.db.profile.plates.objectGlow.offset or 0 end, set = function(_, v) HH.db.profile.plates.objectGlow.offset = v; HH:SafeCall(HHP.ObjectGlow, "Evaluate") end },
+        label = { type = "toggle", name = "Its name above the glow", order = 7,
+          get = function() return HH.db.profile.plates.objectGlow.label ~= false end, set = function(_, v) HH.db.profile.plates.objectGlow.label = v and true or false; HH:SafeCall(HHP.ObjectGlow, "Evaluate") end },
+        hideBlocked = { type = "toggle", name = "No glow on what you cannot use yet (instead of grey)", order = 8,
+          get = function() return HH.db.profile.plates.objectGlow.hideBlocked == true end, set = function(_, v) HH.db.profile.plates.objectGlow.hideBlocked = v and true or false; HH:SafeCall(HHP.ObjectGlow, "Evaluate") end },
+        preview = { type = "execute", name = "Preview", order = 9, desc = "Each kind for a moment, mid-screen. No object needed.", func = function() HH:SafeCall(HHP.ObjectGlow, "Preview") end },
+        diag = { type = "execute", name = "Print diagnostics to chat", order = 10, func = function() HH:SlashCommand("glowdiag") end },
+      } },
       die = { type = "group", name = "Does it die", order = 1.7, args = {
         about = { type = "description", order = 0, name = "Will my DoT finish this mob? A skull beside the plate when it will (move on), a red X pulsing when the DoT is about to drop and the mob will outlive it (reapply). Time to die comes from the mob's health over the last seconds; on a client that hides enemy health in combat the mark stays off (/hh platediag says so)." },
         enabled = { type = "toggle", name = "Show the mark", order = 1, width = "full",
@@ -125,4 +153,16 @@ function Options.Build()
       } },
     },
   }
+end
+
+--- Object glow: one toggle per kind (herb / ore / chest / quest / bobber / other), under its "Glow on" header.
+function Options.AddKindToggles(t)
+  local G = HHP.ObjectGlow
+  local args = t and t.args and t.args.objectGlow and t.args.objectGlow.args
+  if not G or not args then return end
+  for i, k in ipairs(G.KINDS) do
+    args["kind_" .. k] = { type = "toggle", name = G.KIND_NAMES[k], order = 3 + i / 10, width = "full",
+      get = function() local kinds = HH.db.profile.plates.objectGlow.kinds or {} if k == "other" then return kinds.other == true end return kinds[k] ~= false end,
+      set = function(_, v) local og = HH.db.profile.plates.objectGlow og.kinds = og.kinds or {} og.kinds[k] = v and true or false; HH:SafeCall(G, "Evaluate") end }
+  end
 end

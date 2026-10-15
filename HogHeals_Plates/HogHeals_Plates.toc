@@ -12,4 +12,5 @@ Plates.lua
 Hots.lua
 Castbar.lua
 DoesItDie.lua
+ObjectGlow.lua
 Options.lua

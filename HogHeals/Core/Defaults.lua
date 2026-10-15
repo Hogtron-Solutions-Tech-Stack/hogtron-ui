@@ -159,6 +159,11 @@ HH.defaults = {
       -- DoesItDie.lua: skull when my DoT outlives the mob, red X pulsing when it ends first within reapplyAt seconds;
       -- margin = how clearly the mob must die first (0.1 = 10%); target = the same mark on the target frame
       die = { enabled = true, reapplyAt = 3, margin = 0.1, size = 18, gap = 4, showTime = true, target = true, tick = 0.5 },
+      -- ObjectGlow.lua: the ore vein / herb / chest / quest object / bobber the game picked for the interact key glows,
+      -- tinted by kind; range = yards the game looks (SoftTargetInteractRange); offset = up / down from its plate;
+      -- hideBlocked = no glow on what you cannot use yet (else grey and still)
+      objectGlow = { enabled = true, range = 15, size = 56, intensity = 0.9, label = true, offset = 0, hideBlocked = false,
+        kinds = { herb = true, ore = true, chest = true, quest = true, bobber = true, other = false } },
       nameClass = "friendly",         -- player names on plates in class colour: "friendly" | "all" | "none"
       friendlyNameOnly = true,        -- friendly plates: just the name, no health bar
       friendlyNameSize = 14,          -- text size of that name (the overhead name is about this)
