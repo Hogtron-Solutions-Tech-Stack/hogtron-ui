@@ -261,11 +261,11 @@ def states():
 
     l = fresh("WARRIOR")
     out.append(("1-empty", page(l, " — empty", "State 1. First login on a non-healer (Warrior, level 60 spellbook): no suggested layout, "
-                                "empty grid, setup toast. Plain Left / Right show the target / menu they keep.")))
+                                "empty grid, setup toast. Empty plain Left / Right show the target / menu they fall back to.")))
 
     l = fresh("PRIEST")
     out.append(("2-priest-defaults", page(l, " — Priest suggested layout", "State 2. First login on a Priest: grid seeded from "
-                "defaults/clickcast/priest.lua (spell names only; Highest rank resolved from the spellbook: Flash Heal 7, Greater Heal 5, Renew 10). "
+                "defaults/clickcast/priest.lua (plain Left / Right = Rank 1, Shift + Left / Right = Highest: Flash Heal 7, Greater Heal 5; Renew 10). "
                 "+rez = resurrects a dead target out of combat.")))
 
     l = fresh("PRIEST")

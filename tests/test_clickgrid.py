@@ -119,7 +119,8 @@ def test_first_login_seeds_priest_layout_and_toasts(priest):
     assert slots["LEFT:SHIFT"]["spell"] == "Flash Heal" and slots["LEFT:SHIFT"]["rank"] == "highest"
     assert slots["RIGHT:SHIFT"]["spell"] == "Greater Heal"
     assert slots["MIDDLE:NONE"]["spell"] == "Renew"
-    assert slots["LEFT:NONE"] is None and slots["RIGHT:NONE"] is None      # target / menu stay
+    assert slots["LEFT:NONE"]["spell"] == "Flash Heal" and slots["LEFT:NONE"]["rank"] == 1         # plain = Rank 1
+    assert slots["RIGHT:NONE"]["spell"] == "Greater Heal" and slots["RIGHT:NONE"]["rank"] == 1
     assert priest.eval(f'{G}.lastToast') == "HogHeals suggested a healer click-cast layout. Open /hh click-cast to edit."
     assert priest.eval('HogHealsFramesCharDB.seededFor') == "PRIEST"
 
@@ -157,7 +158,8 @@ def test_default_files_use_spell_names_never_ranks(frames):
             names = lst(d["spell"]) if not isinstance(d["spell"], str) else [d["spell"]]
             assert all("Rank" not in n and "(" not in n for n in names), (cls, names)
             assert d["button"] in ("LEFT", "RIGHT", "MIDDLE", "BUTTON4", "BUTTON5")
-            assert not (d["mod"] == "NONE" and d["button"] in ("LEFT", "RIGHT")), cls
+            plain = d["mod"] == "NONE" and d["button"] in ("LEFT", "RIGHT")
+            assert (d["rank"] == 1) if plain else (d["rank"] is None), (cls, d["button"], d["mod"])    # Sean 2026-10-15
 
 
 # ---------------------------------------------------------------- resurrect if dead
@@ -206,7 +208,7 @@ def test_attributes_cover_buttons_and_modifiers(priest):
     assert priest.eval(f'{b}:GetAttribute("type3")') == "macro"
     assert priest.eval(f'{b}:GetAttribute("macrotext3")') == "/cast [@mouseover,help,nodead] Renew"
     assert priest.eval(f'{b}:GetAttribute("type4")') == "macro"
-    assert priest.eval(f'{b}:GetAttribute("type1")') is None              # plain left stays *type1 = target
+    assert priest.eval(f'{b}:GetAttribute("macrotext1")') ==         "/cast [@mouseover,dead,nocombat] Resurrection; [@mouseover,help,nodead] Flash Heal(Rank 1)"
     priest.execute(f'{G}.Pick("BUTTON5:META", "Renew")')
     assert priest.eval(f'{b}:GetAttribute("meta-type5")') == "macro"
 
@@ -305,8 +307,9 @@ def test_widget_right_click_picks_and_left_click_edits(priest):
     assert priest.eval('HogHealsFrames.ClickGridUI.frame.editor:IsShown()')
 
 
-def test_viewmodel_marks_target_and_menu_fallbacks(priest):
-    vm = priest.eval(f'{G}.ViewModel()')
+def test_viewmodel_marks_target_and_menu_fallbacks(lua):
+    boot(lua, "WARRIOR")
+    vm = lua.eval(f'{G}.ViewModel()')
     rows = lst(vm["rows"])
     assert lst(rows[0]["cells"])[0]["fallback"] == "Target"
     assert lst(rows[1]["cells"])[0]["fallback"] == "Menu"
@@ -325,3 +328,37 @@ def test_clique_suppresses_existing_character_bindings(lua):
     assert lua.eval(f'{b}:GetAttribute("shift-type1")') is None
     assert lua.eval(f'{b}:GetAttribute("shift-macrotext1")') is None
     assert lua.eval('HogHealsFramesCharDB.slots["LEFT:SHIFT"].spell') == "Flash Heal"     # kept for later, not deleted
+
+
+# ---------------------------------------------------------------- plain clicks = Rank 1 (Sean 2026-10-15)
+@pytest.mark.parametrize("cls,left,right", [
+    ("PRIEST", "Flash Heal", "Greater Heal"),
+    ("PALADIN", "Flash of Light", "Holy Light"),
+    ("DRUID", "Regrowth", "Healing Touch"),
+    ("SHAMAN", "Lesser Healing Wave", "Healing Wave"),
+])
+def test_plain_clicks_rank_one_shift_clicks_highest(lua, cls, left, right):
+    boot(lua, cls)
+    b = btn(lua)
+    assert lua.eval(f'{b}:GetAttribute("macrotext1")').endswith(f"[@mouseover,help,nodead] {left}(Rank 1)")
+    assert lua.eval(f'{b}:GetAttribute("macrotext2")').endswith(f"[@mouseover,help,nodead] {right}(Rank 1)")
+    assert lua.eval(f'{b}:GetAttribute("shift-macrotext1")').endswith(f"[@mouseover,help,nodead] {left}")
+    assert lua.eval(f'{b}:GetAttribute("shift-macrotext2")').endswith(f"[@mouseover,help,nodead] {right}")
+
+
+def test_rank_one_cell_shows_rank_1_not_highest(priest):
+    cell = lst(lst(priest.eval(f'{G}.ViewModel().rows'))[0]["cells"])[0]
+    assert cell["spell"] == "Flash Heal" and cell["rankText"] == "Rank 1" and cell["known"]
+
+
+def test_low_level_without_the_spell_falls_back_to_menu(lua):
+    boot(lua, "PRIEST", book=[e for e in PRIEST_60 if e[0] != "Greater Heal"])    # under level 40
+    b = btn(lua)
+    assert lua.eval(f'{b}:GetAttribute("type2")') is None          # nothing written -> *type2 = togglemenu
+    assert lua.eval(f'{b}:GetAttribute("type1")') == "macro"       # Flash Heal Rank 1 is known
+
+
+def test_low_level_shaman_plain_left_uses_healing_wave_rank_one(lua):
+    boot(lua, "SHAMAN", book=SHAMAN_LOW)
+    b = btn(lua)
+    assert lua.eval(f'{b}:GetAttribute("macrotext1")') == "/cast [@mouseover,help,nodead] Healing Wave(Rank 1)"

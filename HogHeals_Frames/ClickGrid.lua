@@ -275,12 +275,12 @@ function Grid.AttributesFor(slots, class, book)
 end
 
 -- ------------------------------------------------------------------------------------------------ defaults + storage
---- Default slots for a class, from defaults/clickcast/<class>.lua. Spell names only; rank = highest.
+--- Default slots for a class, from defaults/clickcast/<class>.lua. Spell names; rank = highest unless the file pins one.
 function Grid.DefaultSlots(class)
   local list = HHF.ClickGridDefaults[class or ""]
   local slots = {}
   for _, d in ipairs(list or {}) do
-    local slot = { rank = "highest", rez = d.rez and true or false }
+    local slot = { rank = tonumber(d.rank) or "highest", rez = d.rez and true or false }
     if type(d.spell) == "table" then slot.spell, slot.alts = d.spell[1], copy(d.spell) else slot.spell = d.spell end
     slots[Grid.SlotKey(d.button, d.mod or "NONE")] = slot
   end

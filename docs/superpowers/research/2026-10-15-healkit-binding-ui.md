@@ -23,7 +23,8 @@ implementation was written from the WoW API and this repo's existing code.
 
 ## Where HogHeals deliberately differs
 
-- Plain Left / plain Right click are left free by the suggested layouts (they keep target / menu).
+- Suggested layouts (Sean, 2026-10-15): plain Left / Right = Rank 1 of the two main heals, Shift + Left / Right = the
+  same heals at Highest rank. An empty slot falls back to target / menu.
 - No restricted snippets: WoW: Forever cannot compile them (see `HogHeals_Frames/Headers.lua`), so slots are plain
   secure attributes written out of combat.
 - Runs next to the keyboard hover-bind engine instead of replacing it.

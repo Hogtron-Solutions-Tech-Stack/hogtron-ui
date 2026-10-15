@@ -325,7 +325,7 @@ local function clickCastGroup()
         "Click a frame with a mouse button + modifier to cast on that player. |cff21D4E0Right-click a slot|r to pick a spell from your spellbook; left-click a bound slot to set its rank and resurrect.\n"
         .. "Two input layers, independent of each other: |cff21D4E0Click-cast|r (this tab, mouse) and |cff21D4E0hover-binds|r (Bindings tab, keyboard keys). Set both and both fire. "
         .. "If a Bindings entry uses the same mouse button + modifier as a slot here, this grid wins.\n"
-        .. "Saved for this character only. Plain Left / Right click keep target / menu unless you bind them. Works in combat; changes made in combat apply when it ends." },
+        .. "Saved for this character only. The suggested layouts put Rank 1 heals on plain Left / Right; clear those slots to get click-to-target / menu back. Works in combat; changes made in combat apply when it ends." },
       grid = { type = "description", order = 2, width = "full", name = "The click-cast grid needs the HogTron UI window: type /hh click-cast.",
         hhAttach = function(row, width) return HHF.ClickGridUI.Attach(row, width) end },
       reset = { type = "execute", order = 10, name = "Reset to suggested class layout", disabled = blocked,
