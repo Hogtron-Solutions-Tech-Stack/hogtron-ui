@@ -206,6 +206,12 @@ P.goldph = { label = "Gold an hour",
 
 P.none = { label = "(empty)", value = function() return "" end }
 
+-- An emblem beside each reading (OpenArt set, Sean 2026-10-14 night: "the little information at the bottom center
+-- that shows gold and frames and ping"). HogHeals/Media/info_<x>.tga; a client that refuses the file = text only.
+Bar.ICONS = { gold = "info_gold", goldph = "info_goldph", durability = "info_durability", bags = "info_bags", fps = "info_fps",
+  latency = "info_latency", time = "info_time", coords = "info_coords", friends = "info_friends", guild = "info_guild",
+  xp = "info_xp", session = "info_session", tolevel = "info_tolevel", train = "info_train" }
+
 -- ------------------------------------------------------------------------------------------------ frame
 local function build()
   if Bar.frame then return Bar.frame end
@@ -243,6 +249,8 @@ local function slot(i)
   s.text = s:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
   s.text:SetPoint("CENTER", s, "CENTER", 0, 0)
   s.text:SetJustifyH("CENTER")
+  s.icon = s:CreateTexture(nil, "ARTWORK")
+  s.icon:Hide()
   if s.text.SetWordWrap then s.text:SetWordWrap(false) end
   s:SetScript("OnClick", function(self)
     local p = P[self.key]
@@ -274,6 +282,10 @@ function Bar.Layout()
     s:SetPoint("LEFT", f, "LEFT", (i - 1) * w, 0)
     Skin.SetFont(s.text, d.fontSize or 11)
     s.text:SetWidth(w - 6)
+    local file = d.icons ~= false and Bar.ICONS[s.key]
+    local isz = math.max(10, (d.height or 18) - 2)
+    s.icon:SetSize(isz, isz)
+    if file and s.icon:SetTexture("Interface\\AddOns\\HogHeals\\Media\\" .. file) ~= false then s.icon:Show() else s.icon:Hide() end
     s:Show()
   end
   for i = n + 1, #Bar.slots do Bar.slots[i]:Hide() end
@@ -290,9 +302,30 @@ function Bar.Update()
       local p = P[s.key]
       local ok, v = pcall(p.value)
       s.text:SetText(ok and v or "?")
+      Bar.Place(s)
       if not ok and v ~= Bar.lastError then Bar.lastError = v HH:LogError("infobar " .. tostring(s.key) .. ": " .. tostring(v)) end
     end
   end
+end
+
+--- Icon + text centred together in the slot: the pair is measured, so the emblem sits right against its reading.
+function Bar.Place(s)
+  local w = s:GetWidth() or 0
+  if not s.icon:IsShown() then
+    s.text:ClearAllPoints() s.text:SetPoint("CENTER", s, "CENTER", 0, 0) s.text:SetJustifyH("CENTER") s.text:SetWidth(math.max(1, w - 6))
+    return
+  end
+  local iw, gap = s.icon:GetWidth() or 0, 4
+  local tw = s.text:GetStringWidth()
+  if type(tw) ~= "number" or (type(issecretvalue) == "function" and issecretvalue(tw)) then tw = 0 end
+  tw = math.max(0, math.min(tw, w - iw - gap - 6))
+  local x0 = -(iw + gap + tw) / 2
+  s.icon:ClearAllPoints()
+  s.icon:SetPoint("LEFT", s, "CENTER", x0, 0)
+  s.text:ClearAllPoints()
+  s.text:SetPoint("LEFT", s, "CENTER", x0 + iw + gap, 0)
+  s.text:SetJustifyH("LEFT")
+  s.text:SetWidth(math.max(1, w - iw - gap - 6))
 end
 
 function Bar.Start()
