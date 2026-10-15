@@ -1005,3 +1005,14 @@ def test_info_bar_emblems_sit_beside_their_reading(skin):
     skin.execute("HogHeals.db.profile.skin.infoBar.icons = false; HogHealsSkin.InfoBar.Refresh(); HogHealsSkin.InfoBar.Update()")
     assert skin.eval(f"{s}.icon:IsShown()") is False
     assert list(skin.eval(f"{s}.text._points[1]").values())[0] == "CENTER"
+
+
+def test_info_bar_on_the_brass_plaque_and_flat_on_request(skin):
+    import pathlib
+    assert (pathlib.Path(__file__).resolve().parents[1] / "HogHeals" / "Media" / "info_plate.tga").exists()
+    skin.execute("HogHealsSkin.InfoBar.Refresh()")
+    assert skin.eval("HogHealsSkin.InfoBar.plateOn") is True
+    assert skin.eval("HogUIInfoBar.plate[2]:IsShown()") is True and skin.eval("HogUIInfoBar.bg:IsShown()") is False
+    assert list(skin.eval("HogUIInfoBar.plate[1]._texCoord").values()) == [0, 0.06, 0, 1]   # the cap keeps its shape
+    skin.execute('HogHeals.db.profile.look.menus = "flat"; HogHealsSkin.InfoBar.Refresh()')
+    assert skin.eval("HogHealsSkin.InfoBar.plateOn") is False and skin.eval("HogUIInfoBar.bg:IsShown()") is True

@@ -165,6 +165,35 @@ def do_menu(dry):
     save(Image.fromarray(sd[y0:y1, x0:x1].astype(np.uint8)).resize((128, 512), Image.LANCZOS).convert("RGBA"), "menu_side", dry)
 
 
+def band_strip(raw: Path, blend: float = 0.12, floor: int = 10) -> Image.Image:
+    """An energy band on black -> a 512x64 strip that loops left to right (same cut as process_cast_art.py)."""
+    im = np.asarray(Image.open(raw).convert("RGB")).astype(np.float32)
+    lum = im.mean(axis=2)
+    rows = lum.mean(axis=1)
+    lit = np.where(rows > max(6.0, rows.max() * 0.15))[0]
+    c = int(round((lit * rows[lit]).sum() / rows[lit].sum())) if len(lit) else lum.shape[0] // 2
+    h, w = lum.shape
+    ch = int(round(w / 8))
+    top = max(0, min(h - ch, c - ch // 2))
+    crop = im[top: top + ch]
+    k = int(round(crop.shape[1] * blend))
+    t = np.linspace(0, 1, k)[None, :, None]
+    out = crop[:, : crop.shape[1] - k].copy()
+    out[:, :k] = crop[:, crop.shape[1] - k:] * (1 - t) + crop[:, :k] * t
+    strip = np.asarray(Image.fromarray(np.clip(out, 0, 255).astype(np.uint8)).resize((512, 64), Image.LANCZOS)).astype(np.float32)
+    strip = np.where(strip.max(axis=2, keepdims=True) < floor, 0, strip)
+    return Image.fromarray(np.dstack([strip, np.full(strip.shape[:2], 255.0)]).astype(np.uint8), "RGBA")
+
+
+def do_bars(dry):
+    save(band_strip(RAW / "xp_fill.png"), "xp_fill", dry)
+    save(band_strip(RAW / "xp_rested.png"), "xp_rested", dry)
+    pl = np.asarray(Image.open(RAW / "info_plate.png").convert("RGB")).astype(np.float32)
+    y0, y1, x0, x1, m = bbox(pl, 30.0, fill=True)
+    rgba = np.dstack([pl, ndimage.gaussian_filter(m.astype(np.float32), 1.0) * 255]).astype(np.uint8)
+    save(Image.fromarray(rgba[y0:y1, x0:x1], "RGBA").resize((1024, 128), Image.LANCZOS), "info_plate", dry)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", choices=["icons", "info", "menu", "bars"])
@@ -176,6 +205,8 @@ def main():
         do_sheets(EMBLEMS, 32, 0.06, "", a.dry_run)
     if a.only in (None, "menu"):
         do_menu(a.dry_run)
+    if a.only in (None, "bars"):
+        do_bars(a.dry_run)
 
 
 if __name__ == "__main__":

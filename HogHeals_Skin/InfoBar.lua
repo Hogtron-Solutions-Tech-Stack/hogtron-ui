@@ -268,6 +268,42 @@ local function slot(i)
   return s
 end
 
+
+-- The bar on the HogTron art plaque (OpenArt, 2026-10-15): a slate plate with brass caps, 3-sliced so the caps keep
+-- their shape at any width. Follows General > Look > Menus (painted / flat).
+local PLATE_CAP = 0.06
+function Bar.Plate(f)
+  local look = HH.db and HH.db.profile and HH.db.profile.look
+  local want = not (look and look.menus == "flat")
+  if want and not f.plate then
+    f.plate = {}
+    local all = true
+    for i = 1, 3 do
+      local t = f:CreateTexture(nil, "BACKGROUND", nil, 1)
+      all = (t:SetTexture("Interface\\AddOns\\HogHeals\\Media\\info_plate") ~= false) and all
+      f.plate[i] = t
+    end
+    f.plate[1]:SetTexCoord(0, PLATE_CAP, 0, 1)
+    f.plate[2]:SetTexCoord(PLATE_CAP, 1 - PLATE_CAP, 0, 1)
+    f.plate[3]:SetTexCoord(1 - PLATE_CAP, 1, 0, 1)
+    f.plate.loaded = all
+  end
+  local on = want and f.plate and f.plate.loaded
+  if f.plate then
+    local h = f:GetHeight() or 18
+    local pad = math.floor(h * 0.35 + 0.5)          -- the plaque is a little taller than the text row
+    local cap = math.floor((h + 2 * pad) * (1024 * PLATE_CAP / 128) + 0.5)
+    local p = f.plate
+    p[1]:ClearAllPoints() p[1]:SetPoint("TOPLEFT", f, "TOPLEFT", -cap * 0.4, pad) p[1]:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", -cap * 0.4, -pad) p[1]:SetWidth(cap)
+    p[3]:ClearAllPoints() p[3]:SetPoint("TOPRIGHT", f, "TOPRIGHT", cap * 0.4, pad) p[3]:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", cap * 0.4, -pad) p[3]:SetWidth(cap)
+    p[2]:ClearAllPoints() p[2]:SetPoint("TOPLEFT", p[1], "TOPRIGHT", 0, 0) p[2]:SetPoint("BOTTOMRIGHT", p[3], "BOTTOMLEFT", 0, 0)
+    for i = 1, 3 do if on then p[i]:Show() else p[i]:Hide() end end
+  end
+  if on then f.bg:Hide() f.rule:Hide() else f.bg:Show() f.rule:Show() end
+  for _, e in ipairs(f.edges or {}) do if on then e:Hide() else e:Show() end end
+  Bar.plateOn = on and true or false
+end
+
 function Bar.Layout()
   local f, d = build(), cfg()
   local keys = d.slots or {}
@@ -293,6 +329,7 @@ function Bar.Layout()
   f:ClearAllPoints()
   f:SetPoint(d.point or "BOTTOM", UIParent, d.point or "BOTTOM", d.x or 0, d.y or 0)
   f.bg:SetColorTexture(Skin.INK[1], Skin.INK[2], Skin.INK[3], d.backgroundAlpha or 0.8)
+  Bar.Plate(f)
 end
 
 function Bar.Update()

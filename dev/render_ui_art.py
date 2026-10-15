@@ -45,6 +45,19 @@ def main() -> int:
     if info is not None:
         lua.execute("HogHealsSkin.InfoBar.Refresh(); HogHealsSkin.InfoBar.Update()")
         p.paint(info, margin=10, bg=(40, 44, 36)).save(OUT / "art-infobar.png")
+    # the XP bar: 34 % with a rested stretch to 55 % (sample numbers), 1000 px wide
+    lua.execute("""
+      function UnitXP() return 3400 end
+      function UnitXPMax() return 10000 end
+      function UnitLevel() return 22 end
+      function GetXPExhaustion() return 2100 end
+      if not rawget(_G, "HogHealsXPBar") then HogHealsHUD.XPBar.CreateBar() end
+      HogHealsXPBar:SetWidth(1000); HogHealsXPBar:SetHeight(12)
+      HogHealsHUD.XPBar.Update()
+    """)
+    xpb = lua.eval("rawget(_G, 'HogHealsXPBar')")
+    if xpb is not None:
+        p.paint(xpb, margin=12, bg=(40, 44, 36)).save(OUT / "art-xpbar.png")
     errs = [e["msg"] for e in lua.eval("HogHeals.errors").values()]
     print("panel page:", pick, "| wrote art-options-painted / -flat, art-menubar, art-infobar | addon errors:", errs or "none")
     return 1 if errs else 0
