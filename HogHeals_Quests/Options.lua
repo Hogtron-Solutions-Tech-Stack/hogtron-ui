@@ -1,4 +1,4 @@
--- Quests options: two tabs, Tracker and Minimap. Every set() writes profile.quests and refreshes that part.
+-- Quests options: Tracker, Minimap, Waypoint, Questing, Dialog, World map. Every set() writes profile.quests and refreshes that part.
 HogHealsQuests = HogHealsQuests or {}
 local HHQ = HogHealsQuests
 local HH = HogHeals
@@ -35,6 +35,8 @@ function Options.Build()
   local au = function() return HH.db.profile.quests.auto end
   local an = function() return HH.db.profile.quests.announce end
   local tt = function() return HH.db.profile.quests.tooltip end
+  local dl = function() return HH.db.profile.quests.dialog end
+  local dr = function() HH:SafeCall(HHQ.Dialog, "Refresh") end
   local nop = function() end
   return {
     type = "group", name = "Quests", order = 35,
@@ -108,6 +110,22 @@ function Options.Build()
         units = toggle(tt, "units", "Quest name + count on mobs you need", 3.1, nop),
         items = toggle(tt, "items", "Quest name + count on items you need", 3.2, nop),
         diag = { type = "execute", name = "Print diagnostics to chat", order = 9, func = function() HH:SlashCommand("autodiag") HH:SlashCommand("announcediag") end },
+      } },
+      dialog = { type = "group", name = "Dialog", order = 2.8, args = {
+        about = { type = "description", order = 0, name = "The quest giver's pages (quest text, objectives, rewards, gossip lines) in a HogTron UI window instead of Blizzard's parchment. Space = the main button (Accept / Continue / Complete), 1-9 = the numbered lines and reward choices, Esc = decline / goodbye. The keys are only taken while the window is open and never in combat. Auto accept / turn-in still answers first: hold Shift at the NPC to read the page here instead. Steps aside when Dialogue UI or Immersion is loaded." },
+        enabled = toggle(dl, "enabled", "Quest dialog window (off = Blizzard's window, no /reload needed)", 1, dr),
+        theme = { type = "select", name = "Look", order = 2, values = HHQ.Dialog and HHQ.Dialog.THEME_NAMES or {},
+          get = function() return dl().theme or "ink" end, set = function(_, v) dl().theme = v; dr() end },
+        keys = toggle(dl, "keys", "Keys while it is open: Space, 1-9 (Esc always works)", 3, dr),
+        xpShare = toggle(dl, "xpShare", "Show the reward XP as a share of your level", 4, dr),
+        npcName = toggle(dl, "npcName", "NPC name above the title", 5, dr),
+        fontSize = range(dl, "fontSize", "Text size", 6, 10, 22, 1, dr),
+        width = range(dl, "width", "Width", 7, 340, 720, 10, dr),
+        scale = range(dl, "scale", "Scale", 8, 0.6, 1.6, 0.05, dr),
+        alpha = range(dl, "alpha", "Background opacity", 9, 0.5, 1, 0.05, dr),
+        preview = { type = "execute", name = "Preview", order = 10, desc = "A sample reward page, no NPC needed.", func = function() HH:SafeCall(HHQ.Dialog, "Preview") end },
+        resetPos = { type = "execute", name = "Reset position", order = 11, func = function() HH:SlashCommand("dialog reset") end },
+        diag = { type = "execute", name = "Print diagnostics to chat", order = 12, func = function() HH:SlashCommand("dialogdiag") end },
       } },
       worldmap = { type = "group", name = "World map", order = 3, args = {
         about = { type = "description", order = 0, name = "The map you open with M: size slider and fade while moving. Opt-ins (off - this client's map already shows your coordinates, and its combined map + quest log frame does not take the ink panel well): a coordinates strip with the cursor position, and the ink panel. Revealing unexplored terrain the way Leatrix Maps does needs its hand-built zone data; run Leatrix Maps alongside for that - when it is loaded, this leaves the map's look to it." },

@@ -127,6 +127,9 @@ HH.defaults = {
       -- choice (2+ items) is always yours. announce: party = PARTY / RAID when grouped, self = your own chat frame.
       auto = { enabled = true, accept = true, turnIn = true, gossip = true, chooseReward = false, acceptTrivial = true, pauseKey = "SHIFT" },
       announce = { enabled = true, party = true, self = false, accepted = false, turnedIn = false },
+      -- the quest giver's pages in our window instead of Blizzard's (Dialog.lua): theme ink | parchment; keys = Space /
+      -- 1-9 while it is open (never in combat); xpShare = the reward XP as a share of your level; point/x/y once dragged
+      dialog = { enabled = true, theme = "ink", keys = true, xpShare = true, npcName = true, fontSize = 14, width = 460, scale = 1, alpha = 0.95 },
       tooltip = { enabled = true, units = true, items = true },
       minimap = { enabled = true, edge = true, watchedOnly = false, turnInInRange = false, size = 16 },   -- Forever draws areas only, not points
       map = { enabled = true, fill = true, size = 180, zoneText = true, wheelZoom = true, hideDecor = true, dockButtons = true },

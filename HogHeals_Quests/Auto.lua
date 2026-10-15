@@ -186,11 +186,18 @@ function Auto.Start()
     local ok = pcall(f.RegisterEvent, f, e)
     if not ok then Auto.unknown[#Auto.unknown + 1] = e end
   end
-  f:SetScript("OnEvent", function(_, e)
+  f:SetScript("OnEvent", function(_, e, ...)
     local h = HANDLERS[e]
     if h then
-      local ok, err = pcall(h)
-      if not ok then HH:LogError("quests auto " .. e .. ": " .. tostring(err)) end
+      local ok, acted = pcall(h)
+      if not ok then HH:LogError("quests auto " .. e .. ": " .. tostring(acted)) acted = false end
+      -- then the dialog window (Dialog.lua): it draws the page only when we did not just answer it ourselves. One
+      -- frame, one order - two frames on the same events would race.
+      local D = HHQ.Dialog
+      if D and D.Page then
+        local ok2, err2 = pcall(D.Page, e, acted == true, ...)
+        if not ok2 then HH:LogError("quests dialog " .. e .. ": " .. tostring(err2)) end
+      end
     end
   end)
   Auto.frame = f

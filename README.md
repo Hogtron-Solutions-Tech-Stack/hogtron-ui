@@ -25,7 +25,7 @@ Bugs: open an issue with `/hh version`, `/hh errors` output (or, after a `/reloa
 | `HogHeals_HUD` | Cast bar, swing timer, mana bar with five-second rule, info line |
 | `HogHeals_Bars` | Own action bars (Bartender-style), hover-and-press key binding |
 | `HogHeals_Plates` | Nameplates: flat bar, quest-mob icons, target marks, own cast bar, DoesItDie skull / reapply mark |
-| `HogHeals_Quests` | Quest tracker with the GO row (`/hh go`), minimap pins, square minimap, addon-button drawer |
+| `HogHeals_Quests` | Quest tracker with the GO row (`/hh go`), quest dialog window (`/hh dialog`: Space accepts, 1-9 picks, ink or parchment), minimap pins, square minimap, addon-button drawer |
 | `HogHeals_Atlas` | Dungeon guide: levels, bosses, loot, dungeon quests, gear upgrades, Where next (`/hh next`) |
 | `HogHeals_Training` | What the class trainer has for you, before you get there (`/hh train`) |
 | `HogHeals_Meter` | Damage / healing meter on the game's own numbers |
