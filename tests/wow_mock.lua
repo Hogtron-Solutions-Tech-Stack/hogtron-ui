@@ -618,3 +618,9 @@ function GetSpellInfo(id)
   if s and s.castTime then return s[1], s[2], "Interface\Icons\\" .. s[1]:gsub("%W", ""), s.castTime, 0, 40, id end
   return _getSpellInfo(id)
 end
+local _getSpellTexture = GetSpellTexture
+function GetSpellTexture(i, book)
+  local s = type(i) == "number" and bookEntry(i)
+  if s and s.icon then return "Interface\\Icons\\" .. s.icon end
+  return _getSpellTexture(i, book)
+end

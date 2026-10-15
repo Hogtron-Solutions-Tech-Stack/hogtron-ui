@@ -4,14 +4,19 @@ Same pipeline as dev/render_mockups.py: the addon runs for real in the test harn
 the page is walked from the LIVE options table (HogHeals.OptionsTable() -> Frames -> clickcast), and the grid,
 picker, rank menu and editor are drawn from ClickGrid.ViewModel() - the same data the in-game widget draws.
 Each state is reached by calling the real ClickGrid actions (Pick / OpenPicker / OpenRankMenu / Select), with a
-mocked level-60 spellbook (tests/spellbooks.py). Not a WoW screenshot: spell icons are lettered tiles (no game
-art in the repo) and fonts differ in game.
+mocked level-60 spellbook (tests/spellbooks.py). Not a WoW screenshot: fonts differ in game.
+
+Spell icons: the icon PATH comes from the addon's own spellbook scan (GetSpellTexture, as in game); the picture for
+that path is fetched once from Wowhead's icon CDN into .scratch-icons/ (gitignored) and drawn into the PNG, the way
+a screenshot shows it; the saved .html links the CDN instead of embedding the art. Offline / unknown icon -> lettered tile.
 
     python dev/render_binding_ui.py
 """
 from __future__ import annotations
 
+import base64
 import hashlib
+import urllib.request
 import html
 import sys
 from pathlib import Path
@@ -36,7 +41,7 @@ CSS = """
 .cell{position:relative;height:46px;background:#1c1c24;border:1px solid #34343f;border-radius:3px;display:flex;align-items:center;gap:7px;padding:0 6px;overflow:hidden}
 .cell.sel{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan)}
 .cell.off{opacity:.42}.cell.empty .fb{color:#737380;font-size:11px}
-.ico{flex:none;width:32px;height:32px;border-radius:3px;border:1px solid #000;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:#fff;text-shadow:0 0 3px #000}
+img.ico,img.mi{object-fit:cover;padding:0}.ico{flex:none;width:32px;height:32px;border-radius:3px;border:1px solid #000;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:#fff;text-shadow:0 0 3px #000}
 .cn{display:flex;flex-direction:column;min-width:0}.cn .n{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cn .r{font-size:10.5px;color:var(--muted)}.rz{position:absolute;right:4px;top:2px;font-size:10px;color:var(--cyan)}
 .dim .g{opacity:.42}
@@ -67,9 +72,38 @@ def lst(v):
     return [] if v is None else list(lv(v).values())
 
 
-def tile(name: str | None, size: str = "") -> str:
+ICON_CACHE = ROOT / ".scratch-icons"
+ICON_CDN = "https://wow.zamimg.com/images/wow/icons/large/{}.jpg"
+ICON_URLS: dict[str, str] = {}   # data URI -> CDN url, so the committed .html links the art instead of embedding it
+
+
+def icon_data(path: str | None) -> str | None:
+    """'Interface\Icons\spell_holy_flashheal' -> data: URI of the real icon (cached), or None."""
+    if not path or not isinstance(path, str):
+        return None
+    stem = path.replace("/", chr(92)).split(chr(92))[-1].lower()
+    if not stem or not all(ch.isalnum() or ch == "_" for ch in stem):
+        return None
+    f = ICON_CACHE / f"{stem}.jpg"
+    if not f.exists():
+        try:
+            ICON_CACHE.mkdir(exist_ok=True)
+            with urllib.request.urlopen(ICON_CDN.format(stem), timeout=10) as r:
+                f.write_bytes(r.read())
+        except Exception:
+            return None
+    uri = "data:image/jpeg;base64," + base64.b64encode(f.read_bytes()).decode()
+    ICON_URLS[uri] = ICON_CDN.format(stem)
+    return uri
+
+
+def tile(name: str | None, size: str = "", icon: str | None = None) -> str:
     if not name:
         return ""
+    cls = "mi" if size == "mini" else "ico"
+    uri = icon_data(icon)
+    if uri:
+        return f'<img class="{cls}" src="{uri}" alt="{html.escape(name)}">'
     col = PALETTE[int(hashlib.md5(name.encode()).hexdigest(), 16) % len(PALETTE)]
     letters = "".join(w[0] for w in name.replace(":", "").split()[:2]).upper()
     cls = "mi" if size == "mini" else "ico"
@@ -112,7 +146,7 @@ def grid_html(vm) -> str:
                 if not c.get("known"):
                     cls.append("off")
                 rz = '<span class="rz">+rez</span>' if c.get("rezActive") else ""
-                inner = f'{tile(c.get("spell"))}<div class="cn"><span class="n">{e(c.get("spell"))}</span><span class="r">{e(c.get("rankText"))}</span></div>{rz}'
+                inner = f'{tile(c.get("spell"), "", c.get("icon"))}<div class="cn"><span class="n">{e(c.get("spell"))}</span><span class="r">{e(c.get("rankText"))}</span></div>{rz}'
             out.append(f'<div class="{" ".join(cls)}">{inner}</div>')
     out.append("</div>")
     return "".join(out)
@@ -135,12 +169,12 @@ def picker_html(vm) -> str:
     top = HEAD_H + GAP + (i + 1) * (CELL_H + GAP)
     left = f"calc({LABEL_W + GAP}px + {j} * ((100% - {LABEL_W + GAP * 5}px) / 5 + {GAP}px))"
     items = [{"name": None, "label": "(empty: clear this slot)"}] + [
-        {"name": lv(x)["name"], "label": lv(x)["name"], "sub": lv(x).get("rankText")} for x in lst(p["entries"])]
+        {"name": lv(x)["name"], "label": lv(x)["name"], "sub": lv(x).get("rankText"), "icon": lv(x).get("icon")} for x in lst(p["entries"])]
     shown = items[:12]
     rows = []
     for k, it in enumerate(shown):
         hov = " hov" if it["name"] == "Abolish Disease" else ""
-        rows.append(f'<div class="it{hov}">{tile(it["name"], "mini") if it["name"] else "<span class=mi></span>"}'
+        rows.append(f'<div class="it{hov}">{tile(it["name"], "mini", it.get("icon")) if it["name"] else "<span class=mi></span>"}'
                     f'<span>{e(it["label"])}</span><span class="s">{e(it.get("sub") or "")}</span></div>')
     more = f'<div class="more">▾ scroll for {len(items) - 12} more</div>' if len(items) > 12 else ""
     return f'<div class="pop" style="top:{top}px;left:{left}">' \
@@ -265,7 +299,10 @@ def main() -> int:
         b = p.chromium.launch()
         pg = b.new_page(viewport={"width": 1240, "height": 900}, device_scale_factor=1)
         for name, content in pages:
-            (OUT / f"{name}.html").write_text(content, encoding="utf-8")
+            linked = content
+            for uri, url in ICON_URLS.items():
+                linked = linked.replace(uri, url)
+            (OUT / f"{name}.html").write_text(linked, encoding="utf-8")
             pg.set_content(content)
             pg.screenshot(path=str(OUT / f"{name}.png"), full_page=True)
             print("rendered", OUT / f"{name}.png")
