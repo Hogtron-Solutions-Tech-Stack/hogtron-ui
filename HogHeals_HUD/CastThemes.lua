@@ -64,6 +64,18 @@ T.THEMES = {
   craft   = { name = "Crafting",  fill = { 0.78, 0.52, 0.22 }, glow = { 0.92, 0.70, 0.40 }, motes = { n = 3, rise = 8, drift = 5, size = 3 } },
   aim     = { name = "Aimed",     fill = { 0.70, 0.62, 0.42 }, glow = { 0.95, 0.85, 0.62 }, motes = { n = 0 } },
 }
+-- art: one 512x64 strip per theme, HogHeals/Media/cast_<key>.tga, repeated along the FILLED part of the bar and
+-- scrolled toward the spark. { blend, px per second }: ADD = light (the schools, fishing, sparks), BLEND = matter
+-- (mining grit, herbs, leather). Sean 2026-10-14: "higher quality cast bar animations" - the strips are the slot for
+-- that art (procedural placeholders from dev/icons/build_cast_art.py until the OpenArt set replaces them, same names).
+-- A strip the client cannot load = no art layer for that theme, the rest of the look stays.
+T.ART = { holy = { "ADD", 30 }, fire = { "ADD", 55 }, frost = { "ADD", 20 }, arcane = { "ADD", 35 }, shadow = { "ADD", 25 },
+  nature = { "ADD", 25 }, earth = { "BLEND", 15 }, herb = { "BLEND", 18 }, leather = { "BLEND", 10 }, water = { "ADD", 30 },
+  gold = { "ADD", 25 }, craft = { "ADD", 30 }, aim = { "ADD", 90 } }
+local ART_DIR = "Interface\\AddOns\\HogHeals\\Media\\cast_"
+local STRIP_W, STRIP_H = 512, 64
+T.artMissing = {}
+
 T.ORDER = { "holy", "fire", "frost", "arcane", "shadow", "nature", "earth", "herb", "leather", "water", "gold", "craft", "aim" }
 T.SCHOOLS = { "Holy", "Fire", "Frost", "Arcane", "Shadow", "Nature" }
 T.CLASS_SCHOOL = { PRIEST = "holy", PALADIN = "holy", MAGE = "arcane", WARLOCK = "shadow", SHAMAN = "nature", DRUID = "nature", HUNTER = "aim" }
@@ -130,6 +142,8 @@ function T.Build(b)
   L.glow:SetPoint("TOPLEFT", b, "TOPLEFT", -12, 9)
   L.glow:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 12, -9)
   for i = 1, MAX_MOTES do L.motes[i] = glowTexture(b, "OVERLAY", 3) end
+  L.art = b:CreateTexture(nil, "ARTWORK", nil, 3)       -- above the fill, under the text / spark / latency
+  L.art:Hide()
   T.layers = L
   return L
 end
@@ -147,6 +161,15 @@ function T.Mote(t, i, n, m, head, height)
   return x, y, alpha
 end
 
+--- Pure: tex coords for the art strip on a fill `width` px wide on a bar `height` px tall, t seconds in, scrolling at
+-- `speed` px/s toward the spark. One strip repeat is STRIP_W * height / STRIP_H px wide on screen (the strip keeps its
+-- shape at any bar height); u beyond 1 wraps (the strip is loaded with REPEAT).
+function T.ArtCoords(t, width, height, speed)
+  local rep = STRIP_W * math.max(1, height or 18) / STRIP_H
+  local u0 = -((t or 0) * (speed or 0)) / rep
+  return u0, u0 + math.max(0, width or 0) / rep
+end
+
 --- Start a themed cast on bar b. key = theme key (nil = plain). Returns true when a theme is on.
 function T.Apply(b, key, startTime)
   local th = key and T.THEMES[key]
@@ -161,6 +184,24 @@ function T.Apply(b, key, startTime)
   else L.glow:Hide() end
   if b.spark and b.spark.SetVertexColor then
     b.spark:SetVertexColor(math.min(1, th.glow[1] + 0.2), math.min(1, th.glow[2] + 0.2), math.min(1, th.glow[3] + 0.2), 1)
+  end
+  local art = T.ART[key]
+  L.art:Hide()
+  L.artOn = false
+  if o.art ~= false and art and not T.artMissing[key] then
+    local ok = L.art:SetTexture(ART_DIR .. key, "REPEAT", "CLAMP")
+    if ok == false then
+      T.artMissing[key] = true
+    else
+      if L.art.SetBlendMode then L.art:SetBlendMode(art[1]) end
+      L.art:SetVertexColor(1, 1, 1, math.min(1, 0.40 + 0.40 * (o.intensity or 0.8)))   -- the label must still read on it
+      L.art:ClearAllPoints()
+      L.art:SetPoint("TOPLEFT", b, "TOPLEFT", 0, 0)
+      L.art:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 0, 0)
+      L.art:SetWidth(0.01)
+      L.art:Show()
+      L.artOn = true
+    end
   end
   for i, mt in ipairs(L.motes) do
     mt:SetSize(th.motes.size or 4, th.motes.size or 4)
@@ -183,10 +224,17 @@ function T.Tick(b, p, now)
     local breath = 0.5 + 0.5 * math.sin(t * 2 * math.pi / 1.8)
     L.glow:SetVertexColor(th.glow[1], th.glow[2], th.glow[3], (o.intensity or 0.8) * (0.35 + 0.25 * breath))
   end
-  if o.motes == false then return end
   local w = num(b:GetWidth()) or 0
-  local h = num(b:GetHeight()) or 18
+  local h = num(b:GetHeight()) or 0
+  if h <= 0 then h = 18 end
   local head = w * math.max(0, math.min(1, p or 0))
+  if L.artOn then
+    local u0, u1 = T.ArtCoords(t, head, h, T.ART[a.key][2])
+    L.art:SetWidth(math.max(0.01, head))
+    L.art:SetTexCoord(u0, u1, 0, 1)
+  end
+  T.lastTick = { t = t, head = head }
+  if o.motes == false then return end
   local n = th.motes.n or 0
   for i = 1, n do
     local mt = L.motes[i]
@@ -207,6 +255,8 @@ function T.Clear(b)
   if L then
     L.glow:Hide()
     for _, mt in ipairs(L.motes) do mt:Hide() end
+    if L.art then L.art:Hide() end
+    L.artOn = false
   end
   if b and b.spark and b.spark.SetVertexColor then b.spark:SetVertexColor(1, 1, 1, 1) end
 end

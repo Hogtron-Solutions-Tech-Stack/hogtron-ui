@@ -82,6 +82,7 @@ local function castbarGroup()
     themesOn = toggle(function() return hud().castbar.themes end, "enabled", "Cast themes", 21),
     themesGlow = toggle(function() return hud().castbar.themes end, "glow", "Soft glow behind the bar", 22),
     themesMotes = toggle(function() return hud().castbar.themes end, "motes", "Specks off the fill (fire rises, frost sinks, mining dust falls)", 23),
+    themesArt = toggle(function() return hud().castbar.themes end, "art", "Textured fill (flames, frost, light... moving toward the spark)", 23.5),
     themesIntensity = range(function() return hud().castbar.themes end, "intensity", "Light strength", 24, 0.2, 1, 0.05),
     themesPreview = { type = "execute", name = "Preview every theme", order = 25, func = function() HH:SafeCall(HHD.Castbar, "PreviewThemes") end },
   } }

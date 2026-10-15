@@ -250,3 +250,50 @@ def test_preview_never_shows_a_question_mark(th):
     assert th.eval("HH_cb.icon._texture").endswith("Spell_Holy_FlashHeal")
     for key in th.eval("HogHealsHUD.CastThemes.ORDER").values():
         assert th.eval(f'HogHealsHUD.Castbar.PreviewIcon("Unknown", "{key}")').startswith("Interface"), key
+
+
+
+# ================================================================================================ art strips (10/14)
+def test_the_art_strip_fills_the_cast_and_scrolls_toward_the_spark(th):
+    th.execute("HH_cb:SetHeight(18)")
+    cast(th, "Fireball", 133)
+    art = f"{T}.layers.art"
+    assert th.eval(f"{art}:IsShown()") is True
+    assert th.eval(f"{art}._texture").endswith("cast_fire")
+    assert th.eval(f"{art}._blend") == "ADD"
+    th.execute("MockState.time = MockState.time + 1.0; HogHealsHUD.Castbar.OnUpdate(HH_cb)")
+    assert th.eval(f"{art}:GetWidth()") == pytest.approx(100.0)          # half the 200 px bar: only the filled part
+    u0, u1, v0, v1 = th.eval(f"{art}._texCoord").values()
+    assert (u1 - u0) == pytest.approx(100 / (512 * 18 / 64))             # the strip keeps its shape at 18 px tall
+    assert (v0, v1) == (0, 1)
+    th.execute("MockState.time = MockState.time + 0.5; HogHealsHUD.Castbar.OnUpdate(HH_cb)")
+    assert list(th.eval(f"{art}._texCoord").values())[0] < u0           # moving toward the spark
+    th.execute('MockFire("UNIT_SPELLCAST_STOP", "player")')
+    assert th.eval(f"{art}:IsShown()") is False
+
+
+def test_matter_strips_blend_and_light_strips_add(th):
+    cast(th, "Mining", "nil", trade=True)
+    assert th.eval(f"{T}.layers.art._blend") == "BLEND"
+    assert th.eval(f"{T}.layers.art._texture").endswith("cast_earth")
+
+
+def test_art_switch_and_a_strip_the_client_cannot_load(th):
+    th.execute("HogHeals.db.profile.hud.castbar.themes.art = false")
+    cast(th, "Fireball", 133)
+    assert th.eval(f"{T}.layers.art:IsShown()") is False and glow_shown(th)
+    th.execute('MockFire("UNIT_SPELLCAST_STOP", "player"); HogHeals.db.profile.hud.castbar.themes.art = true')
+    th.execute(f"{T}.layers.art.SetTexture = function() return false end")
+    cast(th, "Frostbolt", 116)
+    assert th.eval(f"{T}.layers.art:IsShown()") is False
+    assert th.eval(f"{T}.artMissing.frost") is True
+    assert glow_shown(th) and bar_colour(th) == pytest.approx([0.36, 0.66, 0.86])   # the rest of the look stays
+    assert th.eval("#HogHeals.errors") == 0
+
+
+def test_art_coords_pure(th):
+    u0, u1 = th.eval(f"{T}.ArtCoords(0, 144, 18, 30)")
+    assert (u0, u1) == (0, pytest.approx(1.0))                           # 144 px = exactly one strip at 18 px tall
+    u0, u1 = th.eval(f"{T}.ArtCoords(2, 72, 36, 30)")
+    assert u0 == pytest.approx(-60 / 288) and (u1 - u0) == pytest.approx(0.25)
+    assert th.eval(f"{T}.ArtCoords(1, 50, 0, 30)") is not None           # a bar with no height never divides by 0

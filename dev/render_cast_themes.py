@@ -86,6 +86,30 @@ def main():
         img.paste(Image.blend(region, bg, 0.7), (int(x0 * s), int((y0 - H / 2) * s)))
         fc = tuple(int(v * 255) for v in vals(cb["_color"])[:3])
         d.rectangle([x0 * s, (y0 - H / 2) * s, (x0 + W * 0.6) * s - 1, (y0 + H / 2) * s - 1], fill=fc)
+        art = L["art"]
+        if art["_shown"]:
+            # the strip: repeated, scaled so it keeps its shape at the bar's height, cropped to u0..u1 (REPEAT wrap)
+            tc = vals(art["_texCoord"])
+            strip = Image.open(ROOT / "HogHeals" / "Media" / f"cast_{key}.tga").convert("RGBA")
+            rep = int(512 * H / 64 * s)
+            strip = strip.resize((rep, int(H * s)), Image.LANCZOS)
+            fill_w = int(W * 0.6 * s)
+            u0 = tc[0] % 1.0
+            start = int(u0 * rep)
+            tiles = Image.new("RGBA", (rep * (fill_w // rep + 3), int(H * s)))
+            for k in range(fill_w // rep + 3):
+                tiles.paste(strip, (k * rep, 0))
+            piece = tiles.crop((start, 0, start + fill_w, int(H * s)))
+            alpha = vals(art["_color"])[3] if len(vals(art["_color"])) > 3 else 1
+            region = img.crop((int(x0 * s), int((y0 - H / 2) * s), int(x0 * s) + fill_w, int((y0 + H / 2) * s)))
+            blend = vals(art["_last"]["SetBlendMode"])[0] if art["_last"]["SetBlendMode"] is not None else "BLEND"
+            if blend == "ADD":
+                rgb = piece.convert("RGB").point(lambda v: int(v * alpha))
+                img.paste(ImageChops.add(region, rgb), (int(x0 * s), int((y0 - H / 2) * s)))
+            else:
+                a = piece.getchannel("A").point(lambda v: int(v * alpha))
+                region.paste(piece.convert("RGB"), (0, 0), a)
+                img.paste(region, (int(x0 * s), int((y0 - H / 2) * s)))
         sp = tuple(int(min(1, v) * 255) for v in vals(cb["spark"]["_color"])[:3]) if cb["spark"]["_color"] else (255, 255, 255)
         d.rectangle([(x0 + W * 0.6 - 1) * s, (y0 - H / 2 - 3) * s, (x0 + W * 0.6 + 1) * s, (y0 + H / 2 + 3) * s], fill=sp)
         for m in L["motes"].values():
