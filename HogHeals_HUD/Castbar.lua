@@ -247,6 +247,26 @@ function Castbar.Diagnose()
   return lines
 end
 
+--- The icon a preview cast shows (Sean 2026-10-14 in game: the preview showed a question mark). Your own spell's
+-- icon when you know the sample spell (the client answers by name), else the theme's usual icon; never the
+-- question mark.
+Castbar.PREVIEW_ICONS = {
+  holy = "Interface\\Icons\\Spell_Holy_FlashHeal", fire = "Interface\\Icons\\Spell_Fire_FlameBolt", frost = "Interface\\Icons\\Spell_Frost_FrostBolt02", arcane = "Interface\\Icons\\Spell_Nature_StarFall",
+  shadow = "Interface\\Icons\\Spell_Shadow_SiphonMana", nature = "Interface\\Icons\\Spell_Nature_Lightning", earth = "Interface\\Icons\\Trade_Mining", herb = "Interface\\Icons\\Trade_Herbalism",
+  leather = "Interface\\Icons\\INV_Misc_Pelt_Wolf_01", water = "Interface\\Icons\\Trade_Fishing", gold = "Interface\\Icons\\INV_Box_01", craft = "Interface\\Icons\\INV_Misc_Bandage_15",
+  aim = "Interface\\Icons\\INV_Spear_07",
+}
+function Castbar.PreviewIcon(name, key)
+  local C = rawget(_G, "C_Spell")
+  local get = type(C) == "table" and C.GetSpellTexture or rawget(_G, "GetSpellTexture")
+  if type(get) == "function" then
+    local ok, tex = pcall(get, name)
+    local secret = type(issecretvalue) == "function" and issecretvalue(tex)
+    if ok and tex ~= nil and not secret and tex ~= "" then return tex end
+  end
+  return Castbar.PREVIEW_ICONS[key] or Castbar.GENERIC_ICON
+end
+
 --- Every theme on the HUD cast bar in turn, 2 s each (options button, /hh casttheme preview). A fake cast: no spell.
 function Castbar.PreviewThemes()
   local T = HHD.CastThemes
@@ -261,7 +281,8 @@ function Castbar.PreviewThemes()
       return
     end
     local now = GetTime()
-    begin(Castbar.state, samples[key] .. "  (preview)", "Interface\\Icons\\INV_Misc_QuestionMark", now * 1000, (now + 1.9) * 1000, false, key == "water", nil, nil, key)
+    begin(Castbar.state, samples[key] .. "  (preview)", Castbar.PreviewIcon(samples[key], key), now * 1000, (now + 1.9) * 1000,
+      false, key == "water", nil, nil, key)
     Castbar.state.preview = true
     C_Timer.After(2, function() step(i + 1) end)
   end
