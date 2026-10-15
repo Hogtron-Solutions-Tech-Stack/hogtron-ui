@@ -209,12 +209,18 @@ def test_one_or_no_choice_takes_it(dlg):
 
 def test_progress_continues_only_when_completable(dlg):
     dlg.execute('COMPLETABLE = false; REQUIRED = { { "Tough Wolf Meat", 133970, 8 } }; MockFire("QUEST_PROGRESS")')
-    assert dlg.eval("HogTronUIDialog.primary.label:GetText()") == "Continue"
+    assert dlg.eval("HogTronUIDialog.primary.label:GetText()") == "Incomplete"   # like Dialogue UI: greyed, outlined
+    assert dlg.eval("HogTronUIDialog.primary.line.shown") is True and dlg.eval("HogTronUIDialog.primary.bg.shown") is False
     dlg.execute("HogTronUIDialogPrimary:Click()")
     assert calls(dlg) == []
-    texts = [dlg.eval(f"HogTronUIDialogRow{i}.text:GetText()") for i in (1, 2)]
-    assert texts == ["Bring:", "Tough Wolf Meat  x8"]
-    dlg.execute('COMPLETABLE = true; MockFire("QUEST_PROGRESS"); HogTronUIDialogPrimary:Click()')
+    assert dlg.eval(f'{D}.Do("continue")') is False and calls(dlg) == []   # the action refuses too, not only the button
+    assert dlg.eval("HogTronUIDialog.reqTag.text:GetText()") == "Required items"
+    assert dlg.eval("HogTronUIDialogRow1.text:GetText()") == "Tough Wolf Meat"
+    assert dlg.eval("HogTronUIDialogRow1.count:GetText()") == "8"
+    assert dlg.eval("HogTronUIDialog.secondary.label:GetText()") == "Cancel"
+    dlg.execute('COMPLETABLE = true; MockFire("QUEST_PROGRESS")')
+    assert dlg.eval("HogTronUIDialog.primary.label:GetText()") == "Continue"
+    dlg.execute("HogTronUIDialogPrimary:Click()")
     assert calls(dlg) == [["CompleteQuest"]]
 
 
@@ -226,7 +232,7 @@ def test_gossip_lists_hand_ins_then_offers_then_open_quests_then_options(dlg):
       MockFire("GOSSIP_SHOW")''')
     picks = [dlg.eval(f"{D}.model.picks[{i}].text") for i in range(1, 6)]
     assert picks == ["Done Q", "New Q", "Open Q", "Make this inn your home", "Train me"]
-    assert dlg.eval("HogTronUIDialogRow1.num:GetText()") == "1."
+    assert dlg.eval("HogTronUIDialogRow1.key.text:GetText()") == "1"
     assert bound(dlg, "SPACE") is None          # five lines: Space would be a guess
     assert bound(dlg, "5") is not None
     click_pick(dlg, 4)
@@ -301,7 +307,7 @@ def test_combat_gives_the_keys_back_and_takes_them_after(dlg):
 def test_keys_option_off_binds_nothing(dlg):
     dlg.execute('HogHeals.db.profile.quests.dialog.keys = false; MockBindings.clicks = {}; MockFire("QUEST_DETAIL")')
     assert shown(dlg) and bound(dlg, "SPACE") is None
-    assert dlg.eval("HogTronUIDialog.primary.key:GetText()") == ""
+    assert dlg.eval("HogTronUIDialog.primary.key.text:IsShown()") is False
 
 
 # ================================================================================================ failsafe
@@ -316,19 +322,26 @@ def test_a_page_that_throws_goes_to_blizzards_window(dlg):
 
 
 # ================================================================================================ look, preview, options
-def test_parchment_theme(dlg):
-    dlg.execute('HogHeals:SlashCommand("dialog parchment"); MockFire("QUEST_DETAIL")')
-    bg = list(dlg.eval("HogTronUIDialog.bg._color").values())
-    assert bg[:3] == pytest.approx([0.93, 0.89, 0.80])
-    title = list(dlg.eval("HogTronUIDialog.title._color").values())
-    assert sum(title[:3]) < 0.6   # dark ink on light paper
+def test_light_page_by_default_dark_on_request_and_the_old_names_still_work(dlg):
+    dlg.execute('MockFire("QUEST_DETAIL")')
+    assert dlg.eval("HogTronUIDialog.pageTop._texture").endswith("dialog_page_light")
+    assert sum(list(dlg.eval("HogTronUIDialog.title._color").values())[:3]) < 0.6   # dark ink on paper
     dlg.execute('HogHeals:SlashCommand("dialog dark")')
-    assert dlg.eval("HogHeals.db.profile.quests.dialog.theme") == "ink"
-    assert list(dlg.eval("HogTronUIDialog.bg._color").values())[:3] == pytest.approx([0.07, 0.07, 0.09])
+    assert dlg.eval("HogHeals.db.profile.quests.dialog.theme") == "dark"
+    assert dlg.eval("HogTronUIDialog.pageMid._texture").endswith("dialog_page_dark")
+    assert sum(list(dlg.eval("HogTronUIDialog.title._color").values())[:3]) > 2.4  # light text on the charred page
+    for old, new in (("parchment", "light"), ("ink", "dark")):
+        dlg.execute(f'HogHeals.db.profile.quests.dialog.theme = "{old}"')
+        assert dlg.eval(f"{D}.ThemeKey()") == new
 
 
 def test_preview_needs_no_npc_and_sends_nothing(dlg):
-    dlg.execute(f"{D}.Preview()")
+    dlg.execute('HogHeals:SlashCommand("dialog preview")')
+    assert shown(dlg) and dlg.eval(f"{D}.model.kind") == "detail"
+    assert dlg.eval("HogTronUIDialog.primary.label:GetText()") == "Accept"
+    dlg.execute("HogTronUIDialogPrimary:Click()")
+    assert calls(dlg) == [] and not shown(dlg)
+    dlg.execute('HogHeals:SlashCommand("dialog preview reward")')
     assert shown(dlg)
     assert dlg.eval("HogTronUIDialog.title:GetText()") == "Wolves Across the Border"
     click_pick(dlg, 2)
@@ -358,7 +371,7 @@ def test_pure_helpers(dlg):
 
 def test_options_and_diag(dlg):
     opts = dlg.eval("HogHealsQuests.Options.Build()")
-    assert opts["args"]["dialog"]["args"]["theme"]["values"]["parchment"] == "Parchment (light)"
+    assert opts["args"]["dialog"]["args"]["theme"]["values"]["light"] == "Parchment (light)"
     dlg.execute('MockFire("QUEST_DETAIL")')
     dlg.execute('HogHeals:SlashCommand("dialogdiag")')
     d = dlg.eval("HogHeals.db.global.diag.dialog")
@@ -366,3 +379,47 @@ def test_options_and_diag(dlg):
     assert "QUEST_DETAIL" in d["muted"]["QuestFrame"]
     assert any("show:detail=1" in l for l in dlg.eval(f"{D}.Lines()").values())
     assert dlg.eval("#HogHeals.errors") == 0
+
+
+# ================================================================================================ the page (redesign 10/14)
+def test_the_page_is_three_slices_that_add_up_to_the_window(dlg):
+    dlg.execute('MockFire("QUEST_DETAIL")')
+    h = dlg.eval("HogTronUIDialog:GetHeight()")
+    parts = [dlg.eval(f"HogTronUIDialog.{p}:GetHeight()") for p in ("pageTop", "pageMid", "pageBot")]
+    assert sum(parts) == pytest.approx(h)
+    assert parts[0] == pytest.approx(parts[2])                      # torn top and bottom keep their shape
+    assert dlg.eval("HogTronUIDialog:GetWidth()") == 540
+    # a long text grows the page, it never runs off it
+    dlg.execute('TEXT = string.rep("The wolves came again last night. ", 40); MockFire("QUEST_DETAIL")')
+    assert dlg.eval("HogTronUIDialog:GetHeight()") > h
+
+
+def test_objectives_as_a_list_when_the_client_has_them(dlg):
+    dlg.execute('function GetQuestID() return 7 end; MockFire("QUEST_DETAIL")')
+    assert dlg.eval("HogTronUIDialog.objectives:GetText()") == "- Kobold Vermin slain: 3/8"
+    assert dlg.eval("HogTronUIDialog.objTag.text:GetText()") == "Objectives"
+    dlg.execute('function GetQuestID() return 0 end; MockFire("QUEST_DETAIL")')
+    assert dlg.eval("HogTronUIDialog.objectives:GetText()").startswith("Bring 8")   # the paragraph otherwise
+
+
+def test_main_button_left_way_out_right_with_key_caps(dlg):
+    dlg.execute('MockFire("QUEST_DETAIL")')
+    px = list(dlg.eval("HogTronUIDialogPrimary._points[1]").values())[3]
+    sx = list(dlg.eval("HogTronUIDialogSecondary._points[1]").values())[3]
+    assert px < sx
+    assert dlg.eval("HogTronUIDialog.primary.key.text:GetText()") == "Space"
+    assert dlg.eval("HogTronUIDialog.secondary.key.text:GetText()") == "Esc"
+    assert dlg.eval("HogTronUIDialogPrimary:GetWidth()") == dlg.eval("HogTronUIDialogSecondary:GetWidth()")
+
+
+def test_rewards_are_icon_tiles_two_to_a_row_in_colours_that_read_on_paper(dlg):
+    dlg.execute('CHOICES = { { "Gloves", 1, 1, 2 }, { "Tunic", 2, 1, 2 }, { "Pants", 3, 1, 1 } }; REWARDS = { { "Cloak", 4, 1, 3 } }; MockFire("QUEST_DETAIL")')
+    pts = [list(dlg.eval(f"HogTronUIDialogRow{i}._points[1]").values()) for i in (1, 2, 3, 4)]
+    assert pts[0][4] == pts[1][4] and pts[0][3] < pts[1][3]          # 1 and 2 side by side
+    assert pts[2][4] < pts[0][4]                                     # 3 on the next line
+    assert dlg.eval("HogTronUIDialog.chooseCap:GetText()") == "Choose one of these rewards:"
+    assert dlg.eval("HogTronUIDialog.alsoCap:GetText()") == "You will also receive:"
+    green = list(dlg.eval("HogTronUIDialogRow1.text._color").values())[:3]
+    assert green == pytest.approx([0.08, 0.42, 0.02])                 # Blizzard's bright green would vanish on parchment
+    assert dlg.eval("HogTronUIDialogRow1.icon._texture") == 1
+    assert dlg.eval("HogTronUIDialogRow1.key.text:IsShown()") is False  # an offer is not picked on the detail page

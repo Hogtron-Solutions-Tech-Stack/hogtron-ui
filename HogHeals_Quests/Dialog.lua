@@ -41,22 +41,43 @@ local function count(k) Dialog.seen[k] = (Dialog.seen[k] or 0) + 1 end
 local function gossipAPI() local GI = rawget(_G, "C_GossipInfo") return type(GI) == "table" and GI or nil end
 
 -- ------------------------------------------------------------------------------------------------ look
-Dialog.THEMES = {
-  ink = { bg = { 0.07, 0.07, 0.09 }, text = { 0.96, 0.92, 0.86 }, muted = { 0.60, 0.60, 0.66 }, accent = { 0.13, 0.83, 0.88 },
-          title = { 0.96, 0.92, 0.86 }, edge = { 0.20, 0.20, 0.25 }, button = { 0.14, 0.14, 0.17 }, quest = { 0.95, 0.65, 0.15 },
-          primaryText = { 0.07, 0.07, 0.09 }, shadow = true },
-  parchment = { bg = { 0.93, 0.89, 0.80 }, text = { 0.18, 0.13, 0.08 }, muted = { 0.45, 0.39, 0.30 }, accent = { 0.04, 0.47, 0.53 },
-          title = { 0.12, 0.09, 0.05 }, edge = { 0.62, 0.55, 0.42 }, button = { 0.85, 0.80, 0.69 }, quest = { 0.72, 0.42, 0.04 },
-          primaryText = { 0.97, 0.95, 0.90 }, shadow = false },
-}
-Dialog.THEME_NAMES = { ink = "Ink (dark)", parchment = "Parchment (light)" }
-local QUEST_OPEN = "Interface\\AddOns\\HogHeals\\Media\\quest_open"
-local QUEST_DONE = "Interface\\AddOns\\HogHeals\\Media\\quest_done"
+-- A torn parchment page (light) or the same sheet charred (dark), the NPC's portrait in a bronze ring, the title and
+-- the text in the game's own Friz Quadrata - the book-page look of the Dialogue UI clip (Sean 2026-10-14: the first,
+-- flat ink box "looks absolutely terrible"). Art = HogHeals/Media/dialog_*.tga, ours (dev/icons/build_dialog_art.py).
+local MEDIA = "Interface\\AddOns\\HogHeals\\Media\\"
+local ART = { page = { light = MEDIA .. "dialog_page_light", dark = MEDIA .. "dialog_page_dark" }, ring = MEDIA .. "dialog_ring",
+  rule = MEDIA .. "dialog_rule", round = MEDIA .. "dialog_round", line = MEDIA .. "dialog_round_line" }
+Dialog.ART = ART
+local QUEST_OPEN = MEDIA .. "quest_open"
+local QUEST_DONE = MEDIA .. "quest_done"
 local FLAT = "Interface\\Buttons\\WHITE8X8"
-local PAD, GAP, ROW_MIN, ICON = 16, 8, 26, 20
+local PAGE_W, PAGE_H, SLICE = 512, 1024, 160    -- the page texture, and the height of its torn top / bottom slices
+local EDGE_PERIOD = 176                         -- the art's side edges repeat every 176 px (build_dialog_art.py PERIOD)
 local KEYS = { "1", "2", "3", "4", "5", "6", "7", "8", "9" }
 
-function Dialog.Theme() return Dialog.THEMES[cfg().theme or "ink"] or Dialog.THEMES.ink end
+Dialog.THEMES = {
+  light = { text = { 0.22, 0.14, 0.07 }, title = { 0.17, 0.10, 0.04 }, muted = { 0.44, 0.34, 0.22 }, rule = { 0.36, 0.24, 0.12 },
+    tag = { 0.36, 0.24, 0.12, 0.16 }, tile = { 0.36, 0.24, 0.12, 0.09 }, hover = { 0.36, 0.24, 0.12, 0.18 }, pick = { 0.72, 0.48, 0.12 },
+    button = { 0.30, 0.21, 0.13, 0.92 }, buttonText = { 0.96, 0.91, 0.82 }, outline = { 0.36, 0.24, 0.12, 0.60 },
+    key = { 0.12, 0.08, 0.05, 0.88 }, keyText = { 0.96, 0.92, 0.84 }, quest = { 0.62, 0.36, 0.02 }, paper = true },
+  dark = { text = { 0.86, 0.82, 0.75 }, title = { 0.96, 0.92, 0.84 }, muted = { 0.60, 0.56, 0.50 }, rule = { 0.78, 0.72, 0.62 },
+    tag = { 1, 1, 1, 0.08 }, tile = { 1, 1, 1, 0.05 }, hover = { 1, 1, 1, 0.10 }, pick = { 0.88, 0.66, 0.28 },
+    button = { 0.22, 0.21, 0.20, 0.95 }, buttonText = { 0.95, 0.91, 0.84 }, outline = { 0.75, 0.70, 0.62, 0.45 },
+    key = { 0.04, 0.04, 0.04, 0.92 }, keyText = { 0.92, 0.90, 0.86 }, quest = { 0.95, 0.70, 0.20 }, paper = false },
+}
+Dialog.THEME_NAMES = { light = "Parchment (light)", dark = "Charred (dark)" }
+local LEGACY = { parchment = "light", ink = "dark" }   -- the first build's names
+
+function Dialog.ThemeKey()
+  local k = cfg().theme or "light"
+  k = LEGACY[k] or k
+  return Dialog.THEMES[k] and k or "light"
+end
+function Dialog.Theme() return Dialog.THEMES[Dialog.ThemeKey()] end
+
+-- item quality colours that still read on paper (Blizzard's green / white vanish on parchment)
+Dialog.PAPER_QUALITY = { [0] = { 0.44, 0.40, 0.36 }, [1] = { 0.22, 0.14, 0.07 }, [2] = { 0.08, 0.42, 0.02 }, [3] = { 0.00, 0.28, 0.62 },
+  [4] = { 0.42, 0.12, 0.62 }, [5] = { 0.70, 0.35, 0.00 } }
 
 -- ------------------------------------------------------------------------------------------------ pure
 --- XP a quest is worth as a whole-number share of the level bar, or nil (no XP, no bar, unreadable).
@@ -205,6 +226,21 @@ function Dialog.Apply()
 end
 
 -- ------------------------------------------------------------------------------------------------ reading a page
+--- The quest's objectives as "- 0/10 Dun Garok Mountaineer slain" lines, when the client lists them for the quest on
+-- offer (C_QuestLog.GetQuestObjectives(GetQuestID())); nil = use the objective paragraph instead.
+function Dialog.ObjectiveLines()
+  local qid = num(call(g("GetQuestID")))
+  local CQ = rawget(_G, "C_QuestLog")
+  local objs = qid and qid > 0 and call(fn(CQ, "GetQuestObjectives"), qid) or nil
+  if type(objs) ~= "table" then return nil end
+  local out = {}
+  for _, o in ipairs(objs) do
+    local t = type(o) == "table" and str(o.text)
+    if t and t ~= "" then out[#out + 1] = "- " .. t end
+  end
+  return #out > 0 and table.concat(out, "\n") or nil
+end
+
 local function questItems(kind, n)
   local out = {}
   local info = g("GetQuestItemInfo")
@@ -261,7 +297,7 @@ function Dialog.Read(kind)
     m.title = str(call(g("GetTitleText"))) or ""
     if kind == "detail" then
       m.body = str(call(g("GetQuestText"))) or ""
-      m.objectives = str(call(g("GetObjectiveText")))
+      m.objectives = Dialog.ObjectiveLines() or str(call(g("GetObjectiveText")))
       m.primary = { label = "Accept", action = "accept", key = "Space" }
       m.secondary = { label = "Decline", action = "decline", key = "Esc" }
       if call(g("QuestGetAutoAccept")) == true then
@@ -272,12 +308,13 @@ function Dialog.Read(kind)
       m.body = str(call(g("GetProgressText"))) or ""
       m.required = questItems("required", num(call(g("GetNumQuestItems"))) or 0)
       local can = g("IsQuestCompletable")
-      m.primary = { label = "Continue", action = "continue", key = "Space", disabled = can ~= nil and not call(can) }
-      m.secondary = { label = "Goodbye", action = "closeQuest", key = "Esc" }
+      local done = can == nil or call(can) and true or false
+      m.primary = { label = done and "Continue" or "Incomplete", action = "continue", key = "Space", disabled = not done }
+      m.secondary = { label = "Cancel", action = "closeQuest", key = "Esc" }
     else
       m.body = str(call(g("GetRewardText"))) or ""
-      m.primary = { label = "Complete", action = "reward", key = "Space" }
-      m.secondary = { label = "Goodbye", action = "closeQuest", key = "Esc" }
+      m.primary = { label = "Complete Quest", action = "reward", key = "Space" }
+      m.secondary = { label = "Cancel", action = "closeQuest", key = "Esc" }
     end
     if kind ~= "progress" then
       m.rewards = questItems("reward", num(call(g("GetNumQuestRewards"))) or 0)
@@ -347,10 +384,13 @@ function Dialog.Pick(i)
 end
 
 -- ------------------------------------------------------------------------------------------------ window
-local function setFont(fs, size)
-  local look = HH.Look
-  local font = look and look.Font and call(look.Font) or nil
-  if font and fs.SetFont then pcall(fs.SetFont, fs, font, size, "") end
+local function friz() return rawget(_G, "STANDARD_TEXT_FONT") or "Fonts\\FRIZQT__.TTF" end
+
+local function setFont(f, size)
+  local path = friz()
+  if cfg().font == "hogtron" and HH.Look and HH.Look.Font then path = call(HH.Look.Font) or path end
+  if f.SetFont then pcall(f.SetFont, f, path, size, "") end
+  if f.SetShadowOffset then f:SetShadowOffset(0, 0) end   -- ink on paper casts no shadow
 end
 
 local function fs(parent, template)
@@ -360,35 +400,79 @@ local function fs(parent, template)
   return t
 end
 
-local function edge(f)
-  local e = {}
-  for i, spec in ipairs({ { "TOPLEFT", "TOPRIGHT", nil, 1 }, { "BOTTOMLEFT", "BOTTOMRIGHT", nil, 1 }, { "TOPLEFT", "BOTTOMLEFT", 1, nil }, { "TOPRIGHT", "BOTTOMRIGHT", 1, nil } }) do
-    local t = f:CreateTexture(nil, "BORDER")
-    t:SetPoint(spec[1], f, spec[1], 0, 0)
-    t:SetPoint(spec[2], f, spec[2], 0, 0)
-    if spec[3] then t:SetWidth(spec[3]) else t:SetHeight(spec[4]) end
-    e[i] = t
+local function rgba(t, c, a) t:SetVertexColor(c[1], c[2], c[3], a or c[4] or 1) end
+
+--- A rounded shape that keeps its corners at any width: left cap, stretched middle, right cap of one 64 px texture.
+local function slab(parent, layer, file, sub)
+  local s = { parts = {} }
+  for i = 1, 3 do
+    local t = parent:CreateTexture(nil, layer, nil, sub)
+    t:SetTexture(file)
+    s.parts[i] = t
   end
-  return e
+  s.parts[1]:SetTexCoord(0, 0.5, 0, 1)
+  s.parts[2]:SetTexCoord(0.49, 0.51, 0, 1)
+  s.parts[3]:SetTexCoord(0.5, 1, 0, 1)
+  function s.Place(_, anchor, x, y, w, h)
+    local cap = math.min(h / 2, w / 2)
+    local p = s.parts
+    for _, t in ipairs(p) do t:ClearAllPoints() end
+    p[1]:SetPoint("TOPLEFT", anchor, "TOPLEFT", x, y) p[1]:SetSize(cap, h)
+    p[2]:SetPoint("TOPLEFT", anchor, "TOPLEFT", x + cap, y) p[2]:SetSize(math.max(0.01, w - 2 * cap), h)
+    p[3]:SetPoint("TOPLEFT", anchor, "TOPLEFT", x + w - cap, y) p[3]:SetSize(cap, h)
+    s.box = { x = x, y = y, w = w, h = h }
+  end
+  function s.Color(_, c, a) for _, t in ipairs(s.parts) do rgba(t, c, a) end s.color = { c[1], c[2], c[3], a or c[4] or 1 } end
+  function s.Show() for _, t in ipairs(s.parts) do t:Show() end s.shown = true end
+  function s.Hide() for _, t in ipairs(s.parts) do t:Hide() end s.shown = false end
+  return s
+end
+
+--- A key cap ("Esc", "Space", "1"): dark rounded chip with light text.
+local function keycap(parent)
+  local k = { bg = slab(parent, "ARTWORK", ART.round, 1), text = fs(parent, "HogTronFontSmall") }
+  if k.text.SetJustifyH then k.text:SetJustifyH("CENTER") end
+  function k.Set(_, label, x, y, size)
+    if not label or label == "" then k.bg:Hide() k.text:Hide() k.w = 0 return 0 end
+    local th = Dialog.Theme()
+    local w = math.max(18, #label * 7 + 10)
+    k.bg:Place(parent, x, y, w, 18)
+    k.bg:Color(th.key)
+    k.bg:Show()
+    setFont(k.text, size or 10)
+    k.text:SetText(label)
+    k.text:SetTextColor(th.keyText[1], th.keyText[2], th.keyText[3])
+    k.text:ClearAllPoints()
+    k.text:SetPoint("CENTER", parent, "TOPLEFT", x + w / 2, y - 9)
+    k.text:Show()
+    k.w = w
+    return w
+  end
+  return k
+end
+
+local function tag(parent)
+  local t = { bg = slab(parent, "ARTWORK", ART.round), text = fs(parent) }
+  return t
 end
 
 local function button(parent, name)
   local b = CreateFrame("Button", name, parent)
-  b:SetSize(120, 28)
-  b.bg = b:CreateTexture(nil, "BACKGROUND")
-  b.bg:SetAllPoints(b)
+  b:SetSize(200, 36)
+  b.bg = slab(b, "BACKGROUND", ART.round)
+  b.line = slab(b, "BORDER", ART.line)
   b.label = fs(b, "HogTronFontNormal")
-  b.label:SetPoint("CENTER", b, "CENTER", 0, 1)
   if b.label.SetJustifyH then b.label:SetJustifyH("CENTER") end
-  b.key = fs(b, "HogTronFontSmall")
-  b.key:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -4, 2)
+  b.key = keycap(b)
+  b:SetScript("OnEnter", function(self) self.hover = true Dialog.PaintButton(self) end)
+  b:SetScript("OnLeave", function(self) self.hover = false Dialog.PaintButton(self) end)
   return b
 end
 
 function Dialog.Build()
   if Dialog.frame then return Dialog.frame end
   local f = CreateFrame("Frame", "HogTronUIDialog", UIParent)
-  f:SetSize(cfg().width or 460, 240)
+  f:SetSize(cfg().width or 540, 400)
   f:SetFrameStrata("DIALOG")
   if f.SetClampedToScreen then f:SetClampedToScreen(true) end
   f:SetMovable(true)
@@ -401,24 +485,30 @@ function Dialog.Build()
     local o = cfg()
     if type(p) == "string" and num(x) and num(y) then o.point, o.x, o.y = p, math.floor(x + 0.5), math.floor(y + 0.5) end
   end)
-  f.bg = f:CreateTexture(nil, "BACKGROUND")
-  f.bg:SetAllPoints(f)
-  f.edge = edge(f)
-  f.npc = fs(f, "HogTronFontSmall")
+  f.pageTop = f:CreateTexture(nil, "BACKGROUND")
+  f.pageMid = f:CreateTexture(nil, "BACKGROUND")
+  f.pageBot = f:CreateTexture(nil, "BACKGROUND")
+  f.portrait = f:CreateTexture(nil, "ARTWORK")
+  f.ring = f:CreateTexture(nil, "OVERLAY")
+  f.ring:SetTexture(ART.ring)
   f.title = fs(f, "HogTronFontNormalLarge")
   f.rule = f:CreateTexture(nil, "ARTWORK")
-  f.rule:SetHeight(1)
+  f.rule:SetTexture(ART.rule)
+  f.npc = fs(f, "HogTronFontSmall")
   f.body = fs(f)
-  f.objHead = fs(f, "HogTronFontSmall")
+  f.objTag = tag(f)
   f.objectives = fs(f)
-  f.rewHead = fs(f, "HogTronFontSmall")
+  f.reqTag = tag(f)
+  f.rewTag = tag(f)
   f.xp = fs(f)
   f.money = fs(f)
+  f.chooseCap = fs(f)
+  f.alsoCap = fs(f)
   f.hint = fs(f, "HogTronFontSmall")
   f.primary = button(f, "HogTronUIDialogPrimary")
   f.primary:SetScript("OnClick", function()
     local m = Dialog.model
-    if m and m.primary and Dialog.frame:IsShown() then Dialog.Do(m.primary.action) end
+    if m and m.primary and not m.primary.disabled and Dialog.frame:IsShown() then Dialog.Do(m.primary.action) end
   end)
   f.secondary = button(f, "HogTronUIDialogSecondary")
   f.secondary:SetScript("OnClick", function()
@@ -428,13 +518,6 @@ function Dialog.Build()
       Dialog.Hide()
     end
   end)
-  f.close = CreateFrame("Button", nil, f)
-  f.close:SetSize(22, 22)
-  f.close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -4, -4)
-  f.close.label = fs(f.close, "HogTronFontNormal")
-  f.close.label:SetPoint("CENTER", f.close, "CENTER", 0, 0)
-  f.close.label:SetText("x")
-  f.close:SetScript("OnClick", function() f:Hide() Dialog.OnHide() end)
   f:SetScript("OnHide", function() Dialog.OnHide() end)
   local special = rawget(_G, "UISpecialFrames")
   if type(special) == "table" then special[#special + 1] = "HogTronUIDialog" end
@@ -443,28 +526,29 @@ function Dialog.Build()
   return f
 end
 
+--- One pooled clickable row. mode "tile" = an item (icon, name, count) in the two-column reward grid; "row" = a
+-- full-width gossip / greeting line (key cap, quest mark or gossip icon, text).
 local function rowButton(i)
   local r = Dialog.rows[i]
   if r then return r end
   local f = Dialog.frame
   r = CreateFrame("Button", "HogTronUIDialogRow" .. i, f)
-  r.bg = r:CreateTexture(nil, "BACKGROUND")
-  r.bg:SetAllPoints(r)
-  r.icon = r:CreateTexture(nil, "ARTWORK")
-  r.icon:SetSize(ICON, ICON)
-  r.icon:SetPoint("LEFT", r, "LEFT", 22, 0)
+  r.bg = slab(r, "BACKGROUND", ART.round)
+  r.sel = slab(r, "BORDER", ART.line)
+  r.iconEdge = r:CreateTexture(nil, "ARTWORK")
+  r.iconEdge:SetTexture(FLAT)
+  r.icon = r:CreateTexture(nil, "ARTWORK", nil, 1)
   r.glyph = fs(r, "HogTronFontNormal")
-  r.glyph:SetPoint("CENTER", r.icon, "CENTER", 0, 0)
-  r.num = fs(r, "HogTronFontSmall")
-  r.num:SetPoint("LEFT", r, "LEFT", 4, 0)
+  if r.glyph.SetJustifyH then r.glyph:SetJustifyH("CENTER") end
+  r.count = fs(r, "HogTronFontSmall")
   r.text = fs(r)
   if r.text.SetJustifyV then r.text:SetJustifyV("MIDDLE") end
-  r.text:SetPoint("LEFT", r.icon, "RIGHT", 8, 0)
-  r.text:SetPoint("RIGHT", r, "RIGHT", -6, 0)
+  r.key = keycap(r)
+  r.num = r.key.text
   r:SetScript("OnClick", function(self) if self.pick then Dialog.Pick(self.pick) end end)
   r:SetScript("OnEnter", function(self)
     local tip = rawget(_G, "GameTooltip")
-    if self.item and type(tip) == "table" and fn(tip, "SetQuestItem") then
+    if self.item and type(tip) == "table" and fn(tip, "SetQuestItem") and not (Dialog.model and Dialog.model.preview) then
       pcall(tip.SetOwner, tip, self, "ANCHOR_RIGHT")
       pcall(tip.SetQuestItem, tip, self.item.kind, self.item.index)
       pcall(tip.Show, tip)
@@ -483,7 +567,9 @@ local function rowButton(i)
 end
 
 local function qualityColor(q)
-  if not num(q) then return nil end
+  q = num(q)
+  if not q then return nil end
+  if Dialog.Theme().paper then return Dialog.PAPER_QUALITY[q] end
   local C = rawget(_G, "C_Item")
   local r, gg, b = call(fn(C, "GetItemQualityColor"), q)
   if not num(r) then r, gg, b = call(g("GetItemQualityColor"), q) end
@@ -493,160 +579,300 @@ end
 function Dialog.PaintRow(r)
   local th = Dialog.Theme()
   local sel = r.choose and Dialog.choice == r.choose
-  if sel then r.bg:SetColorTexture(th.accent[1], th.accent[2], th.accent[3], 0.28)
-  elseif r.hover and r.pick then r.bg:SetColorTexture(th.accent[1], th.accent[2], th.accent[3], 0.14)
-  else r.bg:SetColorTexture(th.button[1], th.button[2], th.button[3], r.pick and 0.55 or 0) end
+  local w, h = r:GetWidth() or 0, r:GetHeight() or 0
+  r.bg:Place(r, 0, 0, w, h)
+  r.sel:Place(r, 0, 0, w, h)
+  if sel then
+    r.bg:Color(th.pick, 0.22) r.sel:Color(th.pick, 0.95) r.sel:Show()
+  else
+    r.bg:Color((r.hover and r.pick) and th.hover or th.tile)
+    r.sel:Hide()
+  end
+  r.bg:Show()
 end
 
-local function placeText(fsx, text, size, width, y, color)
-  if not text or text == "" then fsx:Hide() return y end
-  setFont(fsx, size)
-  fsx:SetWidth(width)
-  if fsx.SetWordWrap then fsx:SetWordWrap(true) end
-  fsx:ClearAllPoints()
-  fsx:SetPoint("TOPLEFT", Dialog.frame, "TOPLEFT", PAD, y)
-  fsx:SetText(text)
-  fsx:SetTextColor(color[1], color[2], color[3])
-  if fsx.SetShadowOffset then if Dialog.Theme().shadow then fsx:SetShadowOffset(1, -1) else fsx:SetShadowOffset(0, 0) end end
-  fsx:Show()
-  local h = fsx.GetStringHeight and num(call(fsx.GetStringHeight, fsx))
+local function measure(f, text, width, size)
+  local h = f.GetStringHeight and num(call(f.GetStringHeight, f))
   if not h or h <= 0 then h = Dialog.EstimateHeight(text, width, size) end
-  return y - h - GAP
+  return h
 end
 
---- Lay the current page out top to bottom. The window grows with the page.
+local function placeText(f, text, size, x, y, width, color)
+  if not text or text == "" then f:Hide() return y end
+  setFont(f, size)
+  if f.SetSpacing then f:SetSpacing(math.floor(size * 0.25)) end
+  f:SetWidth(width)
+  if f.SetWordWrap then f:SetWordWrap(true) end
+  f:ClearAllPoints()
+  f:SetPoint("TOPLEFT", Dialog.frame, "TOPLEFT", x, y)
+  f:SetText(text)
+  f:SetTextColor(color[1], color[2], color[3])
+  f:Show()
+  return y - measure(f, text, width, size)
+end
+
+local function placeTag(t, label, size, x, y)
+  local th = Dialog.Theme()
+  setFont(t.text, size)
+  t.text:SetText(label)
+  t.text:SetTextColor(th.text[1], th.text[2], th.text[3])
+  t.text:ClearAllPoints()
+  t.text:SetPoint("LEFT", Dialog.frame, "TOPLEFT", x + 8, y - (size + 9) / 2)
+  t.text:Show()
+  local w = num(call(t.text.GetStringWidth, t.text))
+  if not w or w <= 0 then w = #label * size * 0.55 end
+  t.bg:Place(Dialog.frame, x, y, w + 16, size + 9)
+  t.bg:Color(th.tag)
+  t.bg:Show()
+  return y - (size + 9)
+end
+
+local function hideTag(t) t.bg:Hide() t.text:Hide() end
+
+local function placePage(f, w, h)
+  local file = ART.page[Dialog.ThemeKey()]
+  local s = w / PAGE_W
+  local cap = SLICE * s
+  local cut = SLICE / PAGE_H
+  for _, t in ipairs({ f.pageTop, f.pageMid, f.pageBot }) do t:SetTexture(file) t:ClearAllPoints() t:Show() end
+  f.pageTop:SetTexCoord(0, 1, 0, cut)
+  f.pageTop:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0) f.pageTop:SetSize(w, cap)
+  -- the middle is CROPPED to the height it needs (a short page squashed 700 px of paper into a sliver = streaks);
+  -- only a page taller than the texture stretches it. The art's side edges carry no slow waves, so the crop is seamless.
+  local midH = math.max(0.01, h - 2 * cap)
+  local px = math.min(PAGE_H - 2 * SLICE, math.ceil((midH / s) / EDGE_PERIOD) * EDGE_PERIOD)   -- whole edge periods
+  local want = px / PAGE_H
+  f.pageMid:SetTexCoord(0, 1, cut, cut + want)
+  f.pageMid:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -cap) f.pageMid:SetSize(w, math.max(0.01, h - 2 * cap))
+  f.pageBot:SetTexCoord(0, 1, 1 - cut, 1)
+  f.pageBot:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -(h - cap)) f.pageBot:SetSize(w, cap)
+  return 2 * cap
+end
+
+local function portrait(f, m)
+  local ok = false
+  local set = g("SetPortraitTexture")
+  if set and not m.preview then ok = pcall(set, f.portrait, "npc") end
+  if not ok and set then ok = pcall(set, f.portrait, "player") end
+  if not ok then f.portrait:SetTexture("Interface\\Icons\\INV_Misc_Book_09") end
+end
+
+--- Lay the current page out top to bottom on the parchment. The page grows with the text.
 function Dialog.Render()
   local m, f = Dialog.model, Dialog.Build()
   if not m then return end
   local o, th = cfg(), Dialog.Theme()
-  local W = o.width or 460
+  local W = o.width or 540
+  local s = W / PAGE_W
   local size = o.fontSize or 14
-  local inner = W - PAD * 2
+  local PADX, TOP, BOTTOM = math.floor(46 * s + 0.5), math.floor(44 * s + 0.5), math.floor(42 * s + 0.5)
+  local inner = W - 2 * PADX
   f:SetWidth(W)
   if f.SetScale then f:SetScale(o.scale or 1) end
-  f.bg:SetColorTexture(th.bg[1], th.bg[2], th.bg[3], o.alpha or 0.95)
-  for _, t in ipairs(f.edge) do t:SetColorTexture(th.edge[1], th.edge[2], th.edge[3], 1) end
-  f.close.label:SetTextColor(th.muted[1], th.muted[2], th.muted[3])
-  local y = -PAD
-  if o.npcName ~= false and m.npc and m.npc ~= "" and m.npc ~= m.title then
-    y = placeText(f.npc, m.npc:upper(), size - 3, inner - 24, y, th.accent) + GAP - 4
-  else f.npc:Hide() end
-  y = placeText(f.title, m.title, size + 4, inner - 24, y, th.title) + GAP - 4
+  f:SetAlpha(o.alpha or 1)
+  local y = -TOP
+  -- header: portrait in its ring, the title beside it, the rule under the title
+  local P, RING = 50, 64
+  portrait(f, m)
+  f.portrait:ClearAllPoints()
+  f.portrait:SetPoint("TOPLEFT", f, "TOPLEFT", PADX + (RING - P) / 2, y - (RING - P) / 2)
+  f.portrait:SetSize(P, P)
+  f.portrait:Show()
+  f.ring:ClearAllPoints()
+  f.ring:SetPoint("TOPLEFT", f, "TOPLEFT", PADX, y)
+  f.ring:SetSize(RING, RING)
+  f.ring:Show()
+  local tx = PADX + RING + 10
+  local titleBottom = placeText(f.title, m.title ~= "" and m.title or (m.npc or ""), size + 6, tx, y - 14, inner - RING - 10, th.title)
+  local ruleY = math.min(titleBottom - 6, y - RING / 2 - 4)
   f.rule:ClearAllPoints()
-  f.rule:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, y)
-  f.rule:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PAD, y)
-  f.rule:SetColorTexture(th.accent[1], th.accent[2], th.accent[3], 0.9)
-  y = y - 1 - GAP
-  y = placeText(f.body, m.body, size, inner, y, th.text)
+  f.rule:SetPoint("TOPLEFT", f, "TOPLEFT", tx - 2, ruleY + 3)
+  f.rule:SetSize(inner - RING - 8, 6)
+  rgba(f.rule, th.rule, 0.9)
+  f.rule:Show()
+  y = math.min(ruleY, y - RING) - 14
+  if o.npcName == true and m.npc and m.npc ~= "" and m.npc ~= m.title then
+    y = placeText(f.npc, m.npc, size - 2, PADX, y, inner, th.muted) - 8
+  else f.npc:Hide() end
+  -- the text
+  y = placeText(f.body, m.body, size, PADX, y, inner, th.text) - 18
+  -- objectives
   if m.objectives and m.objectives ~= "" then
-    y = placeText(f.objHead, "OBJECTIVES", size - 3, inner, y, th.accent) + GAP - 4
-    y = placeText(f.objectives, m.objectives, size, inner, y, th.text)
-  else f.objHead:Hide() f.objectives:Hide() end
-  local xpLine = Dialog.XPLine(m.xp, m.xpShare)
-  local cash = money(m.money)
-  local hasRewards = xpLine or cash or #m.rewards > 0 or #m.choices > 0
-  if hasRewards then
-    y = placeText(f.rewHead, "REWARDS", size - 3, inner, y, th.accent) + GAP - 4
-  else f.rewHead:Hide() end
-  y = placeText(f.xp, xpLine, size, inner, y, th.text)
-  y = placeText(f.money, cash, size, inner, y, th.text)
-  -- rows: item lists (not picked) + numbered rows (picked with a click or 1-9)
-  local list = {}
-  local function add(r) list[#list + 1] = r end
-  -- Blizzard's order: the choice first, then what comes with it anyway
-  local choosing = #m.choices > 1
-  if choosing then add({ text = "Choose one of these:", header = true }) end
-  if m.kind == "complete" and choosing then
-    for _, r in ipairs(m.rows) do add(r) end
-  else
-    for _, it in ipairs(m.choices) do add({ text = it.name, item = it }) end
-  end
-  if choosing and #m.rewards > 0 then add({ text = "You also receive:", header = true }) end
-  for _, it in ipairs(m.rewards) do add({ text = it.name, item = it }) end
-  if #m.required > 0 then add({ text = "Bring:", header = true }) end
-  for _, it in ipairs(m.required) do add({ text = it.name, item = it }) end
-  if not (m.kind == "complete" and choosing) then for _, r in ipairs(m.rows) do add(r) end end
+    y = placeTag(f.objTag, "Objectives", size - 1, PADX - 8, y) - 8
+    y = placeText(f.objectives, m.objectives, size, PADX, y, inner, th.text) - 14
+  else hideTag(f.objTag) f.objectives:Hide() end
+  -- rows: reward tiles (two columns) and gossip / greeting lines (full width)
   m.picks = {}
   local used = 0
-  for _, d in ipairs(list) do
-    used = used + 1
-    local r = rowButton(used)
-    r.item, r.pick, r.choose, r.hover = d.item, nil, nil, false
-    if d.act then
+  local function tiles(list, y0, actionable)
+    local tw, thh, gap = math.floor((inner - 8) / 2), 44, 8
+    for k, d in ipairs(list) do
+      used = used + 1
+      local r = rowButton(used)
+      local col, line = (k - 1) % 2, math.floor((k - 1) / 2)
+      r.mode, r.item, r.pick, r.choose, r.hover = "tile", d.item, nil, nil, false
+      if actionable and d.act then
+        m.picks[#m.picks + 1] = d
+        r.pick = #m.picks
+        r.choose = d.act[1] == "choose" and d.act[2] or nil
+      end
+      r:ClearAllPoints()
+      r:SetPoint("TOPLEFT", f, "TOPLEFT", PADX + col * (tw + gap), y0 - line * (thh + 6))
+      r:SetSize(tw, thh)
+      local it = d.item or {}
+      local qc = qualityColor(it.quality)
+      r.iconEdge:ClearAllPoints() r.iconEdge:SetPoint("TOPLEFT", r, "TOPLEFT", 4, -4) r.iconEdge:SetSize(36, 36)
+      local edgeC = qc or th.muted
+      r.iconEdge:SetVertexColor(edgeC[1], edgeC[2], edgeC[3], 0.9) r.iconEdge:Show()
+      r.icon:ClearAllPoints() r.icon:SetPoint("TOPLEFT", r, "TOPLEFT", 5, -5) r.icon:SetSize(34, 34)
+      r.icon:SetTexture(it.icon or "Interface\\Icons\\INV_Misc_QuestionMark") r.icon:Show()
+      if r.icon.SetTexCoord then r.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92) end
+      r.glyph:Hide()
+      setFont(r.count, 11)
+      r.count:ClearAllPoints() r.count:SetPoint("BOTTOMRIGHT", r, "TOPLEFT", 38, -38)
+      if (it.count or 1) > 1 then r.count:SetText(tostring(it.count)) r.count:SetTextColor(1, 1, 1) r.count:Show() else r.count:Hide() end
+      setFont(r.text, size - 1)
+      r.text:ClearAllPoints()
+      r.text:SetPoint("TOPLEFT", r, "TOPLEFT", 46, -4)
+      r.text:SetSize(tw - (r.pick and 70 or 50), thh - 8)
+      r.text:SetText(it.name or d.text or "")
+      local c = qc or th.text
+      r.text:SetTextColor(c[1], c[2], c[3])
+      r.text:Show()
+      r.key:Set(r.pick and r.pick <= 9 and tostring(r.pick) or nil, tw - 24, -4, 10)
+      Dialog.PaintRow(r)
+      r:Show()
+    end
+    return y0 - math.ceil(#list / 2) * (thh + 6)
+  end
+  if #m.required > 0 then
+    y = placeTag(f.reqTag, "Required items", size - 1, PADX - 8, y) - 8
+    local req = {}
+    for _, it in ipairs(m.required) do req[#req + 1] = { item = it } end
+    y = tiles(req, y, false) - 8
+  else hideTag(f.reqTag) end
+  local xpLine = Dialog.XPLine(m.xp, m.xpShare)
+  local cash = money(m.money)
+  local choosing = #m.choices > 1
+  if xpLine or cash or #m.rewards > 0 or #m.choices > 0 then
+    y = placeTag(f.rewTag, "Rewards", size - 1, PADX - 8, y) - 8
+    if choosing then
+      y = placeText(f.chooseCap, "Choose one of these rewards:", size - 1, PADX, y, inner, th.muted) - 6
+      local list = {}
+      if m.kind == "complete" then list = m.rows else for _, it in ipairs(m.choices) do list[#list + 1] = { item = it } end end
+      y = tiles(list, y, m.kind == "complete") - 4
+    else f.chooseCap:Hide() end
+    local plain = {}
+    for _, it in ipairs(m.rewards) do plain[#plain + 1] = { item = it } end
+    if not choosing then for _, it in ipairs(m.choices) do plain[#plain + 1] = { item = it } end end
+    if #plain > 0 then
+      y = placeText(f.alsoCap, choosing and "You will also receive:" or "You will receive:", size - 1, PADX, y, inner, th.muted) - 6
+      y = tiles(plain, y, false) - 4
+    else f.alsoCap:Hide() end
+    y = placeText(f.xp, xpLine, size, PADX, y - 2, inner, th.text) - 4
+    y = placeText(f.money, cash, size, PADX, y, inner, th.text) - 10
+  else
+    hideTag(f.rewTag) f.chooseCap:Hide() f.alsoCap:Hide() f.xp:Hide() f.money:Hide()
+  end
+  -- gossip / greeting lines
+  if m.kind == "gossip" or m.kind == "greeting" then
+    for _, d in ipairs(m.rows) do
+      used = used + 1
+      local r = rowButton(used)
+      r.mode, r.item, r.choose, r.hover = "row", nil, nil, false
       m.picks[#m.picks + 1] = d
       r.pick = #m.picks
-      if d.act[1] == "choose" then r.choose = d.act[2] end
-    end
-    r:SetWidth(inner)
-    r:ClearAllPoints()
-    r:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, y)
-    r.num:SetText(r.pick and r.pick <= 9 and (r.pick .. ".") or "")
-    r.num:SetTextColor(th.muted[1], th.muted[2], th.muted[3])
-    local icon = d.icon or (d.item and d.item.icon)
-    r.glyph:SetText("")
-    if d.header then
-      r.icon:Hide()
-    else
-      r.icon:Show()
-      local shown = icon ~= nil and call(r.icon.SetTexture, r.icon, icon) ~= false
-      if not shown or icon == nil then
-        r.icon:SetTexture(nil)
-        r.glyph:SetText(d.glyph or "")
+      setFont(r.text, size)
+      local textW = inner - 64
+      local h = math.max(32, Dialog.EstimateHeight(d.text or "", textW, size) + 12)
+      r:ClearAllPoints()
+      r:SetPoint("TOPLEFT", f, "TOPLEFT", PADX, y)
+      r:SetSize(inner, h)
+      r.key:Set(r.pick <= 9 and tostring(r.pick) or nil, 8, -(h - 18) / 2, 10)
+      r.iconEdge:Hide() r.count:Hide()
+      r.icon:ClearAllPoints() r.icon:SetPoint("LEFT", r, "LEFT", 32, 0) r.icon:SetSize(20, 20)
+      if r.icon.SetTexCoord then r.icon:SetTexCoord(0, 1, 0, 1) end
+      local shown = d.icon ~= nil and call(r.icon.SetTexture, r.icon, d.icon) ~= false
+      if shown then r.icon:Show() r.glyph:Hide()
+      else
+        r.icon:Hide()
+        setFont(r.glyph, size + 2)
+        r.glyph:ClearAllPoints() r.glyph:SetPoint("CENTER", r, "LEFT", 42, 0)
+        r.glyph:SetText(d.glyph or ">")
         local c = d.tone == "quest" and th.quest or d.tone == "muted" and th.muted or th.text
-        r.glyph:SetTextColor(c[1], c[2], c[3])
+        r.glyph:SetTextColor(c[1], c[2], c[3]) r.glyph:Show()
       end
+      r.text:ClearAllPoints()
+      r.text:SetPoint("LEFT", r, "LEFT", 58, 0)
+      r.text:SetSize(textW, h - 6)
+      r.text:SetText(d.text or "")
+      local c = d.tone == "muted" and th.muted or th.text
+      r.text:SetTextColor(c[1], c[2], c[3])
+      r.text:Show()
+      Dialog.PaintRow(r)
+      r:Show()
+      y = y - h - 4
     end
-    local label = d.text or ""
-    if d.item and (d.item.count or 1) > 1 then label = label .. "  x" .. d.item.count end
-    setFont(r.text, size)
-    r.text:SetText(label)
-    local c = (d.header and th.muted) or (d.item and qualityColor(d.item.quality)) or (d.tone == "muted" and th.muted) or th.text
-    if d.item and Dialog.Theme() == Dialog.THEMES.parchment and d.item.quality and d.item.quality <= 1 then c = th.text end
-    r.text:SetTextColor(c[1], c[2], c[3])
-    local h = math.max(ROW_MIN, Dialog.EstimateHeight(label, inner - ICON - 36, size) + 8)
-    if d.header then h = math.floor(size * 1.5) end
-    r:SetHeight(h)
-    Dialog.PaintRow(r)
-    r:Show()
-    y = y - h - 2
+    y = y - 8
   end
   for i = used + 1, #Dialog.rows do Dialog.rows[i]:Hide() end
   if m.pickHint and not Dialog.choice then
-    y = placeText(f.hint, m.pickHint, size - 2, inner, y - 4, th.muted)
+    y = placeText(f.hint, m.pickHint, size - 2, PADX, y, inner, th.muted) - 8
   else f.hint:Hide() end
-  -- footer
-  y = y - 6
-  local function paintButton(b, spec, primary)
-    if not spec then b:Hide() return end
-    b:ClearAllPoints()
-    b.label:SetText(spec.label)
-    b.key:SetText(cfg().keys ~= false and spec.key or "")
-    local bg = primary and th.accent or th.button
-    local fg = primary and th.primaryText or th.text
-    local a = spec.disabled and 0.35 or 1
-    b.bg:SetColorTexture(bg[1], bg[2], bg[3], a)
-    b.label:SetTextColor(fg[1], fg[2], fg[3])
-    b.key:SetTextColor(fg[1], fg[2], fg[3])
-    if b.SetEnabled then b:SetEnabled(not spec.disabled) end
-    b:Show()
+  -- buttons: the main one left, the way out right (Dialogue UI's order), key caps inside
+  y = y - 4
+  local bw, bh = math.floor((inner - 12) / 2), 36
+  f.primary:ClearAllPoints()
+  f.secondary:ClearAllPoints()
+  f.primary:SetPoint("TOPLEFT", f, "TOPLEFT", PADX, y)
+  f.secondary:SetPoint("TOPLEFT", f, "TOPLEFT", PADX + bw + 12, y)
+  for _, pair in ipairs({ { f.primary, m.primary }, { f.secondary, m.secondary } }) do
+    local b, spec = pair[1], pair[2]
+    b:SetSize(bw, bh)
+    b.spec = spec
+    if spec then Dialog.PaintButton(b) b:Show() else b:Hide() end
   end
-  paintButton(f.primary, m.primary, true)
-  paintButton(f.secondary, m.secondary, false)
-  if m.primary then
-    f.primary:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PAD, y)
-    if m.secondary then f.secondary:SetPoint("RIGHT", f.primary, "LEFT", -8, 0) end
-  elseif m.secondary then
-    f.secondary:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PAD, y)
+  y = y - bh - BOTTOM
+  local h = math.max(math.floor(-y + 0.5), 0)
+  local minH = math.floor(2 * SLICE * s + 0.5)
+  if h < minH then h = minH end
+  placePage(f, W, h)
+  f:SetHeight(h)
+  Dialog.height = h
+end
+
+function Dialog.PaintButton(b)
+  local spec, th = b.spec, Dialog.Theme()
+  if not spec then return end
+  local w, h = b:GetWidth() or 200, b:GetHeight() or 36
+  b.bg:Place(b, 0, 0, w, h)
+  b.line:Place(b, 0, 0, w, h)
+  local keyLabel = cfg().keys ~= false and spec.key or nil
+  local kw = b.key:Set(keyLabel, 10, -(h - 18) / 2, 10)
+  setFont(b.label, (cfg().fontSize or 14))
+  b.label:SetText(spec.label)
+  b.label:ClearAllPoints()
+  b.label:SetPoint("CENTER", b, "CENTER", kw > 0 and (kw / 2 + 4) or 0, 0)
+  if spec.disabled then
+    b.bg:Hide()
+    b.line:Color(th.outline) b.line:Show()
+    b.label:SetTextColor(th.muted[1], th.muted[2], th.muted[3])
+    if b.key.bg.shown then b.key.bg:Color(th.key, 0.35) end
+  else
+    b.line:Hide()
+    local c = th.button
+    b.bg:Color(c, b.hover and math.min(1, (c[4] or 1)) or (c[4] or 1) * 0.92) b.bg:Show()
+    if b.hover then b.bg:Color({ math.min(1, c[1] + 0.06), math.min(1, c[2] + 0.06), math.min(1, c[3] + 0.06) }, c[4] or 1) end
+    b.label:SetTextColor(th.buttonText[1], th.buttonText[2], th.buttonText[3])
   end
-  y = y - 28 - PAD
-  f:SetHeight(math.floor(-y + 0.5))
-  Dialog.height = math.floor(-y + 0.5)
+  if b.SetEnabled then b:SetEnabled(not spec.disabled) end
+  b.label:Show()
 end
 
 function Dialog.Place()
   local f, o = Dialog.Build(), cfg()
   f:ClearAllPoints()
-  f:SetPoint(o.point or "CENTER", UIParent, o.point or "CENTER", o.x or 320, o.y or 40)
+  f:SetPoint(o.point or "CENTER", UIParent, o.point or "CENTER", o.x or -260, o.y or 40)
 end
 
 -- ------------------------------------------------------------------------------------------------ keys
@@ -773,25 +999,35 @@ function Dialog.Fail(event, err, ...)
   end
 end
 
---- A sample page to see the look without an NPC (options button, /hh dialog preview). Buttons only close it.
-function Dialog.Preview()
-  local m = {
-    kind = "complete", preview = true, npc = "Marshal Dughan", title = "Wolves Across the Border",
-    body = "Well done, $N. Those wolves have harried the farms of Northshire for too long. Take one of these - the town can spare it.",
-    xp = 1250, money = 750, rows = {}, required = {},
-    rewards = {},
-    choices = {
-      { name = "Brawler's Gloves", count = 1, quality = 2, kind = "choice", index = 1 },
-      { name = "Woodland Tunic", count = 1, quality = 2, kind = "choice", index = 2 },
-      { name = "Light Leather Pants", count = 1, quality = 1, kind = "choice", index = 3 },
-    },
-    primary = { label = "Complete", action = "reward", key = "Space", disabled = true },
-    secondary = { label = "Goodbye", action = "closeQuest", key = "Esc" },
-    pickHint = "Pick a reward: click it or press its number.",
+--- A sample page to see the look without an NPC (options button, /hh dialog preview [reward]). Buttons only close it.
+-- Item icons come from what you are wearing (GetInventoryItemTexture: hands, chest, legs) - real client art, never
+-- an icon name typed from memory; an empty slot falls back to the client's question-mark icon.
+function Dialog.Preview(kind)
+  kind = kind == "complete" and "complete" or "detail"
+  local function worn(slot) return call(g("GetInventoryItemTexture"), "player", slot) end
+  local choices = {
+    { name = "Brawler's Gloves", count = 1, quality = 2, kind = "choice", index = 1, icon = worn(10) },
+    { name = "Woodland Tunic", count = 1, quality = 2, kind = "choice", index = 2, icon = worn(5) },
+    { name = "Light Leather Pants", count = 1, quality = 1, kind = "choice", index = 3, icon = worn(7) },
   }
-  m.body = m.body:gsub("%$N", str(call(g("UnitName"), "player")) or "adventurer")
+  local who = str(call(g("UnitName"), "player")) or "adventurer"
+  local m = {
+    kind = kind, preview = true, npc = "Marshal Dughan", title = "Wolves Across the Border",
+    xp = 1250, money = 750, rows = {}, required = {}, rewards = {}, choices = choices,
+  }
+  if kind == "complete" then
+    m.body = "Well done, " .. who .. ". Those wolves have harried the farms of Northshire for too long.\n\nTake one of these - the town can spare it."
+    m.primary = { label = "Complete Quest", action = "reward", key = "Space", disabled = true }
+    m.secondary = { label = "Cancel", action = "closeQuest", key = "Esc" }
+    m.pickHint = "Pick a reward: click it or press its number."
+    for i, c in ipairs(choices) do m.rows[#m.rows + 1] = { text = c.name, item = c, act = { "choose", i } } end
+  else
+    m.body = "The wolves have grown bold, " .. who .. ". They come down from the hills at night and take what they please from the Stonefield and Maclure farms.\n\nBring me the meat of the Prowlers and Young Wolves you find along the border, and Northshire will rest easier."
+    m.objectives = "- 0/8 Tough Wolf Meat"
+    m.primary = { label = "Accept", action = "accept", key = "Space" }
+    m.secondary = { label = "Decline", action = "decline", key = "Esc" }
+  end
   m.xpShare = Dialog.XPShare(m.xp, num(call(g("UnitXPMax"), "player")) or 8800)
-  for i, c in ipairs(m.choices) do m.rows[#m.rows + 1] = { text = c.name, item = c, act = { "choose", i } } end
   Dialog.Build()
   Dialog.model, Dialog.choice = m, nil
   Dialog.gen = Dialog.gen + 1
@@ -874,13 +1110,13 @@ HH:RegisterSlash("dialog", function(rest)
   local w = (rest or ""):lower():match("^%s*(%a*)")
   if w == "on" or w == "off" then o.enabled = w == "on" Dialog.Refresh() HH:Print("dialog window: " .. w) return end
   if w == "ink" or w == "parchment" or w == "dark" or w == "light" then
-    o.theme = (w == "ink" or w == "dark") and "ink" or "parchment"
+    o.theme = (w == "ink" or w == "dark") and "dark" or "light"
     Dialog.Refresh()
     HH:Print("dialog theme: " .. Dialog.THEME_NAMES[o.theme])
     return
   end
-  if w == "preview" then Dialog.Preview() return end
+  if w == "preview" then Dialog.Preview((rest or ""):lower():find("reward") and "complete" or "detail") return end
   if w == "reset" then o.point, o.x, o.y = nil, nil, nil if Dialog.frame and Dialog.frame:IsShown() then Dialog.Place() end HH:Print("dialog: position reset") return end
   for _, l in ipairs(Dialog.Lines()) do HH:Print(l) end
-  HH:Print("usage: /hh dialog on|off  -  ink|parchment  -  preview  -  reset")
-end, "quest dialog window: on / off, ink / parchment, preview, reset position")
+  HH:Print("usage: /hh dialog on|off  -  light|dark  -  preview [reward]  -  reset")
+end, "quest dialog window: on / off, light / dark, preview [reward], reset position")
