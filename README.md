@@ -22,9 +22,9 @@ Bugs: open an issue with `/hh version`, `/hh errors` output (or, after a `/reloa
 | `HogHeals` | Core: profiles, `/hh` options, group-size auto-layout, combat-safe queue, session stats (`/hh session`), `/hh perf` |
 | `HogHeals_Frames` | Party + raid frames for healing: hover-bind engine, dispel-by-my-class, debuff + buff rows, test mode (`/hh test 5`), setup wizard |
 | `HogHeals_Units` | Player / target / target-of-target / pet / focus frames |
-| `HogHeals_HUD` | Cast bar, swing timer, mana bar with five-second rule, info line |
+| `HogHeals_HUD` | Cast bar, swing timer, mana bar with five-second rule, info line, cast bar themes by school / profession (`/hh casttheme`) |
 | `HogHeals_Bars` | Own action bars (Bartender-style), hover-and-press key binding |
-| `HogHeals_Plates` | Nameplates: flat bar, quest-mob icons, target marks, own cast bar, DoesItDie skull / reapply mark |
+| `HogHeals_Plates` | Nameplates: flat bar, quest-mob icons, target marks, own cast bar, DoesItDie skull / reapply mark, object glow on ore / herbs / chests / quest objects (`/hh glow`) |
 | `HogHeals_Quests` | Quest tracker with the GO row (`/hh go`), quest dialog window (`/hh dialog`: Space accepts, 1-9 picks, ink or parchment), minimap pins, square minimap, addon-button drawer |
 | `HogHeals_Atlas` | Dungeon guide: levels, bosses, loot, dungeon quests, gear upgrades, Where next (`/hh next`) |
 | `HogHeals_Training` | What the class trainer has for you, before you get there (`/hh train`) |
