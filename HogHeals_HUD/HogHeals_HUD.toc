@@ -9,6 +9,7 @@
 
 Data\HealRanks.lua
 HUD.lua
+CastThemes.lua
 Castbar.lua
 Swing.lua
 Mana.lua

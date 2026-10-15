@@ -77,6 +77,13 @@ local function castbarGroup()
     channelColor = colour(c, "channelColor", "Channel colour", 11),
     uninterruptibleColor = colour(c, "uninterruptibleColor", "Uninterruptible colour", 12),
     failColor = colour(c, "failColor", "Failed / interrupted colour", 13),
+    themesHeader = { type = "header", name = "Themes", order = 20 },
+    themesNote = { type = "description", order = 20.1, name = "The bar takes on what you cast: holy gold, fire, frost, arcane, shadow, nature - and mining, herbs, skinning, fishing, opening a chest, crafting. Read off the game (the cast's name, the spell's own description, else your class), so a theme replaces the cast / channel colours above; a cast you cannot interrupt keeps its grey." },
+    themesOn = toggle(function() return hud().castbar.themes end, "enabled", "Cast themes", 21),
+    themesGlow = toggle(function() return hud().castbar.themes end, "glow", "Soft glow behind the bar", 22),
+    themesMotes = toggle(function() return hud().castbar.themes end, "motes", "Specks off the fill (fire rises, frost sinks, mining dust falls)", 23),
+    themesIntensity = range(function() return hud().castbar.themes end, "intensity", "Light strength", 24, 0.2, 1, 0.05),
+    themesPreview = { type = "execute", name = "Preview every theme", order = 25, func = function() HH:SafeCall(HHD.Castbar, "PreviewThemes") end },
   } }
 end
 
