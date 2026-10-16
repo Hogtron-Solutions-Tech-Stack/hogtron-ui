@@ -181,3 +181,19 @@ def test_old_frames_wizard_finish_still_works(full):
     full.execute('local W = HogHealsFrames.Wizard; local w = W.New("PRIEST"); w.answers = { preset = "compact", bindings = "none", gear = "melee" }; W.Finish(w)')
     assert full.eval('HogHeals.db.profile.frames.layouts.party.width') < full.eval('HogHeals.defaults.profile.frames.layouts.party.width')
     assert full.eval('HogHeals.db.char.atlas.role') == "melee" and full.eval('HogHeals.db.profile.wizardDone') is True
+
+
+def test_walk_me_through_it_goes_to_the_first_real_page(full):
+    # Sean 2026-10-16 in game: "Walk me through it also doesn't do anything" - it went to step 1, the welcome page itself
+    full.execute(f'{S}.Open(); {S}.Table().args.welcome.args.walk.func()')
+    assert full.eval('HogHeals.Panel.selected') == "look"
+
+
+def test_step_names_fit_the_sidebar(full):
+    for s in lst(full.eval(f'{S}.Visible()')):
+        assert len(s["title"]) <= 18, s["title"]                  # "13. " + title must fit the 170 px sidebar
+
+
+def test_a_page_without_tabs_has_no_empty_tab_row(full):
+    full.execute(f'{S}.Open(); {S}.Go(2)')
+    assert full.eval('#HogHeals.Panel.tabs') == 0 and full.eval('HogHealsPanel.tabbar:GetHeight()') <= 1
