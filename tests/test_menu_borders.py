@@ -55,7 +55,7 @@ def test_version_label_is_readable(core):
 
 def test_close_button_is_brass_in_the_corner_when_painted(core):
     # Sean 2026-10-15: "I don't like where this X is placed ... all the way in the corner or matching with the gold"
-    core.execute('HogHeals.Panel.Open()')
+    core.execute('HogHeals.db.profile.look.menus = "art"; HogHeals.Panel.Open()')
     assert core.eval('HogHeals.Panel.artOn') is True
     c = 'HogHealsPanel.close'
     p = core.eval(f'{{ {c}:GetPoint(1) }}')

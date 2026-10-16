@@ -148,25 +148,70 @@ function Part.DeepKill(frame, depth)
   return n
 end
 
-function Part.Style(f)
-  if type(f) ~= "table" or f.hhPanel then return false end
-  local name = f.GetName and f:GetName() or "?"
-  if skipped(name) then return false end
-  local d = Skin.cfg().panels
+-- Pieces of Blizzard's window templates that are pure decoration: hidden whole (not only their textures) so a
+-- re-applied border layout (NineSliceUtil on show) or a portrait ring cannot come back. Sean 2026-10-15: Friends and
+-- Looking For Group still showed Blizzard's gold border, portrait and red X next to a skinned Character window.
+Part.HIDE_CHILDREN = { "NineSlice", "PortraitContainer", "TopTileStreaks", "BorderFrame", "Border" }
+Part.STRIP_CHILDREN = { "Bg", "TitleBg", "Inset", "InsetBg", "Background", "TitleContainer" }
+
+local function hideWhole(child)
+  if type(child) ~= "table" then return end
+  Skin.KillRegions(child)
+  Skin.call(child.SetAlpha, child, 0)
+  if child.Hide and not child.hhHidden then
+    child.hhHidden = true
+    Skin.call(child.Hide, child)
+    if type(hooksecurefunc) == "function" then
+      pcall(hooksecurefunc, child, "Show", function(self)
+        if Skin.cfg().enabled ~= false and Skin.cfg().panels.enabled ~= false then Skin.call(self.Hide, self) end
+      end)
+    end
+  end
+end
+
+--- The art of a window, stripped. Runs on EVERY show: some templates re-apply their border when shown.
+function Part.Strip(f, name)
   Skin.KillRegions(f)
-  for _, k in ipairs({ "NineSlice", "Bg", "TitleBg", "Inset", "InsetBg", "PortraitContainer", "Background", "BorderFrame", "TopTileStreaks", "Border" }) do
+  for _, k in ipairs(Part.HIDE_CHILDREN) do hideWhole(rawget(f, k)) end
+  for _, k in ipairs(Part.STRIP_CHILDREN) do
     local child = rawget(f, k)
     if type(child) == "table" then
       if child.GetObjectType and child:GetObjectType() == "Texture" then Skin.Kill(child)
       else
         Skin.KillRegions(child)
-        if child.SetAlpha and k == "NineSlice" then Skin.call(child.SetAlpha, child, 0) end
+        hideWhole(rawget(child, "NineSlice"))
+        local bg = rawget(child, "Bg")
+        if type(bg) == "table" then Skin.Kill(bg) end
       end
     end
   end
-  for _, suffix in ipairs({ "Portrait", "PortraitFrame", "TopLeft", "TopRight", "BottomLeft", "BottomRight", "TopBorder", "BottomBorder", "LeftBorder", "RightBorder", "Bg", "TitleBg" }) do
-    Skin.Kill(rawget(_G, name .. suffix))
+  for _, suffix in ipairs({ "Portrait", "PortraitFrame", "TopLeft", "TopRight", "BottomLeft", "BottomRight", "TopBorder", "BottomBorder",
+    "LeftBorder", "RightBorder", "Bg", "TitleBg", "Inset", "InsetBg", "BtnCornerLeft", "BtnCornerRight", "ButtonBottomBorder" }) do
+    local g = rawget(_G, name .. suffix)
+    if type(g) == "table" then
+      if g.GetObjectType and g:GetObjectType() == "Texture" then Skin.Kill(g) else Skin.KillRegions(g) hideWhole(rawget(g, "NineSlice")) end
+    end
   end
+  Part.Tabs(f, name)
+end
+
+--- The tab strip under a window (FriendsFrameTab1.., LFGParentFrameTab1..): Blizzard's tab art off, a flat ink cell
+-- behind each tab; the text stays Blizzard's (it carries the selected / disabled colours).
+function Part.Tabs(f, name)
+  for i = 1, 8 do
+    local tab = rawget(_G, name .. "Tab" .. i)
+    if type(tab) ~= "table" then break end
+    Skin.KillRegions(tab)
+    for _, k in ipairs({ "Left", "Middle", "Right", "LeftActive", "MiddleActive", "RightActive", "LeftHighlight", "MiddleHighlight", "RightHighlight" }) do
+      local t = rawget(tab, k)
+      if type(t) == "table" then Skin.Kill(t) end
+    end
+    if not tab.hhTabPanel then tab.hhTabPanel = Skin.Panel(tab, tab, -2, 0.85) end
+  end
+end
+
+function Part.StyleOnce(f, name)
+  local d = Skin.cfg().panels
   f.hhPanel = Skin.Panel(f, f, 0, d and d.alpha or 0.9)
   local title = rawget(f, "TitleText") or (type(rawget(f, "TitleContainer")) == "table" and rawget(f.TitleContainer, "TitleText")) or rawget(_G, name .. "TitleText")
   if type(title) == "table" then
@@ -176,6 +221,13 @@ function Part.Style(f)
   local close = rawget(f, "CloseButton") or rawget(_G, name .. "CloseButton")
   if type(close) == "table" and close.CreateFontString and not close.hhX then
     Skin.KillRegions(close)
+    for _, k in ipairs({ "Border", "NormalTexture", "PushedTexture", "HighlightTexture", "DisabledTexture" }) do
+      local t = rawget(close, k)
+      if type(t) == "table" then Skin.Kill(t) end
+    end
+    for _, get in ipairs({ "GetNormalTexture", "GetPushedTexture", "GetHighlightTexture", "GetDisabledTexture" }) do
+      if type(close[get]) == "function" then Skin.Kill(Skin.call(close[get], close)) end
+    end
     close.hhX = close:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
     close.hhX:SetPoint("CENTER", close, "CENTER", 0, 0)
     close.hhX:SetText("x")
@@ -184,7 +236,6 @@ function Part.Style(f)
   end
   if Part.PARCHMENT[name] then
     Part.RecolorFonts()
-    Part.Parchment(f)
     -- scroll panels rebuild their parchment and text on show; do it again then
     if not f.hhParchHooked and f.HookScript then
       f.hhParchHooked = true
@@ -192,7 +243,81 @@ function Part.Style(f)
     end
   end
   Part.styled[#Part.styled + 1] = name
-  return true
+end
+
+-- ------------------------------------------------------------------------------------------------ what is left
+--- Visible Blizzard textures still inside a window (depth 5, at most `max`): "path file WxH". Buttons, bars and icons
+-- are skipped (their art is the point). This is what /hh skindiag reports, so a window that still looks like
+-- Blizzard's says exactly which piece did it, without guessing at this client's templates.
+function Part.Leftovers(f, max)
+  max = max or 25
+  local out = {}
+  local function key(parent, child)
+    if type(parent) ~= "table" then return "?" end
+    for k, v in pairs(parent) do if v == child and type(k) == "string" then return k end end
+    return "?"
+  end
+  local function walk(fr, path, depth)
+    if #out >= max or depth > 5 or type(fr) ~= "table" or fr.hhOurs then return end
+    if not Skin.call(fr.IsShown, fr) then return end
+    local kind = Skin.call(fr.GetObjectType, fr) or "Frame"
+    if depth > 0 and KEEP_TYPES[kind] then return end
+    for _, r in ipairs(Skin.all(fr.GetRegions, fr)) do
+      if #out >= max then return end
+      if type(r) == "table" and Skin.call(r.GetObjectType, r) == "Texture" and not r.hhOurs and not isIcon(r) and not isFunctional(r)
+        and Skin.call(r.IsShown, r) and (Skin.num(Skin.call(r.GetAlpha, r)) or 1) > 0 then
+        local file = Skin.call(r.GetAtlas, r) or Skin.call(r.GetTexture, r)
+        if file ~= nil then
+          local rn = Skin.call(r.GetName, r)
+          if type(rn) ~= "string" or rawget(_G, rn) ~= r then rn = path .. "." .. key(fr, r) end   -- a name you can look up, else the key path
+          local w, h = Skin.num(Skin.call(r.GetWidth, r)) or 0, Skin.num(Skin.call(r.GetHeight, r)) or 0
+          out[#out + 1] = ("%s %s %dx%d"):format(tostring(rn), tostring(file), math.floor(w), math.floor(h))
+        end
+      end
+    end
+    for _, c in ipairs(Skin.all(fr.GetChildren, fr)) do
+      if type(c) == "table" then
+        local cn = Skin.call(c.GetName, c)
+        if type(cn) ~= "string" or rawget(_G, cn) ~= c then cn = path .. "." .. key(fr, c) end
+        walk(c, cn, depth + 1)
+      end
+    end
+  end
+  walk(f, Skin.call(f.GetName, f) or "?", 0)
+  return out
+end
+
+function Part.Report(f, name, err)
+  local g = HH.db and HH.db.global
+  if not g then return end
+  g.diag = g.diag or {}
+  g.diag.skin = g.diag.skin or {}
+  g.diag.skin.windows = g.diag.skin.windows or {}
+  local left = err and {} or Part.Leftovers(f)
+  g.diag.skin.windows[name] = { at = date and date("%Y-%m-%d %H:%M:%S") or "", styled = f.hhPanel ~= nil, error = err,
+    leftovers = #left, left = table.concat(left, " | ") }
+end
+
+--- Style a window: the once-only parts the first time, the art strip every time. Errors are CAUGHT and logged with
+-- the window's name (an OnShow hook error is otherwise silent with script errors off), and what is left is
+-- recorded a moment later for /hh skindiag.
+function Part.Style(f)
+  if type(f) ~= "table" then return false end
+  local name = f.GetName and f:GetName() or "?"
+  if skipped(name) then return false end
+  local first = f.hhPanel == nil
+  local ok, err = xpcall(function()
+    Part.Strip(f, name)
+    if first then Part.StyleOnce(f, name) end
+    if Part.PARCHMENT[name] then Part.Parchment(f) end
+  end, HH.Trace or debugstack)
+  if not ok then
+    HH:LogError("skin window " .. name .. ": " .. tostring(err))
+    Part.Report(f, name, tostring(err):sub(1, 300))
+    return false
+  end
+  if C_Timer and C_Timer.After then C_Timer.After(0.3, function() pcall(Part.Report, f, name) end) else pcall(Part.Report, f, name) end
+  return first
 end
 
 local function watch(f)

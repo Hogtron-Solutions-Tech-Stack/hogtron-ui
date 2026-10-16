@@ -116,7 +116,7 @@ step("welcome", "Welcome", nil, function()
     quickHead = header("Two ways through"),
     quick = button("Quick start - use the recommended setup", function() Setup.QuickStart() end,
       "Keeps every recommended setting and jumps to the last page."),
-    walk = button("Walk me through it  >", function() Setup.Go(1) end, "Every page, every choice."),
+    walk = button("Walk me through it  >", function() Setup.Go(2) end, "Every page, every choice."),
   }
 end)
 
@@ -126,7 +126,7 @@ step("look", "Look", nil, function()
       .. "but every HogTron UI feature still works."),
     style = choose("look.style", "Style", { hogtron = "HogTron (recommended)", classic = "Classic (Blizzard's look)" },
       { reload = true, module = "Look", default = "hogtron" }),
-    menus = choose("look.menus", "Menus and windows", { art = "Painted (brass frame)", flat = "Flat (plain dark)" }, { module = "Look", default = "art" }),
+    menus = choose("look.menus", "Menus and windows", { flat = "Flat (recommended)", art = "Painted (brass frame)" }, { module = "Look", default = "flat" }),
     icons = choose("look.icons", "Menu icons", { art = "Painted", glyph = "Simple glyphs" }, { module = "Look", default = "art" }),
     font = choose("look.font", "Font", { Inter = "Inter (recommended)", Manrope = "Manrope", ["Barlow Condensed"] = "Barlow Condensed" },
       { module = "Look", default = "Inter" }),
@@ -156,7 +156,7 @@ step("modules", "Pick your parts", nil, function()
   return a
 end)
 
-step("frames", "Party and raid frames", "Frames", function()
+step("frames", "Party & raid", "Frames", function()
   local W = HogHealsFrames and HogHealsFrames.Wizard
   local presets = {}
   for k, v in pairs(W and W.PRESETS or {}) do presets[k] = v.label .. " - " .. v.desc end
@@ -182,7 +182,7 @@ step("frames", "Party and raid frames", "Frames", function()
   }
 end)
 
-step("bindings", "Healing clicks and keys", "Frames", function()
+step("bindings", "Clicks and keys", "Frames", function()
   local W = HogHealsFrames and HogHealsFrames.Wizard
   local G = HogHealsFrames and HogHealsFrames.ClickGrid
   local a = {
@@ -220,7 +220,7 @@ step("units", "Unit frames", "Units", function()
   }
 end)
 
-step("hud", "Cast bar, mana and XP", "HUD", function()
+step("hud", "Cast bar and mana", "HUD", function()
   return {
     intro = text("A strip under your character: what you are casting, your mana with the five-second rule, your swing, and info."),
     castbar = toggle("hud.showCastbar", "Cast bar", { module = "HUD", width = "normal" }),
@@ -288,7 +288,7 @@ step("quests", "Questing", "Quests", function()
   }
 end)
 
-step("dungeons", "Dungeons and gear", "Atlas", function()
+step("dungeons", "Dungeons & gear", "Atlas", function()
   local W = HogHealsFrames and HogHealsFrames.Wizard
   local roles = W and W.GEAR_ROLES or { auto = "Auto - by my class" }
   local a = {
@@ -305,7 +305,7 @@ step("dungeons", "Dungeons and gear", "Atlas", function()
   return a
 end)
 
-step("chatskin", "Chat and windows", nil, function()
+step("chatskin", "Chat & windows", nil, function()
   local a = { intro = text("Chat, Blizzard's own windows, bags, tooltips and the bar along the bottom.") }
   if has("Chat") then
     a.chatHead = header("Chat")
@@ -328,7 +328,7 @@ step("chatskin", "Chat and windows", nil, function()
   return a
 end)
 
-step("awards", "End-of-run awards", "Awards", function()
+step("awards", "Awards", "Awards", function()
   return {
     intro = text("Finish a dungeon, raid or battleground and five players take the stage with an award: honors and roasts."),
     dungeon = toggle("awards.contexts.dungeon", "After dungeons", { module = "Awards", width = "normal" }),

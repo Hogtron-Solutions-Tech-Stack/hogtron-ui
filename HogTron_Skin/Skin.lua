@@ -320,6 +320,22 @@ HH:RegisterSlash("skindiag", function()
   local f, m = Skin.Diag()
   HH:Print(("skin: %d Blizzard pieces found, %d missing on this client"):format(#f, #m))
   if #m > 0 then HH:Print("  missing: " .. table.concat(m, ", ")) end
+  -- Blizzard windows (Panels.lua): styled? error? which Blizzard textures are still showing (all of it in diag.skin.windows)
+  local gw = HH.db and HH.db.global and HH.db.global.diag and HH.db.global.diag.skin and HH.db.global.diag.skin.windows
+  if type(gw) == "table" then
+    local names = {}
+    for n in pairs(gw) do names[#names + 1] = n end
+    table.sort(names)
+    for _, n in ipairs(names) do
+      local w = gw[n]
+      if w.error then HH:Print(("  window %s: ERROR %s"):format(n, tostring(w.error):sub(1, 160)))
+      else
+        local first = tostring(w.left or ""):match("^[^|]*") or ""
+        HH:Print(("  window %s: %s, %d Blizzard piece(s) still showing%s"):format(n, w.styled and "styled" or "NOT styled", w.leftovers or 0,
+          (w.leftovers or 0) > 0 and (" - e.g. " .. first) or ""))
+      end
+    end
+  end
   local micro = HHS.Micro
   if micro and (micro.containerDiag or micro.bagDiag) then
     HH:Print("  menu ancestors: " .. tostring(micro.containerDiag or "-") .. " | bag ancestors: " .. tostring(micro.bagDiag or "-"))
