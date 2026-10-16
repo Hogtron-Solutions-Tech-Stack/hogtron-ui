@@ -20,6 +20,7 @@ Core\Defaults.lua
 Core\Migrate.lua
 Core\Options.lua
 Core\Panel.lua
+Core\Setup.lua
 Core\EditMode.lua
 Core\Perf.lua
 Core\AtlasProbe.lua

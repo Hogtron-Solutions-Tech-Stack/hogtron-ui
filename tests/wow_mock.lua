@@ -350,6 +350,16 @@ function Region:SetText(t)
 end
 function Region:GetText() return self._text end
 function Region:GetStringWidth() local w = #self._text * 6 if self._secretText then return MockSecret(w) end return w end
+-- wrapped height, roughly like the client: 6 px a character, 14 px a line, lines by the width set on the string
+local NL = string.char(10)
+function Region:GetStringHeight()
+  local t, lines = tostring(self._text or ""), 0
+  for para in (t .. NL):gmatch("(.-)" .. NL) do
+    local w = (self._width and self._width > 0) and self._width or nil
+    lines = lines + ((w and #para * 6 > w) and math.ceil(#para * 6 / w) or 1)
+  end
+  return math.max(1, lines) * 14
+end
 function Region:SetTextColor(r, g, b, a) self._color = { r, g, b, a } end
 function Region:GetTextColor() return unpack(self._color) end
 function Region:SetVertexColor(r, g, b, a) self._color = { r, g, b, a } end
