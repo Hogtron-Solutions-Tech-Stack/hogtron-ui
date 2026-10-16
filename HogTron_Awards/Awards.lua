@@ -144,6 +144,7 @@ function A.OnRemoteEnd(runId, ctx) return A.EndRun("remote", runId, ctx) end
 --- Window closed: resolve, remember, prompt.
 function A.Finish(nominations, seed, ctx, run)
   local data, names, roles = A.Metrics.Collect(nominations, ctx)
+  pcall(A.Metrics.ProbeSpellDetail)        -- answers "is there a biggest hit / crit?" into diag after every real run
   local winners = A.Resolve.Winners(data, names, roles, ctx, A.AwardEnabled)
   local solo = #names <= 1
   local stage = A.Resolve.Stage(winners, seed, { slots = solo and 0 or 4, roasts = A.Cfg().roasts })
@@ -167,7 +168,14 @@ function A.PreviewStage(seed)
   end
   local function pick(pool) return table.remove(pool, rng(#pool)) end
   local names = { me, FAKE[2], FAKE[3], FAKE[4], FAKE[5] }
-  local function w(award, i) return { award = award, name = names[i], unit = "player", value = 1, detail = "preview: " .. award.flavor } end
+  local function fake(award)
+    local def = A.Metrics.DEFS[award.metric] or {}
+    local spec = A.Resolve.STAT[award.metric]
+    if spec then return spec[1]:format(("%.1fk"):format(10 + rng(500) / 10)) end
+    if def.src == "derived" then return ("%.1fk damage, %.1fk healing"):format(20 + rng(300) / 10, 5 + rng(200) / 10) end
+    return A.Resolve.Stat(award, names[1], rng(40) + 2)
+  end
+  local function w(award, i) return { award = award, name = names[i], unit = "player", value = 1, detail = "preview numbers, not a real run", stat = fake(award) } end
   local stage = { headline = w(A.BY_ID.mvp, 1), others = {}, also = {} }
   local order = { honors, roasts, honors, roasts }
   for i = 1, 4 do
@@ -347,6 +355,13 @@ function A.Slash(rest)
     HH:Print("HogTron Awards probe: registered " .. tostring(d.registered) .. "; refused: " .. ((d.failed or "") ~= "" and d.failed or "none"))
     for _, e in ipairs(A.TRIGGERS) do
       HH:Print(("  %s fired %d%s"):format(e, (d.fired or {})[e] or 0, (d.last or {})[e] and ("  last: " .. d.last[e]) or ""))
+    end
+    local ok, sp = pcall(A.Metrics.ProbeSpellDetail)
+    if ok and type(sp) == "table" then
+      HH:Print("  spell detail (crit / biggest hit?): " .. tostring(sp.result))
+      for _, k in ipairs({ "DamageDone.self", "HealingDone.self", "DamageDone.other", "DamageDone.other.guid" }) do
+        if sp[k] then HH:Print("    " .. k .. ": " .. tostring(sp[k]):sub(1, 220)) end
+      end
     end
     return
   end

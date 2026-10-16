@@ -536,3 +536,125 @@ def test_a_lone_entry_reads_number_one_not_last(aw):
     aw.execute(f'HH_d, HH_n, HH_r = {A}.Metrics.Collect({{}}, "dungeon"); HH_w = {A}.Resolve.Winners(HH_d, HH_n, HH_r, "dungeon")')
     w = {x["award"]["id"]: x for x in lst(aw.eval('HH_w'))}
     assert w["dispel_daddy"]["name"] == "Hognificent" and w["dispel_daddy"]["detail"] == "#1 of 5 in dispels"
+
+
+
+# ================================================================== real numbers on the cards (2026-10-15)
+AMOUNTS = """
+-- meter rows with amounts: secret values that THROW on compare / arithmetic, exactly like Forever
+HH_amounts = {}
+function MockMeterAmounts(mode, seg, rows) HH_amounts[mode .. ":" .. seg] = rows end
+local base = C_DamageMeter.GetCombatSessionFromType
+C_DamageMeter.GetCombatSessionFromType = function(st, mt)
+  local s = base(st, mt)
+  for k, rows in pairs(HH_amounts) do
+    local mode, seg = k:match("^(.-):(.-)$")
+    if Enum.DamageMeterType[mode] == mt and Enum.DamageMeterSessionType[seg] == st then
+      s.combatSources = {}
+      for i, r in ipairs(rows) do
+        s.combatSources[i] = { name = r[1], totalAmount = MockSecret(r[2]), amountPerSecond = r[3] and MockSecret(r[3]) or nil,
+          sourceGUID = r[4], isLocalPlayer = r[1] == "Hognificent" }
+      end
+    end
+  end
+  return s
+end
+"""
+
+ROWS = """
+MockMeterAmounts("HealingDone", "Overall", { { "Hognificent", 48210, 1240 }, { "Unit1", 2210, 60 } })
+MockMeterAmounts("Dps", "Overall", { { "Unit2", 61300, 412 }, { "Unit1", 40100, 280 } })
+MockMeterAmounts("DamageDone", "Overall", { { "Unit2", 61300, 412 }, { "Unit1", 40100, 280 }, { "Hognificent", 900, 6 } })
+"""
+
+
+def run_with_amounts(aw):
+    party(aw)
+    aw.execute(AMOUNTS)
+    aw.execute(ROWS)
+    aw.execute(f'HH_d, HH_n, HH_r = {A}.Metrics.Collect({{ Unit3 = {{ jumps = 61, lootGold = 48210, firstDeath = 95, selfDeaths = 1 }} }}, "dungeon")')
+    aw.execute(f'HH_w = {A}.Resolve.Winners(HH_d, HH_n, HH_r, "dungeon")')
+    # stat strings built from secret amounts are themselves SECRET strings (as on Forever); unwrap only to assert
+    aw.execute('for _, w in ipairs(HH_w) do w.statPlain = w.stat and MockUnwrap(w.stat) end')
+    out = {}
+    for w in lst(aw.eval('HH_w')):
+        d = dict(w.items())
+        d["stat"] = d.get("statPlain")
+        out[w["award"]["id"]] = d
+    return out
+
+
+def test_cards_carry_the_meters_real_numbers_without_any_maths_on_them(aw):
+    w = run_with_amounts(aw)
+    assert w["lifeline"]["name"] == "Hognificent" and w["lifeline"]["stat"] == "48210 healing (1240 HPS)"
+    assert w["hog_wild"]["name"] == "Unit2" and w["hog_wild"]["stat"] == "412 DPS"
+    assert w["tusk_master"]["stat"] == "61300 damage (412 DPS)"
+    assert w["lifeline"]["detail"] == "#1 of 5 in healing done"            # the rank stays in the hover
+    assert errors(aw) == []                                                 # secrets were formatted, never compared
+
+
+def test_counted_awards_show_their_own_numbers(aw):
+    w = run_with_amounts(aw)
+    assert w["pigeon_toed"]["stat"] == "61 jumps"
+    assert w["piggy_bank"]["stat"] == "4g 82s 10c picked up"
+    assert w["sow_low"]["stat"] == "first death at 1m 35s"
+
+
+def test_abbreviation_is_used_when_the_client_has_it(aw):
+    aw.execute('AbbreviateNumbers = function(v) v = MockUnwrap(v) return ("%.1fk"):format(v / 1000) end')
+    w = run_with_amounts(aw)
+    assert w["lifeline"]["stat"] == "48.2k healing (1240 HPS)"
+
+
+def test_stat_line_and_tooltip_on_the_stage(aw):
+    run_with_amounts(aw)
+    aw.execute('for i, w in ipairs(HH_w) do if w.award.id == "lifeline" then HH_w[1], HH_w[i] = w, HH_w[1] break end end')
+    aw.execute(f'{A}.UI.ShowStage({{ headline = HH_w[1], others = {{}}, also = {{}} }}, {{}})')
+    stat = aw.eval('HH_w[1].statPlain')
+    assert stat
+    assert aw.eval('MockUnwrap(HogTronAwardsStage.slots[1].stat._text)') == stat
+    aw.execute('GameTooltip._lines = {}; HogTronAwardsStage.slots[1].card:GetScript("OnEnter")(HogTronAwardsStage.slots[1].card)')
+    assert aw.eval('(function() for _, l in ipairs(GameTooltip._lines) do if tostring(MockUnwrap(l)):find(HH_w[1].statPlain, 1, true) then return true end end return false end)()')
+
+
+def test_preview_cards_show_numbers_too(aw):
+    aw.execute(f'HH_p = {A}.PreviewStage("x")')
+    assert aw.eval('HH_p.headline.stat') and all(o["stat"] for o in lst(aw.eval('HH_p.others')))
+
+
+PROBE = """
+MockMeterAmounts("DamageDone", "Overall", { { "Hognificent", 900, 6, "Player-0" }, { "Unit1", 500, 3, MockSecret("Player-1") } })
+C_DamageMeter.GetCombatSessionSourceFromType = function(st, mt, guid)
+  if MockUnwrap(guid) ~= "Player-0" then error("Secret values are only allowed during untainted execution") end
+  return { totalAmount = MockSecret(900), combatSpells = { { spellID = 585, totalAmount = MockSecret(900),
+    combatSpellDetails = { { critAmount = MockSecret(420), maxAmount = MockSecret(420), hitCount = 3 } } } } }
+end
+"""
+
+
+def test_spell_detail_probe_reports_crit_like_fields_and_secret_guids(aw):
+    party(aw)
+    aw.execute(AMOUNTS)
+    aw.execute(PROBE)
+    r = aw.eval(f'{A}.Metrics.ProbeSpellDetail()')
+    assert "critAmount" in r["candidates"] and "maxAmount" in r["candidates"]
+    assert "SECRET" in r["DamageDone.other.guid"]
+    assert aw.eval('HogHeals.db.global.diag.awards.spellProbe.candidates') == r["candidates"]
+    aw.execute('MockLog.chat = {}; HogHeals:SlashCommand("awards probe")')
+    assert any("crit / biggest hit" in l for l in lst(aw.eval('MockLog.chat')))
+    assert errors(aw) == []
+
+
+def test_probe_says_so_when_there_is_no_crit_field(aw):
+    party(aw)
+    aw.execute(AMOUNTS)
+    aw.execute('MockMeterAmounts("DamageDone", "Overall", { { "Hognificent", 900, 6, "Player-0" } })')
+    aw.execute('C_DamageMeter.GetCombatSessionSourceFromType = function() return { combatSpells = { { spellID = 1, totalAmount = 5, combatSpellDetails = {} } } } end')
+    assert aw.eval(f'{A}.Metrics.ProbeSpellDetail().result') == "no crit / biggest-hit field found"
+
+
+def test_mvp_shows_only_the_main_line_and_singular_counts_read_right(aw):
+    w = run_with_amounts(aw)
+    assert w["lifeline"]["stat"] == "48210 healing (1240 HPS)"
+    aw.execute(f'HH_one = {A}.Resolve.Stat({A}.BY_ID.breadcrumbs, "x", 1)')
+    assert aw.eval('HH_one') == "1 corpse run"

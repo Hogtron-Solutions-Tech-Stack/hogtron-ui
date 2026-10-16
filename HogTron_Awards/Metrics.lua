@@ -156,11 +156,53 @@ function M.MeterList(mode, seg)
   local list = type(session) == "table" and session.combatSources
   if type(list) ~= "table" or isSecret(list) then return nil end
   local out = {}
+  M.lastRows = M.lastRows or {}
+  local rows = {}
   for _, src in ipairs(list) do
     local name = type(src) == "table" and M.Short(src.name)
-    if name then out[#out + 1] = name end
+    if name then
+      out[#out + 1] = name
+      rows[#rows + 1] = { name = name, amount = src.totalAmount, per = src.amountPerSecond, guid = src.sourceGUID,
+        isLocal = src.isLocalPlayer }
+    end
   end
-  return out
+  M.lastRows[mode .. ":" .. seg] = rows
+  return out, rows
+end
+
+-- ------------------------------------------------------------------------------------------------ display numbers
+-- The meter's amounts are SECRET on Forever. Measured 2026-09-17 (diag.secretProbe): a secret may go through
+-- tostring, string.format("%d"), concatenation and FontString:SetText; it may NOT be compared, added or divided.
+-- So these values are only ever formatted and shown - never used to decide anything (ranking is the list order).
+M.display = {}
+
+local function pfmt(fmt, v)
+  local ok, s = pcall(string.format, fmt, v)
+  if ok and type(s) == "string" then return s end
+  return nil
+end
+
+--- "61.3k" for a plain number, Blizzard's abbreviation (or a plain "%d") for a secret one. Never compares v.
+function M.Amount(v)
+  if v == nil then return nil end
+  if type(AbbreviateNumbers) == "function" then
+    local ok, s = pcall(AbbreviateNumbers, v)
+    if ok and type(s) == "string" then return s end
+  end
+  if isSecret(v) then return pfmt("%d", v) or tostring(v) end
+  v = tonumber(v)
+  if not v then return nil end
+  if v >= 1e6 then return ("%.1fm"):format(v / 1e6) end
+  if v >= 1e4 then return ("%.1fk"):format(v / 1e3) end
+  return ("%d"):format(v)
+end
+
+--- Per-second value, whole numbers ("412").
+function M.Per(v)
+  if v == nil then return nil end
+  if isSecret(v) then return pfmt("%.0f", v) or pfmt("%d", v) or tostring(v) end
+  v = tonumber(v)
+  return v and ("%.0f"):format(v) or nil
 end
 
 --- Group member names (short), self included.
@@ -193,9 +235,13 @@ function M.ReadMeter(data, roster)
   local got = {}
   for key, def in pairs(M.DEFS) do
     if def.src == "meter" then
-      local list = M.MeterList(def.mode, def.seg)
+      local list, rows = M.MeterList(def.mode, def.seg)
       if list then
         got[key] = true
+        for _, r in ipairs(rows) do
+          M.display[r.name] = M.display[r.name] or {}
+          M.display[r.name][key] = { amount = r.amount, per = r.per }
+        end
         -- score against the bigger of list and group: the top is always N, "did none of it" is always 0, so a lone
         -- dispeller reads "#1 of 5" (not "#5 of 5") and rank points add up fairly across lists (MVP)
         local n = math.max(#list, #(roster or {}))
@@ -208,6 +254,66 @@ function M.ReadMeter(data, roster)
     end
   end
   return got
+end
+
+-- ------------------------------------------------------------------------------------------------ spell-detail probe
+-- Sean 2026-10-15: "highest crit, highest heal?" Forever has no combat log, so a biggest hit can only come from the
+-- meter's per-spell breakdown (GetCombatSessionSourceFromType -> combatSpells[i].combatSpellDetails, never opened
+-- yet). This records what that breakdown holds, for the local player and for one groupmate, into diag. Nothing
+-- here is used for an award until the probe says the data is there.
+local function keysOf(t)
+  if type(t) ~= "table" or isSecret(t) then return isSecret(t) and "SECRET" or type(t) end
+  local k = {}
+  for key, v in pairs(t) do k[#k + 1] = tostring(key) .. ":" .. (isSecret(v) and "secret" or type(v)) end
+  table.sort(k)
+  return table.concat(k, ",")
+end
+
+function M.ProbeSpellDetail()
+  local api = C_DamageMeter
+  local out = { at = date and date("%Y-%m-%d %H:%M:%S") or "" }
+  if type(api) ~= "table" or type(api.GetCombatSessionSourceFromType) ~= "function" then out.result = "no per-source API" return out end
+  local sessionType = enumValue("DamageMeterSessionType", "Overall", nil)
+  local hits = {}
+  for _, mode in ipairs({ "DamageDone", "HealingDone" }) do
+    local meterType = enumValue("DamageMeterType", mode, nil)
+    local _, rows = M.MeterList(mode, "Overall")
+    local tried = 0
+    for _, r in ipairs(rows or {}) do
+      if tried >= 2 then break end
+      local who = (not isSecret(r.isLocal) and r.isLocal) and "self" or "other"
+      if isSecret(r.guid) then
+        out[mode .. "." .. who .. ".guid"] = "SECRET (cannot be passed back: tainted-secret rule)"
+      elseif r.guid ~= nil and not out[mode .. "." .. who] then
+        tried = tried + 1
+        local ok, src = pcall(api.GetCombatSessionSourceFromType, sessionType, meterType, r.guid)
+        if not ok then out[mode .. "." .. who] = "error: " .. tostring(src):sub(1, 160)
+        elseif type(src) ~= "table" then out[mode .. "." .. who] = "returned " .. type(src)
+        else
+          local spells = src.combatSpells
+          local first = type(spells) == "table" and not isSecret(spells) and spells[1] or nil
+          local det = type(first) == "table" and first.combatSpellDetails or nil
+          local detFirst = type(det) == "table" and not isSecret(det) and det[1] or nil
+          out[mode .. "." .. who] = "source{" .. keysOf(src) .. "} spell{" .. keysOf(first) .. "} details{" .. keysOf(det)
+            .. "} detail1{" .. keysOf(detFirst) .. "}"
+          for _, s in ipairs({ keysOf(src), keysOf(first), keysOf(det), keysOf(detFirst) }) do
+            for key in s:gmatch("([%w_]+):") do
+              local l = key:lower()
+              if l:find("crit") or l:find("max") or l:find("big") or l:find("larg") or l:find("high") or l:find("best") then hits[key] = true end
+            end
+          end
+        end
+      end
+    end
+  end
+  local h = {}
+  for k in pairs(hits) do h[#h + 1] = k end
+  table.sort(h)
+  out.candidates = table.concat(h, ",")
+  out.result = #h > 0 and ("fields that may hold a biggest hit / crit: " .. out.candidates) or "no crit / biggest-hit field found"
+  local g = HH.db and HH.db.global
+  if g then g.diag = g.diag or {} g.diag.awards = g.diag.awards or { fired = {}, last = {} } g.diag.awards.spellProbe = out end
+  return out
 end
 
 -- ------------------------------------------------------------------------------------------------ battleground score
@@ -512,6 +618,7 @@ end
 --- Everything known about everyone, ready for Resolve: data[name][metric], plus the roster and roles.
 -- nominations = { [name] = { metric = value } } from Sync (own snapshot included).
 function M.Collect(nominations, ctx)
+  M.display = {}
   local roster = M.Roster()
   local data, seen = {}, {}
   for _, n in ipairs(roster) do seen[n] = true end
@@ -528,5 +635,6 @@ function M.Collect(nominations, ctx)
   for name in pairs(data) do if seen[name] then names[#names + 1] = name end end
   table.sort(names)
   M.Derive(data, names)
+  M.data = data
   return data, names, M.Roles(data, names)
 end

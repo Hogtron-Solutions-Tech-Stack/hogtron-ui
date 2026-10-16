@@ -38,6 +38,67 @@ function R.Detail(award, value, names)
   return ("%s %s"):format(tostring(v), def.label or award.metric)
 end
 
+-- ------------------------------------------------------------------------------------------------ the number on the card
+-- What the meter metrics show: format string for the amount, and whether to add the per-second figure.
+R.STAT = {
+  damage = { "%s damage", per = "%s DPS" }, dps = { "%s DPS" }, healing = { "%s healing", per = "%s HPS" }, hps = { "%s HPS" },
+  absorbs = { "%s absorbed" }, interrupts = { "%s interrupts" }, dispels = { "%s dispels" }, taken = { "%s damage taken" },
+  avoidable = { "%s avoidable damage taken" }, deaths = { "%s deaths" },
+  bossDamage = { "%s damage on the last boss", per = "%s DPS" }, bossHealing = { "%s healing on the last boss", per = "%s HPS" },
+}
+
+local function meterStat(key, d)
+  local spec = R.STAT[key]
+  if not spec or not d then return nil end
+  local M = A.Metrics
+  local amount = (key == "dps" or key == "hps") and (d.per or d.amount) or d.amount
+  local main = (key == "dps" or key == "hps") and M.Per(amount) or M.Amount(amount)
+  if not main then return nil end
+  local s = spec[1]:format(main)
+  if spec.per and d.per ~= nil then
+    local p = M.Per(d.per)
+    if p then s = s .. " (" .. spec.per:format(p) .. ")" end
+  end
+  return s
+end
+
+--- The real number for a winner: the game meter's amount (secret on Forever: formatted and shown, never compared)
+-- or the player's own counted value. nil when there is no number worth showing.
+function R.Stat(award, name, value)
+  local M = A.Metrics
+  local def = M.DEFS[award.metric] or {}
+  local disp = M.display and M.display[name] or {}
+  if def.src == "meter" then return meterStat(award.metric, disp[award.metric]) end
+  if def.src == "derived" then
+    local m = award.metric
+    if m == "survivorTaken" then return meterStat("taken", disp.taken) end
+    if m == "greaseFire" then return meterStat("avoidable", disp.avoidable) end
+    if m == "bgSurvivor" then return nil end
+    -- mvp / deathless / cleanFeet: the player's bigger contribution, damage or healing (by rank, never by amount)
+    local d = M.data and M.data[name] or {}
+    local key = ((d.healing or 0) > (d.damage or 0)) and "healing" or "damage"
+    -- MVP too: only the player's main line (a healer's 3 DPS next to their healing is noise)
+    return meterStat(key, disp[key]) or meterStat(key == "healing" and "damage" or "healing", disp[key == "healing" and "damage" or "healing"])
+  end
+  if type(value) ~= "number" then return nil end
+  if def.unit == "c" then
+    local g, s, c = math.floor(value / 10000), math.floor(value / 100) % 100, value % 100
+    return (g > 0 and (g .. "g ") or "") .. ((g > 0 or s > 0) and (s .. "s ") or "") .. c .. "c " .. (def.label or ""):gsub("^copper ", "")
+  end
+  if def.unit == "s" and def.label and def.label:find("^average") then return ("%.1f s %s"):format(value, def.label:gsub("^average seconds ", "")) end
+  if award.metric == "firstDeath" then return ("first death at %dm %02ds"):format(math.floor(value / 60), value % 60) end
+  if def.unit == "s" then
+    local label = (def.label or ""):gsub("^seconds? ?", ""):gsub("^into the run at ", "")
+    if value >= 60 then return ("%dm %02ds %s"):format(math.floor(value / 60), value % 60, label) end
+    return ("%ds %s"):format(value, label)
+  end
+  if def.unit == "ms" then return ("%d ms latency"):format(value) end
+  if award.metric == "level" then return "level " .. value end
+  local label = def.label or ""
+  if value == 1 then label = label:gsub("s$", "") end                -- "1 corpse run", "1 taunt"
+  return ("%s %s"):format(value == math.floor(value) and ("%d"):format(value) or ("%.1f"):format(value), label)
+end
+
 function R.Winners(data, names, roles, ctx, enabled)
   local out = {}
   for _, award in ipairs(A.LIST) do
@@ -53,7 +114,10 @@ function R.Winners(data, names, roles, ctx, enabled)
           if better then best, bestV = n, v end
         end
       end
-      if best then out[#out + 1] = { award = award, name = best, value = bestV, detail = R.Detail(award, bestV, names) } end
+      if best then
+        out[#out + 1] = { award = award, name = best, value = bestV, detail = R.Detail(award, bestV, names),
+          stat = R.Stat(award, best, bestV) }
+      end
     end
   end
   return out

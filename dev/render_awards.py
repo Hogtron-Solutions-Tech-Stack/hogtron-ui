@@ -41,26 +41,29 @@ Enum.DamageMeterSessionType = { Overall = 0, Current = 1, Expired = 2 }
 local modeName, segName = {}, {}
 for k, v in pairs(Enum.DamageMeterType) do modeName[v] = k end
 for k, v in pairs(Enum.DamageMeterSessionType) do segName[v] = k end
+-- realistic level-20 Wailing Caverns numbers: { name, total, per second }. Amounts are secrets, as on Forever.
 HH_meter = {
-  ["DamageDone:Overall"] = { "Brianna", "Anthony", "Scoop", "Zugzug", "Hognificent" },
-  ["Dps:Overall"] = { "Anthony", "Brianna", "Scoop", "Zugzug", "Hognificent" },
-  ["HealingDone:Overall"] = { "Hognificent", "Zugzug" },
-  ["Hps:Overall"] = { "Hognificent", "Zugzug" },
-  ["Absorbs:Overall"] = { "Hognificent" },
-  ["Interrupts:Overall"] = { "Anthony", "Zugzug" },
-  ["Dispels:Overall"] = { "Hognificent" },
-  ["DamageTaken:Overall"] = { "Zugzug", "Scoop", "Anthony", "Brianna", "Hognificent" },
-  ["AvoidableDamageTaken:Overall"] = { "Scoop", "Brianna" },
-  ["Deaths:Overall"] = { "Scoop", "Brianna" },
-  ["DamageDone:Current"] = { "Anthony", "Brianna", "Scoop", "Zugzug", "Hognificent" },
-  ["HealingDone:Current"] = { "Hognificent" },
+  ["DamageDone:Overall"] = { { "Brianna", 98400, 64 }, { "Anthony", 91200, 71 }, { "Scoop", 70300, 46 }, { "Zugzug", 52100, 34 }, { "Hognificent", 4100, 3 } },
+  ["Dps:Overall"] = { { "Anthony", 91200, 71 }, { "Brianna", 98400, 64 }, { "Scoop", 70300, 46 }, { "Zugzug", 52100, 34 }, { "Hognificent", 4100, 3 } },
+  ["HealingDone:Overall"] = { { "Hognificent", 61800, 40 }, { "Zugzug", 3900, 3 } },
+  ["Hps:Overall"] = { { "Hognificent", 61800, 40 }, { "Zugzug", 3900, 3 } },
+  ["Absorbs:Overall"] = { { "Hognificent", 12400 } },
+  ["Interrupts:Overall"] = { { "Anthony", 14 }, { "Zugzug", 6 } },
+  ["Dispels:Overall"] = { { "Hognificent", 9 } },
+  ["DamageTaken:Overall"] = { { "Zugzug", 72400 }, { "Scoop", 21800 }, { "Anthony", 15100 }, { "Brianna", 9800 }, { "Hognificent", 4300 } },
+  ["AvoidableDamageTaken:Overall"] = { { "Scoop", 6200 }, { "Brianna", 1900 } },
+  ["Deaths:Overall"] = { { "Scoop", 2 }, { "Brianna", 1 } },
+  ["DamageDone:Current"] = { { "Anthony", 9100, 88 }, { "Brianna", 8700, 84 }, { "Scoop", 6100, 59 }, { "Zugzug", 4800, 46 }, { "Hognificent", 300, 3 } },
+  ["HealingDone:Current"] = { { "Hognificent", 7900, 77 } },
 }
 C_DamageMeter = { GetCombatSessionFromType = function(st, mt)
-  local names = HH_meter[modeName[mt] .. ":" .. segName[st]] or {}
+  local rows = HH_meter[modeName[mt] .. ":" .. segName[st]] or {}
   local src = {}
-  for i, n in ipairs(names) do src[i] = { name = n, totalAmount = MockSecret(1000 - i) } end
+  for i, r in ipairs(rows) do src[i] = { name = r[1], totalAmount = MockSecret(r[2]), amountPerSecond = r[3] and MockSecret(r[3]) or nil } end
   return { combatSources = src }
 end }
+-- the client's own abbreviation ("98.4K"), which accepts secrets
+AbbreviateNumbers = function(v) v = MockUnwrap(v) if v >= 10000 then return ("%.1fK"):format(v / 1000) end return tostring(v) end
 C_ChatInfo = { RegisterAddonMessagePrefix = function() return true end, SendAddonMessage = function() return 0 end }
 GetServerTime = function() return 1760000000 end
 function DoEmote() end; function JumpOrAscendStart() end; function RollOnLoot() end; function SetRaidTarget() end
@@ -106,13 +109,16 @@ def play_run(l):
         for m in l.eval(f'HogTronAwards.Sync.EncodeNominations("{name}-1760000003", {counts})').values():
             l.execute(f'MockFire("CHAT_MSG_ADDON", "HTR_AWD", [[{m}]], "PARTY", "{name}-Nightslayer")')
     l.execute('MockAdvance(3)')
+    l.execute("""local st = HogTronAwards.last.stage
+      local function plain(w) if w and w.stat then w.statPlain = tostring(MockUnwrap(w.stat)) end end
+      plain(st.headline) for _, w in ipairs(st.others) do plain(w) end for _, w in ipairs(st.also) do plain(w) end""")
     return l.eval('HogTronAwards.last')
 
 
 def winner_dict(w):
     a = w["award"]
     return {"id": a["id"], "name": a["name"], "kind": a["kind"], "flavor": a["flavor"], "emote": a["emote"],
-            "player": w["name"], "detail": w["detail"], "note": a["note"]}
+            "player": w["name"], "detail": w["detail"], "note": a["note"], "stat": w["statPlain"]}
 
 
 CSS = """
@@ -134,7 +140,8 @@ CSS = """
 .card.head{border-color:#ffdb6b;box-shadow:0 0 24px #d9a32e66, inset 0 0 0 1px #ffdb6b55}
 .row{display:flex;gap:10px}.kind{font-size:11px;font-weight:700;letter-spacing:2px;color:#d9a32e}.kind.roast{color:#f27340}
 .aw{font-size:19px;font-weight:700;color:#ffdb6b;line-height:1.15}.pl{font-size:15px;font-weight:600;margin-top:3px}
-.fl{font-size:12.5px;line-height:1.35;margin-top:8px;color:#e8dfd2}
+.fl{font-size:12.5px;line-height:1.35;margin-top:4px;color:#e8dfd2}
+.st{font-size:14.5px;font-weight:600;margin-top:8px;color:#21D4E0}
 .also{position:absolute;bottom:36px;width:100%;text-align:center;color:#9a9aa8;font-size:13px}
 .hint{position:absolute;bottom:60px;width:100%;text-align:center;color:#737380;font-size:12px}
 .conf{position:absolute;width:6px;height:12px;border-radius:1px;opacity:.9}
@@ -173,7 +180,8 @@ def card(w: dict, head: bool = False) -> str:
     return (f'<div class="card{" head" if head else ""}"><div class="row">{icon(w["id"], 72)}<div>'
             f'<div class="kind{" roast" if w["kind"] == "roast" else ""}">{kind}</div><div class="aw">{html.escape(w["name"])}</div>'
             f'<div class="pl" style="color:{color}">{html.escape(w["player"])}</div></div></div>'
-            f'<div class="fl">{html.escape(w["flavor"])}</div></div>')
+            + (f'<div class="st">{html.escape(w["stat"])}</div>' if w.get("stat") else "")
+            + f'<div class="fl">{html.escape(w["flavor"])}</div></div>')
 
 
 def stage_html(l, last, layout: str) -> str:
@@ -189,7 +197,8 @@ def stage_html(l, last, layout: str) -> str:
                      f'{card(w, i == 0)}</div>')
     hov = ws[1]
     tip = (f'<div class="tip" style="left:{W / 2 + pos[1]["x"] - 150:.0f}px;top:{H / 2 - pos[1]["y"] - 160:.0f}px">'
-           f'<b>{html.escape(hov["name"])}</b><br>{html.escape(hov["player"])}: {html.escape(str(hov["detail"]))}'
+           f'<b>{html.escape(hov["name"])}</b><br>' + (f'<span style="color:#21D4E0">{html.escape(hov["player"])}: {html.escape(hov["stat"])}</span><br>' if hov.get("stat") else "")
+           + f'{html.escape(str(hov["detail"]))}'
            + (f'<br><i>{html.escape(hov["note"])}</i>' if hov.get("note") else "") + '</div>')
     also = [f'{o["award"]["name"]}: {o["name"]}' for o in stage["also"].values()][:8]
     label = l.eval(f'HogTronAwards.UI.LAYOUT_LABELS.{layout}')
@@ -219,7 +228,7 @@ def cards_html(l, last) -> str:
     pick = pick[:8]
     return (f'<!doctype html><meta charset="utf-8"><style>{CSS} body{{background:#121217}}</style>'
             f'<div style="padding:24px 40px 0;color:#9a9aa8;font-size:13px">Award cards from the same simulated run (real winners, real icons, '
-            f'flavor text from data/awards.lua). In game the card sits under the player\'s 3D model.</div>'
+            f'flavor text from data/awards.lua; the cyan line is the number from the game meter, or the count kept by that player). In game the card sits under the player\'s 3D model.</div>'
             f'<div class="cards">{"".join(card(w, i == 0) for i, w in enumerate(pick))}</div>')
 
 
