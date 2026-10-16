@@ -243,3 +243,26 @@ def test_compact_footer_carries_the_modules_actions(panel):
     assert panel.eval(f"select(2, {P}.frame.scroll:GetPoint(2)) == {P}.frame.footer") is True   # the scroll stops above the footer
     panel.execute(f"{P}.Open(HH_sample)")
     assert panel.eval(f"{P}.frame.footer:IsShown()") is False
+
+
+def test_painted_menus_by_default_flat_on_request(lua):
+    # Sean 2026-10-14 night: "redo our own menus and make them really nice" - the OpenArt slate / brass skin
+    import pathlib
+    lua.load_addon("HogTronUI")
+    lua.player_login()
+    lua.execute("HogHeals.Panel.Open()")
+    f = "HogHealsPanel"
+    media = pathlib.Path(__file__).resolve().parents[1] / "HogTronUI" / "Media"
+    for n in ("menu_bg", "menu_corner", "menu_edge_h", "menu_edge_v", "menu_header", "menu_side"):
+        assert (media / (n + ".tga")).exists(), n
+    assert lua.eval("HogHeals.Panel.artOn") is True
+    assert lua.eval(f"{f}.art.bg:IsShown()") is True and lua.eval(f"{f}.art.bg._texture").endswith("menu_bg")
+    assert lua.eval(f"{f}.accent:IsShown()") is False                         # the flat cyan rule gives way to the banner
+    assert list(lua.eval(f"{f}.titleHog._points[1]").values())[3] >= 34       # the title clears the brass corner
+    # the banner keeps its caps: left cap is the art's first 7 %, right cap its last
+    assert list(lua.eval(f"{f}.art.head[1]._texCoord").values()) == [0, 0.07, 0, 1]
+    lua.execute('HogHeals.db.profile.look.menus = "flat"; HogHeals.Panel.ApplyArt()')
+    assert lua.eval("HogHeals.Panel.artOn") is False
+    assert lua.eval(f"{f}.art.bg:IsShown()") is False and lua.eval(f"{f}.accent:IsShown()") is True
+    assert list(lua.eval(f"{f}.titleHog._points[1]").values())[3] == 16
+    assert lua.eval("#HogHeals.errors") == 0

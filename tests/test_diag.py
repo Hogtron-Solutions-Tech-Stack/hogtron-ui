@@ -69,19 +69,21 @@ def test_meter_probe_lists_api_and_samples_zero_arg_getters(core):
 def test_probe_never_registers_the_combat_log_event():
     # Forbidden on restricted clients; pcall does not contain it; the player gets a "Disable HogHeals?" popup.
     import pathlib, re
-    src = (pathlib.Path(__file__).resolve().parent.parent / "HogHeals" / "Core.lua").read_text(encoding="utf-8")
+    src = (pathlib.Path(__file__).resolve().parent.parent / "HogTronUI" / "Core.lua").read_text(encoding="utf-8")
     code = " ".join(line.split("--", 1)[0] for line in src.splitlines())   # drop Lua comments
     assert "COMBAT_LOG_EVENT_UNFILTERED" not in code
 
 
 def test_blocked_and_forbidden_actions_are_logged_with_the_function_name(core):
-    core.execute('HogHeals.db.global.diag.errors = {}; MockFire("ADDON_ACTION_FORBIDDEN", "HogHeals", "Frame:RegisterEvent()")')
+    core.execute('HogHeals.db.global.diag.errors = {}; MockFire("ADDON_ACTION_FORBIDDEN", "HogTronUI", "Frame:RegisterEvent()")')
     core.execute('MockFire("ADDON_ACTION_BLOCKED", "HogHeals_Frames", "CompactPartyFrame:SetParent()")')
     core.execute('MockFire("ADDON_ACTION_BLOCKED", "SomeOtherAddon", "X()")')
     msgs = [e["msg"] for e in core.eval('HogHeals.db.global.diag.errors').values()]
-    assert any("ADDON_ACTION_FORBIDDEN: HogHeals called Frame:RegisterEvent()" in m for m in msgs)
+    assert any("ADDON_ACTION_FORBIDDEN: HogTronUI called Frame:RegisterEvent()" in m for m in msgs)
     assert any("HogHeals_Frames called CompactPartyFrame:SetParent()" in m for m in msgs)
     assert not any("SomeOtherAddon" in m for m in msgs)
+    core.execute('MockFire("ADDON_ACTION_BLOCKED", "HogTron_Bars", "MainMenuBar:Hide()")')   # a renamed module counts as ours
+    assert any("HogTron_Bars called MainMenuBar:Hide()" in e["msg"] for e in core.eval('HogHeals.db.global.diag.errors').values())
 
 
 def test_blizzard_frame_state_is_recorded_at_enable_and_combat(frames):

@@ -81,7 +81,7 @@ def icon(award_id: str, size: int) -> str:
 def boot():
     l = AddonLoader().bootstrap()
     l.execute(SCENARIO)
-    l.load_addon("HogHeals")
+    l.load_addon("HogTronUI")
     l.load_addon("HogTron_Awards")
     l.player_login()
     names = ", ".join(f'{{ name = "{n}", class = "{c}" }}' for n, c in GROUP[1:])
@@ -235,7 +235,7 @@ def cards_html(l, last) -> str:
 def icons_html() -> str:
     from math import ceil  # noqa: F401
     l = AddonLoader().bootstrap()
-    l.load_addon("HogHeals")
+    l.load_addon("HogTronUI")
     l.load_addon("HogTron_Awards")
     rows = []
     for a in l.eval("HogTronAwards.LIST").values():

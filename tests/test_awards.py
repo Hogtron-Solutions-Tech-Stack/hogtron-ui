@@ -42,7 +42,7 @@ def aw(lua):
       function DoEmote() end; function JumpOrAscendStart() end; function RollOnLoot() end; function SetRaidTarget() end
       function SendChatMessage() end
     ''')
-    lua.load_addon("HogHeals")
+    lua.load_addon("HogTronUI")
     lua.load_addon("HogTron_Awards")
     lua.player_login()
     lua.execute('wipe(HogHeals.errors)')
@@ -461,12 +461,12 @@ def test_lfg_reward_and_battleground_winner_end_runs(aw):
 def test_probe_counts_trigger_events_and_records_refusals(lua):
     lua.execute(METER)
     lua.execute('MockUnknownEvents.CHALLENGE_MODE_COMPLETED = true')
-    lua.load_addon("HogHeals")
+    lua.load_addon("HogTronUI")
     lua.load_addon("HogTron_Awards")
     lua.player_login()
     party(lua, 3)
     lua.execute('MockFire("BOSS_KILL", 1, "Kresh"); MockFire("BOSS_KILL", 2, "Skum")')
-    d = lua.eval('HogHealsDB.global.diag.awards') or lua.eval('HogHeals.db.global.diag.awards')
+    d = lua.eval('HogHeals.db.global.diag.awards')
     assert d["fired"]["BOSS_KILL"] == 2 and "Skum" in d["last"]["BOSS_KILL"]
     assert d["failed"] == "CHALLENGE_MODE_COMPLETED"
     lua.execute('MockLog.chat = {}; HogHeals:SlashCommand("awards probe")')

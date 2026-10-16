@@ -83,10 +83,10 @@ function UnitFactionGroup() return FACTION or "Horde", FACTION or "Horde" end
 
 def boot(lua, quests=False, extra=""):
     lua.execute(CLIENT + extra)
-    lua.load_addon("HogHeals")
+    lua.load_addon("HogTronUI")
     if quests:
-        lua.load_addon("HogHeals_Quests")
-    lua.load_addon("HogHeals_Atlas")
+        lua.load_addon("HogTron_Quests")
+    lua.load_addon("HogTron_Atlas")
     lua.execute('MockState.playerClass = MockState.playerClass or "SHAMAN"')
     lua.player_login()
     lua.execute("wipe(HogHeals.errors)")

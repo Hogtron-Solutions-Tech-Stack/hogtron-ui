@@ -37,7 +37,7 @@ SPARE_IDS = ["mvp", "boar_slayer", "lifeline", "floor_inspector", "the_wall", "l
 def awards() -> list[dict]:
     from loader import AddonLoader
     lua = AddonLoader().bootstrap()
-    lua.load_addon("HogHeals")
+    lua.load_addon("HogTronUI")
     lua.load_addon("HogTron_Awards")
     out = []
     for a in lua.eval("HogTronAwards.LIST").values():

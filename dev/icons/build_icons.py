@@ -8,7 +8,7 @@ from PIL import Image
 from playwright.sync_api import sync_playwright
 
 HERE = Path(__file__).resolve().parent
-OUT = HERE.parents[1] / "HogHeals" / "Media"
+OUT = HERE.parents[1] / "HogTronUI" / "Media"
 IDS = ["quest_open", "quest_done", "quest_arrow", "target_arrow",
        "micro_character", "micro_professions", "micro_spellbook", "micro_talents", "micro_achievements", "micro_quests",
        "micro_guild", "micro_social", "micro_lfg", "micro_collections", "micro_ej", "micro_pvp", "micro_shop", "micro_help",

@@ -1,4 +1,4 @@
-# HogHeals_Bars: our own action bars on LibActionButton-1.0 (stubbed here: tests/lib_stubs.lua gives a fake lib
+# HogTron_Bars: our own action bars on LibActionButton-1.0 (stubbed here: tests/lib_stubs.lua gives a fake lib
 # whose buttons record every call). Tests cover our layer: bars built, slot mapping, layout, grid, Blizzard hidden,
 # bind mode. The real lib runs only in the client.
 import pytest
@@ -32,8 +32,8 @@ function UnregisterStateDriver() end
 @pytest.fixture
 def bars(lua):
     lua.execute(CLIENT)
-    lua.load_addon("HogHeals")
-    lua.load_addon("HogHeals_Bars")
+    lua.load_addon("HogTronUI")
+    lua.load_addon("HogTron_Bars")
     lua.player_login()
     lua.execute('wipe(HogHeals.errors)')
     return lua
@@ -57,8 +57,8 @@ def test_module_registers_with_the_lib_and_an_options_tab(bars):
 
 def test_without_the_lib_the_module_stays_off_and_says_so(lua):
     lua.execute(CLIENT + 'LibStub.libs["LibActionButton-1.0"] = nil')
-    lua.load_addon("HogHeals")
-    lua.load_addon("HogHeals_Bars")
+    lua.load_addon("HogTronUI")
+    lua.load_addon("HogTron_Bars")
     lua.player_login()
     assert lua.eval('HogHealsBars.Bars.unavailable') is True
     assert any("LibActionButton" in e["msg"] for e in lua.eval('HogHeals.errors').values())
@@ -150,7 +150,7 @@ def test_drag_under_unlock_saves_the_spot(bars):
 
 def test_skins_action_bar_part_yields_to_bars(lua):
     lua.execute(CLIENT + 'MainMenuBarTexture0 = UIParent:CreateTexture("MainMenuBarTexture0"); MainMenuBarTexture0:SetTexture("art")')
-    for a in ("HogHeals", "HogHeals_Bars", "HogHeals_Skin"):
+    for a in ("HogTronUI", "HogTron_Bars", "HogTron_Skin"):
         lua.load_addon(a)
     lua.player_login()
     assert lua.eval('HogHealsSkin.ActionBars.yielded') is True
@@ -232,8 +232,8 @@ for i = 1, 10 do CreateFrame("CheckButton", "PetActionButton" .. i, UIParent); C
 @pytest.fixture
 def xbars(lua):
     lua.execute(CLIENT + EXTRA_CLIENT)
-    lua.load_addon("HogHeals")
-    lua.load_addon("HogHeals_Bars")
+    lua.load_addon("HogTronUI")
+    lua.load_addon("HogTron_Bars")
     lua.player_login()
     lua.execute('wipe(HogHeals.errors)')
     return lua
@@ -332,7 +332,7 @@ def test_an_unknown_event_no_longer_stops_the_bar_library_registering_the_rest()
     # (the tests above use a fake one). Run the real InitializeEventHandler against a frame that throws like Forever.
     from pathlib import Path as _P
     from lupa.lua51 import LuaRuntime
-    src = (_P(__file__).resolve().parents[1] / "HogHeals_Bars/Libs/LibActionButton-1.0/LibActionButton-1.0.lua").read_text(encoding="utf-8").splitlines()
+    src = (_P(__file__).resolve().parents[1] / "HogTron_Bars/Libs/LibActionButton-1.0/LibActionButton-1.0.lua").read_text(encoding="utf-8").splitlines()
     a = next(k for k, l in enumerate(src) if l.startswith("function InitializeEventHandler()"))
     b = next(k for k in range(a + 1, len(src)) if src[k] == "end")
     rt = LuaRuntime()
@@ -358,7 +358,7 @@ def test_an_unknown_event_no_longer_stops_the_bar_library_registering_the_rest()
 
 def _lab_src():
     from pathlib import Path as _P
-    return (_P(__file__).resolve().parents[1] / "HogHeals_Bars/Libs/LibActionButton-1.0/LibActionButton-1.0.lua").read_text(encoding="utf-8")
+    return (_P(__file__).resolve().parents[1] / "HogTron_Bars/Libs/LibActionButton-1.0/LibActionButton-1.0.lua").read_text(encoding="utf-8")
 
 
 def test_duration_object_path_is_taken_wherever_the_client_has_it():
@@ -429,9 +429,9 @@ def test_unlock_shows_a_top_layer_box_per_bar_and_dragging_saves_under_the_layou
 
 def test_old_pet_key_is_migrated_and_reset_puts_bars_back(lua):
     lua.execute(CLIENT + EXTRA_CLIENT)
-    lua.load_addon("HogHeals")
+    lua.load_addon("HogTronUI")
     lua.execute('HogHealsDB = { profileKeys = {}, profiles = { Default = { bars = { list = { Pet = { x = -0.8, y = 178 }, [2] = { x = 40, y = 250, scale = 1.3 } } } } } }')
-    lua.load_addon("HogHeals_Bars")
+    lua.load_addon("HogTron_Bars")
     lua.player_login()
     lst = 'HogHeals.db.profile.bars.list'
     assert lua.eval(f'rawget({lst}, "Pet")') is None
@@ -554,3 +554,45 @@ def test_the_libs_checked_state_drives_the_active_mark(bars):
     lua.execute(f"{b}:SetChecked(false)")
     assert lua.eval(f"{b}.hh.activeFill:IsShown()") is False
     assert errors(lua) == []
+
+
+# ================================================================================================ state refresh (10/15)
+STATE = '''
+B = HogHealsBars.Bars.bars[1].buttons[1]
+B._state_type, B._hasAction, B._state_action = "action", true, 7
+CUR, USE, NOMANA = true, true, false
+function B:IsCurrentlyActive() return CUR end
+function B:IsAutoRepeat() return false end
+function B:IsUsable() return USE, NOMANA end
+B.config.colors = { mana = { 0.5, 0.5, 1 } }
+'''
+
+
+def test_a_cancelled_cast_never_leaves_the_button_lit(bars):
+    # Sean 2026-10-15 in game: the Hearthstone stayed lit (cyan active mark) after the cast was cancelled
+    bars.execute(STATE + "B:SetChecked(true)")
+    assert bars.eval("B.hh.activeFill:IsShown()") is True
+    bars.execute('CUR = false; MockFire("UNIT_SPELLCAST_INTERRUPTED", "player"); MockAdvance(0.1)')
+    assert bars.eval("B.hh.activeFill:IsShown()") is False
+    assert bars.eval("HogHealsBars.Extra.seen.UNIT_SPELLCAST_INTERRUPTED") == 1
+
+
+def test_a_stale_grey_is_read_again(bars):
+    # ... and it looked greyed before it was clicked: the usable colour is read again on bag / usable / zoning events
+    bars.execute(STATE + 'B.icon:SetVertexColor(0.4, 0.4, 0.4); MockFire("BAG_UPDATE_DELAYED"); MockAdvance(0.1)')
+    assert list(bars.eval("B.icon._color").values())[:3] == [1, 1, 1]
+    bars.execute('USE, NOMANA = false, true; MockFire("SPELL_UPDATE_USABLE"); MockAdvance(0.1)')
+    assert list(bars.eval("B.icon._color").values())[:3] == [0.5, 0.5, 1]
+    bars.execute('USE, NOMANA = false, false; MockFire("PLAYER_ENTERING_WORLD"); MockAdvance(0.4)')
+    assert list(bars.eval("B.icon._color").values())[:3] == [0.4, 0.4, 0.4]
+
+
+def test_secret_state_is_left_alone_and_the_diag_counts(bars):
+    bars.execute(STATE + "B:SetChecked(true); MockSetSecrets(true); CUR = MockSecret(false)")
+    bars.execute('MockFire("UNIT_SPELLCAST_STOP", "player"); MockAdvance(0.1)')
+    assert bars.eval("B.hh.activeFill:IsShown()") is True          # a secret answer is never boolean-tested
+    bars.execute("MockSetSecrets(false)")
+    lines = list(bars.eval("HogHealsBars.Extra.BtnDiagLines()").values())
+    assert "CAST_STOP=1" in lines[0]
+    assert any("bar1 #1 action 7" in l for l in lines)
+    assert bars.eval("#HogHeals.errors") == 0

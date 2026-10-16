@@ -1,4 +1,4 @@
-# DoesItDie (HogHeals_Plates/DoesItDie.lua): skull when my DoT outlives the mob, red X when it ends first and soon.
+# DoesItDie (HogTron_Plates/DoesItDie.lua): skull when my DoT outlives the mob, red X when it ends first and soon.
 import pytest
 
 from test_plates import boot, errors

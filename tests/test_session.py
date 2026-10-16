@@ -15,7 +15,7 @@ def sess(lua):
       function UnitLevel(u) return LVL end
       MockState.time = 1000
     """)
-    lua.load_addon("HogHeals")
+    lua.load_addon("HogTronUI")
     lua.player_login()
     lua.execute("HogHeals.Session.Reset()")
     return lua
@@ -86,8 +86,8 @@ def test_info_bar_texts(lua):
       function UnitLevel(u) return LVL end
       MockState.time = 1000
     """)
-    lua.load_addon("HogHeals")
-    lua.load_addon("HogHeals_Skin")
+    lua.load_addon("HogTronUI")
+    lua.load_addon("HogTron_Skin")
     lua.player_login()
     lua.execute("HogHeals.Session.Reset(); MockState.time = 1600; XP = 2500; MockFire('PLAYER_XP_UPDATE'); MONEY = 56000; MockFire('PLAYER_MONEY')")
     P = "HogHealsSkin.InfoBar.providers"

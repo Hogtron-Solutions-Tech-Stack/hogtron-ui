@@ -28,7 +28,7 @@ RULES = (
 
 
 def files():
-    pats = ["HogHeals*/**/*.lua", "HogHeals*/**/*.toc", "HogTron_*/**/*.lua", "HogTron_*/**/*.toc", "tests/*.py", "dev/*.py", "docs/*.md", "README.md"]
+    pats = ["HogHeals*/**/*.lua", "HogHeals*/**/*.toc", "HogTron*/**/*.lua", "HogTron*/**/*.toc", "tests/*.py", "dev/*.py", "docs/*.md", "README.md"]
     seen = set()
     for pat in pats:
         for p in sorted(ROOT.glob(pat)):

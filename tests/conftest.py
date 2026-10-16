@@ -12,7 +12,7 @@ def lua():
 @pytest.fixture
 def core(lua):
     """HogHeals core loaded and logged in."""
-    lua.load_addon("HogHeals")
+    lua.load_addon("HogTronUI")
     lua.player_login()
     return lua
 
@@ -20,9 +20,9 @@ def core(lua):
 @pytest.fixture
 def hud(lua):
     """HogHeals + Frames + HUD loaded, one PLAYER_LOGIN."""
-    lua.load_addon("HogHeals")
+    lua.load_addon("HogTronUI")
     lua.load_addon("HogHeals_Frames")
-    lua.load_addon("HogHeals_HUD")
+    lua.load_addon("HogTron_HUD")
     lua.player_login()
     # the solo frame is off by default since 2026-09-23 (HogTron UI Units draws the player); the older frame tests
     # were written around it, so they opt back in
@@ -33,7 +33,7 @@ def hud(lua):
 @pytest.fixture
 def frames(lua):
     """HogHeals + HogHeals_Frames loaded (WoW order: all ADDON_LOADED, then one PLAYER_LOGIN)."""
-    lua.load_addon("HogHeals")
+    lua.load_addon("HogTronUI")
     lua.load_addon("HogHeals_Frames")
     lua.player_login()
     # the solo frame is off by default since 2026-09-23 (HogTron UI Units draws the player); the older frame tests

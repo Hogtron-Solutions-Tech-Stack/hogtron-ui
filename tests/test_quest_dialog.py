@@ -1,4 +1,4 @@
-# HogHeals_Quests/Dialog.lua: the quest giver's pages in our window instead of Blizzard's (Sean 2026-10-14, from the
+# HogTron_Quests/Dialog.lua: the quest giver's pages in our window instead of Blizzard's (Sean 2026-10-14, from the
 # WoW Forever add-on clip #5 "Dialogue UI"). Blizzard's QuestFrame / GossipFrame here are real mock frames that log
 # every event they still receive, so "muted" is tested by what they hear, not by a flag we set ourselves.
 import pytest
@@ -64,7 +64,7 @@ GossipFrame:SetScript("OnEvent", function(_, e) BLIZZ[#BLIZZ + 1] = "GossipFrame
 
 def boot(lua, before="", auto=False):
     lua.execute(MODERN + API + before)
-    for a in ("HogHeals", "HogHeals_Quests"):
+    for a in ("HogTronUI", "HogTron_Quests"):
         lua.load_addon(a)
     lua.player_login()
     lua.execute("wipe(HogHeals.errors)")

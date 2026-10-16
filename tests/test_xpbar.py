@@ -1,4 +1,4 @@
-# Experience bar (HogHeals_HUD/XPBar.lua): the "xp" HUD row - fill, rested overlay, "quests in the log" overlay,
+# Experience bar (HogTron_HUD/XPBar.lua): the "xp" HUD row - fill, rested overlay, "quests in the log" overlay,
 # level / numbers left, pace from Session right. From the ForeverXP Bar clip (2026-10-08): "XP per hour, session
 # playtime, and how much your quest will contribute to your next level".
 import pytest
@@ -32,9 +32,9 @@ def xp(lua):
       MockState.time = 1000
     """)
     lua.execute(MODERN_LOG)
-    lua.load_addon("HogHeals")
+    lua.load_addon("HogTronUI")
     lua.load_addon("HogHeals_Frames")
-    lua.load_addon("HogHeals_HUD")
+    lua.load_addon("HogTron_HUD")
     lua.player_login()
     lua.execute(f"HH_x = HogHealsXPBar; HH_x:SetWidth(400); {X}.Update()")   # the bar of its own (default); 400 px: everything fits (6 px a char in the mock)
     return lua
@@ -116,7 +116,7 @@ def test_fill_and_left_text(xp):
 
 
 def test_rested_overlay_and_text(xp):
-    xp.execute(f"RESTED = 2000; {X}.Update()")
+    xp.execute(f"HogHeals.db.profile.hud.xp.art = false; RESTED = 2000; {X}.Update()")   # the flat overlay (painted mist: see below)
     assert xp.eval("HH_x.rested:IsShown()") is True
     # overlay runs from the fill head to xp+rested: 10% -> 30% of a 400 px bar = 80 px wide
     assert xp.eval("HH_x.rested:GetWidth()") == pytest.approx(80)
@@ -181,7 +181,7 @@ def test_xp_user_disabled_hides_the_row(xp):
 
 
 def test_events_refresh_the_bar(xp):
-    xp.execute('XP = 2000; MockFire("PLAYER_XP_UPDATE")')
+    xp.execute('HogHeals.db.profile.hud.xp.art = false; XP = 2000; MockFire("PLAYER_XP_UPDATE")')
     assert xp.eval("HH_x:GetValue()") == 0.2
     xp.execute('QL[2].complete = true; MockFire("QUEST_LOG_UPDATE")')
     assert xp.eval(f"{X}.QuestXP()") == 1200
@@ -216,9 +216,9 @@ def test_legacy_quest_log_path_selects_and_restores(lua):
       function SelectQuestLogEntry(i) SEL = i end
       function GetQuestLogRewardXP() return LQ[SEL] and LQ[SEL].xp or 0 end
     """)
-    lua.load_addon("HogHeals")
+    lua.load_addon("HogTronUI")
     lua.load_addon("HogHeals_Frames")
-    lua.load_addon("HogHeals_HUD")
+    lua.load_addon("HogTron_HUD")
     lua.player_login()
     assert lua.eval(f"{X}.QuestXP()") == 500
     assert lua.eval(f"{X}.path.reward") == "SelectQuestLogEntry+GetQuestLogRewardXP()"
@@ -234,9 +234,9 @@ def test_no_reward_api_means_zero_not_error(lua):
       C_QuestLog = nil
       GetQuestLogRewardXP = nil
     """)
-    lua.load_addon("HogHeals")
+    lua.load_addon("HogTronUI")
     lua.load_addon("HogHeals_Frames")
-    lua.load_addon("HogHeals_HUD")
+    lua.load_addon("HogTron_HUD")
     lua.player_login()
     assert lua.eval(f"{X}.QuestXP()") == 0
     assert lua.eval(f"{X}.path.reward") == "none"
@@ -274,3 +274,21 @@ def test_texts_fit_the_bar_dropping_the_least_important_first(xp):
     xp.execute(f"HH_x:SetWidth(300); {X}.Update()")
     assert xp.eval("HH_x.left:GetText()") == "Lv 20  16%"
     assert "rested" not in xp.eval("HH_x.right:GetText()") and "xp/h" in xp.eval("HH_x.right:GetText()")
+
+
+def test_painted_energy_fill_and_rested_mist(xp):
+    # Sean 2026-10-14 night: the XP bar in the OpenArt set - energy over the fill, mist over the rested stretch
+    import pathlib
+    media = pathlib.Path(__file__).resolve().parents[1] / "HogTronUI" / "Media"
+    assert (media / "xp_fill.tga").exists() and (media / "xp_rested.tga").exists()
+    xp.execute(f"RESTED = 2000; {X}.Update()")
+    assert xp.eval("HH_x.art.fill:IsShown()") is True and xp.eval("HH_x.art.fill._texture").endswith("xp_fill")
+    assert xp.eval("HH_x.art.rested:IsShown()") is True and xp.eval("HH_x.rested:IsShown()") is False
+    assert xp.eval("HH_x.art.fill:GetWidth()") == pytest.approx(40)       # 10 % of the 400 px bar
+    assert xp.eval("HH_x.art.rested:GetWidth()") == pytest.approx(80)     # 10 % -> 30 %
+    r, g, b = list(xp.eval("HH_x._color").values())[:3]
+    assert r < 0.2 and g < 0.5                                              # the flat fill dimmed under the light
+    u0, u1 = xp.eval(f"{X}.ArtCoords(0, 0, 1, 400, 10)")
+    assert (u1 - u0) == pytest.approx(400 / 80)                            # one 512x64 strip = 80 px at 10 px tall
+    xp.execute(f"HogHeals.db.profile.hud.xp.art = false; {X}.Update()")
+    assert xp.eval("HH_x.art.fill:IsShown()") is False and xp.eval("HH_x.rested:IsShown()") is True

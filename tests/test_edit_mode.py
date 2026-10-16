@@ -8,7 +8,7 @@ from test_bars import CLIENT, EXTRA_CLIENT
 @pytest.fixture
 def ed(lua):
     lua.execute(CLIENT + EXTRA_CLIENT)
-    for a in ("HogHeals", "HogHeals_Frames", "HogHeals_HUD", "HogHeals_Units", "HogHeals_Quests", "HogHeals_Skin", "HogHeals_Bars", "HogHeals_Meter"):
+    for a in ("HogTronUI", "HogHeals_Frames", "HogTron_HUD", "HogTron_Units", "HogTron_Quests", "HogTron_Skin", "HogTron_Bars", "HogTron_Meter"):
         lua.load_addon(a)
     lua.player_login()
     lua.execute("""

@@ -1,4 +1,4 @@
-"""Fill HogTron UI Atlas's curated loot file (HogHeals_Atlas/Data/Loot.lua) from a CSV of VERIFIED drops.
+"""Fill HogTron UI Atlas's curated loot file (HogTron_Atlas/Data/Loot.lua) from a CSV of VERIFIED drops.
 
     python dev/atlas_import.py drops.csv                 # dry run: says what it would write, writes nothing
     python dev/atlas_import.py drops.csv --write         # writes Data/Loot.lua
@@ -26,7 +26,7 @@ from collections import defaultdict
 from lupa.lua51 import LuaRuntime
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-DATA = ROOT / "HogHeals_Atlas" / "Data"
+DATA = ROOT / "HogTron_Atlas" / "Data"
 CAP = 20000
 COLUMNS = ["dungeon_key", "boss_name", "item_id", "source"]
 

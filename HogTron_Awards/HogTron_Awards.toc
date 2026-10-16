@@ -3,7 +3,7 @@
 ## Notes: HogTron Awards: end-of-run awards for dungeons, raids and battlegrounds. Five players on stage, honors and roasts, the same screen for the whole group.
 ## Author: HogTron Solutions (Sean Bilger)
 ## Version: @project-version@
-## Dependencies: HogHeals
+## Dependencies: HogTronUI
 ## X-License: MIT
 
 data\awards.lua

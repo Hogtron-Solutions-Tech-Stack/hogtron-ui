@@ -25,7 +25,7 @@ TOKEN = "@project-version@"
 
 
 def version() -> str:
-    for line in (ROOT / "HogHeals" / "HogHeals.toc").read_text(encoding="utf-8").splitlines():
+    for line in (ROOT / "HogTronUI" / "HogTronUI.toc").read_text(encoding="utf-8").splitlines():
         if line.startswith("## Version:"):
             v = line.split(":", 1)[1].strip()
             if v and not v.startswith("@"):
@@ -39,7 +39,7 @@ def version() -> str:
 
 def addon_files() -> list[Path]:
     out: list[Path] = []
-    for folder in sorted(p for pat in ("HogHeals*", "HogTron_*") for p in ROOT.glob(pat) if p.is_dir()):
+    for folder in sorted(p for pat in ("HogHeals*", "HogTron*") for p in ROOT.glob(pat) if p.is_dir()):
         for path in sorted(folder.rglob("*")):
             if path.is_dir() or any(part in SKIP_DIRS or part.startswith(".scratch") for part in path.parts):
                 continue
@@ -51,7 +51,7 @@ def addon_files() -> list[Path]:
 def toc_complete() -> list[str]:
     """Every file a toc lists must exist; returns the problems."""
     bad: list[str] = []
-    for folder in sorted(p for pat in ("HogHeals*", "HogTron_*") for p in ROOT.glob(pat) if p.is_dir()):
+    for folder in sorted(p for pat in ("HogHeals*", "HogTron*") for p in ROOT.glob(pat) if p.is_dir()):
         toc = folder / f"{folder.name}.toc"
         if not toc.exists():
             bad.append(f"{folder.name}: no toc")

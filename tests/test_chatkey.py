@@ -43,7 +43,7 @@ def test_fix_without_setbinding_says_why(core):
 
 def test_login_check_warns_only_when_enter_is_taken(lua):
     lua.execute(BIND_API + 'MockBindings.actions.ENTER = "SPELL Renew"')
-    lua.load_addon("HogHeals")
+    lua.load_addon("HogTronUI")
     lua.player_login()
     lua.execute("MockAdvance(4)")
     assert any("chat will not open on Enter" in m for m in chat(lua))
@@ -51,7 +51,7 @@ def test_login_check_warns_only_when_enter_is_taken(lua):
 
 def test_login_check_is_silent_when_enter_is_chat(lua):
     lua.execute(BIND_API)
-    lua.load_addon("HogHeals")
+    lua.load_addon("HogTronUI")
     lua.player_login()
     lua.execute("MockAdvance(4)")
     assert not any("Enter" in m for m in chat(lua))
@@ -83,7 +83,7 @@ def test_saved_hover_heal_bindings_lose_enter_at_load(lua):
         { key = "1", mod = "", type = "spell", value = "Greater Heal" },
         { key = "ENTER", mod = "", type = "spell", value = "Renew" } } } } } } }
     ''')
-    lua.load_addon("HogHeals")
+    lua.load_addon("HogTronUI")
     lua.load_addon("HogHeals_Frames")
     lua.player_login()
     keys = [b["key"] for b in lua.eval("HogHealsFrames.ClickCast.bindings").values()]
@@ -93,7 +93,7 @@ def test_saved_hover_heal_bindings_lose_enter_at_load(lua):
 
 def test_bar_bind_mode_never_binds_enter(lua):
     lua.execute('BOUND = {}; function SetBinding(k, a) BOUND[#BOUND + 1] = { k, a } return true end')
-    for a in ("HogHeals", "HogHeals_Frames", "HogHeals_Bars"):
+    for a in ("HogTronUI", "HogHeals_Frames", "HogTron_Bars"):
         lua.load_addon(a)
     lua.player_login()
     lua.execute('''

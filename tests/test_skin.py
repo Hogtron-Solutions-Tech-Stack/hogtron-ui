@@ -1,4 +1,4 @@
-# HogHeals_Skin: Blizzard action bars / bags / bag bar / micro menu / tooltips restyled, plus the info bar.
+# HogTron_Skin: Blizzard action bars / bags / bag bar / micro menu / tooltips restyled, plus the info bar.
 # Every Blizzard name is looked up; the mock builds a small "client" with a few of each.
 import pytest
 
@@ -88,8 +88,8 @@ NUM_BAG_SLOTS = 4
 @pytest.fixture
 def skin(lua):
     lua.execute(CLIENT)
-    lua.load_addon("HogHeals")
-    lua.load_addon("HogHeals_Skin")
+    lua.load_addon("HogTronUI")
+    lua.load_addon("HogTron_Skin")
     lua.player_login()
     lua.execute('wipe(HogHeals.errors)')
     return lua
@@ -151,7 +151,7 @@ def test_hogui_letter_bar_stands_in_for_blizzards_micro_buttons(skin):
     assert skin.eval(f'{bar}._points[1][2] == MainMenuBarBackpackButton')           # in the bag slots' place (they are hidden)
     assert skin.eval(f'{bar}._points[1][1]') == "BOTTOMRIGHT" and skin.eval(f'{bar}._points[1][3]') == "BOTTOMRIGHT"
     # our glyphs in the cells (letters hidden); a client refusing the file falls back to the letter
-    assert skin.eval(f'{bar}.cells[1].icon._texture').endswith("micro_character") and skin.eval(f'{bar}.cells[1].letter:IsShown()') is False
+    assert skin.eval(f'{bar}.cells[1].icon._texture').endswith(("micro_character", "micro_character_art")) and skin.eval(f'{bar}.cells[1].letter:IsShown()') is False
     assert skin.eval(f'{bar}.cells[3].glyph') == "micro_menu"
     skin.execute(f'''
       local st = {bar}.cells[2].icon.SetTexture
@@ -235,8 +235,8 @@ def test_info_bar_ticks_and_drags_when_unlocked(skin):
 
 def test_skin_off_leaves_blizzard_alone(lua):
     lua.execute(CLIENT + 'HogHealsDB = { profileKeys = {}, profiles = { Default = { skin = { enabled = false } } } }')
-    lua.load_addon("HogHeals")
-    lua.load_addon("HogHeals_Skin")
+    lua.load_addon("HogTronUI")
+    lua.load_addon("HogTron_Skin")
     lua.player_login()
     assert lua.eval('MainMenuBarTexture0._texture') == "art"
     assert lua.eval('ActionButton1.hhSkinned') is None
@@ -275,7 +275,7 @@ def test_player_buffs_and_xp_bar_flattened(lua):
       MainMenuXPBarTexture0 = UIParent:CreateTexture("MainMenuXPBarTexture0"); MainMenuXPBarTexture0:SetTexture("xp-art")
       function BuffFrame_Update() end
     """)
-    lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
+    lua.load_addon("HogTronUI"); lua.load_addon("HogTron_Skin"); lua.player_login()
     assert lua.eval('BuffButton1.hhSkinned') is True and lua.eval('BuffButton2.hhSkinned') is True
     assert lua.eval('BuffButton1.Duration._last.SetFont[2]') == 10
     assert lua.eval('DebuffButton1.hh.edges[1]._color[3]') == pytest.approx(1.0)      # follows the type colour
@@ -301,7 +301,7 @@ def test_blizzard_window_styled_on_show_and_lod_window_caught_by_showuipanel(lua
       CharacterFrame:Hide()
       function ShowUIPanel(f) f:Show() end
     """)
-    lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
+    lua.load_addon("HogTronUI"); lua.load_addon("HogTron_Skin"); lua.player_login()
     assert lua.eval('CharacterFrame.hhPanel') is None
     lua.execute('CharacterFrame:Show(); CharacterFrame:GetScript("OnShow")(CharacterFrame)')
     assert lua.eval('CharacterFramePortrait._alpha') == 0 and lua.eval('CharacterFrame.NineSlice._alpha') == 0
@@ -337,7 +337,7 @@ def test_vendor_sells_junk_and_repairs(lua):
       function RepairAllItems(guild) REPAIRED = guild or false end
       function SetCVar(k, v) CVARS = CVARS or {}; CVARS[k] = v end
     """)
-    lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
+    lua.load_addon("HogTronUI"); lua.load_addon("HogTron_Skin"); lua.player_login()
     lua.execute('wipe(MockLog.chat or {}); MockFire("MERCHANT_SHOW"); MockAdvance(0.4)')
     assert list(lua.eval('SOLD').values()) == [1, 3]                 # greys with a value only
     assert lua.eval('REPAIRED') is False                              # own gold, not guild
@@ -362,7 +362,7 @@ def test_vendor_classic_item_api_path(lua):
       function GetItemInfo() return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, 40 end
       function CanMerchantRepair() return false end
     """)
-    lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
+    lua.load_addon("HogTronUI"); lua.load_addon("HogTron_Skin"); lua.player_login()
     lua.execute('wipe(MockLog.chat or {}); MockFire("MERCHANT_SHOW"); MockAdvance(0.4)')
     assert list(lua.eval('SOLD').values()) == [1]
     assert "sold 1 junk for ~40c" in "\n".join(lua.eval('MockLog.chat').values())
@@ -383,7 +383,7 @@ def test_parchment_windows_recoloured_and_stripped_deep_but_buttons_and_icons_ke
       bar:CreateTexture("GossipGreetingScrollFrameScrollBarThumb"):SetTexture("thumb")
       function ShowUIPanel(f) f:Show() end
     """)
-    lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
+    lua.load_addon("HogTronUI"); lua.load_addon("HogTron_Skin"); lua.player_login()
     lua.execute('ShowUIPanel(GossipFrame)')
     assert lua.eval('GossipFrame.hhPanel ~= nil')
     assert lua.eval('GossipFrameBg._alpha') == 0 and lua.eval('GossipGreetingScrollFrameTop._alpha') == 0
@@ -414,7 +414,7 @@ def test_quest_reward_selection_highlight_survives_the_parchment_pass(lua):
       SEL_TEX = check:CreateTexture("QuestInfoRewardsFrameSomethingSelectedTex"); SEL_TEX:SetTexture("sel-art")
       function ShowUIPanel(f) f:Show() end
     """)
-    lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
+    lua.load_addon("HogTronUI"); lua.load_addon("HogTron_Skin"); lua.player_login()
     lua.execute('ShowUIPanel(QuestFrame); MockFire("QUEST_COMPLETE"); MockAdvance(0.6)')
     assert lua.eval('QuestFrameBg._alpha') == 0 and lua.eval('QuestFrameRewardPanelParchment._alpha') == 0   # parchment gone
     assert lua.eval('QuestInfoRewardsFrameQuestInfoItem1NameFrame._texture') == "name-frame"                   # buttons untouched
@@ -450,7 +450,7 @@ def test_modern_xp_container_and_mirror_timers_flattened(lua):
       MirrorTimer2Border = MirrorTimer2:CreateTexture("MirrorTimer2Border"); MirrorTimer2Border:SetTexture("parchment-box")
       MirrorTimer2Text = MirrorTimer2:CreateFontString("MirrorTimer2Text", "OVERLAY", "GameFontNormal")
     """)
-    lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
+    lua.load_addon("HogTronUI"); lua.load_addon("HogTron_Skin"); lua.player_login()
     c = 'StatusTrackingBarManager.MainStatusTrackingBarContainer'
     assert lua.eval(f'{c}.BarFrameTexture._alpha') == 0 and lua.eval(f'{c}.BarFrameTexture._texture') is None
     assert lua.eval(f'{c}.bars[1].StatusBar._texture').endswith("WHITE8X8")
@@ -483,7 +483,7 @@ def test_xp_bar_stays_flat_when_blizzard_puts_its_rounded_fill_back(lua):
       c.bars = { xp }
       function StatusTrackingBarManager:UpdateBarsShown() end
     """)
-    lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
+    lua.load_addon("HogTronUI"); lua.load_addon("HogTron_Skin"); lua.player_login()
     sb = 'StatusTrackingBarManager.MainStatusTrackingBarContainer.bars[1].StatusBar'
     assert lua.eval(f'{sb}._texture').endswith("WHITE8X8")
     assert lua.eval(f'{sb}.ExhaustionLevelFillBar._texture').endswith("WHITE8X8")
@@ -507,7 +507,7 @@ def test_world_map_still_skipped_by_default(lua):
       WorldMapFrame = CreateFrame("Frame", "WorldMapFrame", UIParent); WorldMapFrame:CreateTexture("WorldMapFrameBg"):SetTexture("map-art")
       function ShowUIPanel(f) f:Show() end
     """)
-    lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
+    lua.load_addon("HogTronUI"); lua.load_addon("HogTron_Skin"); lua.player_login()
     lua.execute('ShowUIPanel(WorldMapFrame)')
     assert lua.eval('WorldMapFrame.hhPanel') is None and lua.eval('WorldMapFrameBg._texture') == "map-art"
 
@@ -521,7 +521,7 @@ def test_dark_gossip_text_lifted_to_cream_on_show_and_on_content_events(lua):
       OPTION = scroll:CreateFontString(nil, "OVERLAY", "GameFontNormal"); OPTION:SetTextColor(1, 0.82, 0)
       function ShowUIPanel(f) f:Show() end
     """)
-    lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
+    lua.load_addon("HogTronUI"); lua.load_addon("HogTron_Skin"); lua.player_login()
     lua.execute('ShowUIPanel(GossipFrame)')
     assert lua.eval('GREET._color[1]') == pytest.approx(0.96)                      # dark brown -> cream
     assert lua.eval('OPTION._color[2]') == pytest.approx(0.82)                     # gold option text untouched
@@ -536,7 +536,7 @@ def test_flight_map_left_alone_by_default(lua):
       TaxiFrame = CreateFrame("Frame", "TaxiFrame", UIParent); TaxiFrame:CreateTexture("TaxiMap1"):SetTexture("map-tile")
       function ShowUIPanel(f) f:Show() end
     """)
-    lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
+    lua.load_addon("HogTronUI"); lua.load_addon("HogTron_Skin"); lua.player_login()
     lua.execute('ShowUIPanel(TaxiFrame)')
     assert lua.eval('TaxiFrame.hhPanel') is None and lua.eval('TaxiMap1._texture') == "map-tile"
 
@@ -547,7 +547,7 @@ def test_late_built_gossip_option_lines_lifted_and_kept_through_hover_repaint(lu
       SCROLL = CreateFrame("ScrollFrame", nil, GossipFrame)
       function ShowUIPanel(f) f:Show() end
     """)
-    lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
+    lua.load_addon("HogTronUI"); lua.load_addon("HogTron_Skin"); lua.player_login()
     lua.execute('ShowUIPanel(GossipFrame)')
     # option line created after the window is shown, dark grey like the quest lines in game
     lua.execute("""
@@ -581,7 +581,7 @@ def test_vendor_price_from_c_item_when_global_is_gone(lua):
       C_Item = C_Item or {}
       C_Item.GetItemInfo = function(link) return "n", link, 0, 5, 0, "t", "s", 20, "", 1, 46 end
     """)
-    lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
+    lua.load_addon("HogTronUI"); lua.load_addon("HogTron_Skin"); lua.player_login()
     lua.execute('wipe(MockLog.chat or {}); MockFire("MERCHANT_SHOW"); MockAdvance(0.4)')
     assert list(lua.eval('SOLD').values()) == [1, 2, 3]
     chat = "\n".join(lua.eval('MockLog.chat').values())
@@ -594,7 +594,7 @@ def test_vendor_never_prints_zero_copper_for_unknown_prices(lua):
       C_Item = C_Item or {}
       C_Item.GetItemInfo = function(link) if link == "item2" then return nil end return "n", link, 0, 5, 0, "t", "s", 20, "", 1, 10 end
     """)
-    lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Skin"); lua.player_login()
+    lua.load_addon("HogTronUI"); lua.load_addon("HogTron_Skin"); lua.player_login()
     lua.execute('wipe(MockLog.chat or {}); MockFire("MERCHANT_SHOW"); MockAdvance(0.4)')
     chat = "\n".join(lua.eval('MockLog.chat').values())
     assert "sold 3 junk for at least 80c" in chat                    # one stack uncached: 2 x 4 x 10c known
@@ -655,6 +655,7 @@ def test_kill_art_never_touches_buttons_bars_or_ours(skin):
 
 def test_glyphs_bigger_and_tinted_full_colour_under_the_mouse(skin):
     bar = 'HogHealsMicroBar'
+    skin.execute('HogHeals.db.profile.look.icons = "glyph"; HogHealsSkin.Micro.Strip()')   # tints belong to the flat glyphs
     assert skin.eval(f'{bar}.cells[1]._width') == 30 and skin.eval(f'{bar}.cells[1].icon._width') == 26     # 30 px cells, glyph fills them
     # character = amber at 0.6 of the way from cream; spellbook = cyan
     r, g, b = [skin.eval(f'{bar}.cells[1].icon._color[{i}]') for i in (1, 2, 3)]
@@ -744,7 +745,7 @@ def test_one_bags_cell_in_the_bar_and_blizzards_slots_hidden(skin):
     c = 'HogHealsMicroBarBags'
     assert skin.eval(f'{c} ~= nil') and skin.eval(f'{c}:GetParent() == {bar}') and skin.eval(f'{c}:IsShown()') is True
     assert skin.eval(f'{c}._template') is None                                              # plain button: ToggleAllBags is not protected
-    assert skin.eval(f'{c}.label') == "Bags" and skin.eval(f'{c}.icon._texture').endswith("micro_bags")
+    assert skin.eval(f'{c}.label') == "Bags" and skin.eval(f'{c}.icon._texture').endswith(("micro_bags", "micro_bags_art"))
     assert skin.eval(f'{c}._points[1][4]') == 3 + 3 * 33 and skin.eval(f'{bar}._width') == 3 + 4 * 33   # 4th cell, bar sized for it
     skin.execute(f'TOGGLED_BAGS = 0; {c}:GetScript("OnClick")({c})')
     assert skin.eval('TOGGLED_BAGS') == 1
@@ -964,3 +965,54 @@ def test_the_backpacks_own_slot_art_goes_and_the_slots_hide_in_bags_cell_mode(sk
     assert skin.eval("MainMenuBarBackpackButton:IsShown()") is True
     assert skin.eval("MainMenuBarBackpackButton.NormalTexture._alpha") == 0
     assert errors(skin) == []
+
+
+
+def test_painted_icons_by_default_untinted_and_shipped_for_every_glyph(skin):
+    # Sean 2026-10-14 night: the OpenArt set (HogHeals/Media/<id>_art.tga) is the default look; glyphs on request
+    import pathlib
+    media = pathlib.Path(__file__).resolve().parents[1] / "HogTronUI" / "Media"
+    for glyph in media.glob("micro_*.tga"):
+        if glyph.stem.endswith("_art"):
+            continue
+        assert (media / (glyph.stem + "_art.tga")).exists(), glyph.stem
+    bar = "HogHealsMicroBar"
+    assert skin.eval(f"{bar}.cells[1].icon._texture").endswith("micro_character_art")
+    assert skin.eval(f"{bar}.cells[1].art") is True
+    assert [skin.eval(f"{bar}.cells[1].icon._color[{i}]") for i in (1, 2, 3)] == [1, 1, 1]
+    skin.execute('HogHeals:SlashCommand("look glyphs"); HogHealsSkin.Micro.Strip()')
+    assert skin.eval(f"{bar}.cells[1].icon._texture").endswith("micro_character")
+    assert skin.eval(f"{bar}.cells[1].art") is False
+    # a client that refuses the painted file falls back to the glyph
+    skin.execute('HogHeals:SlashCommand("look painted")')
+    skin.execute(f"local t = {bar}.cells[1].icon; local orig = t.SetTexture; t.SetTexture = function(self, f) if tostring(f):find('_art') then return false end return orig(self, f) end; HogHealsSkin.Micro.Strip()")
+    assert skin.eval(f"{bar}.cells[1].icon._texture").endswith("micro_character")
+
+
+def test_info_bar_emblems_sit_beside_their_reading(skin):
+    # Sean 2026-10-14 night: icons on the bottom info bar (gold, frames, ping); OpenArt emblems, text-only when off
+    import pathlib
+    media = pathlib.Path(__file__).resolve().parents[1] / "HogTronUI" / "Media"
+    for key, file in skin.eval("HogHealsSkin.InfoBar.ICONS").items():
+        assert (media / (file + ".tga")).exists(), file
+    s = "HogHealsSkin.InfoBar.slots[1]"
+    skin.execute("HogHealsSkin.InfoBar.Refresh(); HogHealsSkin.InfoBar.Update()")
+    assert skin.eval(f"{s}.key") == "gold"
+    assert skin.eval(f"{s}.icon:IsShown()") is True and skin.eval(f"{s}.icon._texture").endswith("info_gold")
+    icon_pt = list(skin.eval(f"{s}.icon._points[1]").values())
+    text_pt = list(skin.eval(f"{s}.text._points[1]").values())
+    assert icon_pt[0] == "LEFT" and text_pt[0] == "LEFT" and text_pt[3] > icon_pt[3]   # emblem first, reading after it
+    skin.execute("HogHeals.db.profile.skin.infoBar.icons = false; HogHealsSkin.InfoBar.Refresh(); HogHealsSkin.InfoBar.Update()")
+    assert skin.eval(f"{s}.icon:IsShown()") is False
+    assert list(skin.eval(f"{s}.text._points[1]").values())[0] == "CENTER"
+
+
+def test_info_bar_on_the_brass_plaque_and_flat_on_request(skin):
+    import pathlib
+    assert (pathlib.Path(__file__).resolve().parents[1] / "HogTronUI" / "Media" / "info_plate.tga").exists()
+    skin.execute("HogHealsSkin.InfoBar.Refresh()")
+    assert skin.eval("HogHealsSkin.InfoBar.plateOn") is True
+    assert skin.eval("HogUIInfoBar.plate[2]:IsShown()") is True and skin.eval("HogUIInfoBar.bg:IsShown()") is False
+    assert list(skin.eval("HogUIInfoBar.plate[1]._texCoord").values()) == [0, 0.06, 0, 1]   # the cap keeps its shape
+    skin.execute('HogHeals.db.profile.look.menus = "flat"; HogHealsSkin.InfoBar.Refresh()')
+    assert skin.eval("HogHealsSkin.InfoBar.plateOn") is False and skin.eval("HogUIInfoBar.bg:IsShown()") is True

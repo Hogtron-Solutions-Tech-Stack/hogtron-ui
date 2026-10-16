@@ -11,7 +11,7 @@ from pathlib import Path
 from lupa.lua51 import LuaRuntime
 
 ROOT = Path(__file__).resolve().parents[1]
-FOLDERS = sorted(p.name for pat in ("HogHeals*", "HogTron_*") for p in ROOT.glob(pat) if p.is_dir())
+FOLDERS = sorted(p.name for pat in ("HogHeals*", "HogTron*") for p in ROOT.glob(pat) if p.is_dir())
 
 
 def main() -> int:

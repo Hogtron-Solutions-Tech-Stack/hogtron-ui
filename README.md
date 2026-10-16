@@ -20,17 +20,17 @@ Bugs: open an issue with `/hh version`, `/hh errors` output (or, after a `/reloa
 | Addon | What |
 |---|---|
 | `HogHeals` | Core: profiles, `/hh` options, group-size auto-layout, combat-safe queue, session stats (`/hh session`), `/hh perf` |
-| `HogHeals_Frames` | Party + raid frames for healing: hover-bind engine, dispel-by-my-class, debuff + buff rows, test mode (`/hh test 5`), setup wizard |
-| `HogHeals_Units` | Player / target / target-of-target / pet / focus frames |
-| `HogHeals_HUD` | Cast bar, swing timer, mana bar with five-second rule, info line, cast bar themes by school / profession (`/hh casttheme`) |
-| `HogHeals_Bars` | Own action bars (Bartender-style), hover-and-press key binding |
-| `HogHeals_Plates` | Nameplates: flat bar, quest-mob icons, target marks, own cast bar, DoesItDie skull / reapply mark, object glow on ore / herbs / chests / quest objects (`/hh glow`) |
-| `HogHeals_Quests` | Quest tracker with the GO row (`/hh go`), quest dialog on a parchment page (`/hh dialog`: Space accepts, 1-9 picks, light or dark), minimap pins, square minimap, addon-button drawer |
-| `HogHeals_Atlas` | Dungeon guide: levels, bosses, loot, dungeon quests, gear upgrades, Where next (`/hh next`) |
-| `HogHeals_Training` | What the class trainer has for you, before you get there (`/hh train`) |
-| `HogHeals_Meter` | Damage / healing meter on the game's own numbers |
-| `HogHeals_Chat` | Chat restyle, URL copy |
-| `HogHeals_Skin` | Blizzard's bags, menu bar, tooltips and windows in the same look; info bar |
+| `HogHeals_Frames` | Party + raid frames for healing: hover-bind engine, click-cast grid (`/hh click-cast`), dispel-by-my-class, debuff + buff rows, test mode (`/hh test 5`), setup wizard |
+| `HogTron_Units` | Player / target / target-of-target / pet / focus frames |
+| `HogTron_HUD` | Cast bar, swing timer, mana bar with five-second rule, info line, cast bar themes by school / profession (`/hh casttheme`) |
+| `HogTron_Bars` | Own action bars (Bartender-style), hover-and-press key binding |
+| `HogTron_Plates` | Nameplates: flat bar, quest-mob icons, target marks, own cast bar, DoesItDie skull / reapply mark, object glow on ore / herbs / chests / quest objects (`/hh glow`) |
+| `HogTron_Quests` | Quest tracker with the GO row (`/hh go`), quest dialog on a parchment page (`/hh dialog`: Space accepts, 1-9 picks, light or dark), minimap pins, square minimap, addon-button drawer |
+| `HogTron_Atlas` | Dungeon guide: levels, bosses, loot, dungeon quests, gear upgrades, Where next (`/hh next`) |
+| `HogTron_Training` | What the class trainer has for you, before you get there (`/hh train`) |
+| `HogTron_Meter` | Damage / healing meter on the game's own numbers |
+| `HogTron_Chat` | Chat restyle, URL copy |
+| `HogTron_Skin` | Blizzard's bags, menu bar, tooltips and windows in the same look; info bar |
 | `HogTron_Awards` | End-of-run awards for dungeons, raids and battlegrounds: five players on stage, 38 honors + 37 roasts, same screen for the whole group (`/hh awards`, `/htr awards`) |
 
 ## HogTron Awards
@@ -78,9 +78,24 @@ python -m pytest tests -q
 What tests cannot prove: secure-frame behaviour in combat, real header child creation, rendering. Those need
 `/console scriptErrors 1` + a real dungeon pull. Release notes say which rows were run.
 
+## Click-cast
+
+`/hh click-cast` opens Frames > Click-cast: a 5x5 grid of mouse buttons (Left, Right, Middle, 4, 5) by modifiers
+(None, Shift, Ctrl, Alt, Meta/Cmd). Right-click a slot to pick a spell from your spellbook; left-click a bound slot to
+choose **Highest rank** (follows new ranks) or an exact rank, and **Resurrect if dead** (same click rezzes a dead
+target out of combat). Saved per character. Priest, Paladin, Druid and Shaman get a suggested layout on first login
+(`HogHeals_Frames/defaults/clickcast/`). It runs next to the keyboard hover-binds (Bindings tab): both fire. With
+Clique loaded the grid stands down.
+
+![Click-cast tab, Priest suggested layout](docs/mockups/binding-ui/2-priest-defaults.png)
+
+All six states: `docs/mockups/binding-ui/` (`python dev/render_binding_ui.py`; rendered from the live options table in
+the test harness, not a WoW screenshot).
+
 ## Docs
 
 - `docs/superpowers/specs/2026-09-13-hogheals-frames-design.md` — design spec
+- `docs/superpowers/research/2026-10-15-healkit-binding-ui.md` — HealKit (All Rights Reserved) as the click-cast UX inspiration; patterns only, no code
 - `docs/superpowers/research/2026-09-13-healing-addon-research.md` — what VuhDo/HealBot/Cell/Grid/Clique/Danders each do best
 - `docs/superpowers/plans/2026-09-13-hogheals-frames.md` — implementation plan
 

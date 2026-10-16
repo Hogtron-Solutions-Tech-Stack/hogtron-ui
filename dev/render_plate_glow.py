@@ -1,4 +1,4 @@
-"""Render a PREVIEW of the nameplate target glow (HogHeals_Plates) to docs/mockups/plate-target-glow.{gif,png}.
+"""Render a PREVIEW of the nameplate target glow (HogTron_Plates) to docs/mockups/plate-target-glow.{gif,png}.
 
 Not a screenshot of WoW. The real Plates.lua runs in the test harness (lupa + tests/wow_mock.lua): the plate is
 added, targeted, and each frame advances the mock clock and fires the real glow driver; this script reads back what
@@ -24,8 +24,8 @@ from loader import AddonLoader  # noqa: E402
 from test_plates import add, boot  # noqa: E402
 
 OUT = ROOT / "docs" / "mockups"
-GLOW = np.asarray(Image.open(ROOT / "HogHeals" / "Media" / "target_glow.tga").convert("RGBA"), dtype=np.float32)[:, :, 3] / 255
-QUEST = Image.open(ROOT / "HogHeals" / "Media" / "quest_open.tga").convert("RGBA")
+GLOW = np.asarray(Image.open(ROOT / "HogTronUI" / "Media" / "target_glow.tga").convert("RGBA"), dtype=np.float32)[:, :, 3] / 255
+QUEST = Image.open(ROOT / "HogTronUI" / "Media" / "quest_open.tga").convert("RGBA")
 W, H = 260, 90                         # canvas in game pixels
 BAR = (76, 48, 144, 14)                # x, y, w, h: the bar in game pixels (height = default barHeight 14)
 FPS = 25

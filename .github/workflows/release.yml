@@ -4,7 +4,7 @@ name: release
 #   v0.2.0-alpha.1 -> alpha file, v0.2.0-beta.1 -> beta file, v0.2.0 -> release file (packager reads the tag).
 # Anything else (PR, push to main, manual run) -> same build + gate, uploads NOTHING, zip kept as an artifact.
 #
-# Repo secrets: CF_API_TOKEN (required for tags), WAGO_API_TOKEN (optional). HogHeals/HogHeals.toc needs
+# Repo secrets: CF_API_TOKEN (required for tags), WAGO_API_TOKEN (optional). HogTronUI/HogTronUI.toc needs
 # ## X-Curse-Project-ID. The packager skips an upload SILENTLY when either is missing, so the preflight
 # below fails the tag build instead of letting it go green having shipped nothing.
 
@@ -46,8 +46,8 @@ jobs:
         env:
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
         run: |
-          id=$(tr -d '\r' < HogHeals/HogHeals.toc | sed -n 's/^## X-Curse-Project-ID:[[:space:]]*\([0-9][0-9]*\).*/\1/p')
-          if [ -z "$id" ]; then echo "::error::HogHeals/HogHeals.toc has no '## X-Curse-Project-ID: <number>'"; exit 1; fi
+          id=$(tr -d '\r' < HogTronUI/HogTronUI.toc | sed -n 's/^## X-Curse-Project-ID:[[:space:]]*\([0-9][0-9]*\).*/\1/p')
+          if [ -z "$id" ]; then echo "::error::HogTronUI/HogTronUI.toc has no '## X-Curse-Project-ID: <number>'"; exit 1; fi
           if [ -z "$CF_API_TOKEN" ]; then echo "::error::repo secret CF_API_TOKEN is not set"; exit 1; fi
           echo "CurseForge project $id, token present"
 
