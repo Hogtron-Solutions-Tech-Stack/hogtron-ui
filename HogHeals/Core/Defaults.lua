@@ -174,7 +174,7 @@ HH.defaults = {
       showLevel = true,               -- the unit's level, right of the bar (our text; Blizzard's badge stays hidden)
       uniformScale = true, targetScale = 1.15,  -- same plate size at every distance; the target's plate scale
       maxDistance = 60,               -- nameplateMaxDistance (yards); the client clamps to what it allows
-      target = { highlight = true, style = "brackets", scale = 1.25, color = { 0.13, 0.83, 0.88 }, fadeOthers = false, otherAlpha = 0.6,
+      target = { highlight = true, style = "glow", scale = 1.25, color = { 0.13, 0.83, 0.88 }, fadeOthers = false, otherAlpha = 0.6,
         glowSize = 9, animate = true, hideBlizzard = true, bracketSize = 10,
       },   -- style: brackets | glow | scale | outline | none; brackets = hard corners, glow = lock on + breathe
       aggro = { warn = true, color = { 0.85, 0.20, 0.20 } },   -- healer pulled threat: red outline
