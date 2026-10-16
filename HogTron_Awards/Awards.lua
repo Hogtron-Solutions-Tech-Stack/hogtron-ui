@@ -275,6 +275,7 @@ local function hookAll()
 end
 
 function Module:OnEnable()
+  A.Cfg()                      -- defaults into the profile now, so the setup guide's Awards page reads them
   A.Sync.Register()
   local f = CreateFrame("Frame")
   local d = diag()

@@ -658,3 +658,8 @@ def test_mvp_shows_only_the_main_line_and_singular_counts_read_right(aw):
     assert w["lifeline"]["stat"] == "48210 healing (1240 HPS)"
     aw.execute(f'HH_one = {A}.Resolve.Stat({A}.BY_ID.breadcrumbs, "x", 1)')
     assert aw.eval('HH_one') == "1 corpse run"
+
+
+def test_defaults_are_in_the_profile_at_login_for_the_setup_guide(aw):
+    assert aw.eval('HogHeals.db.profile.awards.contexts.dungeon') is True
+    assert aw.eval('HogHeals.Setup == nil or HogHeals.Setup.Get("awards.roasts")') is True
