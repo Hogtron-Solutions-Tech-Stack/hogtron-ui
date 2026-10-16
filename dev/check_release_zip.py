@@ -27,7 +27,7 @@ def check(zip_path: Path, expect_version: str | None) -> list[str]:
         names = [n for n in z.namelist() if not n.endswith("/")]
         name_set = set(names)
         tops = {PurePosixPath(n).parts[0] for n in names}
-        repo = {p.name for p in ROOT.glob("HogHeals*") if p.is_dir()}
+        repo = {p.name for pat in ("HogHeals*", "HogTron*") for p in ROOT.glob(pat) if p.is_dir()}
 
         for folder in sorted(repo - tops):
             bad.append(f"{folder}: not a top-level folder in the zip (add it to .pkgmeta move-folders)")

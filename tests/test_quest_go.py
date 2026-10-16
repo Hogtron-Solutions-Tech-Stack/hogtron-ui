@@ -1,4 +1,4 @@
-# GO line (HogHeals_Quests/Go.lua): the quest to do next by rule, yards to it, ETA to level, on top of the tracker.
+# GO line (HogTron_Quests/Go.lua): the quest to do next by rule, yards to it, ETA to level, on top of the tracker.
 import pytest
 
 from test_quests import MODERN, boot, errors

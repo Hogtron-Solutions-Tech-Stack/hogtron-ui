@@ -1,6 +1,6 @@
-# HogHeals_Bars vendored LibActionButton: action counts that come back SECRET on WoW: Forever.
+# HogTron_Bars vendored LibActionButton: action counts that come back SECRET on WoW: Forever.
 # In game 2026-10-09 19:46: "LibActionButton-1.0.lua:2786: attempt to compare a secret number value (execution
-# tainted by 'HogHeals_Bars')" in IsConsumableOrStackable, HogUIBar2Button8 / action 68, x5. The lib only guards
+# tainted by 'HogTron_Bars')" in IsConsumableOrStackable, HogUIBar2Button8 / action 68, x5. The lib only guards
 # counts when the interface number is >= 120000 (Midnight); Forever reports 16001, so the guard never ran.
 # These tests run the REAL lib code (chunks cut out of the vendored file), with a mock secret = a table, which throws
 # on < / > exactly like a secret does in game.
@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from lupa.lua51 import LuaRuntime, LuaError
 
-LAB = Path(__file__).resolve().parents[1] / "HogHeals_Bars/Libs/LibActionButton-1.0/LibActionButton-1.0.lua"
+LAB = Path(__file__).resolve().parents[1] / "HogTron_Bars/Libs/LibActionButton-1.0/LibActionButton-1.0.lua"
 
 
 def _src():

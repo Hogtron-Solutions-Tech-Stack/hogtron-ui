@@ -3,7 +3,7 @@
 ## Notes: Party + raid healer frames with a hover-bind engine.
 ## Author: HogTron Solutions (Sean Bilger)
 ## Version: @project-version@
-## Dependencies: HogHeals
+## Dependencies: HogTronUI
 ## SavedVariablesPerCharacter: HogHealsFramesCharDB
 ## X-License: MIT
 

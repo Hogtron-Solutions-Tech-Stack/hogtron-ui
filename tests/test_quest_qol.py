@@ -1,4 +1,4 @@
-# Questie's quality-of-life half without its database (HogHeals_Quests/Auto.lua, Announce.lua, Tooltip.lua):
+# Questie's quality-of-life half without its database (HogTron_Quests/Auto.lua, Announce.lua, Tooltip.lua):
 # auto accept / turn in / gossip, party announce of objective progress, "needed for <quest>" tooltips. 2026-10-08.
 import pytest
 

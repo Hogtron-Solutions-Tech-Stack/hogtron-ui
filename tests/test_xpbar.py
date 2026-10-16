@@ -1,4 +1,4 @@
-# Experience bar (HogHeals_HUD/XPBar.lua): the "xp" HUD row - fill, rested overlay, "quests in the log" overlay,
+# Experience bar (HogTron_HUD/XPBar.lua): the "xp" HUD row - fill, rested overlay, "quests in the log" overlay,
 # level / numbers left, pace from Session right. From the ForeverXP Bar clip (2026-10-08): "XP per hour, session
 # playtime, and how much your quest will contribute to your next level".
 import pytest
@@ -32,9 +32,9 @@ def xp(lua):
       MockState.time = 1000
     """)
     lua.execute(MODERN_LOG)
-    lua.load_addon("HogHeals")
+    lua.load_addon("HogTronUI")
     lua.load_addon("HogHeals_Frames")
-    lua.load_addon("HogHeals_HUD")
+    lua.load_addon("HogTron_HUD")
     lua.player_login()
     lua.execute(f"HH_x = HogHealsXPBar; HH_x:SetWidth(400); {X}.Update()")   # the bar of its own (default); 400 px: everything fits (6 px a char in the mock)
     return lua
@@ -216,9 +216,9 @@ def test_legacy_quest_log_path_selects_and_restores(lua):
       function SelectQuestLogEntry(i) SEL = i end
       function GetQuestLogRewardXP() return LQ[SEL] and LQ[SEL].xp or 0 end
     """)
-    lua.load_addon("HogHeals")
+    lua.load_addon("HogTronUI")
     lua.load_addon("HogHeals_Frames")
-    lua.load_addon("HogHeals_HUD")
+    lua.load_addon("HogTron_HUD")
     lua.player_login()
     assert lua.eval(f"{X}.QuestXP()") == 500
     assert lua.eval(f"{X}.path.reward") == "SelectQuestLogEntry+GetQuestLogRewardXP()"
@@ -234,9 +234,9 @@ def test_no_reward_api_means_zero_not_error(lua):
       C_QuestLog = nil
       GetQuestLogRewardXP = nil
     """)
-    lua.load_addon("HogHeals")
+    lua.load_addon("HogTronUI")
     lua.load_addon("HogHeals_Frames")
-    lua.load_addon("HogHeals_HUD")
+    lua.load_addon("HogTron_HUD")
     lua.player_login()
     assert lua.eval(f"{X}.QuestXP()") == 0
     assert lua.eval(f"{X}.path.reward") == "none"
@@ -279,7 +279,7 @@ def test_texts_fit_the_bar_dropping_the_least_important_first(xp):
 def test_painted_energy_fill_and_rested_mist(xp):
     # Sean 2026-10-14 night: the XP bar in the OpenArt set - energy over the fill, mist over the rested stretch
     import pathlib
-    media = pathlib.Path(__file__).resolve().parents[1] / "HogHeals" / "Media"
+    media = pathlib.Path(__file__).resolve().parents[1] / "HogTronUI" / "Media"
     assert (media / "xp_fill.tga").exists() and (media / "xp_rested.tga").exists()
     xp.execute(f"RESTED = 2000; {X}.Update()")
     assert xp.eval("HH_x.art.fill:IsShown()") is True and xp.eval("HH_x.art.fill._texture").endswith("xp_fill")

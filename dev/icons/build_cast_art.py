@@ -1,4 +1,4 @@
-"""Write PLACEHOLDER cast bar art: HogHeals/Media/cast_<theme>.tga, one 512x64 strip per theme (HogHeals_HUD/CastThemes.lua).
+"""Write PLACEHOLDER cast bar art: HogHeals/Media/cast_<theme>.tga, one 512x64 strip per theme (HogTron_HUD/CastThemes.lua).
 
 The strip is repeated along the filled part of the cast bar and scrolled toward the spark, so it must tile left to
 right without a seam (every pattern here wraps at x = 512). Light themes are drawn additively in game (black = no
@@ -19,7 +19,7 @@ import numpy as np
 from PIL import Image
 from scipy import ndimage
 
-MEDIA = Path(__file__).resolve().parents[2] / "HogHeals" / "Media"
+MEDIA = Path(__file__).resolve().parents[2] / "HogTronUI" / "Media"
 W, H = 512, 64
 YY, XX = np.mgrid[0:H, 0:W].astype(np.float32)
 V = (YY + 0.5) / H                 # 0 top .. 1 bottom

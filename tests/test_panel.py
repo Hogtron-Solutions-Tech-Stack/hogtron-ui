@@ -248,11 +248,11 @@ def test_compact_footer_carries_the_modules_actions(panel):
 def test_painted_menus_by_default_flat_on_request(lua):
     # Sean 2026-10-14 night: "redo our own menus and make them really nice" - the OpenArt slate / brass skin
     import pathlib
-    lua.load_addon("HogHeals")
+    lua.load_addon("HogTronUI")
     lua.player_login()
     lua.execute("HogHeals.Panel.Open()")
     f = "HogHealsPanel"
-    media = pathlib.Path(__file__).resolve().parents[1] / "HogHeals" / "Media"
+    media = pathlib.Path(__file__).resolve().parents[1] / "HogTronUI" / "Media"
     for n in ("menu_bg", "menu_corner", "menu_edge_h", "menu_edge_v", "menu_header", "menu_side"):
         assert (media / (n + ".tga")).exists(), n
     assert lua.eval("HogHeals.Panel.artOn") is True

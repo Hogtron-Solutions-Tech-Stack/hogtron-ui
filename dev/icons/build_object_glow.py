@@ -1,6 +1,6 @@
 """Write the object-glow art: HogHeals/Media/object_ring.tga and object_spark.tga.
 
-The glow over an ore vein / herb / chest / quest object (HogHeals_Plates/ObjectGlow.lua) is three white layers,
+The glow over an ore vein / herb / chest / quest object (HogTron_Plates/ObjectGlow.lua) is three white layers,
 tinted per kind in code: the soft halo (target_glow.tga, already shipped), a thin soft RING that turns slowly, and a
 four-point SPARK that twinkles. One white file per shape serves every colour.
 
@@ -13,7 +13,7 @@ from pathlib import Path
 
 from PIL import Image
 
-MEDIA = Path(__file__).resolve().parents[2] / "HogHeals" / "Media"
+MEDIA = Path(__file__).resolve().parents[2] / "HogTronUI" / "Media"
 SIZE = 128
 
 

@@ -21,8 +21,8 @@ from loader import AddonLoader  # noqa: E402
 from test_object_glow import boot  # noqa: E402
 
 OUT = ROOT / "docs" / "mockups" / "object-glow.png"
-MEDIA = ROOT / "HogHeals" / "Media"
-FONT = ROOT / "HogHeals" / "Media" / "Fonts" / "Inter-SemiBold.ttf"
+MEDIA = ROOT / "HogTronUI" / "Media"
+FONT = ROOT / "HogTronUI" / "Media" / "Fonts" / "Inter-SemiBold.ttf"
 ART = {"halo": "target_glow.tga", "ring": "object_ring.tga", "spark": "object_spark.tga"}
 CASES = [  # (label, Soft(...) call)
     ("herb", 'Soft("Peacebloom", "Interface/Cursor/GatherHerbs", "GameObject-0-1-2-3-1617-1")'),

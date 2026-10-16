@@ -1,4 +1,4 @@
-"""Write the quest dialog art (HogHeals_Quests/Dialog.lua): a parchment page with torn edges in two looks, the bronze
+"""Write the quest dialog art (HogTron_Quests/Dialog.lua): a parchment page with torn edges in two looks, the bronze
 ring around the NPC portrait, the fading rule under the title and the rounded shapes for tags, keys and buttons.
 
 Sean 2026-10-14: the flat ink box "looks absolutely terrible" - he wants the book-page look of the Dialogue UI clip.
@@ -26,7 +26,7 @@ import numpy as np
 from PIL import Image
 from scipy import ndimage
 
-MEDIA = Path(__file__).resolve().parents[2] / "HogHeals" / "Media"
+MEDIA = Path(__file__).resolve().parents[2] / "HogTronUI" / "Media"
 PW, PH = 512, 1024
 MARGIN = 20          # room for the torn edge + shadow inside the texture
 PERIOD = 176         # the side edges repeat every 176 px: 704 px of middle = 4 periods, so a middle cropped to a

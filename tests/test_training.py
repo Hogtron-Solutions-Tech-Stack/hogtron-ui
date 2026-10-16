@@ -1,4 +1,4 @@
-# Training (HogHeals_Training): learned at the trainer, answered anywhere - train now / coming soon / cost, weapon trainers.
+# Training (HogTron_Training): learned at the trainer, answered anywhere - train now / coming soon / cost, weapon trainers.
 import pytest
 
 T = "HogHealsTraining"
@@ -31,9 +31,9 @@ function UnitFactionGroup() return "Horde" end
 def tr(lua):
     lua.execute("MockState.playerClass = 'WARRIOR'; MockUnits.player.class = 'WARRIOR'; MockUnits.player.level = 20")
     lua.execute(TRAINER)
-    lua.load_addon("HogHeals")
-    lua.load_addon("HogHeals_Skin")
-    lua.load_addon("HogHeals_Training")
+    lua.load_addon("HogTronUI")
+    lua.load_addon("HogTron_Skin")
+    lua.load_addon("HogTron_Training")
     lua.player_login()
     lua.execute("wipe(HogHeals.errors)")
     return lua

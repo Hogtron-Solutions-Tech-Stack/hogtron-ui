@@ -1,4 +1,4 @@
-# Waypoint (HogHeals_Quests/Waypoint.lua): the super-tracked quest marked in the world, anchored to Blizzard's
+# Waypoint (HogTron_Quests/Waypoint.lua): the super-tracked quest marked in the world, anchored to Blizzard's
 # navigation frame; yards + eta + progress under it; an arrow on the edge when clamped. Waypoint UI clip, 2026-10-08.
 import pytest
 
@@ -39,7 +39,7 @@ def wp(lua):
 
 # ------------------------------------------------------------------------------------------------ pure
 def test_eta_and_formats(core):
-    core.load_addon("HogHeals_Quests")
+    core.load_addon("HogTron_Quests")
     assert core.eval(f"{W}.ETA(191, 7)") == pytest.approx(27.28, abs=0.01)
     assert core.eval(f"{W}.ETA(191, 0)") is None and core.eval(f"{W}.ETA(nil, 7)") is None
     assert core.eval(f"{W}.FormatDistance(191.4)") == "191 yd"
@@ -50,14 +50,14 @@ def test_eta_and_formats(core):
 
 
 def test_angle_is_clockwise_from_up(core):
-    core.load_addon("HogHeals_Quests")
+    core.load_addon("HogTron_Quests")
     assert core.eval(f"{W}.Angle(0, 0, 0, 10)") == pytest.approx(0)
     assert core.eval(f"{W}.Angle(0, 0, 10, 0)") == pytest.approx(1.5708, abs=0.001)
     assert core.eval(f"{W}.Angle(960, 540, 1200, 700)") == pytest.approx(0.9828, abs=0.001)
 
 
 def test_content_pure(core):
-    core.load_addon("HogHeals_Quests")
+    core.load_addon("HogTron_Quests")
     c = core.eval(f"{W}.Content({{ title = 'Boars', objectives = {{ {{ done = true }}, {{ done = false }} }} }}, 191, 7, {{}})")
     assert c["title"] == "Boars" and c["detail"] == "191 yd  ·  27s  ·  1/2"
     c = core.eval(f"{W}.Content({{ title = 'Done', complete = true }}, 50, 7, {{}})")
@@ -67,7 +67,7 @@ def test_content_pure(core):
 
 
 def test_alpha_dims_when_you_are_there(core):
-    core.load_addon("HogHeals_Quests")
+    core.load_addon("HogTron_Quests")
     assert core.eval(f"{W}.Alpha(5, {{ near = 10 }})") == 0.5
     assert core.eval(f"{W}.Alpha(50, {{ near = 10 }})") == 1
     assert core.eval(f"{W}.Alpha(5, {{ near = 0 }})") == 1

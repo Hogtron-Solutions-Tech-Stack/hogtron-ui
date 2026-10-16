@@ -1,4 +1,4 @@
-# World map (HogHeals_Quests/WorldMap.lua): coordinates strip, scale, fade cvar, border art off, Leatrix deference.
+# World map (HogTron_Quests/WorldMap.lua): coordinates strip, scale, fade cvar, border art off, Leatrix deference.
 import pytest
 
 from test_quests import MODERN, boot, errors

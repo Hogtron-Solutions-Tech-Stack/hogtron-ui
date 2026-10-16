@@ -33,9 +33,9 @@ class AddonLoader:
     # ---- public -------------------------------------------------------
     def bootstrap(self) -> "AddonLoader":
         self.run_file(TESTS / "wow_mock.lua", "Mock")
-        libs = ROOT / "HogHeals" / "Libs"
-        self.run_file(libs / "LibStub" / "LibStub.lua", "HogHeals")
-        self.run_file(libs / "CallbackHandler-1.0" / "CallbackHandler-1.0.lua", "HogHeals")
+        libs = ROOT / "HogTronUI" / "Libs"
+        self.run_file(libs / "LibStub" / "LibStub.lua", "HogTronUI")
+        self.run_file(libs / "CallbackHandler-1.0" / "CallbackHandler-1.0.lua", "HogTronUI")
         self.run_file(TESTS / "lib_stubs.lua", "Mock")
         return self
 

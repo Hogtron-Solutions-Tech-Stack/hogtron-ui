@@ -10,9 +10,9 @@ S = "HogHeals.Setup"
 
 
 def all_modules():
-    mods = sorted(p.name for p in ROOT.glob("HogHeals*") if p.is_dir())
-    mods.remove("HogHeals")
-    return ["HogHeals"] + mods
+    mods = sorted(p.name for pat in ("HogHeals*", "HogTron*") for p in ROOT.glob(pat) if p.is_dir())
+    mods.remove("HogTronUI")
+    return ["HogTronUI"] + mods
 
 
 @pytest.fixture
@@ -76,7 +76,7 @@ def test_every_part_has_a_page_in_order(full):
 
 
 def test_a_missing_module_skips_its_page(lua):
-    lua.load_addon("HogHeals")
+    lua.load_addon("HogTronUI")
     lua.load_addon("HogHeals_Frames")
     lua.player_login()
     keys = steps(lua)
@@ -110,7 +110,7 @@ def test_lots_of_switches(full):
 
 
 def test_every_setting_the_guide_points_at_exists(full):
-    src = (ROOT / "HogHeals" / "Core" / "Setup.lua").read_text(encoding="utf-8")
+    src = (ROOT / "HogTronUI" / "Core" / "Setup.lua").read_text(encoding="utf-8")
     paths = set(re.findall(r'(?:toggle|choose|range)\("([a-zA-Z0-9_.]+)"', src))
     assert len(paths) > 60
     missing = []

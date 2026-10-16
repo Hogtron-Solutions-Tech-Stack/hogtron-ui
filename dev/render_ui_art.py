@@ -21,7 +21,7 @@ OUT = ROOT / "docs" / "mockups"
 
 def main() -> int:
     lua = AddonLoader().bootstrap()
-    for a in ("HogHeals", "HogHeals_Frames", "HogHeals_HUD", "HogHeals_Skin", "HogHeals_Quests"):
+    for a in ("HogTronUI", "HogHeals_Frames", "HogTron_HUD", "HogTron_Skin", "HogTron_Quests"):
         lua.load_addon(a)
     lua.player_login()
     lua.execute("MockAdvance(6)")

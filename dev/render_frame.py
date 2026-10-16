@@ -14,8 +14,8 @@ import pathlib
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-MEDIA = ROOT / "HogHeals" / "Media"
-FONT = ROOT / "HogHeals" / "Media" / "Fonts" / "Inter-SemiBold.ttf"
+MEDIA = ROOT / "HogTronUI" / "Media"
+FONT = ROOT / "HogTronUI" / "Media" / "Fonts" / "Inter-SemiBold.ttf"
 LAYERS = {"BACKGROUND": 0, "BORDER": 1, "ARTWORK": 2, "OVERLAY": 3}
 TEMPLATE_SIZE = {"HogTronFontSmall": 10, "HogTronFontHighlight": 12, "HogTronFontNormal": 12, "HogTronFontNormalSmall": 10,
                  "HogTronFontNormalLarge": 16, "GameFontNormal": 12}
@@ -117,7 +117,7 @@ class Painter:
         if name in self.cache:
             return self.cache[name]
         im = None
-        if "HogHeals" in name and "Media" in name:
+        if "HogTronUI" in name and "Media" in name:
             f = MEDIA / (name.replace("\\", "/").split("/")[-1] + ".tga")
             if f.exists():
                 im = Image.open(f).convert("RGBA")

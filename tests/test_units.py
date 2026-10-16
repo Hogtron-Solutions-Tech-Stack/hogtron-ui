@@ -1,4 +1,4 @@
-# HogHeals_Units: player / target / target-of-target / pet / focus frames. Secure buttons, unit watch, secret-safe
+# HogTron_Units: player / target / target-of-target / pet / focus frames. Secure buttons, unit watch, secret-safe
 # health / power / level text, class + reaction colours, auras under the target, Blizzard's frames hidden.
 # The cast bar has its own file: test_units_castbar.py.
 import pytest
@@ -18,8 +18,8 @@ AbbreviateNumbers = function(v) local secret = issecretvalue and issecretvalue(v
 
 def boot(lua, extra=""):
     lua.execute(BLIZZ + extra)
-    lua.load_addon("HogHeals")
-    lua.load_addon("HogHeals_Units")
+    lua.load_addon("HogTronUI")
+    lua.load_addon("HogTron_Units")
     lua.player_login()
     lua.execute('wipe(HogHeals.errors)')
     return lua
@@ -146,8 +146,8 @@ def test_blizzard_frames_hidden_and_kept_hidden(units):
 def test_hide_blizzard_off_leaves_them_alone(lua):
     # seed the saved variables the way the client would (works whether the DB inits at ADDON_LOADED or at login)
     lua.execute(BLIZZ + 'HogHealsDB = { profileKeys = {}, profiles = { Default = { units = { hideBlizzard = false } } } }')
-    lua.load_addon("HogHeals")
-    lua.load_addon("HogHeals_Units")
+    lua.load_addon("HogTronUI")
+    lua.load_addon("HogTron_Units")
     lua.player_login()
     assert lua.eval('PlayerFrame:GetParent() == UIParent')
 
@@ -350,7 +350,7 @@ def test_secret_expiry_shows_no_countdown(units):
 
 
 def test_blizzard_reshow_in_combat_waits_for_combat_to_end(units):
-    # In game 2026-10-03: "ADDON_ACTION_BLOCKED: HogHeals_Units called PetFrame:HideBase() (in combat)" - the
+    # In game 2026-10-03: "ADDON_ACTION_BLOCKED: HogTron_Units called PetFrame:HideBase() (in combat)" - the
     # re-show hook hid the frame straight away; Hide on a secure unit frame is protected in combat.
     units.execute('MockState.inCombat = true; PetFrame:Show()')
     assert units.eval('PetFrame:IsShown()') is True

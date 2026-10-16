@@ -225,9 +225,9 @@ def wizard_html():
 
 def main() -> int:
     l = AddonLoader().bootstrap()
-    l.load_addon("HogHeals")
+    l.load_addon("HogTronUI")
     l.load_addon("HogHeals_Frames")
-    l.load_addon("HogHeals_HUD")
+    l.load_addon("HogTron_HUD")
     l.player_login()
     # give the mock a realistic bucket so "Editing layout for group size" reads sensibly
     l.execute('MockSetGroup(5, false); MockFire("GROUP_ROSTER_UPDATE")')
