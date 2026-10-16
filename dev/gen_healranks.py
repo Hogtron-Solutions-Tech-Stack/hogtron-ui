@@ -1,4 +1,4 @@
-"""Generate HogHeals_HUD/Data/HealRanks.lua from the vendored LibHealComm-4.0 (MIT).
+"""Generate HogTron_HUD/Data/HealRanks.lua from the vendored LibHealComm-4.0 (MIT).
 
 Runs LibHealComm's class data blocks inside lupa for each flavor (Era build 1.x, TBC build 2.x) and
 each healing class, then emits a compact Lua table:
@@ -15,8 +15,8 @@ from pathlib import Path
 from lupa.lua51 import LuaRuntime
 
 ROOT = Path(__file__).resolve().parents[1]
-LIB = ROOT / "HogHeals" / "Libs" / "LibHealComm-4.0" / "LibHealComm-4.0.lua"
-OUT = ROOT / "HogHeals_HUD" / "Data" / "HealRanks.lua"
+LIB = ROOT / "HogTronUI" / "Libs" / "LibHealComm-4.0" / "LibHealComm-4.0.lua"
+OUT = ROOT / "HogTron_HUD" / "Data" / "HealRanks.lua"
 MOCK = ROOT / "tests" / "wow_mock.lua"
 
 # spellId -> English name (only heals we care about; anything else becomes "spell:<id>" and is skipped)
@@ -55,7 +55,7 @@ def run(flavor: str, cls: str) -> dict:
       UnitBuff = UnitBuff
       MockState.inCombat = false
     ''')
-    libs = ROOT / "HogHeals" / "Libs"
+    libs = ROOT / "HogTronUI" / "Libs"
     for rel in ("LibStub/LibStub.lua", "CallbackHandler-1.0/CallbackHandler-1.0.lua"):
         lua.execute((libs / rel).read_text(encoding="utf-8"))
     src = LIB.read_text(encoding="utf-8")

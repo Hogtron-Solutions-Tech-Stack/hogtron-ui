@@ -19,9 +19,9 @@ OUT = ROOT / "docs" / "mockups" / "setup"
 
 def main() -> int:
     lua = AddonLoader().bootstrap()
-    mods = sorted(p.name for p in ROOT.glob("HogHeals*") if p.is_dir())
-    mods.remove("HogHeals")
-    for a in ["HogHeals"] + mods:
+    mods = sorted(p.name for pat in ("HogHeals*", "HogTron*") for p in ROOT.glob(pat) if p.is_dir())
+    mods.remove("HogTronUI")
+    for a in ["HogTronUI"] + mods:
         lua.load_addon(a)
     lua.execute('MockState.playerClass = "PRIEST"; MockUnits.player.name = "Hognificent"; MockUnits.player.level = 12')
     lua.player_login()

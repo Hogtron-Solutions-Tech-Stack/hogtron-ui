@@ -608,7 +608,7 @@ C_UnitAuras = C_UnitAuras or nil
 function GetSpellSubtext() return nil end
 function UnitIsPVP() return false end
 
--- ---------- unit frame extras (HogHeals_Units) ----------
+-- ---------- unit frame extras (HogTron_Units) ----------
 MockUnitWatch = {}
 function RegisterUnitWatch(f) MockUnitWatch[f] = true end
 function UnregisterUnitWatch(f) MockUnitWatch[f] = nil end

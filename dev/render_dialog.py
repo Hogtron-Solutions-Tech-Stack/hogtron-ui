@@ -23,7 +23,7 @@ from loader import AddonLoader  # noqa: E402
 from test_quest_dialog import boot  # noqa: E402
 
 OUT = ROOT / "docs" / "mockups"
-MEDIA = ROOT / "HogHeals" / "Media"
+MEDIA = ROOT / "HogTronUI" / "Media"
 WORLD = (58, 66, 48)
 LAYERS = {"BACKGROUND": 0, "BORDER": 1, "ARTWORK": 2, "OVERLAY": 3, None: 2}
 FRIZ = [pathlib.Path(r"C:/Program Files (x86)/World of Warcraft/_retail_/Interface/AddOns/DialogueUI/Fonts/frizqt__.ttf"),

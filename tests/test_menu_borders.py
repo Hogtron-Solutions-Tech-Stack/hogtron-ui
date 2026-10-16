@@ -3,7 +3,7 @@
 # four frame textures (dev/icons/tone_down_menu_art.py); version label light.
 from pathlib import Path
 
-MEDIA = Path(__file__).resolve().parents[1] / "HogHeals" / "Media"
+MEDIA = Path(__file__).resolve().parents[1] / "HogTronUI" / "Media"
 
 
 def tga_pixels(path):

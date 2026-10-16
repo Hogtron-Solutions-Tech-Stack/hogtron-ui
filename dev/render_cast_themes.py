@@ -1,6 +1,6 @@
 """Render a PREVIEW of every cast bar theme to docs/mockups/cast-themes.png.
 
-Not a screenshot of WoW. The real HogHeals_HUD (HUD.lua + Castbar.lua + CastThemes.lua) runs in the test harness;
+Not a screenshot of WoW. The real HogTron_HUD (HUD.lua + Castbar.lua + CastThemes.lua) runs in the test harness;
 for each theme this script starts a cast, moves time on so the fill sits at 60 %, lets CastThemes.Tick place the
 glow and the motes, then reads back what the code set (fill colour, glow colour / alpha, mote positions / sizes /
 alphas, spark colour, texts) and draws it with the addon's own target_glow.tga, Inter font and additive light.
@@ -20,8 +20,8 @@ sys.path.insert(0, str(ROOT / "tests"))
 from loader import AddonLoader  # noqa: E402
 
 OUT = ROOT / "docs" / "mockups" / "cast-themes.png"
-GLOW = ROOT / "HogHeals" / "Media" / "target_glow.tga"
-FONT = ROOT / "HogHeals" / "Media" / "Fonts" / "Inter-SemiBold.ttf"
+GLOW = ROOT / "HogTronUI" / "Media" / "target_glow.tga"
+FONT = ROOT / "HogTronUI" / "Media" / "Fonts" / "Inter-SemiBold.ttf"
 W, H, ROW, LEFT = 300, 18, 46, 110
 SAMPLES = {"holy": "Flash Heal", "fire": "Fireball", "frost": "Frostbolt", "arcane": "Arcane Missiles", "shadow": "Mind Flay",
            "nature": "Lightning Bolt", "earth": "Mining", "herb": "Herb Gathering", "leather": "Skinning", "water": "Fishing",
@@ -48,7 +48,7 @@ def main():
     ap.add_argument("--scale", type=int, default=2)
     s = ap.parse_args().scale
     lua = AddonLoader().bootstrap()
-    for a in ("HogHeals", "HogHeals_HUD"):
+    for a in ("HogTronUI", "HogTron_HUD"):
         lua.load_addon(a)
     lua.player_login()
     lua.execute("HH_cb = HogHealsHUD.HUD.rows.castbar; HH_cb:SetWidth(300); HH_cb:SetHeight(18); MockState.time = 100")
@@ -90,7 +90,7 @@ def main():
         if art["_shown"]:
             # the strip: repeated, scaled so it keeps its shape at the bar's height, cropped to u0..u1 (REPEAT wrap)
             tc = vals(art["_texCoord"])
-            strip = Image.open(ROOT / "HogHeals" / "Media" / f"cast_{key}.tga").convert("RGBA")
+            strip = Image.open(ROOT / "HogTronUI" / "Media" / f"cast_{key}.tga").convert("RGBA")
             rep = int(512 * H / 64 * s)
             strip = strip.resize((rep, int(H * s)), Image.LANCZOS)
             fill_w = int(W * 0.6 * s)

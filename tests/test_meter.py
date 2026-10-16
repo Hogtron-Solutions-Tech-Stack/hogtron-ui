@@ -1,4 +1,4 @@
-# HogHeals_Meter: our window over Blizzard's damage-meter data (C_DamageMeter). Restricted clients give addons no
+# HogTron_Meter: our window over Blizzard's damage-meter data (C_DamageMeter). Restricted clients give addons no
 # combat log, only these sessions, and the amounts are SECRET: no sorting or dividing by us. The widget does it:
 # StatusBar min 0 / max = top amount / value = this amount, text via format/AbbreviateNumbers.
 import pytest
@@ -39,7 +39,7 @@ AbbreviateNumbers = function(v) v = MockUnwrap(v) if v >= 1000 then return ("%.1
 @pytest.fixture
 def meter(lua):
     lua.execute(MOCK_API)
-    for a in ("HogHeals", "HogHeals_Frames", "HogHeals_HUD", "HogHeals_Meter"):
+    for a in ("HogTronUI", "HogHeals_Frames", "HogTron_HUD", "HogTron_Meter"):
         lua.load_addon(a)
     lua.player_login()
     lua.execute('wipe(HogHeals.errors)')
@@ -122,7 +122,7 @@ def test_shape_it_does_not_recognise_is_reported_once_not_thrown(meter):
 
 def test_no_api_means_module_stands_down_quietly(lua):
     lua.execute('C_DamageMeter = nil')
-    for a in ("HogHeals", "HogHeals_Meter"):
+    for a in ("HogTronUI", "HogTron_Meter"):
         lua.load_addon(a)
     lua.player_login()
     assert lua.eval('HogHealsMeter.Meter.unavailable') is True

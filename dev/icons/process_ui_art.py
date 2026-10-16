@@ -20,7 +20,7 @@ from PIL import Image, ImageFilter
 from scipy import ndimage
 
 RAW = Path(r"C:\Hogtron\Ads-Demos\HogTronUI-CastArt\raw")
-MEDIA = Path(__file__).resolve().parents[2] / "HogHeals" / "Media"
+MEDIA = Path(__file__).resolve().parents[2] / "HogTronUI" / "Media"
 
 SHEETS = {
     "icons_a": ["micro_character", "micro_spellbook", "micro_talents", "micro_achievements", "micro_quests", "micro_guild",

@@ -1,4 +1,4 @@
-# HogHeals_Bars: our own action bars on LibActionButton-1.0 (stubbed here: tests/lib_stubs.lua gives a fake lib
+# HogTron_Bars: our own action bars on LibActionButton-1.0 (stubbed here: tests/lib_stubs.lua gives a fake lib
 # whose buttons record every call). Tests cover our layer: bars built, slot mapping, layout, grid, Blizzard hidden,
 # bind mode. The real lib runs only in the client.
 import pytest
@@ -32,8 +32,8 @@ function UnregisterStateDriver() end
 @pytest.fixture
 def bars(lua):
     lua.execute(CLIENT)
-    lua.load_addon("HogHeals")
-    lua.load_addon("HogHeals_Bars")
+    lua.load_addon("HogTronUI")
+    lua.load_addon("HogTron_Bars")
     lua.player_login()
     lua.execute('wipe(HogHeals.errors)')
     return lua
@@ -57,8 +57,8 @@ def test_module_registers_with_the_lib_and_an_options_tab(bars):
 
 def test_without_the_lib_the_module_stays_off_and_says_so(lua):
     lua.execute(CLIENT + 'LibStub.libs["LibActionButton-1.0"] = nil')
-    lua.load_addon("HogHeals")
-    lua.load_addon("HogHeals_Bars")
+    lua.load_addon("HogTronUI")
+    lua.load_addon("HogTron_Bars")
     lua.player_login()
     assert lua.eval('HogHealsBars.Bars.unavailable') is True
     assert any("LibActionButton" in e["msg"] for e in lua.eval('HogHeals.errors').values())
@@ -150,7 +150,7 @@ def test_drag_under_unlock_saves_the_spot(bars):
 
 def test_skins_action_bar_part_yields_to_bars(lua):
     lua.execute(CLIENT + 'MainMenuBarTexture0 = UIParent:CreateTexture("MainMenuBarTexture0"); MainMenuBarTexture0:SetTexture("art")')
-    for a in ("HogHeals", "HogHeals_Bars", "HogHeals_Skin"):
+    for a in ("HogTronUI", "HogTron_Bars", "HogTron_Skin"):
         lua.load_addon(a)
     lua.player_login()
     assert lua.eval('HogHealsSkin.ActionBars.yielded') is True
@@ -232,8 +232,8 @@ for i = 1, 10 do CreateFrame("CheckButton", "PetActionButton" .. i, UIParent); C
 @pytest.fixture
 def xbars(lua):
     lua.execute(CLIENT + EXTRA_CLIENT)
-    lua.load_addon("HogHeals")
-    lua.load_addon("HogHeals_Bars")
+    lua.load_addon("HogTronUI")
+    lua.load_addon("HogTron_Bars")
     lua.player_login()
     lua.execute('wipe(HogHeals.errors)')
     return lua
@@ -332,7 +332,7 @@ def test_an_unknown_event_no_longer_stops_the_bar_library_registering_the_rest()
     # (the tests above use a fake one). Run the real InitializeEventHandler against a frame that throws like Forever.
     from pathlib import Path as _P
     from lupa.lua51 import LuaRuntime
-    src = (_P(__file__).resolve().parents[1] / "HogHeals_Bars/Libs/LibActionButton-1.0/LibActionButton-1.0.lua").read_text(encoding="utf-8").splitlines()
+    src = (_P(__file__).resolve().parents[1] / "HogTron_Bars/Libs/LibActionButton-1.0/LibActionButton-1.0.lua").read_text(encoding="utf-8").splitlines()
     a = next(k for k, l in enumerate(src) if l.startswith("function InitializeEventHandler()"))
     b = next(k for k in range(a + 1, len(src)) if src[k] == "end")
     rt = LuaRuntime()
@@ -358,7 +358,7 @@ def test_an_unknown_event_no_longer_stops_the_bar_library_registering_the_rest()
 
 def _lab_src():
     from pathlib import Path as _P
-    return (_P(__file__).resolve().parents[1] / "HogHeals_Bars/Libs/LibActionButton-1.0/LibActionButton-1.0.lua").read_text(encoding="utf-8")
+    return (_P(__file__).resolve().parents[1] / "HogTron_Bars/Libs/LibActionButton-1.0/LibActionButton-1.0.lua").read_text(encoding="utf-8")
 
 
 def test_duration_object_path_is_taken_wherever_the_client_has_it():
@@ -429,9 +429,9 @@ def test_unlock_shows_a_top_layer_box_per_bar_and_dragging_saves_under_the_layou
 
 def test_old_pet_key_is_migrated_and_reset_puts_bars_back(lua):
     lua.execute(CLIENT + EXTRA_CLIENT)
-    lua.load_addon("HogHeals")
+    lua.load_addon("HogTronUI")
     lua.execute('HogHealsDB = { profileKeys = {}, profiles = { Default = { bars = { list = { Pet = { x = -0.8, y = 178 }, [2] = { x = 40, y = 250, scale = 1.3 } } } } } }')
-    lua.load_addon("HogHeals_Bars")
+    lua.load_addon("HogTron_Bars")
     lua.player_login()
     lst = 'HogHeals.db.profile.bars.list'
     assert lua.eval(f'rawget({lst}, "Pet")') is None

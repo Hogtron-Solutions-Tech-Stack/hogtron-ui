@@ -1,4 +1,4 @@
-# HogHeals_Plates/Castbar.lua: our own cast bar under every nameplate (HUD look), Blizzard's quiet, secret-safe.
+# HogTron_Plates/Castbar.lua: our own cast bar under every nameplate (HUD look), Blizzard's quiet, secret-safe.
 # Sean 2026-10-03 (screenshot: Windfury Matriarch casting Lightning Bolt in Blizzard's art): "style this just
 # like ours". Mock plates come from test_plates.py.
 import pytest

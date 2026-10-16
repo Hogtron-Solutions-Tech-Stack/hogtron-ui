@@ -1,0 +1,6 @@
+-- HogTron UI settings bridge (2026-10-15 folder rename: HogHeals -> HogTronUI, HogHeals_<X> -> HogTron_<X>).
+--
+-- A SavedVariables file is named after its addon folder: everyone's settings were saved as HogHealsDB in
+-- WTF/.../SavedVariables/HogHeals.lua. This folder exists only so the client still loads that file. HogTron UI's
+-- core (HogTronUI/Core.lua, RealInitialize) copies HogHealsDB into its own HogTronUIDB the first time its table is
+-- empty. Nothing runs here; the old file is left as it was. Ships for one release, then goes away.

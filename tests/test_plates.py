@@ -1,4 +1,4 @@
-# HogHeals_Plates: decorate Blizzard's nameplates (structure measured on the Forever beta 2026-09-18), quest-mob icons,
+# HogTron_Plates: decorate Blizzard's nameplates (structure measured on the Forever beta 2026-09-18), quest-mob icons,
 # target / aggro / quest highlighting. Health can be SECRET in combat, tooltip strings too.
 import pytest
 
@@ -48,10 +48,10 @@ C_QuestLog = {
 
 def boot(lua, extra="", quests=True):
     lua.execute(PLATES + extra + (QUESTLOG if quests else ""))
-    lua.load_addon("HogHeals")
+    lua.load_addon("HogTronUI")
     if quests:
-        lua.load_addon("HogHeals_Quests")
-    lua.load_addon("HogHeals_Plates")
+        lua.load_addon("HogTron_Quests")
+    lua.load_addon("HogTron_Plates")
     lua.player_login()
     lua.execute('wipe(HogHeals.errors)')
     return lua
@@ -208,7 +208,7 @@ def test_restyle_off_leaves_colours_to_blizzard(plates):
 
 def test_reload_picks_up_existing_plates_and_diag_samples(lua):
     lua.execute(PLATES + QUESTLOG + 'MockPlate("nameplate1", { name = "Kobold Vermin", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-1" })')
-    for a in ("HogHeals", "HogHeals_Quests", "HogHeals_Plates"):
+    for a in ("HogTronUI", "HogTron_Quests", "HogTron_Plates"):
         lua.load_addon(a)
     lua.player_login()
     assert lua.eval('NP.nameplate1.UnitFrame.hh.questFrame:IsShown()') is True
@@ -260,7 +260,7 @@ def test_quest_badge_sits_left_of_the_bar_clear_of_the_level_badge(plates):
              '{ { leftText = "Wandering Spirit", type = 2 }, { leftText = " - Wandering Spirit slain: 7/8", type = 8 } }')
     pt = plates.eval(f'{uf}.hh.questFrame._points[1]')
     assert pt[1] == "RIGHT" and pt[3] == "LEFT"                       # badge's right edge on the bar's left edge
-    assert plates.eval(f'{uf}.hh.quest._texture').endswith("HogHeals\\Media\\quest_open")
+    assert plates.eval(f'{uf}.hh.quest._texture').endswith("HogTronUI\\Media\\quest_open")
     assert plates.eval(f'{uf}.hh.questGlyph:IsShown()') is False            # art loaded: no drawn fallback
     pp = plates.eval(f'{uf}.hh.progress._points[1]')
     assert pp[1] == "RIGHT" and pp[3] == "LEFT"                       # progress further left of the badge
@@ -277,7 +277,7 @@ def test_quest_badge_falls_back_to_drawn_square_when_art_is_refused(lua):
         f.CreateTexture = function(self, ...)
           local t = ct(self, ...)
           local st = t.SetTexture
-          t.SetTexture = function(tt, path) st(tt, path) if type(path) == "string" and path:find("HogHeals") then return false end end
+          t.SetTexture = function(tt, path) st(tt, path) if type(path) == "string" and path:find("HogTronUI") then return false end end
           return t
         end
         return f

@@ -1,4 +1,4 @@
-# Right-click menu on a tracker quest (HogHeals_Quests/Menu.lua): watch, open, point, share, abandon-with-confirm.
+# Right-click menu on a tracker quest (HogTron_Quests/Menu.lua): watch, open, point, share, abandon-with-confirm.
 # Left-click still opens the quest log; shift-click still toggles watch. Sean in game, 2026-10-08.
 import pytest
 

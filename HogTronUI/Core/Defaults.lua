@@ -1,0 +1,250 @@
+-- AceDB defaults. Layout profiles per group-size bucket.
+local ADDON, ns = ...
+local HH = HogHeals
+
+local function layout(width, height, spacing, growth, groupsPerRow, groupsShown, orientation)
+  return {
+    width = width, height = height, spacing = spacing,
+    growth = growth,                 -- "DOWN" | "UP" | "RIGHT" | "LEFT" (unit growth inside a group)
+    groupsPerRow = groupsPerRow,     -- how many groups side by side before wrapping
+    groupsShown = groupsShown,       -- 1 for party, 2/4/8 for raids
+    groupGrowth = "RIGHT",           -- direction groups stack
+    orientation = orientation or "vertical",
+    showPets = false,
+    showSolo = true,                 -- "me + pet when solo"
+    anchor = { point = "CENTER", x = 0, y = -200 },
+    scale = 1,
+  }
+end
+
+HH.defaults = {
+  global = { schema = nil },
+  profile = {
+    locked = true,
+    minimap = { hide = true },
+    wizardDone = false,
+    units = {
+      enabled = true, hideBlizzard = true, tooltips = true,
+      classColors = true, reactionColors = true, healthColor = { 0.25, 0.80, 0.35 },
+      healthText = "current-max", powerText = "current-max",   -- percent | current | current-max | current-percent | none (Sean: "343 / 343")
+      texture = "Solid", font = "HogTron", fontSize = 12, backgroundAlpha = 0.6,
+      -- flanking the bottom centre (ElvUI's arrangement): player left, target right, small frames beside them
+      player = { enabled = true, width = 240, height = 42, powerHeight = 8, showPower = true, showName = true, showLevel = true, point = "BOTTOM", x = -280, y = 230 },
+      target = { enabled = true, width = 240, height = 42, powerHeight = 8, showPower = true, showName = true, showLevel = true, point = "BOTTOM", x = 280, y = 230,
+        castbar = true, castbarHeight = 16, debuffs = true, buffs = false, auraSize = 22, aurasPerRow = 8, maxDebuffs = 16, maxBuffs = 16,
+        debuffFilter = "mine-first", myDebuffSize = 28, auraTimers = true },   -- debuffFilter: mine-first | mine | all
+      targettarget = { enabled = true, width = 170, height = 28, powerHeight = 4, showPower = true, showName = true, showLevel = false, point = "BOTTOM", x = 500, y = 275 },
+      pet = { enabled = true, width = 170, height = 28, powerHeight = 4, showPower = true, showName = true, showLevel = false, point = "BOTTOM", x = -500, y = 275 },
+      focus = { enabled = false, width = 200, height = 36, powerHeight = 6, showPower = true, showName = true, showLevel = true, point = "BOTTOM", x = 280, y = 330,
+        castbar = true, castbarHeight = 14, debuffs = true, buffs = false, auraSize = 20, aurasPerRow = 8, maxDebuffs = 8, maxBuffs = 8,
+        debuffFilter = "mine-first", myDebuffSize = 26, auraTimers = true },
+    },
+    -- how it looks (Core/Look.lua): style hogtron | classic (reload), font Inter | Manrope | Barlow Condensed,
+    -- edge shadow | outline (panel text; text on bars keeps its outline), size -2..+4, pixel = saved pixel-perfect scale
+    look = { style = "hogtron", font = "Inter", edge = "shadow", size = 0, icons = "art", menus = "art" },   -- icons / menus: art = painted set | glyph / flat
+    frames = {
+      hideBlizzard = true,           -- our group frames on = Blizzard's party / raid-style frames off
+      soloSharesParty = true,        -- one layout for solo and party (size, growth, anchor); showSolo stays solo's own
+      layouts = {
+        -- Square-ish cells (Grid / Cell proportions): name on top, deficit below, thin power strip.
+        solo   = layout(90, 60, 2, "CENTER", 1, 1),   -- me dead centre; the row widens both ways as people join
+        party  = layout(90, 60, 2, "CENTER", 1, 1),
+        raid10 = layout(80, 52, 2, "DOWN", 2, 2),
+        raid20 = layout(72, 46, 2, "DOWN", 4, 4),
+        raid40 = layout(62, 40, 1, "DOWN", 8, 8),
+      },
+      appearance = {
+        font = "HogTron", fontSize = 11, fontOutline = "OUTLINE",
+        texture = "Solid",           -- flat; the glossy Blizzard bar read as "what is this"
+        healthMode = "class",        -- "class" | "deficit" | "custom"
+        healthText = "deficit",      -- "percent" | "deficit" | "none"
+        healthColor = { 0.25, 0.80, 0.35 },
+        backgroundAlpha = 0.6,
+        powerHeight = 3,
+        powerHealerOnly = true,
+        nameLength = 10,
+        namePosition = "TOP",        -- TOP | CENTER | BOTTOM   (vertical)
+        nameAlign = "CENTER",        -- LEFT | CENTER | RIGHT   (horizontal)
+        healthTextPosition = "BOTTOM",
+        healthTextAlign = "CENTER",
+        outOfRangeAlpha = 0.4,
+        rangeInterval = 0.4,         -- seconds between range polls on every cell (perf: 0.25 was the old constant)
+        deficitGradient = true,
+      },
+      indicators = {
+        health = true, power = true, name = true, healPrediction = true,
+        dispel = true, range = true, aggro = true, raidIcon = true, statusIcons = true,
+        missingBuffs = true, myShield = true, thresholds = false, aoeHealing = false,
+        priorityDebuff = true, requestGlow = true, buffs = true, debuffs = true,
+        highlight = true,
+      },
+      -- aura rows on the cell (Elements/AuraRow.lua): anchor = one of the nine points, x / y from it, grow LEFT | RIGHT (default
+      -- from the anchor), numbers = countdown text on the swipe. buffs: filter mine | all (long buffs live here, not above heads).
+      buffs = { size = 0, max = 4, filter = "all", anchor = "BOTTOMLEFT", x = 2, y = 5, gap = 1, numbers = false },   -- size 0 = fit the cell (12-24 px)
+      -- debuffs: what is on them (DoTs, curses, poisons, bleeds), edge in the dispel-type colour; filter all | dispellable | mine
+      debuffs = { size = 0, max = 3, filter = "all", anchor = "TOPRIGHT", x = -2, y = -2, gap = 1, numbers = false },   -- top-right corner: clear of centred name / deficit text
+      dispel = { style = "icon", priorityDebuffs = {} },  -- style: "icon" | "color" | "border"
+      highlight = {                   -- hover / target marks on the cells (Elements/Highlight.lua); style: outline | corners | fill | none
+        hover = { style = "outline", color = { 1, 1, 1 }, thick = 1, gap = 0 },
+        target = { style = "corners", color = { 1, 1, 1 }, thick = 2, size = 8, gap = 1 },
+        aoe = { color = { 0.13, 0.83, 0.88 }, alpha = 0.25 },   -- the AoE-scope fill when indicators.aoeHealing is on
+      },
+      thresholds = { 35, 50 },
+      healthFade = { enabled = false, above = 90, alpha = 0.5 },
+      healPrediction = { show = "all", overheal = true },    -- "mine" | "others" | "all"
+      bindings = {},                                          -- per-class hover-binds, filled by ClickCast.Defaults
+      fallback = { mouseover = true, focus = false, target = true, player = true },
+      bindingMode = "hover",          -- "hover": keys bound while the mouse is over a frame (blocked in combat on
+                                      -- restricted clients) | "global": keys bound once, cast on mouseover/target/self
+      bindingForce = false,           -- global mode: also take keys that already have a binding
+    },
+    meter = {
+      enabled = true, hideBlizzard = true, mode = "DamageDone", segment = "Current",
+      width = 300, barHeight = 22, maxBars = 10, backgroundAlpha = 0.85, refresh = 1, fontSize = 12,
+      fixedHeight = true,             -- Details-style: the panel always shows maxBars slots, even empty
+      border = true, classIcons = true,
+      point = "CENTER", x = 420, y = -220,
+    },
+    quests = {
+      tracker = {
+        enabled = true, hideBlizzard = true, mode = "watched",   -- "watched" (all when none) | "zone" | "all"
+        showLevels = true, hideCompleted = false, collapsed = false, lockPosition = false, autoTrack = true,
+        width = 260, maxHeight = 420, fontSize = 13, scale = 1, backgroundAlpha = 0.6,
+        fill = true, bottomMargin = 20,   -- run down to the screen's bottom edge and scroll; maxHeight only when fill is off
+        fixedHeight = false,              -- set by the resize grip: the panel keeps that height even when the list is shorter
+        point = "TOPRIGHT", x = -80, y = -260,
+        followMinimap = true, gap = 8,   -- hangs under the minimap box; point/x/y only once dragged away
+      },
+      -- the GO row on the tracker (Go.lua): the quest to do next by rule fastest | balanced | travel; superTrack = the
+      -- game's own arrow follows the pick
+      go = { enabled = true, rule = "balanced", superTrack = true },
+      -- the marker in the world over the super-tracked quest (Waypoint.lua): anchored to Blizzard's navigation frame,
+      -- hideBlizzard = its icon / text transparent under ours; eta at your pace; arrow = edge arrow when off-screen;
+      -- near = yards inside which the marker dims to nearAlpha
+      waypoint = { enabled = true, hideBlizzard = true, title = true, eta = true, progress = true, arrow = true, near = 10, nearAlpha = 0.5, scale = 1, fontSize = 12 },
+      -- Questie's quality-of-life half without its database (Auto / Announce / Tooltip.lua); each defers to Questie when
+      -- it is loaded. auto: pauseKey SHIFT | CTRL | ALT | NONE held = nothing automatic; chooseReward false = a real
+      -- choice (2+ items) is always yours. announce: party = PARTY / RAID when grouped, self = your own chat frame.
+      auto = { enabled = true, accept = true, turnIn = true, gossip = true, chooseReward = false, acceptTrivial = true, pauseKey = "SHIFT" },
+      announce = { enabled = true, party = true, self = false, accepted = false, turnedIn = false },
+      -- the quest giver's pages in our window instead of Blizzard's (Dialog.lua): theme ink | parchment; keys = Space /
+      -- 1-9 while it is open (never in combat); xpShare = the reward XP as a share of your level; point/x/y once dragged
+      dialog = { enabled = true, theme = "light", keys = true, xpShare = true, npcName = false, fontSize = 14, width = 540, scale = 1, alpha = 1 },
+      tooltip = { enabled = true, units = true, items = true },
+      minimap = { enabled = true, edge = true, watchedOnly = false, turnInInRange = false, size = 16 },   -- Forever draws areas only, not points
+      map = { enabled = true, fill = true, size = 180, zoneText = true, wheelZoom = true, hideDecor = true, dockButtons = true },
+      -- the world map (M): coordinates strip, scale, fade while moving, border art off (skipped when Leatrix Maps runs)
+      -- coords + skin OFF: in game 2026-09-23 this client's "Map & Quest Log" frame already prints the player's
+      -- coordinates, and hiding its art left holes ("this looks terrible"). Both stay as opt-ins.
+      worldMap = { enabled = true, coords = false, scale = 1.0, fadeWhileMoving = true, skin = false, alpha = 0.95 },
+      buttons = { enabled = true, side = "left", columns = 4, size = 28, alpha = 0.92, hover = false, autoClose = true, hogui = true },   -- hogui = the HogTron UI entries (Core/Tray.lua) first in the drawer   -- addon minimap icons in one drawer; side: left (opens toward the screen) | right (opens down); point/x/y once dragged
+    },
+    training = { enabled = true, nudge = true },   -- HogTron_Training: learned at the trainer; nudge = chat line on level-up
+    chat = {
+      enabled = true, backgroundAlpha = 0.6, fontSize = nil, outline = false,   -- fontSize nil = keep Blizzard's size
+      shortChannels = true, classNames = true, fade = true, hideButtons = true, hideMenuButtons = false, urlCopy = true,
+    },
+    plates = {
+      enabled = true,                 -- restyle Blizzard's nameplates (flat bar, outline, health text)
+      -- friendlyPets: pets, minions (warlock demons) and guardians get a plate (nameplateShowFriendlyPets / Minions /
+      -- Guardians), so their names are ours too - without one the engine draws its own small blue name that no addon
+      -- can touch (Sean 2026-10-08, "Villa Voodoo's Minion"). friendlyTotems: totems the same way (noisy, off).
+      friendlyPets = true, friendlyTotems = false,
+      font = "HogTron", fontSize = 13, healthText = "percent",   -- "percent" | "value" | "none"
+      barHeight = 14, widthScale = 1.3,   -- bar height in px; plate width as a multiple of Blizzard's (cvar)
+      flatBar = true,                 -- plain flat bar: all of Blizzard's art on the health bar hidden (heal / absorb kept)
+      hideBorders = true,             -- Blizzard's own bar border / selection line off (ours is the dark 1 px edge)
+      border = true, classColors = true, reactionColors = true, castbar = true,
+      cast = {                        -- our own cast bar under the plate (Castbar.lua): HUD look, HUD colours
+        height = 10, icon = true, time = true, fontSize = 10, precision = 1, gap = 3,
+        castColor = { 0.13, 0.83, 0.88 }, channelColor = { 0.25, 0.80, 0.35 }, lockedColor = { 0.55, 0.55, 0.60 },
+      },
+      -- DoesItDie.lua: skull when my DoT outlives the mob, red X pulsing when it ends first within reapplyAt seconds;
+      -- margin = how clearly the mob must die first (0.1 = 10%); target = the same mark on the target frame
+      die = { enabled = true, reapplyAt = 3, margin = 0.1, size = 18, gap = 4, showTime = true, target = true, tick = 0.5 },
+      -- ObjectGlow.lua: the ore vein / herb / chest / quest object / bobber the game picked for the interact key glows,
+      -- tinted by kind; range = yards the game looks (SoftTargetInteractRange); offset = up / down from its plate;
+      -- hideBlocked = no glow on what you cannot use yet (else grey and still)
+      objectGlow = { enabled = true, range = 15, size = 56, intensity = 0.9, label = true, offset = 0, hideBlocked = false,
+        kinds = { herb = true, ore = true, chest = true, quest = true, bobber = true, other = false } },
+      nameClass = "friendly",         -- player names on plates in class colour: "friendly" | "all" | "none"
+      friendlyNameOnly = true,        -- friendly plates: just the name, no health bar
+      friendlyNameSize = 14,          -- text size of that name (the overhead name is about this)
+      buffs = { enabled = true, maxDuration = 60, size = 18, max = 6, gap = 2 },   -- my SHORT buffs (HoTs) centred above friendly heads; Blizzard's row off; long buffs stay on the party frame
+      showLevel = true,               -- the unit's level, right of the bar (our text; Blizzard's badge stays hidden)
+      uniformScale = true, targetScale = 1.15,  -- same plate size at every distance; the target's plate scale
+      maxDistance = 60,               -- nameplateMaxDistance (yards); the client clamps to what it allows
+      target = { highlight = true, style = "glow", scale = 1.25, color = { 0.13, 0.83, 0.88 }, fadeOthers = false, otherAlpha = 0.6,
+        glowSize = 9, animate = true, hideBlizzard = true, bracketSize = 10,
+      },   -- style: brackets | glow | scale | outline | none; brackets = hard corners, glow = lock on + breathe
+      aggro = { warn = true, color = { 0.85, 0.20, 0.20 } },   -- healer pulled threat: red outline
+      quest = { icon = true, highlight = false, progress = true, tint = false, iconSize = 16, color = { 0.95, 0.65, 0.15 } },
+    },
+    hud = {
+      x = 0, y = -180, width = 300, followFrames = false,
+      castbarHeight = 18, swingHeight = 16, manaHeight = 12, xpHeight = 10, infoHeight = 14, rowSpacing = 2,
+      showCastbar = true, showSwing = true, showMana = true, showXP = true, showInfo = true,
+      font = "HogTron", fontSize = 11, texture = "Solid",
+      castbar = {
+        icon = true, showTarget = true, latency = true, gcd = false, hideBlizzard = true, precision = 1,
+        castColor = { 0.13, 0.83, 0.88 }, channelColor = { 0.25, 0.80, 0.35 }, uninterruptibleColor = { 0.6, 0.6, 0.6 },
+        failColor = { 0.85, 0.2, 0.2 },
+        -- CastThemes.lua: the bar takes on the cast (holy / fire / frost / arcane / shadow / nature / mining / herbs /
+        -- fishing / opening / crafting / aimed), read off the client; glow = soft light behind the bar, motes = the
+        -- specks off the fill's head
+        themes = { enabled = true, glow = true, motes = true, art = true, intensity = 0.8 },
+      },
+      -- swing timer (Swing.lua): auto-attack / Auto Shot bar under the cast bar; showSwing above is the on / off
+      -- swing: width 0 = as wide as the strip, else its own width centred on it; spark = bright head on the fill; outline = 1 px
+      -- ink frame; fontSize 0 = the strip's font one step larger (Sean 2026-10-05: bigger, wider, cleaner)
+      swing = { color = { 0.96, 0.92, 0.86 }, text = true, precision = 1, hideWhenIdle = true, width = 0, spark = true, outline = true, fontSize = 0 },
+      mana = { textMode = "cur", showTicks = true, showFsrText = true, fsrColor = { 0.13, 0.83, 0.88 }, tickColor = { 0.96, 0.92, 0.86 } },
+      -- experience bar (XPBar.lua): showXP above is the on / off. questMode "complete" = reward xp of the quests ready
+      -- to turn in, "all" = every quest in the log; hideAtMax = gone at the level cap; fontSize 0 = strip font one step smaller
+      -- mode "bar" = its own bar, the whole screen width along the top until dragged (point/x/y), width 0 = screen;
+      -- "row" = a row in the strip (xpHeight). Blizzard's experience bar is hidden while ours is the bar.
+      xp = { mode = "bar", height = 10, width = 0, color = { 0.13, 0.83, 0.88 }, restedColor = { 0.13, 0.83, 0.88 }, restedAlpha = 0.35,
+        questColor = { 0.25, 0.80, 0.35 }, questAlpha = 0.55, text = true, showRested = true, showQuest = true, showPace = true,
+        questMode = "complete", hideAtMax = true, fontSize = 0, art = true },   -- art = the painted energy fill (xp_fill / xp_rested)
+      pacing = { enabled = true, targetLength = 300, amber = 60, red = 20, showProjection = true },
+      advisor = { enabled = true, margin = 0.9, onFrame = false, spells = {} },
+    },
+    bars = {   -- HogTron UI Bars: own action bars on LibActionButton (docs/superpowers/specs/2026-10-02-hogui-bars-design.md)
+      enabled = true, grid = true, hotkeySize = 10, hideNames = true, cooldownNumbers = true,
+      -- the HogTron UI stack: bars 1-3 bottom centre, 4-5 vertical on the right edge, 6-8 off. ["**"] = every bar's defaults.
+      list = {
+        ["**"] = { enabled = true, buttons = 12, perRow = 12, padding = 2, scale = 1, alpha = 1, point = "BOTTOM", x = 0, y = 60,
+          fade = false, fadeAlpha = 0.25, fadeDelay = 0.5, visibility = "always", custom = "", clickThrough = false, grid = nil },
+        [1] = { y = 60 }, [2] = { y = 100 }, [3] = { y = 140 },
+        [4] = { perRow = 1, point = "RIGHT", x = -40, y = 0 }, [5] = { perRow = 1, point = "RIGHT", x = -82, y = 0 },
+        [6] = { enabled = false }, [7] = { enabled = false }, [8] = { enabled = false },
+        pet = { buttons = 10, perRow = 10, point = "BOTTOM", x = -160, y = 184 },      -- above bar 3, left of centre
+        stance = { buttons = 10, perRow = 10, point = "BOTTOM", x = 160, y = 184 },    -- above bar 3, right of centre
+      },
+    },
+    skin = {
+      enabled = true, font = "HogTron", backgroundAlpha = 0.75,
+      actionBars = { enabled = true, hideArt = true, hotkeySize = 10, hideNames = true, cooldownNumbers = true },
+      -- parchment windows get the parchment treatment in Panels.lua (fonts recoloured, inner art stripped);
+      -- World Map and the tabard designer keep their own art
+      -- skipped: World Map and the flight map draw their maps as plain textures (in game 2026-09-23 the flight
+      -- map went black); the tabard designer needs its art
+      panels = { enabled = true, alpha = 0.9, titleSize = 13, skip = { WorldMapFrame = true, TaxiFrame = true, TabardFrame = true } },
+      auto = { sellJunk = true, repair = true, guildRepair = false },
+      micro = { enabled = true, scale = 1, strip = true, size = 30, tint = true, tintStrength = 0.6 },   -- strip: HogTron UI glyph buttons instead of Blizzard's art; point/x/y once dragged; tint = colour per glyph
+      bagBar = { enabled = true, mode = "button", scale = 1.2 },   -- mode: button = one Bags cell in the menu bar (slots hidden) | slots = Blizzard's slots flattened; scale for slots
+      bags = { enabled = true, qualityMin = 2, fontSize = 12, backgroundAlpha = 0.85 },
+      -- anchor = tooltips with no spot of their own dock to the HogHealsTooltipAnchor box (drag it in /hh unlock; the
+      -- gear on it opens these settings); anchorCursor wins over it. point/x/y = the box, saved by dragging.
+      tooltips = { enabled = true, alpha = 0.9, fontSize = nil, anchorCursor = false, anchor = true, point = "BOTTOMRIGHT", x = -40, y = 120, width = 220, height = 90 },
+      extras = { buffs = true, xpBar = true, mirror = true, durationSize = 10 },   -- mirror = breath / fatigue timers
+      infoBar = { enabled = true, icons = true, width = 640, height = 18, fontSize = 11, backgroundAlpha = 0.8, refresh = 1,
+        time24 = false, serverTime = false, point = "BOTTOM", x = 0, y = 0,
+        slots = { "gold", "durability", "bags", "fps", "latency", "time", "session", "tolevel" } },   -- session / tolevel: Core/Session.lua
+    },
+  },
+}
+
+-- Solo frame off by default since 2026-09-23: HogTron UI Units draws the player and pet frames; the healer frames are
+-- for party / raid. (Sean: "turn off the HogHeals solo frames".)
+HH.defaults.profile.frames.layouts.solo.showSolo = false

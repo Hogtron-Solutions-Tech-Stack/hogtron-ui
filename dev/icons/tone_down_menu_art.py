@@ -18,7 +18,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-MEDIA = Path(__file__).resolve().parents[2] / "HogHeals" / "Media"
+MEDIA = Path(__file__).resolve().parents[2] / "HogTronUI" / "Media"
 TARGETS = ["menu_edge_h", "menu_edge_v", "menu_side", "menu_header"]
 SLATE = np.array([28, 34, 44], dtype=np.float32)       # the panel's dark slate
 

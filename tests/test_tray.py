@@ -32,7 +32,7 @@ def test_available_follows_the_loaded_modules_and_their_tabs(tray):
 
 def test_with_more_modules_loaded_more_entries_appear(lua):
     lua.execute(MINIMAP)
-    for a in ("HogHeals", "HogHeals_Frames", "HogHeals_HUD", "HogHeals_Quests"):
+    for a in ("HogTronUI", "HogHeals_Frames", "HogTron_HUD", "HogTron_Quests"):
         lua.load_addon(a)
     lua.player_login()
     k = keys(lua)
@@ -99,7 +99,7 @@ def test_option_off_hides_our_cells_and_the_tooltip_says_what_is_there(tray):
 
 def test_entries_draw_their_glyph_with_the_letter_as_fallback(tray):
     import pathlib
-    media = pathlib.Path(__file__).resolve().parents[1] / "HogHeals" / "Media"
+    media = pathlib.Path(__file__).resolve().parents[1] / "HogTronUI" / "Media"
     for e in tray.eval(f"{T}.ENTRIES").values():
         assert e["icon"], e["key"]
         assert (media / (e["icon"] + ".tga")).exists(), e["icon"]                  # every glyph is shipped

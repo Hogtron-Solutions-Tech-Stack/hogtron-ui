@@ -4,12 +4,12 @@ import pytest
 
 @pytest.fixture
 def full(lua):
-    for a in ("HogHeals", "HogHeals_Frames", "HogHeals_HUD", "HogHeals_Meter"):
+    for a in ("HogTronUI", "HogHeals_Frames", "HogTron_HUD", "HogTron_Meter"):
         lua.load_addon(a)
     lua.player_login()
     lua.execute('''
       function UpdateAddOnMemoryUsage() end
-      function GetAddOnMemoryUsage(name) return name == "HogHeals" and 512 or 128 end
+      function GetAddOnMemoryUsage(name) return name == "HogTronUI" and 512 or 128 end
       function GetFramerate() return 60 end
       wipe(HogHeals.errors)
     ''')

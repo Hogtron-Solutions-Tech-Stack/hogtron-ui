@@ -95,7 +95,7 @@ def boot(lua, cls: str = "PRIEST", book=None, before_login: str = ""):
     """Load core + Frames as character `cls` with `book` in the spellbook, then log in."""
     book = BOOKS.get(cls, []) if book is None else book
     lua.execute(f'MockState.playerClass = "{cls}"; MockUnits.player.class = "{cls}"; MockState.spellbook = {to_lua(book)}')
-    lua.load_addon("HogHeals")
+    lua.load_addon("HogTronUI")
     lua.load_addon("HogHeals_Frames")
     if before_login:
         lua.execute(before_login)

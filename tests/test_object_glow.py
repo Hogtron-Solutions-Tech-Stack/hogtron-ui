@@ -1,4 +1,4 @@
-# HogHeals_Plates/ObjectGlow.lua: the ore vein / herb / chest / quest object / bobber the game picked for the interact
+# HogTron_Plates/ObjectGlow.lua: the ore vein / herb / chest / quest object / bobber the game picked for the interact
 # key glows, tinted by kind (Sean 2026-10-14, from the WoW Forever add-on clip #4 "Lueur"). The cvars live in a real
 # table here so "given back" is checked by value, and cursors come back through SetUnitCursorTexture like the client.
 import pytest
@@ -35,9 +35,9 @@ end
 
 def boot(lua, extra=""):
     lua.execute(PLATES + GLOW + extra + QUESTLOG)
-    lua.load_addon("HogHeals")
-    lua.load_addon("HogHeals_Quests")
-    lua.load_addon("HogHeals_Plates")
+    lua.load_addon("HogTronUI")
+    lua.load_addon("HogTron_Quests")
+    lua.load_addon("HogTron_Plates")
     lua.player_login()
     lua.execute("wipe(HogHeals.errors)")
     return lua

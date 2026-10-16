@@ -11,16 +11,16 @@ look - ink panels, flat bars, a cyan line - and a set of modules you can turn on
 
   HogHeals          core: profiles, options (/hh), performance meter
   HogHeals_Frames   party / raid frames built for healing (hover-cast, dispel, DoT + buff rows, test mode)
-  HogHeals_Units    player / target / target-of-target / pet / focus frames
-  HogHeals_HUD      cast bar, swing timer, mana bar with five-second rule, info line
-  HogHeals_Bars     your own action bars (Bartender-style), hover-and-press key binding
-  HogHeals_Plates   nameplates: flat bar, quest icons, target marks, cast bar, DoT skull / reapply mark
-  HogHeals_Quests   quest tracker with the GO row, minimap pins, square minimap, addon-button drawer
-  HogHeals_Atlas    dungeon guide: levels, bosses, loot, dungeon quests, gear upgrades, Where next
-  HogHeals_Training what the class trainer has for you, before you get there
-  HogHeals_Meter    damage / healing meter on the game's own numbers
-  HogHeals_Chat     chat restyle, URL copy
-  HogHeals_Skin     Blizzard's bags, menu bar, tooltips and windows in the same look, info bar
+  HogTron_Units    player / target / target-of-target / pet / focus frames
+  HogTron_HUD      cast bar, swing timer, mana bar with five-second rule, info line
+  HogTron_Bars     your own action bars (Bartender-style), hover-and-press key binding
+  HogTron_Plates   nameplates: flat bar, quest icons, target marks, cast bar, DoT skull / reapply mark
+  HogTron_Quests   quest tracker with the GO row, minimap pins, square minimap, addon-button drawer
+  HogTron_Atlas    dungeon guide: levels, bosses, loot, dungeon quests, gear upgrades, Where next
+  HogTron_Training what the class trainer has for you, before you get there
+  HogTron_Meter    damage / healing meter on the game's own numbers
+  HogTron_Chat     chat restyle, URL copy
+  HogTron_Skin     Blizzard's bags, menu bar, tooltips and windows in the same look, info bar
 
 (Folders say HogHeals because the suite grew out of the healer frames; that is the folder name only.)
 

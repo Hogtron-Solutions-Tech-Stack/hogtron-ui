@@ -17,9 +17,9 @@ def test_falls_back_to_grey_when_the_shader_is_unsupported(core):
 def test_shim_lives_in_a_file_that_reload_rereads():
     # A brand-new toc entry can need a full client restart; the tester is behind a login queue.
     import pathlib
-    root = pathlib.Path(__file__).resolve().parent.parent / "HogHeals"
+    root = pathlib.Path(__file__).resolve().parent.parent / "HogTronUI"
     assert "function SetDesaturation(" in (root / "Core.lua").read_text(encoding="utf-8")
-    assert "ClientShims" not in (root / "HogHeals.toc").read_text(encoding="utf-8")
+    assert "ClientShims" not in (root / "HogTronUI.toc").read_text(encoding="utf-8")
 
 
 def test_snapshot_lists_globals_this_client_lacks(core):

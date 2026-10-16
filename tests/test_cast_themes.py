@@ -1,4 +1,4 @@
-# HogHeals_HUD/CastThemes.lua: the HUD cast bar takes on what you cast (Sean 2026-10-14, from the WoW Forever add-on
+# HogTron_HUD/CastThemes.lua: the HUD cast bar takes on what you cast (Sean 2026-10-14, from the WoW Forever add-on
 # clip #2 "Opulent Casting Bars"). The theme is read off the client - cast name, isTradeSkill, the spell's own
 # description, the class - never from a spell table typed in by hand.
 import pytest

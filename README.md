@@ -21,16 +21,16 @@ Bugs: open an issue with `/hh version`, `/hh errors` output (or, after a `/reloa
 |---|---|
 | `HogHeals` | Core: profiles, `/hh` options, group-size auto-layout, combat-safe queue, session stats (`/hh session`), `/hh perf` |
 | `HogHeals_Frames` | Party + raid frames for healing: hover-bind engine, click-cast grid (`/hh click-cast`), dispel-by-my-class, debuff + buff rows, test mode (`/hh test 5`), setup wizard |
-| `HogHeals_Units` | Player / target / target-of-target / pet / focus frames |
-| `HogHeals_HUD` | Cast bar, swing timer, mana bar with five-second rule, info line, cast bar themes by school / profession (`/hh casttheme`) |
-| `HogHeals_Bars` | Own action bars (Bartender-style), hover-and-press key binding |
-| `HogHeals_Plates` | Nameplates: flat bar, quest-mob icons, target marks, own cast bar, DoesItDie skull / reapply mark, object glow on ore / herbs / chests / quest objects (`/hh glow`) |
-| `HogHeals_Quests` | Quest tracker with the GO row (`/hh go`), quest dialog on a parchment page (`/hh dialog`: Space accepts, 1-9 picks, light or dark), minimap pins, square minimap, addon-button drawer |
-| `HogHeals_Atlas` | Dungeon guide: levels, bosses, loot, dungeon quests, gear upgrades, Where next (`/hh next`) |
-| `HogHeals_Training` | What the class trainer has for you, before you get there (`/hh train`) |
-| `HogHeals_Meter` | Damage / healing meter on the game's own numbers |
-| `HogHeals_Chat` | Chat restyle, URL copy |
-| `HogHeals_Skin` | Blizzard's bags, menu bar, tooltips and windows in the same look; info bar |
+| `HogTron_Units` | Player / target / target-of-target / pet / focus frames |
+| `HogTron_HUD` | Cast bar, swing timer, mana bar with five-second rule, info line, cast bar themes by school / profession (`/hh casttheme`) |
+| `HogTron_Bars` | Own action bars (Bartender-style), hover-and-press key binding |
+| `HogTron_Plates` | Nameplates: flat bar, quest-mob icons, target marks, own cast bar, DoesItDie skull / reapply mark, object glow on ore / herbs / chests / quest objects (`/hh glow`) |
+| `HogTron_Quests` | Quest tracker with the GO row (`/hh go`), quest dialog on a parchment page (`/hh dialog`: Space accepts, 1-9 picks, light or dark), minimap pins, square minimap, addon-button drawer |
+| `HogTron_Atlas` | Dungeon guide: levels, bosses, loot, dungeon quests, gear upgrades, Where next (`/hh next`) |
+| `HogTron_Training` | What the class trainer has for you, before you get there (`/hh train`) |
+| `HogTron_Meter` | Damage / healing meter on the game's own numbers |
+| `HogTron_Chat` | Chat restyle, URL copy |
+| `HogTron_Skin` | Blizzard's bags, menu bar, tooltips and windows in the same look; info bar |
 
 ## Install (developers)
 

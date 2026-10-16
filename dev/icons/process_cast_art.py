@@ -19,7 +19,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-MEDIA = Path(__file__).resolve().parents[2] / "HogHeals" / "Media"
+MEDIA = Path(__file__).resolve().parents[2] / "HogTronUI" / "Media"
 OUT_W, OUT_H = 512, 64
 MATTER = {"earth", "herb", "leather"}
 
