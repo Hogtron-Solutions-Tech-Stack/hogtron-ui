@@ -604,3 +604,23 @@ PowerBarColor = { MANA = { r = 0, g = 0.55, b = 1 }, RAGE = { r = 1, g = 0.1, b 
 function SetRaidTargetIconTexture(tex, idx) tex._raidIcon = idx end
 function GameTooltip:SetUnitAura() end
 function GetQuestDifficultyColor(level) return { r = 1, g = 0.82, b = 0 } end
+
+-- ---------- spellbook detail for the click-cast grid ----------
+-- MockState.spellbook entries are { name, "Rank n", helpful = bool?, passive = bool?, castTime = ms? }; the index is
+-- the spell id (GetSpellBookItemInfo above). Older two-field entries keep working: helpful defaults to true.
+local function bookEntry(i) return MockState.spellbook and MockState.spellbook[i] end
+function IsHelpfulSpell(i) local s = bookEntry(i) return s ~= nil and s.helpful ~= false end
+function IsPassiveSpell(i) local s = bookEntry(i) return s ~= nil and s.passive == true end
+function IsMacClient() return MockState.mac == true end
+local _getSpellInfo = GetSpellInfo
+function GetSpellInfo(id)
+  local s = type(id) == "number" and bookEntry(id)
+  if s and s.castTime then return s[1], s[2], "Interface\Icons\\" .. s[1]:gsub("%W", ""), s.castTime, 0, 40, id end
+  return _getSpellInfo(id)
+end
+local _getSpellTexture = GetSpellTexture
+function GetSpellTexture(i, book)
+  local s = type(i) == "number" and bookEntry(i)
+  if s and s.icon then return "Interface\\Icons\\" .. s.icon end
+  return _getSpellTexture(i, book)
+end

@@ -5,6 +5,8 @@
 -- Supported option fields: type (group|toggle|range|select|execute|input|color|header|description), name, desc,
 -- order, get, set, func, values, min/max/step, hidden, disabled, multiline, hasAlpha, inline, width = "full".
 -- name / desc / values / hidden / disabled may be functions.
+-- A "description" with hhAttach = function(row, width) -> height hosts a module's own widget in that row (the
+-- Frames click-cast grid). The Ace fallback dialog shows the description text instead.
 local ADDON, ns = ...
 local HH = HogHeals
 
@@ -766,7 +768,13 @@ fillers.color = function(r, opt, info, _, off)
   return 26
 end
 
-local FULL_WIDTH = { header = true, description = true }
+makers.widget = function() return rowFrame() end
+fillers.widget = function(r, opt, info, width)
+  local h = opt.hhAttach(r, width, info)
+  return tonumber(h) or 26
+end
+
+local FULL_WIDTH = { header = true, description = true, widget = true }
 
 -- ------------------------------------------------------------------------------------------------ layout
 local function place(args, path, y, handler)
@@ -793,14 +801,15 @@ local function place(args, path, y, handler)
         y = y + hh + 6
         y = place(sortedArgs(opt), p, y, opt.handler or handler)
       elseif fillers[opt.type] then
-        local full = FULL_WIDTH[opt.type] or opt.width == "full" or opt.multiline
+        local kind = (type(opt.hhAttach) == "function") and "widget" or opt.type
+        local full = FULL_WIDTH[kind] or opt.width == "full" or opt.multiline
         if full then newline() end
-        local row = acquire(opt.type, makers[opt.type])
+        local row = acquire(kind, makers[kind])
         local w = full and total or colW
         row:SetPoint("TOPLEFT", content, "TOPLEFT", full and 0 or col * (colW + GUTTER), -y)
         row:SetWidth(w)
         local off = valM(opt.disabled, info) and true or false
-        local ok, h = pcall(fillers[opt.type], row, opt, info, w, off)
+        local ok, h = pcall(fillers[kind], row, opt, info, w, off)
         if not ok then HH:LogError("options " .. p .. ": " .. tostring(h)); h = 26 end
         row:SetHeight(h)
         dim(row, off)
