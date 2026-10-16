@@ -106,7 +106,7 @@ def test_a_secret_spell_id_is_never_used(th):
 def test_fireball_wears_fire(th):
     cast(th, "Fireball", 133)
     assert th.eval("HogHealsHUD.Castbar.state.theme") == "fire"
-    assert bar_colour(th) == pytest.approx([1.00, 0.42, 0.10])
+    assert bar_colour(th) == pytest.approx([0.50, 0.21, 0.05])   # fire fill dimmed under its light strip (ART_FILL)
     assert glow_shown(th)
     assert motes_shown(th) == 6
     spark = list(th.eval("HH_cb.spark._color").values())[:3]
@@ -125,7 +125,7 @@ def test_channel_mind_flay_wears_shadow(th):
     th.execute('MockState.playerClass = "PRIEST"')
     cast(th, "Mind Flay", 15407, channel=True)
     assert th.eval("HogHealsHUD.Castbar.state.theme") == "shadow"
-    assert bar_colour(th) == pytest.approx([0.52, 0.24, 0.80])
+    assert bar_colour(th) == pytest.approx([0.26, 0.12, 0.40])   # shadow fill dimmed under its light strip
     th.execute('MockFire("UNIT_SPELLCAST_CHANNEL_STOP", "player")')
     assert not glow_shown(th)
 
@@ -166,7 +166,7 @@ def test_glow_and_motes_switches(th):
     th.execute('MockFire("UNIT_SPELLCAST_STOP", "player"); HogHeals.db.profile.hud.castbar.themes.glow = false; HogHeals.db.profile.hud.castbar.themes.motes = true')
     cast(th, "Frostbolt", 116)
     assert not glow_shown(th) and motes_shown(th) == 5
-    assert bar_colour(th) == pytest.approx([0.36, 0.66, 0.86])   # the fill still themed
+    assert bar_colour(th) == pytest.approx([0.18, 0.33, 0.43])   # the fill still themed (dimmed: the frost strip is on)
 
 
 def test_no_class_school_keeps_plain_colours(th):

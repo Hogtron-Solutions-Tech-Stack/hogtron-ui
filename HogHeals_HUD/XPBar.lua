@@ -230,6 +230,50 @@ local function overlay(b, tex, from, to, shown)
   tex:Show()
 end
 
+
+-- ------------------------------------------------------------------------------------------------ painted fill
+-- The HogTron art set (OpenArt, Sean 2026-10-14 night: "the XP bar"): a cyan energy strip over the filled part and a
+-- violet mist over the rested stretch, both 512x64 strips that loop left to right (HogHeals/Media/xp_fill / xp_rested),
+-- drawn ADD over a dimmed fill, drifting slowly toward the head. xp.art = false = the flat colours.
+local MEDIA = "Interface\\AddOns\\HogHeals\\Media\\"
+XP.ART_SPEED, XP.ART_FILL = 12, 0.45
+
+local function artTex(b, file, sub)
+  local t = b:CreateTexture(nil, "ARTWORK", nil, sub)
+  local ok = t:SetTexture(MEDIA .. file, "REPEAT", "CLAMP")
+  if t.SetBlendMode then t:SetBlendMode("ADD") end
+  t:SetVertexColor(1, 1, 1, 0.75)   -- the level / xp text sits on it: keep it readable
+  t:Hide()
+  return t, ok ~= false
+end
+
+function XP.ArtOn(b)
+  return cfg().art ~= false and b and b.art and b.art.loaded
+end
+
+--- Pure: tex coords for a strip over [from, to] (fractions) of a bar w x h at t seconds.
+function XP.ArtCoords(t, from, to, w, h)
+  local rep = 512 * math.max(1, h or 10) / 64
+  local u0 = (from or 0) * (w or 0) / rep - (t or 0) * XP.ART_SPEED / rep
+  return u0, u0 + math.max(0, ((to or 0) - (from or 0)) * (w or 0)) / rep
+end
+
+function XP.PaintArt(b, c)
+  local A = b and b.art
+  if not A then return end
+  local on = XP.ArtOn(b) and c ~= nil
+  local w, h = width(b), b:GetHeight() or 10
+  if not on then A.fill:Hide() A.rested:Hide() return false end
+  local t = (type(GetTime) == "function" and GetTime()) or 0
+  overlay(b, A.fill, 0, c.fill, true)
+  A.fill:SetTexCoord(XP.ArtCoords(t, 0, c.fill, w, h))
+  local showRested = cfg().showRested ~= false and c.restedTo > c.fill
+  overlay(b, A.rested, c.fill, c.restedTo, showRested)
+  if showRested then A.rested:SetTexCoord(XP.ArtCoords(t, c.fill, c.restedTo, w, h)) end
+  XP.lastArt = c
+  return true
+end
+
 -- ------------------------------------------------------------------------------------------------ the bar of its own
 local function screenWidth()
   local w = type(UIParent) == "table" and UIParent.GetWidth and num(UIParent:GetWidth()) or nil
@@ -249,6 +293,20 @@ function XP.CreateBar()
   b.rested = b:CreateTexture(nil, "ARTWORK", nil, 1)
   b.rested:SetColorTexture(CYAN[1], CYAN[2], CYAN[3], 0.35)
   b.rested:Hide()
+  local A = {}
+  local ok1, ok2
+  A.fill, ok1 = artTex(b, "xp_fill", 3)
+  A.rested, ok2 = artTex(b, "xp_rested", 3)
+  A.loaded = ok1 and ok2
+  b.art = A
+  -- a slow drift toward the head, 30 times a second at most (this bar is always on screen)
+  local acc = 0
+  b:SetScript("OnUpdate", function(self, elapsed)
+    acc = acc + (elapsed or 0)
+    if acc < 0.033 then return end
+    acc = 0
+    if XP.lastArt and XP.ArtOn(self) and self:IsShown() then XP.PaintArt(self, XP.lastArt) end
+  end)
   b.quest = b:CreateTexture(nil, "ARTWORK", nil, 2)
   b.quest:SetColorTexture(GREEN[1], GREEN[2], GREEN[3], 0.55)
   b.quest:Hide()
@@ -342,11 +400,14 @@ function XP.Update()
   local quest = o.showQuest ~= false and XP.QuestXP() or 0
   local c = XP.Compute(xp, max, rested, quest)
   local col = o.color or CYAN
-  b:SetStatusBarColor(col[1], col[2], col[3])
+  local art = XP.ArtOn(b) and c ~= nil
+  local dim = art and XP.ART_FILL or 1
+  b:SetStatusBarColor(col[1] * dim, col[2] * dim, col[3] * dim)
   b:SetMinMaxValues(0, 1)
   b:SetValue(c and c.fill or 0)
   if c then
-    overlay(b, b.rested, c.fill, c.restedTo, o.showRested ~= false and rested > 0)
+    overlay(b, b.rested, c.fill, c.restedTo, o.showRested ~= false and rested > 0 and not art)
+    XP.PaintArt(b, c)
     overlay(b, b.quest, c.fill, c.questTo, o.showQuest ~= false and quest > 0)
   else
     if b.rested then b.rested:Hide() end

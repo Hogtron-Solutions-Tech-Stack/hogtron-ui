@@ -321,12 +321,15 @@ local function paintCell(c, size, id, letter, label, strength)
   c.letter:SetText(letter)
   Skin.SetFont(c.letter, math.max(9, math.floor(size * 0.5)))
   c:SetSize(size, size - 4)
-  local took = id and (c.icon:SetTexture(Part.MEDIA .. id) ~= false)
+  local took, art = false, false
+  if id then took, art = HH.Look.Icon(c.icon, id) end
   c.icon:SetSize(size - 4, size - 4)   -- glyphs fill the cell (was size - 6; Sean 2026-10-02: "a little bigger")
   if took then c.icon:Show() c.letter:Hide() else c.icon:Hide() c.letter:Show() end
   c.glyph = took and id or nil
-  c.tint = Part.Tint(id, strength)
-  c.tintFull = Part.Tint(id, strength > 0 and 1 or 0)
+  c.art = art
+  -- painted icons carry their own colour: never tinted (hover lights the cell's edge instead)
+  c.tint = art and { 1, 1, 1 } or Part.Tint(id, strength)
+  c.tintFull = art and { 1, 1, 1 } or Part.Tint(id, strength > 0 and 1 or 0)
   c.icon:SetVertexColor(c.tint[1], c.tint[2], c.tint[3])
   c.letter:SetTextColor(c.tint[1], c.tint[2], c.tint[3])
 end

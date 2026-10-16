@@ -194,6 +194,114 @@ local function flatButton(parent, w, h)
   return b
 end
 
+
+-- ------------------------------------------------------------------------------------------------ painted look
+-- The options window in the HogTron art set (OpenArt, Sean 2026-10-14 night: "redo our own menus and make them really
+-- nice"): a slate background tile, a brass frame (9-slice: one corner art mirrored, edge strips repeated), the title
+-- banner (3-slice: its pointed caps keep their shape at any width) and a slate sidebar with a brass rail. Every piece
+-- anchors to the window's corners, so the resize grip still works. look.menus = "flat" puts the old flat panel back.
+local ART = "Interface\\AddOns\\HogHeals\\Media\\"
+local CORNER, EDGE, CAP = 34, 12, 0.07   -- corner px, edge strip px, banner cap share of the art's width
+
+local function artTex(parent, layer, sub, file, wrapH, wrapV)
+  local t = parent:CreateTexture(nil, layer, nil, sub)
+  local ok = t:SetTexture(ART .. file, wrapH, wrapV)
+  return t, ok ~= false
+end
+
+function Panel.MenuArt() return not (HH.db and HH.db.profile and HH.db.profile.look and HH.db.profile.look.menus == "flat") end
+
+function Panel.BuildArt(f)
+  if f.art then return f.art end
+  local A, ok, all = {}, true, true
+  A.bg, ok = artTex(f, "BACKGROUND", 1, "menu_bg", "REPEAT", "REPEAT") all = all and ok
+  A.bg:SetPoint("TOPLEFT", f, "TOPLEFT", 4, -4)
+  A.bg:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -4, 4)
+  A.side, ok = artTex(f.side, "BACKGROUND", 1, "menu_side") all = all and ok
+  A.side:SetAllPoints(f.side)
+  -- banner: left cap, stretched middle, right cap
+  A.head = {}
+  for i = 1, 3 do A.head[i], ok = artTex(f.bar, "BACKGROUND", 2, "menu_header") all = all and ok end
+  A.head[1]:SetTexCoord(0, CAP, 0, 1)
+  A.head[2]:SetTexCoord(CAP, 1 - CAP, 0, 1)
+  A.head[3]:SetTexCoord(1 - CAP, 1, 0, 1)
+  -- frame: four corners (one art, mirrored by tex coords) and four repeated edge strips, over the edges of the window
+  local holder = CreateFrame("Frame", nil, f)
+  holder:SetAllPoints(f)
+  holder:SetFrameLevel((f:GetFrameLevel() or 1) + 20)
+  if holder.EnableMouse then holder:EnableMouse(false) end
+  A.holder = holder
+  A.corners = {}
+  local spec = { { "TOPLEFT", 0, 1, 0, 1 }, { "TOPRIGHT", 1, 0, 0, 1 }, { "BOTTOMLEFT", 0, 1, 1, 0 }, { "BOTTOMRIGHT", 1, 0, 1, 0 } }
+  for i, sp in ipairs(spec) do
+    local t
+    t, ok = artTex(holder, "OVERLAY", 2, "menu_corner") all = all and ok
+    t:SetSize(CORNER, CORNER)
+    t:SetPoint(sp[1], f, sp[1], 0, 0)
+    t:SetTexCoord(sp[2], sp[3], sp[4], sp[5])
+    A.corners[i] = t
+  end
+  A.edges = {}
+  local top
+  top, ok = artTex(holder, "OVERLAY", 1, "menu_edge_h", "REPEAT", "CLAMP") all = all and ok
+  top:SetPoint("TOPLEFT", f, "TOPLEFT", CORNER, 0) top:SetPoint("TOPRIGHT", f, "TOPRIGHT", -CORNER, 0) top:SetHeight(EDGE)
+  local bottom
+  bottom, ok = artTex(holder, "OVERLAY", 1, "menu_edge_h", "REPEAT", "CLAMP") all = all and ok
+  bottom:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", CORNER, 0) bottom:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -CORNER, 0) bottom:SetHeight(EDGE)
+  local left
+  left, ok = artTex(holder, "OVERLAY", 1, "menu_edge_v", "CLAMP", "REPEAT") all = all and ok
+  left:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -CORNER) left:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 0, CORNER) left:SetWidth(EDGE)
+  local right
+  right, ok = artTex(holder, "OVERLAY", 1, "menu_edge_v", "CLAMP", "REPEAT") all = all and ok
+  right:SetPoint("TOPRIGHT", f, "TOPRIGHT", 0, -CORNER) right:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 0, CORNER) right:SetWidth(EDGE)
+  A.edges = { top, bottom, left, right }
+  A.loaded = all
+  f.art = A
+  return A
+end
+
+--- Size-dependent bits: the banner's caps keep the art's proportions, tiles repeat at their own size.
+function Panel.LayoutArt(f)
+  local A = f.art
+  if not A then return end
+  local w, h = f:GetWidth() or W, f:GetHeight() or H
+  local bh = f.bar:GetHeight() or TITLE
+  local cap = math.floor(bh * (1024 * CAP / 128) + 0.5)
+  A.head[1]:ClearAllPoints() A.head[1]:SetPoint("TOPLEFT", f.bar, "TOPLEFT", 0, 0) A.head[1]:SetSize(cap, bh)
+  A.head[3]:ClearAllPoints() A.head[3]:SetPoint("TOPRIGHT", f.bar, "TOPRIGHT", 0, 0) A.head[3]:SetSize(cap, bh)
+  A.head[2]:ClearAllPoints() A.head[2]:SetPoint("TOPLEFT", f.bar, "TOPLEFT", cap, 0) A.head[2]:SetPoint("BOTTOMRIGHT", f.bar, "BOTTOMRIGHT", -cap, 0)
+  A.bg:SetTexCoord(0, (w - 8) / 256, 0, (h - 8) / 256)
+  A.edges[1]:SetTexCoord(0, (w - 2 * CORNER) / (256 * EDGE / 32), 0, 1)
+  A.edges[2]:SetTexCoord(0, (w - 2 * CORNER) / (256 * EDGE / 32), 1, 0)
+  A.edges[3]:SetTexCoord(0, 1, 0, (h - 2 * CORNER) / (256 * EDGE / 32))
+  A.edges[4]:SetTexCoord(1, 0, 0, (h - 2 * CORNER) / (256 * EDGE / 32))
+end
+
+--- Painted or flat, now. Flat = the plain fills that were there before (and the fallback if the art did not load).
+function Panel.ApplyArt(f)
+  f = f or Panel.frame
+  if not f then return end
+  local want = Panel.MenuArt()
+  local A = want and Panel.BuildArt(f) or f.art
+  local on = want and A and A.loaded
+  local function vis(t, show) if t then if show then t:Show() else t:Hide() end end end
+  if A then
+    vis(A.bg, on) vis(A.side, on)
+    for _, t in ipairs(A.head) do vis(t, on) end
+    if A.holder then vis(A.holder, on) end
+  end
+  vis(f.fill, true)
+  if f.bar and f.bar.fill then vis(f.bar.fill, not on) end
+  if f.side and f.side.fill then vis(f.side.fill, not on) end
+  vis(f.accent, not on)
+  for _, e in ipairs(f.edges or {}) do vis(e, not on) end
+  Panel.artOn = on and true or false
+  -- the brass corners are CORNER px: the title and the close button step inside them (in a flat window they sit at PAD)
+  if f.titleHog and f.bar then f.titleHog:ClearAllPoints() f.titleHog:SetPoint("LEFT", f.bar, "LEFT", on and (CORNER + 6) or PAD, 0) end
+  if f.close and f.bar then f.close:ClearAllPoints() f.close:SetPoint("RIGHT", f.bar, "RIGHT", on and -(CORNER + 2) or -8, 0) end
+  if on then Panel.LayoutArt(f) end
+end
+
 local function build()
   if Panel.frame then return Panel.frame end
   local f = CreateFrame("Frame", "HogHealsPanel", UIParent)
@@ -244,6 +352,9 @@ local function build()
   side:SetWidth(SIDEBAR)
   skin(side, { 0.09, 0.09, 0.115 })
   f.side = side
+  f.bar = bar
+  Panel.ApplyArt(f)
+  if f.HookScript then f:HookScript("OnSizeChanged", function(self) if Panel.artOn then Panel.LayoutArt(self) end end) end
 
   local tabbar = CreateFrame("Frame", nil, f)
   tabbar:SetPoint("TOPLEFT", side, "TOPRIGHT", PAD, -10)

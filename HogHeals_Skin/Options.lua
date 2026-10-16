@@ -116,6 +116,7 @@ function Options.Build()
       infobar = { type = "group", name = "Info bar", order = 5, args = {
         about = { type = "description", order = 0, name = "A slim strip of live readouts: gold, durability, bag space, fps, latency, clock, coordinates, friends, guild, experience. Click a readout to open its frame. Drag it when frames are unlocked (/hh unlock)." },
         enabled = toggle(sub("infoBar"), "enabled", "Show the info bar", 1, infobar),
+        icons = toggle(sub("infoBar"), "icons", "An emblem beside each reading (gold, ping, frames...)", 1.5, infobar),
         width = range(sub("infoBar"), "width", "Width", 2, 200, 2000, 10, infobar),
         height = range(sub("infoBar"), "height", "Height", 3, 12, 40, 1, infobar),
         fontSize = range(sub("infoBar"), "fontSize", "Text size", 4, 7, 20, 1, infobar),

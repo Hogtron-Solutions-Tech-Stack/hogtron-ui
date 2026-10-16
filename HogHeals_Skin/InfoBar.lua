@@ -206,6 +206,12 @@ P.goldph = { label = "Gold an hour",
 
 P.none = { label = "(empty)", value = function() return "" end }
 
+-- An emblem beside each reading (OpenArt set, Sean 2026-10-14 night: "the little information at the bottom center
+-- that shows gold and frames and ping"). HogHeals/Media/info_<x>.tga; a client that refuses the file = text only.
+Bar.ICONS = { gold = "info_gold", goldph = "info_goldph", durability = "info_durability", bags = "info_bags", fps = "info_fps",
+  latency = "info_latency", time = "info_time", coords = "info_coords", friends = "info_friends", guild = "info_guild",
+  xp = "info_xp", session = "info_session", tolevel = "info_tolevel", train = "info_train" }
+
 -- ------------------------------------------------------------------------------------------------ frame
 local function build()
   if Bar.frame then return Bar.frame end
@@ -243,6 +249,8 @@ local function slot(i)
   s.text = s:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
   s.text:SetPoint("CENTER", s, "CENTER", 0, 0)
   s.text:SetJustifyH("CENTER")
+  s.icon = s:CreateTexture(nil, "ARTWORK")
+  s.icon:Hide()
   if s.text.SetWordWrap then s.text:SetWordWrap(false) end
   s:SetScript("OnClick", function(self)
     local p = P[self.key]
@@ -260,6 +268,42 @@ local function slot(i)
   return s
 end
 
+
+-- The bar on the HogTron art plaque (OpenArt, 2026-10-15): a slate plate with brass caps, 3-sliced so the caps keep
+-- their shape at any width. Follows General > Look > Menus (painted / flat).
+local PLATE_CAP = 0.06
+function Bar.Plate(f)
+  local look = HH.db and HH.db.profile and HH.db.profile.look
+  local want = not (look and look.menus == "flat")
+  if want and not f.plate then
+    f.plate = {}
+    local all = true
+    for i = 1, 3 do
+      local t = f:CreateTexture(nil, "BACKGROUND", nil, 1)
+      all = (t:SetTexture("Interface\\AddOns\\HogHeals\\Media\\info_plate") ~= false) and all
+      f.plate[i] = t
+    end
+    f.plate[1]:SetTexCoord(0, PLATE_CAP, 0, 1)
+    f.plate[2]:SetTexCoord(PLATE_CAP, 1 - PLATE_CAP, 0, 1)
+    f.plate[3]:SetTexCoord(1 - PLATE_CAP, 1, 0, 1)
+    f.plate.loaded = all
+  end
+  local on = want and f.plate and f.plate.loaded
+  if f.plate then
+    local h = f:GetHeight() or 18
+    local pad = math.floor(h * 0.35 + 0.5)          -- the plaque is a little taller than the text row
+    local cap = math.floor((h + 2 * pad) * (1024 * PLATE_CAP / 128) + 0.5)
+    local p = f.plate
+    p[1]:ClearAllPoints() p[1]:SetPoint("TOPLEFT", f, "TOPLEFT", -cap * 0.4, pad) p[1]:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", -cap * 0.4, -pad) p[1]:SetWidth(cap)
+    p[3]:ClearAllPoints() p[3]:SetPoint("TOPRIGHT", f, "TOPRIGHT", cap * 0.4, pad) p[3]:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", cap * 0.4, -pad) p[3]:SetWidth(cap)
+    p[2]:ClearAllPoints() p[2]:SetPoint("TOPLEFT", p[1], "TOPRIGHT", 0, 0) p[2]:SetPoint("BOTTOMRIGHT", p[3], "BOTTOMLEFT", 0, 0)
+    for i = 1, 3 do if on then p[i]:Show() else p[i]:Hide() end end
+  end
+  if on then f.bg:Hide() f.rule:Hide() else f.bg:Show() f.rule:Show() end
+  for _, e in ipairs(f.edges or {}) do if on then e:Hide() else e:Show() end end
+  Bar.plateOn = on and true or false
+end
+
 function Bar.Layout()
   local f, d = build(), cfg()
   local keys = d.slots or {}
@@ -274,6 +318,10 @@ function Bar.Layout()
     s:SetPoint("LEFT", f, "LEFT", (i - 1) * w, 0)
     Skin.SetFont(s.text, d.fontSize or 11)
     s.text:SetWidth(w - 6)
+    local file = d.icons ~= false and Bar.ICONS[s.key]
+    local isz = math.max(10, (d.height or 18) - 2)
+    s.icon:SetSize(isz, isz)
+    if file and s.icon:SetTexture("Interface\\AddOns\\HogHeals\\Media\\" .. file) ~= false then s.icon:Show() else s.icon:Hide() end
     s:Show()
   end
   for i = n + 1, #Bar.slots do Bar.slots[i]:Hide() end
@@ -281,6 +329,7 @@ function Bar.Layout()
   f:ClearAllPoints()
   f:SetPoint(d.point or "BOTTOM", UIParent, d.point or "BOTTOM", d.x or 0, d.y or 0)
   f.bg:SetColorTexture(Skin.INK[1], Skin.INK[2], Skin.INK[3], d.backgroundAlpha or 0.8)
+  Bar.Plate(f)
 end
 
 function Bar.Update()
@@ -290,9 +339,30 @@ function Bar.Update()
       local p = P[s.key]
       local ok, v = pcall(p.value)
       s.text:SetText(ok and v or "?")
+      Bar.Place(s)
       if not ok and v ~= Bar.lastError then Bar.lastError = v HH:LogError("infobar " .. tostring(s.key) .. ": " .. tostring(v)) end
     end
   end
+end
+
+--- Icon + text centred together in the slot: the pair is measured, so the emblem sits right against its reading.
+function Bar.Place(s)
+  local w = s:GetWidth() or 0
+  if not s.icon:IsShown() then
+    s.text:ClearAllPoints() s.text:SetPoint("CENTER", s, "CENTER", 0, 0) s.text:SetJustifyH("CENTER") s.text:SetWidth(math.max(1, w - 6))
+    return
+  end
+  local iw, gap = s.icon:GetWidth() or 0, 4
+  local tw = s.text:GetStringWidth()
+  if type(tw) ~= "number" or (type(issecretvalue) == "function" and issecretvalue(tw)) then tw = 0 end
+  tw = math.max(0, math.min(tw, w - iw - gap - 6))
+  local x0 = -(iw + gap + tw) / 2
+  s.icon:ClearAllPoints()
+  s.icon:SetPoint("LEFT", s, "CENTER", x0, 0)
+  s.text:ClearAllPoints()
+  s.text:SetPoint("LEFT", s, "CENTER", x0 + iw + gap, 0)
+  s.text:SetJustifyH("LEFT")
+  s.text:SetWidth(math.max(1, w - iw - gap - 6))
 end
 
 function Bar.Start()

@@ -472,6 +472,7 @@ function Module:OnEnable()
     return
   end
   Bars.Apply("enable")
+  HH:SafeCall(HHB.Extra, "StartRefresh")   -- our own checked / usable refresh (Forever drops some of the lib's events)
   local ev = CreateFrame("Frame")
   pcall(ev.RegisterEvent, ev, "PLAYER_ENTERING_WORLD")
   pcall(ev.RegisterEvent, ev, "UPDATE_BINDINGS")
