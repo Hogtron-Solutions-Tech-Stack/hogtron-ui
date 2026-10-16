@@ -3,23 +3,48 @@
 # four frame textures (dev/icons/tone_down_menu_art.py); version label light.
 from pathlib import Path
 
-import numpy as np
-from PIL import Image
-
 MEDIA = Path(__file__).resolve().parents[1] / "HogHeals" / "Media"
+
+
+def tga_pixels(path):
+    """(r, g, b) of every pixel of a truecolor TGA (types 2 and 10), plain Python: CI has no numpy / Pillow."""
+    data = path.read_bytes()
+    id_len, kind, w, h, bpp = data[0], data[2], data[12] | data[13] << 8, data[14] | data[15] << 8, data[16]
+    step, i, out, n = bpp // 8, 18 + id_len, [], w * h
+    assert kind in (2, 10) and step in (3, 4), (path.name, kind, bpp)
+    while len(out) < n:
+        if kind == 2:
+            b, g, r = data[i], data[i + 1], data[i + 2]
+            out.append((r, g, b))
+            i += step
+        else:
+            head = data[i]
+            i += 1
+            count = (head & 0x7F) + 1
+            if head & 0x80:
+                b, g, r = data[i], data[i + 1], data[i + 2]
+                out.extend([(r, g, b)] * count)
+                i += step
+            else:
+                for _ in range(count):
+                    b, g, r = data[i], data[i + 1], data[i + 2]
+                    out.append((r, g, b))
+                    i += step
+    return out
+
+
+def teal(px):
+    return sum(1 for r, g, b in px if g > r + 35 and b > r + 35)
 
 
 def test_frame_textures_carry_no_teal_line():
     for name in ("menu_edge_h", "menu_edge_v", "menu_side", "menu_header"):
-        a = np.asarray(Image.open(MEDIA / f"{name}.tga").convert("RGB")).astype(int)
-        r, g, b = a[..., 0], a[..., 1], a[..., 2]
-        teal = ((g > r + 35) & (b > r + 35)).sum()
-        assert teal == 0, f"{name}: {teal} teal pixels"
+        n = teal(tga_pixels(MEDIA / f"{name}.tga"))
+        assert n == 0, f"{name}: {n} teal pixels"
 
 
 def test_corner_gem_keeps_its_cyan():
-    a = np.asarray(Image.open(MEDIA / "menu_corner.tga").convert("RGB")).astype(int)
-    assert ((a[..., 1] > a[..., 0] + 35) & (a[..., 2] > a[..., 0] + 35)).sum() > 50
+    assert teal(tga_pixels(MEDIA / "menu_corner.tga")) > 50
 
 
 def test_version_label_is_readable(core):
