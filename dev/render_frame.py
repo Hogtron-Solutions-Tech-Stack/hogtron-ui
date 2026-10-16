@@ -194,6 +194,25 @@ class Painter:
         point = vals(pts[0])[0] if pts else "CENTER"
         just = vals(r["_last"]["SetJustifyH"])[0] if r["_last"]["SetJustifyH"] is not None else None
         line = str(txt).split("\n")[0]
+        wrap = r["_last"]["SetWordWrap"] is not None and vals(r["_last"]["SetWordWrap"])[0]
+        if wrap and w and max(d.textlength(x, font=font) for x in str(txt).split("\n")) > w * self.s:   # wraps: the client lays it out over lines
+            lines = []
+            for para in str(txt).split("\n"):
+                cur = ""
+                for word in para.split(" "):
+                    test = (cur + " " + word).strip()
+                    if cur and d.textlength(test, font=font) > w * self.s:
+                        lines.append(cur)
+                        cur = word
+                    else:
+                        cur = test
+                lines.append(cur)
+            step = (size + 4) * self.s
+            for i, ln in enumerate(lines):
+                y = t * self.s + i * step
+                d.text((l * self.s + 1, y + 1), ln, fill=(0, 0, 0), font=font, anchor="la")
+                d.text((l * self.s, y), ln, fill=col, font=font, anchor="la")
+            return
         if w and d.textlength(line, font=font) > w * self.s:
             while line and d.textlength(line + "...", font=font) > w * self.s:
                 line = line[:-1]
@@ -219,6 +238,19 @@ class Painter:
     def walk(self, img, frame):
         if not frame["_shown"]:
             return
+        if frame["_kind"] == "ScrollFrame" and not getattr(self, "_clipping", False):
+            # the client clips a scroll frame's content to its own rect (what is below scrolls); draw it that way
+            l, t, w, h = self.rect(frame)
+            if w and h:
+                layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
+                self._clipping = True
+                try:
+                    self.walk(layer, frame)
+                finally:
+                    self._clipping = False
+                box = (int(l * self.s), int(t * self.s), int((l + w) * self.s), int((t + h) * self.s))
+                img.alpha_composite(layer.crop(box), (box[0], box[1]))
+                return
         kids = vals(frame["_children"])
         regions = [c for c in kids if c["_kind"] in ("Texture", "FontString") and c["_shown"]]
         regions.sort(key=lambda c: LAYERS.get(c["_layer"], 2) if c["_kind"] == "Texture" else 4)

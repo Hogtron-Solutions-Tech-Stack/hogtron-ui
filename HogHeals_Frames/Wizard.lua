@@ -62,10 +62,10 @@ local function mouseBindings(class)
   return M[class] or {}
 end
 
---- Apply answers to the live profile.
-function Wizard.Finish(w)
+--- Size preset onto the live profile (the setup guide calls this the moment it is picked).
+function Wizard.ApplyPreset(preset)
   local frames = HH.db.profile.frames
-  local preset = w.answers.preset or "default"
+  preset = Wizard.PRESETS[preset] and preset or "default"
   -- start from defaults so re-running the wizard is predictable
   local d = HH.defaults.profile.frames
   for _, name in ipairs(HH.BUCKETS) do
@@ -90,9 +90,13 @@ function Wizard.Finish(w)
     frames.indicators.statusIcons = false
     frames.dispel.style = "color"
   end
+  HHF.module:ApplyProfile(HH:CurrentBucket())
+end
 
-  local class = w.class or select(2, UnitClass("player"))
-  local bp = w.answers.bindings or "default"
+--- Keyboard hover-bind preset: default (class keys) | mouse (HealBot style) | none.
+function Wizard.ApplyBindings(bp, class)
+  class = class or select(2, UnitClass("player"))
+  bp = bp or "default"
   if bp == "mouse" then
     HHF.ClickCast.SetBindings(mouseBindings(class))
   elseif bp == "none" then
@@ -100,17 +104,24 @@ function Wizard.Finish(w)
   else
     HHF.ClickCast.SetBindings(HHF.ClickCast.Defaults(class))
   end
+end
 
-  -- Atlas gear scoring role (Atlas may not be loaded yet; the profile table is shared)
-  local role = w.answers.gear or "auto"
+--- What Atlas scores gear for, per character.
+function Wizard.SetGearRole(role)
+  role = role or "auto"
   if not Wizard.GEAR_ROLES[role] then role = "auto" end
   -- per character (db.char): the profile is shared by every character on the account
   HH.db.char.atlas = HH.db.char.atlas or {}
   HH.db.char.atlas.role = role
+end
 
+--- The old four answers in one go (kept for scripts and tests; the setup guide calls the pieces above).
+function Wizard.Finish(w)
+  Wizard.ApplyPreset(w.answers.preset or "default")
+  Wizard.ApplyBindings(w.answers.bindings or "default", w.class)
+  Wizard.SetGearRole(w.answers.gear or "auto")
   HH.db.profile.wizardDone = true
   w.step = "done"
-  HHF.module:ApplyProfile(HH:CurrentBucket())
   return w
 end
 
@@ -172,13 +183,15 @@ function Wizard.Show()
   return frame
 end
 
-function HH:RunWizard() return Wizard.Show() end
-
--- Auto-run once per profile on first login (after frames are up).
-local origOnEnable = HHF.module.OnEnable
-function HHF.module:OnEnable(...)
-  origOnEnable(self, ...)
-  if not HH.db.profile.wizardDone and C_Timer and C_Timer.After then
-    C_Timer.After(3, function() if not HH.db.profile.wizardDone and not InCombatLockdown() then Wizard.Show() end end)
+-- The suite-wide setup guide (HogHeals/Core/Setup.lua) owns /hh wizard and the first-login run since 2026-10-15; this
+-- AceGUI dialog is only the fallback when the guide is missing.
+if not HH.Setup then
+  function HH:RunWizard() return Wizard.Show() end
+  local origOnEnable = HHF.module.OnEnable
+  function HHF.module:OnEnable(...)
+    origOnEnable(self, ...)
+    if not HH.db.profile.wizardDone and C_Timer and C_Timer.After then
+      C_Timer.After(3, function() if not HH.db.profile.wizardDone and not InCombatLockdown() then Wizard.Show() end end)
+    end
   end
 end
