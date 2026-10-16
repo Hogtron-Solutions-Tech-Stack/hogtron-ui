@@ -277,6 +277,36 @@ function Panel.LayoutArt(f)
   A.edges[4]:SetTexCoord(1, 0, 0, (h - 2 * CORNER) / (256 * EDGE / 32))
 end
 
+-- Close button. Sean 2026-10-15: the x sat inside the title bar next to the brass corner - "I'd rather it be all the way
+-- in the corner or have it be matching with the gold". Painted: a brass button ON the top-right corner ornament,
+-- above the frame art. Flat: the plain button in the title bar, as before.
+local BRASS, BRASS_RIM, BRASS_HI = { 0.52, 0.38, 0.16 }, { 0.86, 0.70, 0.38 }, { 1.0, 0.86, 0.52 }
+function Panel.StyleClose(f, on)
+  local c = f.close
+  c:ClearAllPoints()
+  if on then
+    -- a child of the frame-art layer: drawn after (over) the corner ornament on any stacking rule
+    local holder = f.art and f.art.holder
+    if holder then c:SetParent(holder) end
+    c:SetSize(22, 22)
+    c:SetPoint("TOPRIGHT", f, "TOPRIGHT", -6, -6)
+    if holder and holder.GetFrameLevel and c.SetFrameLevel then c:SetFrameLevel((holder:GetFrameLevel() or 1) + 5) end
+    c.fill:SetColorTexture(BRASS[1], BRASS[2], BRASS[3], 1)
+    setBorder(c, BRASS_RIM)
+    c.label:SetTextColor(0.10, 0.07, 0.03)
+    c.hover = function(over) setBorder(c, over and BRASS_HI or BRASS_RIM) end
+  else
+    c:SetParent(f.bar)
+    c:SetSize(24, 24)
+    c:SetPoint("RIGHT", f.bar, "RIGHT", -8, 0)
+    c.fill:SetColorTexture(RAISED[1], RAISED[2], RAISED[3], 1)
+    setBorder(c, LINE)
+    c.label:SetTextColor(CREAM[1], CREAM[2], CREAM[3])
+    c.hover = function(over) if not c.off then setBorder(c, over and CYAN or LINE) end end
+  end
+  c.brass = on and true or false
+end
+
 --- Painted or flat, now. Flat = the plain fills that were there before (and the fallback if the art did not load).
 function Panel.ApplyArt(f)
   f = f or Panel.frame
@@ -298,7 +328,7 @@ function Panel.ApplyArt(f)
   Panel.artOn = on and true or false
   -- the brass corners are CORNER px: the title and the close button step inside them (in a flat window they sit at PAD)
   if f.titleHog and f.bar then f.titleHog:ClearAllPoints() f.titleHog:SetPoint("LEFT", f.bar, "LEFT", on and (CORNER + 6) or PAD, 0) end
-  if f.close and f.bar then f.close:ClearAllPoints() f.close:SetPoint("RIGHT", f.bar, "RIGHT", on and -(CORNER + 2) or -8, 0) end
+  if f.close and f.bar then Panel.StyleClose(f, on) end
   if on then Panel.LayoutArt(f) end
 end
 
@@ -336,7 +366,8 @@ local function build()
   f.titleHeals = text(bar, "HogTronFontNormalLarge", CYAN)
   f.titleHeals:SetPoint("LEFT", f.titleHog, "RIGHT", 0, 0)
   f.titleHeals:SetText("TRON UI")
-  f.version = text(bar, "HogTronFontSmall", GREY)
+  -- light warm grey: the old GREY vanished on the painted banner (Sean 2026-10-15, "vdev" unreadable in game)
+  f.version = text(bar, "HogTronFontSmall", { 0.80, 0.76, 0.70 })
   f.version:SetPoint("LEFT", f.titleHeals, "RIGHT", 10, -1)
   f.version:SetText("v" .. tostring(HH.version or "dev"))
 

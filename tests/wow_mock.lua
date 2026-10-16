@@ -293,7 +293,14 @@ function Region:SetAlphaFromBoolean(b, whenTrue, whenFalse) if MockUnwrap(b) the
 function Region:IsMouseOver() return self._mouseOver == true end
 function Region:GetName() return self._name end
 function Region:GetParent() return self._parent end
-function Region:SetParent(p) self._parent = p end
+-- like the client, a new parent takes the frame into its own child list (it draws with the new parent)
+function Region:SetParent(p)
+  local old = self._parent
+  if old == p then return end
+  if old and old._children then for i, c in ipairs(old._children) do if c == self then table.remove(old._children, i) break end end end
+  self._parent = p
+  if p and p._children then p._children[#p._children + 1] = self end
+end
 function Region:GetObjectType() return self._kind end
 function Region:IsObjectType(k) return self._kind == k end
 function Region:Show() self._shown = true end
