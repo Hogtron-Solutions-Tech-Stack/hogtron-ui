@@ -1,4 +1,4 @@
-# Square HogHeals minimap (HogHeals_Quests/MapSkin.lua) + minimap pins defaults / art fallback.
+# Square HogHeals minimap (HogTron_Quests/MapSkin.lua) + minimap pins defaults / art fallback.
 import pytest
 
 from test_quests import MODERN, boot, errors

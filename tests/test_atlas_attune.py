@@ -1,4 +1,4 @@
-# Attunements (HogHeals_Atlas/Attune.lua + Data/Attunements.lua): what lets you into a raid / dungeon and where you
+# Attunements (HogTron_Atlas/Attune.lua + Data/Attunements.lua): what lets you into a raid / dungeon and where you
 # stand - done by quest id, active by title in your log, held by item count. Attune clip, 2026-10-08.
 import pytest
 

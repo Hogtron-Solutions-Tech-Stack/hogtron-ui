@@ -12,9 +12,9 @@ def look(lua):
     lua.execute("function GetPhysicalScreenSize() return 2560, 1440 end")
     # the mock's GetScale is always 1; a real pair for UIParent so the pixel-perfect scale can be read back
     lua.execute("function UIParent:SetScale(s) self._scale = s end; function UIParent:GetScale() return self._scale or 1 end")
-    lua.load_addon("HogHeals")
+    lua.load_addon("HogTronUI")
     lua.load_addon("HogHeals_Frames")
-    lua.load_addon("HogHeals_HUD")
+    lua.load_addon("HogTron_HUD")
     lua.player_login()
     lua.execute("wipe(HogHeals.errors)")
     return lua
@@ -25,7 +25,7 @@ def errors(lua):
 
 
 def test_fonts_ship_with_their_licences():
-    d = ROOT / "HogHeals" / "Media" / "Fonts"
+    d = ROOT / "HogTronUI" / "Media" / "Fonts"
     for f in ("Inter-SemiBold.ttf", "Manrope-SemiBold.ttf", "BarlowCondensed-SemiBold.ttf"):
         assert (d / f).stat().st_size > 50_000, f
     for f in ("OFL-inter.txt", "OFL-manrope.txt", "OFL-barlowcondensed.txt"):

@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Link the HogHeals addon folders into a WoW client's Interface\AddOns via directory junctions.
+  Link the HogTron UI addon folders into a WoW client's Interface\AddOns via directory junctions.
 .EXAMPLE
   .\dev\link.ps1 -Client anniversary          # link into _anniversary_
   .\dev\link.ps1 -Client all                  # anniversary + era
@@ -17,7 +17,7 @@ param(
 )
 
 $repo = Split-Path -Parent $PSScriptRoot
-$addons = @("HogHeals", "HogHeals_Frames", "HogHeals_HUD", "HogHeals_Meter", "HogHeals_Quests", "HogHeals_Plates", "HogHeals_Chat", "HogHeals_Atlas", "HogHeals_Bars", "HogHeals_Journal")
+$addons = @("HogTronUI", "HogHeals", "HogHeals_Frames", "HogTron_Atlas", "HogTron_Bars", "HogTron_Chat", "HogTron_HUD", "HogTron_Meter", "HogTron_Plates", "HogTron_Quests", "HogTron_Skin", "HogTron_Training", "HogTron_Units", "HogTron_Journal")
 $map = @{ anniversary = "_anniversary_"; era = "_classic_era_"; retail = "_retail_"; beta = "_classic_beta_" }
 $targets = if ($Client -eq "all") { @("anniversary", "era") } else { @($Client) }
 

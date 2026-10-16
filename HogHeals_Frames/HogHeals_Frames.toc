@@ -1,9 +1,10 @@
 ## Interface: 20505,20506,11508,11509,16001
-## Title: |cffF5EBDCHog|r|cff21D4E0UI|r HogHeals (healer frames)
+## Title: |cffF5EBDCHog|r|cff21D4E0Tron UI|r HogHeals (healer frames)
 ## Notes: Party + raid healer frames with a hover-bind engine.
 ## Author: HogTron Solutions (Sean Bilger)
-## Version: 0.1.0
-## Dependencies: HogHeals
+## Version: @project-version@
+## Dependencies: HogTronUI
+## SavedVariablesPerCharacter: HogHealsFramesCharDB
 ## X-License: MIT
 
 Compat.lua
@@ -29,6 +30,12 @@ Elements\Highlight.lua
 Elements\HealPrediction.lua
 ClickCast.lua
 HoverBind.lua
+defaults\clickcast\priest.lua
+defaults\clickcast\paladin.lua
+defaults\clickcast\druid.lua
+defaults\clickcast\shaman.lua
+ClickGrid.lua
+ClickGridUI.lua
 RequestDispel.lua
 TestMode.lua
 Frames.lua

@@ -1,11 +1,11 @@
-# Addon-button drawer (HogHeals_Quests/Buttons.lua): every addon's minimap icon gathered under one HogTron UI button.
+# Addon-button drawer (HogTron_Quests/Buttons.lua): every addon's minimap icon gathered under one HogTron UI button.
 # Blizzard's buttons are left alone; owners that move their button back are caught; turning it off hands them back.
 import pytest
 
 from test_quests import MODERN, boot, errors
 
 # Blizzard's buttons, two LibDBIcon addons, one old hand-named button, a backdrop and a protected one.
-# (The HogHeals core registers its own hidden "HogHeals" LibDBIcon button on top of these.)
+# (The HogHeals core registers its own hidden "HogTronUI" LibDBIcon button on top of these.)
 MINIMAP = MODERN + r'''
 MiniMapTracking = CreateFrame("Button", "MiniMapTracking", Minimap)
 MiniMapMailFrame = CreateFrame("Button", "MiniMapMailFrame", Minimap)

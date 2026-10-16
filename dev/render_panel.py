@@ -137,7 +137,7 @@ def page(lua, note: str) -> str:
 
 def main() -> int:
     lua = AddonLoader().bootstrap()
-    for a in ("HogHeals", "HogHeals_Frames", "HogHeals_HUD"):
+    for a in ("HogTronUI", "HogHeals_Frames", "HogTron_HUD"):
         lua.load_addon(a)
     lua.player_login()
     lua.execute('HogHeals.Panel.Open()')

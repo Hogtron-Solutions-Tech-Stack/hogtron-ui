@@ -293,7 +293,14 @@ function Region:SetAlphaFromBoolean(b, whenTrue, whenFalse) if MockUnwrap(b) the
 function Region:IsMouseOver() return self._mouseOver == true end
 function Region:GetName() return self._name end
 function Region:GetParent() return self._parent end
-function Region:SetParent(p) self._parent = p end
+-- like the client, a new parent takes the frame into its own child list (it draws with the new parent)
+function Region:SetParent(p)
+  local old = self._parent
+  if old == p then return end
+  if old and old._children then for i, c in ipairs(old._children) do if c == self then table.remove(old._children, i) break end end end
+  self._parent = p
+  if p and p._children then p._children[#p._children + 1] = self end
+end
 function Region:GetObjectType() return self._kind end
 function Region:IsObjectType(k) return self._kind == k end
 function Region:Show() self._shown = true end
@@ -343,6 +350,16 @@ function Region:SetText(t)
 end
 function Region:GetText() return self._text end
 function Region:GetStringWidth() local w = #self._text * 6 if self._secretText then return MockSecret(w) end return w end
+-- wrapped height, roughly like the client: 6 px a character, 14 px a line, lines by the width set on the string
+local NL = string.char(10)
+function Region:GetStringHeight()
+  local t, lines = tostring(self._text or ""), 0
+  for para in (t .. NL):gmatch("(.-)" .. NL) do
+    local w = (self._width and self._width > 0) and self._width or nil
+    lines = lines + ((w and #para * 6 > w) and math.ceil(#para * 6 / w) or 1)
+  end
+  return math.max(1, lines) * 14
+end
 function Region:SetTextColor(r, g, b, a) self._color = { r, g, b, a } end
 function Region:GetTextColor() return unpack(self._color) end
 function Region:SetVertexColor(r, g, b, a) self._color = { r, g, b, a } end
@@ -591,7 +608,7 @@ C_UnitAuras = C_UnitAuras or nil
 function GetSpellSubtext() return nil end
 function UnitIsPVP() return false end
 
--- ---------- unit frame extras (HogHeals_Units) ----------
+-- ---------- unit frame extras (HogTron_Units) ----------
 MockUnitWatch = {}
 function RegisterUnitWatch(f) MockUnitWatch[f] = true end
 function UnregisterUnitWatch(f) MockUnitWatch[f] = nil end
@@ -604,3 +621,23 @@ PowerBarColor = { MANA = { r = 0, g = 0.55, b = 1 }, RAGE = { r = 1, g = 0.1, b 
 function SetRaidTargetIconTexture(tex, idx) tex._raidIcon = idx end
 function GameTooltip:SetUnitAura() end
 function GetQuestDifficultyColor(level) return { r = 1, g = 0.82, b = 0 } end
+
+-- ---------- spellbook detail for the click-cast grid ----------
+-- MockState.spellbook entries are { name, "Rank n", helpful = bool?, passive = bool?, castTime = ms? }; the index is
+-- the spell id (GetSpellBookItemInfo above). Older two-field entries keep working: helpful defaults to true.
+local function bookEntry(i) return MockState.spellbook and MockState.spellbook[i] end
+function IsHelpfulSpell(i) local s = bookEntry(i) return s ~= nil and s.helpful ~= false end
+function IsPassiveSpell(i) local s = bookEntry(i) return s ~= nil and s.passive == true end
+function IsMacClient() return MockState.mac == true end
+local _getSpellInfo = GetSpellInfo
+function GetSpellInfo(id)
+  local s = type(id) == "number" and bookEntry(id)
+  if s and s.castTime then return s[1], s[2], "Interface\Icons\\" .. s[1]:gsub("%W", ""), s.castTime, 0, 40, id end
+  return _getSpellInfo(id)
+end
+local _getSpellTexture = GetSpellTexture
+function GetSpellTexture(i, book)
+  local s = type(i) == "number" and bookEntry(i)
+  if s and s.icon then return "Interface\\Icons\\" .. s.icon end
+  return _getSpellTexture(i, book)
+end

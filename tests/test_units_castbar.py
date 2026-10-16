@@ -1,6 +1,6 @@
-# HogHeals_Units cast bar: our own bar for target / focus. In game 2026-09-26 the Blizzard bar we used to adopt
+# HogTron_Units cast bar: our own bar for target / focus. In game 2026-09-26 the Blizzard bar we used to adopt
 # threw on every target cast ("boolean test on local 'notInterruptible' (a secret boolean value, while execution
-# tainted by 'HogHeals_Units')"): re-parenting it onto our frame tainted Blizzard's cast code. These tests pin the
+# tainted by 'HogTron_Units')"): re-parenting it onto our frame tainted Blizzard's cast code. These tests pin the
 # replacement: Blizzard's bar is never touched, and ours never tests / compares / computes with a client value.
 import pathlib
 import re
@@ -8,7 +8,7 @@ import re
 from test_units import boot, errors  # noqa: F401  (boot builds the Blizzard frames the module hides)
 import pytest
 
-UNITS_LUA = pathlib.Path(__file__).resolve().parent.parent / "HogHeals_Units" / "Units.lua"
+UNITS_LUA = pathlib.Path(__file__).resolve().parent.parent / "HogTron_Units" / "Units.lua"
 BAR = "HogUITarget.castbar"
 TARGET = 'MockUnits.target = { name = "Kobold", class = "WARRIOR", health = 30, maxHealth = 60, guid = "C-70" }'
 

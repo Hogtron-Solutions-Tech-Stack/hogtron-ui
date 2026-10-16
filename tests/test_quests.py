@@ -1,4 +1,4 @@
-# HogHeals_Quests: quest tracker window + minimap quest pins.
+# HogTron_Quests: quest tracker window + minimap quest pins.
 # The Forever client's quest API family is unknown (probe saw C_QuestLog with GetQuestObjectives/GetQuestsOnMap; the
 # legacy globals were never probed), so the data layer is exercised against BOTH families.
 import math
@@ -60,7 +60,7 @@ function RemoveQuestWatch(i) LWatch[i] = nil end
 
 def boot(lua, api):
     lua.execute(api)
-    for a in ("HogHeals", "HogHeals_Quests"):
+    for a in ("HogTronUI", "HogTron_Quests"):
         lua.load_addon(a)
     lua.player_login()
     lua.execute('wipe(HogHeals.errors)')

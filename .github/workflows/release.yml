@@ -1,0 +1,84 @@
+name: release
+
+# Push a tag  -> tests -> build -> zip gate -> CurseForge (+ Wago if set up) + GitHub Release.
+#   v0.2.0-alpha.1 -> alpha file, v0.2.0-beta.1 -> beta file, v0.2.0 -> release file (packager reads the tag).
+# Anything else (PR, push to main, manual run) -> same build + gate, uploads NOTHING, zip kept as an artifact.
+#
+# Repo secrets: CF_API_TOKEN (required for tags), WAGO_API_TOKEN (optional). HogTronUI/HogTronUI.toc needs
+# ## X-Curse-Project-ID. The packager skips an upload SILENTLY when either is missing, so the preflight
+# below fails the tag build instead of letting it go green having shipped nothing.
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write   # the GitHub Release on tag builds
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    env:
+      IS_TAG: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # version + changelog come from tags and history
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - name: Lua syntax + toc check
+        run: python dev/lint.py
+      - name: Unit tests
+        run: python -m pytest tests -q
+
+      - name: Preflight - a tag must have somewhere to go
+        if: env.IS_TAG == 'true'
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+        run: |
+          id=$(tr -d '\r' < HogTronUI/HogTronUI.toc | sed -n 's/^## X-Curse-Project-ID:[[:space:]]*\([0-9][0-9]*\).*/\1/p')
+          if [ -z "$id" ]; then echo "::error::HogTronUI/HogTronUI.toc has no '## X-Curse-Project-ID: <number>'"; exit 1; fi
+          if [ -z "$CF_API_TOKEN" ]; then echo "::error::repo secret CF_API_TOKEN is not set"; exit 1; fi
+          echo "CurseForge project $id, token present"
+
+      # Build once with uploads off, gate the zip, and only then build again with uploads on.
+      - name: Build (no upload)
+        uses: BigWigsMods/packager@v2
+        with:
+          args: -d -n "HogTronUI-{project-version}"
+
+      - name: Zip gate
+        run: |
+          zip=$(ls .release/HogTronUI-*.zip)
+          if [ "$IS_TAG" = "true" ]; then
+            python dev/check_release_zip.py "$zip" --expect-version "${GITHUB_REF_NAME}"
+          else
+            python dev/check_release_zip.py "$zip"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HogTronUI-build
+          path: .release/HogTronUI-*.zip
+          if-no-files-found: error
+          include-hidden-files: true   # .release/ is a dot-dir; v4 skips those by default
+
+      - name: Upload (tag only)
+        if: env.IS_TAG == 'true'
+        uses: BigWigsMods/packager@v2
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
+          GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: -n "HogTronUI-{project-version}"

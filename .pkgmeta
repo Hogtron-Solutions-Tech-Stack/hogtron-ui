@@ -1,15 +1,34 @@
-package-as: HogHeals
+package-as: HogTronUI
 
-# Libraries are vendored in HogHeals/Libs (no externals) so local dev == packaged build.
+# Libraries are vendored in HogTronUI/Libs (no externals) so local dev == packaged build.
+#
+# The repo root holds every addon folder side by side. The packager copies the root into
+# .release/HogTronUI, so each folder is moved up one level to sit next to it in the zip.
+# Core (HogTronUI/HogTronUI) MUST stay last: it moves into the package dir itself, and by then
+# the other folders have to be gone from it. A folder missing here ships nested and the game
+# never loads it - dev/check_release_zip.py (release.yml) checks the zip has every HogHeals* / HogTron* folder.
+# HogHeals = the settings bridge from the 2026-10-15 rename (one release); HogHeals_Frames keeps its name.
 
 move-folders:
-  HogHeals/HogHeals_Frames: HogHeals_Frames
-  HogHeals/HogHeals_HUD: HogHeals_HUD
+  HogTronUI/HogTron_Atlas: HogTron_Atlas
+  HogTronUI/HogTron_Bars: HogTron_Bars
+  HogTronUI/HogTron_Chat: HogTron_Chat
+  HogTronUI/HogTron_HUD: HogTron_HUD
+  HogTronUI/HogTron_Meter: HogTron_Meter
+  HogTronUI/HogTron_Plates: HogTron_Plates
+  HogTronUI/HogTron_Quests: HogTron_Quests
+  HogTronUI/HogTron_Skin: HogTron_Skin
+  HogTronUI/HogTron_Training: HogTron_Training
+  HogTronUI/HogTron_Units: HogTron_Units
+  HogTronUI/HogHeals_Frames: HogHeals_Frames
+  HogTronUI/HogHeals: HogHeals
+  HogTronUI/HogTronUI: HogTronUI
 
 ignore:
   - tests
   - docs
   - dev
+  - dist
   - .github
   - .gitattributes
   - requirements-dev.txt

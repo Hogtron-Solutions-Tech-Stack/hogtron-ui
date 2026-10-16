@@ -11,7 +11,7 @@ from pathlib import Path
 from lupa.lua51 import LuaRuntime
 
 ROOT = Path(__file__).resolve().parents[1]
-FOLDERS = sorted(p.name for p in ROOT.glob("HogHeals*") if p.is_dir())
+FOLDERS = sorted(p.name for pat in ("HogHeals*", "HogTron*") for p in ROOT.glob(pat) if p.is_dir())
 
 
 def main() -> int:
@@ -51,7 +51,8 @@ def main() -> int:
         targets += list((ROOT / folder).glob("*.toc"))
     for path in targets:
         for i, line in enumerate(path.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
-            if brand.search(line):
+            # |cffRRGGBB ... |r colour codes split the word (toc Titles were |cff..Hog|r|cff..UI|r and slipped past)
+            if brand.search(line) or brand.search(re.sub(r"\|c[0-9a-fA-F]{8}|\|r", "", line)):
                 bad += 1
                 print(f"BRAND   {path.relative_to(ROOT).as_posix()}:{i}: says HogUI - run python dev/rebrand.py --apply")
     print(f"checked {count} lua files, {bad} problem(s)")

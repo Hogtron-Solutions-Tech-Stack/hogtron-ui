@@ -1,4 +1,4 @@
-# Journal (HogHeals_Journal): a healer's dungeon journal. Shipped pages, where-am-I, auto-open once per session,
+# Journal (HogTron_Journal): a healer's dungeon journal. Shipped pages, where-am-I, auto-open once per session,
 # the probe of the client's Encounter Journal, the party summary (default off), and the window's two panes.
 import pytest
 
@@ -38,8 +38,8 @@ function EJ_GetEncounterInfoByIndex(i, inst) if inst == 240 and i == 1 then retu
 def jr(lua):
     lua.execute("MockState.playerClass = 'PRIEST'; MockUnits.player.class = 'PRIEST'; MockUnits.player.level = 20")
     lua.execute(CLIENT)
-    lua.load_addon("HogHeals")
-    lua.load_addon("HogHeals_Journal")
+    lua.load_addon("HogTronUI")
+    lua.load_addon("HogTron_Journal")
     lua.player_login()
     lua.execute("MockAdvance(2)")   # the login zone-in wait runs out (outside, nothing happens)
     lua.execute("wipe(HogHeals.errors)")

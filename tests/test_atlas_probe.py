@@ -44,7 +44,7 @@ def last_log(lua):
 
 @pytest.fixture
 def probe(lua):
-    lua.load_addon("HogHeals")
+    lua.load_addon("HogTronUI")
     lua.execute(MOCKS)
     lua.player_login()
     lua.execute("MockAdvance(6)")   # the 5 s Group Finder re-snapshot
@@ -66,7 +66,7 @@ def test_snapshot_records_api_presence_and_group_finder_ranges(probe):
 
 
 def test_events_registered_unknown_event_does_not_abort_and_combat_log_never_registered(lua):
-    lua.load_addon("HogHeals")
+    lua.load_addon("HogTronUI")
     lua.execute(MOCKS)
     lua.execute('MockUnknownEvents.BOSS_KILL = true')
     lua.player_login()

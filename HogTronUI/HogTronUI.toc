@@ -1,0 +1,30 @@
+## Interface: 20505,20506,11508,11509,16001
+## Title: |cffF5EBDCHog|r|cff21D4E0Tron UI|r
+## Notes: HogTron UI core: profiles, /hh options, performance meter. Load this first; every other HogTron UI module plugs into it.
+## Author: HogTron Solutions (Sean Bilger)
+## Version: @project-version@
+## SavedVariables: HogTronUIDB, HogTronUIDBBackup
+## X-Category: UnitFrame
+## X-License: MIT
+## X-Website: https://github.com/Hogtron-Solutions-Tech-Stack/hogtron-ui
+## X-Curse-Project-ID: 1744106
+
+embeds.xml
+Media\palette.lua
+Core.lua
+Core\Look.lua
+Core\GroupSize.lua
+Core\Queue.lua
+Core\ClassData.lua
+Core\Defaults.lua
+Core\Migrate.lua
+Core\Legacy.lua
+Core\Options.lua
+Core\Panel.lua
+Core\Setup.lua
+Core\EditMode.lua
+Core\Perf.lua
+Core\AtlasProbe.lua
+Core\Session.lua
+Core\ChatKey.lua
+Core\Tray.lua

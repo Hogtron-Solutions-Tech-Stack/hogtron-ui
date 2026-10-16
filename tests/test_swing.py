@@ -1,4 +1,4 @@
-# HUD swing timer (HogHeals_HUD/Swing.lua): auto-attack bar under the cast bar, source ladder per client.
+# HUD swing timer (HogTron_HUD/Swing.lua): auto-attack bar under the cast bar, source ladder per client.
 import pytest
 
 
@@ -82,7 +82,7 @@ def test_combat_log_swings_from_the_player_reset_the_bar_and_others_are_ignored(
 
 def test_restricted_client_never_touches_the_combat_log_and_uses_casts_and_toggles(lua):
     lua.execute('MockSetSecrets(true)')
-    lua.load_addon("HogHeals"); lua.load_addon("HogHeals_Frames"); lua.load_addon("HogHeals_HUD"); lua.player_login()
+    lua.load_addon("HogTronUI"); lua.load_addon("HogHeals_Frames"); lua.load_addon("HogTron_HUD"); lua.player_login()
     lua.execute('''
       HH_sw = HogHealsHUD.HUD.rows.swing
       MockState.time = 100

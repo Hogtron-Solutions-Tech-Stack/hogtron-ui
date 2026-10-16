@@ -1,4 +1,4 @@
-# HogHeals_Chat: restyle Blizzard's chat windows (never replace them). Chat text can be SECRET on restricted clients.
+# HogTron_Chat: restyle Blizzard's chat windows (never replace them). Chat text can be SECRET on restricted clients.
 import pytest
 
 CHAT = '''
@@ -37,8 +37,8 @@ function ChatFrame_AddMessageEventFilter(ev, fn) FILTERS[ev] = fn end
 @pytest.fixture
 def chat(lua):
     lua.execute(CHAT)
-    lua.load_addon("HogHeals")
-    lua.load_addon("HogHeals_Chat")
+    lua.load_addon("HogTronUI")
+    lua.load_addon("HogTron_Chat")
     lua.player_login()
     lua.execute('wipe(HogHeals.errors)')
     return lua

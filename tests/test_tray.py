@@ -32,7 +32,7 @@ def test_available_follows_the_loaded_modules_and_their_tabs(tray):
 
 def test_with_more_modules_loaded_more_entries_appear(lua):
     lua.execute(MINIMAP)
-    for a in ("HogHeals", "HogHeals_Frames", "HogHeals_HUD", "HogHeals_Quests"):
+    for a in ("HogTronUI", "HogHeals_Frames", "HogTron_HUD", "HogTron_Quests"):
         lua.load_addon(a)
     lua.player_login()
     k = keys(lua)
@@ -99,14 +99,18 @@ def test_option_off_hides_our_cells_and_the_tooltip_says_what_is_there(tray):
 
 def test_entries_draw_their_glyph_with_the_letter_as_fallback(tray):
     import pathlib
-    media = pathlib.Path(__file__).resolve().parents[1] / "HogHeals" / "Media"
+    media = pathlib.Path(__file__).resolve().parents[1] / "HogTronUI" / "Media"
     for e in tray.eval(f"{T}.ENTRIES").values():
         assert e["icon"], e["key"]
         assert (media / (e["icon"] + ".tga")).exists(), e["icon"]                  # every glyph is shipped
     c = f"{D}.own[1]"
     assert tray.eval(f"{c}.icon:IsShown()") is True and tray.eval(f"{c}.letter:IsShown()") is False
     assert tray.eval(f"{c}.glyph") == tray.eval(f"{c}.entry.icon")
-    assert tray.eval(f"{c}.icon._texture").endswith(tray.eval(f"{c}.entry.icon"))
+    tex = tray.eval(f"{c}.icon._texture")
+    icon = tray.eval(f"{c}.entry.icon")
+    assert tex.endswith(icon) or tex.endswith(icon + "_art")                      # painted by default, glyph on request
+    for e in tray.eval(f"{T}.ENTRIES").values():
+        assert (media / (e["icon"] + "_art.tga")).exists(), e["icon"] + "_art"   # every entry has its painted icon
     # a client that refuses the file: the letter stands in
     tray.execute(f"{c}.icon.SetTexture = function() return false end; {D}.OwnCells()")
     assert tray.eval(f"{c}.letter:IsShown()") is True and tray.eval(f"{c}.icon:IsShown()") is False

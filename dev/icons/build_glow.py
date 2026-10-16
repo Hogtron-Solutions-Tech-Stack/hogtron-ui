@@ -14,7 +14,7 @@ from pathlib import Path
 
 from PIL import Image
 
-OUT = Path(__file__).resolve().parents[2] / "HogHeals" / "Media" / "target_glow.tga"
+OUT = Path(__file__).resolve().parents[2] / "HogTronUI" / "Media" / "target_glow.tga"
 SIZE = 64
 K = 2.4   # fall-off steepness: exp(-K d^2) rescaled so the rim is exactly 0 (bigger = tighter light)
 
