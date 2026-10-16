@@ -635,7 +635,18 @@ def test_recycled_plate_drops_the_level_until_the_next_unit(plates):
 
 # ------------------------------------------------------------------------------------------------ target brackets
 # Sean 2026-09-28 on the glow: "it is blurry" -> four hard corners (his pick), the default target mark.
-def test_target_brackets_are_the_default_mark_and_stay_sharp(plates):
+def test_glow_is_the_default_target_mark(plates):
+    # Sean 2026-10-15 in game, brackets showing: "it's also not the glow" -> the soft glow is the default again
+    assert plates.eval('HogHeals.defaults.profile.plates.target.style') == "glow"
+    uf = add(plates, "nameplate59", '{ name = "Greater Plainstrider", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-59" }')
+    plates.execute('TARGET = "nameplate59"; MockFire("PLAYER_TARGET_CHANGED")')
+    assert plates.eval(f'{uf}.hh.why') == "target" and plates.eval(f'{uf}.hh.lit') is True
+    assert plates.eval(f'{uf}.hh.glows[1]:IsShown()') is True
+    assert plates.eval(f'{uf}.hh.bracketed') is not True
+
+
+def test_target_brackets_when_chosen_stay_sharp(plates):
+    plates.execute('HogHeals.db.profile.plates.target.style = "brackets"')
     uf = add(plates, "nameplate60", '{ name = "Mottled Worg", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-60" }')
     other = add(plates, "nameplate61", '{ name = "Rabbit", class = "WARRIOR", health = 1, maxHealth = 1, guid = "C-61" }')
     b = f'{uf}.hh.brackets'
@@ -664,7 +675,7 @@ def test_target_brackets_are_the_default_mark_and_stay_sharp(plates):
 
 def test_bracket_arms_never_close_into_a_box(plates):
     uf = add(plates, "nameplate62", '{ name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-62" }')
-    plates.execute('local p = HogHeals.db.profile.plates; p.barHeight = 8; p.target.bracketSize = 30; TARGET = "nameplate62"; MockFire("PLAYER_TARGET_CHANGED")')
+    plates.execute('local p = HogHeals.db.profile.plates; p.target.style = "brackets"; p.barHeight = 8; p.target.bracketSize = 30; TARGET = "nameplate62"; MockFire("PLAYER_TARGET_CHANGED")')
     arm_v = plates.eval(f'{uf}.hh.bracketArmV')
     assert plates.eval(f'{uf}.hh.bracketArmH') == 30
     assert 2 * arm_v <= (8 + 2 * 5) - 2                                             # 2 px of air between the vertical arms
@@ -672,7 +683,7 @@ def test_bracket_arms_never_close_into_a_box(plates):
 
 def test_brackets_follow_colour_options_aggro_and_recycling(plates):
     uf = add(plates, "nameplate63", '{ name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-63" }')
-    plates.execute('HogHeals.db.profile.plates.target.color = { 1, 0.5, 0 }; TARGET = "nameplate63"; MockFire("PLAYER_TARGET_CHANGED")')
+    plates.execute('HogHeals.db.profile.plates.target.style = "brackets"; HogHeals.db.profile.plates.target.color = { 1, 0.5, 0 }; TARGET = "nameplate63"; MockFire("PLAYER_TARGET_CHANGED")')
     assert list(plates.eval(f'{uf}.hh.brackets[3]._color').values())[:3] == pytest.approx([1, 0.5, 0])
     plates.execute('THREAT.nameplate63 = 3; MockFire("UNIT_THREAT_SITUATION_UPDATE", "nameplate63")')
     assert plates.eval(f'{uf}.hh.why') == "aggro" and plates.eval(f'{uf}.hh.bracketed') is True   # red edge + brackets
@@ -695,10 +706,12 @@ def test_quest_mob_has_no_amber_outline_by_default_but_keeps_its_badge(plates):
     assert dark() == pytest.approx([0.05] * 4) and plates.eval(f'{uf}.hh.why') == "plain"
     assert plates.eval(f'{uf}.hh.questFrame:IsShown()') is True                     # the ! badge still says quest mob
     plates.execute('TARGET = "nameplate70"; MockFire("PLAYER_TARGET_CHANGED")')
-    assert dark() == pytest.approx([0.05] * 4) and plates.eval(f'{uf}.hh.bracketed') is True
+    assert dark() == pytest.approx([0.05] * 4) and plates.eval(f'{uf}.hh.lit') is True          # targeted: the glow, no amber
     assert plates.eval('HogHeals.db.global.diag.plateTarget') is not None           # Blizzard's pieces recorded for the next disk read
     plates.execute('HogHeals.db.profile.plates.quest.highlight = true; HogHealsPlates.Plates.Refresh()')
-    assert plates.eval(f'{uf}.hh.edges[1]._color[2]') == pytest.approx(0.65)        # opt-in brings it back
+    assert plates.eval(f'{uf}.hh.edges[1]._color[2]') == pytest.approx(0.05)        # targeted: the glow owns the edge (2026-09-24)
+    plates.execute('TARGET = nil; MockFire("PLAYER_TARGET_CHANGED")')
+    assert plates.eval(f'{uf}.hh.edges[1]._color[2]') == pytest.approx(0.65)        # opt-in brings the amber back
     assert errors(plates) == []
 
 

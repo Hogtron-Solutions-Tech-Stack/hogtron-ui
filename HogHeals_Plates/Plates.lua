@@ -614,7 +614,7 @@ function Plates.QuietBlizzard(uf, quiet)
 end
 
 --- Target / aggro / quest marks. Outline colour by priority: aggro on you (red, thick) beats a quest mob (amber)
--- beats plain. The target is marked by style (target.style): "brackets" (default) - four hard corners around the
+-- beats plain. The target is marked by style (target.style): "glow" (default since 2026-10-15, Sean: "it's also not the glow"), "brackets" - four hard corners around the
 -- bar, "glow" - the animated light around the bar,
 -- "scale" - the whole plate magnified, "outline" (the old cyan box), "none". Aggro and target combine.
 -- Returns the reason it chose (tests read it): aggro > target > quest > plain.
@@ -624,7 +624,7 @@ function Plates.UpdateHighlight(uf)
   local function marks(show, color) Plates.Light(uf, show == "glow") Plates.Bracket(uf, show == "brackets", color) end
   local unit = hh.unit
   local isTarget = bool(call(UnitIsUnit, unit, "target")) or false
-  local style = d.target.highlight ~= false and (d.target.style or "brackets") or "none"
+  local style = d.target.highlight ~= false and (d.target.style or "glow") or "none"
   if style == "arrows" then style = "brackets" end   -- older profiles
   -- magnify only when asked (Sean 2026-09-23: "don't like ... making it slightly bigger")
   local grow = (isTarget and style == "scale") and (d.target.scale or 1.25) or 1

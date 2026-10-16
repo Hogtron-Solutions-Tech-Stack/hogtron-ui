@@ -125,10 +125,10 @@ function Options.Table()
           get = function() return HH.db.profile.plates.die.target ~= false end, set = function(_, v) HH.db.profile.plates.die.target = v and true or false end },
       } },
       highlight = { type = "group", name = "Highlight", order = 2, args = {
-        about = { type = "description", order = 0, name = "Your target: four sharp corners around its bar (or a soft glow / the plate magnified / the old outline). A mob on YOU gets a red outline over everything; quest mobs an amber one." },
+        about = { type = "description", order = 0, name = "Your target: a soft glow around its bar that locks on, then breathes (or four sharp corners / the plate magnified / the old outline). A mob on YOU gets a red outline over everything; quest mobs an amber one." },
         target = toggle(sub("target"), "highlight", "Mark my target", 1),
         style = { type = "select", name = "Target mark", order = 1.5, values = { brackets = "Corner brackets (sharp)", glow = "Glow around the bar (soft)", scale = "Magnify the plate", outline = "Outline (box)", none = "None" },
-          get = function() return sub("target")().style or "brackets" end, set = function(_, v) sub("target")().style = v; refresh() end },
+          get = function() return sub("target")().style or "glow" end, set = function(_, v) sub("target")().style = v; refresh() end },
         targetColor = colour(sub("target"), "color", "Target colour", 2),
         animate = { type = "toggle", name = "Animate the glow (lock on, then breathe)", order = 2.1,
           get = function() return sub("target")().animate ~= false end, set = function(_, v) sub("target")().animate = v and true or false; refresh() end },
