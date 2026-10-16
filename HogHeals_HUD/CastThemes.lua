@@ -69,9 +69,13 @@ T.THEMES = {
 -- (mining grit, herbs, leather). Sean 2026-10-14: "higher quality cast bar animations" - the strips are the slot for
 -- that art (procedural placeholders from dev/icons/build_cast_art.py until the OpenArt set replaces them, same names).
 -- A strip the client cannot load = no art layer for that theme, the rest of the look stays.
-T.ART = { holy = { "ADD", 30 }, fire = { "ADD", 55 }, frost = { "ADD", 20 }, arcane = { "ADD", 35 }, shadow = { "ADD", 25 },
-  nature = { "ADD", 25 }, earth = { "BLEND", 15 }, herb = { "BLEND", 18 }, leather = { "BLEND", 10 }, water = { "ADD", 30 },
-  gold = { "ADD", 25 }, craft = { "ADD", 30 }, aim = { "ADD", 90 } }
+-- third value = the strip's strength (OpenArt set 2026-10-15: holy / frost / aim are near-white, so they are held back
+-- or the label drowns); under an ADD strip the flat fill is dimmed to ART_FILL so the strip carries the light.
+T.ART = { holy = { "ADD", 30, 0.7 }, fire = { "ADD", 55, 0.95 }, frost = { "ADD", 20, 0.6 }, arcane = { "ADD", 35, 0.9 },
+  shadow = { "ADD", 25, 0.95 }, nature = { "ADD", 25, 0.85 }, earth = { "BLEND", 15, 0.95 }, herb = { "BLEND", 18, 0.9 },
+  leather = { "BLEND", 10, 0.9 }, water = { "ADD", 30, 0.8 }, gold = { "ADD", 25, 0.8 }, craft = { "ADD", 30, 0.85 },
+  aim = { "ADD", 90, 0.5 } }
+T.ART_FILL = 0.5
 local ART_DIR = "Interface\\AddOns\\HogHeals\\Media\\cast_"
 local STRIP_W, STRIP_H = 512, 64
 T.artMissing = {}
@@ -194,7 +198,8 @@ function T.Apply(b, key, startTime)
       T.artMissing[key] = true
     else
       if L.art.SetBlendMode then L.art:SetBlendMode(art[1]) end
-      L.art:SetVertexColor(1, 1, 1, math.min(1, 0.40 + 0.40 * (o.intensity or 0.8)))   -- the label must still read on it
+      L.art:SetVertexColor(1, 1, 1, math.min(1, (art[3] or 0.9) * (0.55 + 0.45 * (o.intensity or 0.8))))   -- the label must still read on it
+      if art[1] == "ADD" then b:SetStatusBarColor(th.fill[1] * T.ART_FILL, th.fill[2] * T.ART_FILL, th.fill[3] * T.ART_FILL) end
       L.art:ClearAllPoints()
       L.art:SetPoint("TOPLEFT", b, "TOPLEFT", 0, 0)
       L.art:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 0, 0)
