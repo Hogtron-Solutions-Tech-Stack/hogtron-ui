@@ -382,3 +382,110 @@ function Extra.Build()
   end
   return 2
 end
+
+-- ------------------------------------------------------------------------------------------------ state refresh
+-- In game 2026-10-15 (Sean): the Hearthstone looked greyed before it was clicked, and after the cast was cancelled
+-- the button stayed lit (our cyan "active" mark = the lib's checked state). The lib clears checked state on
+-- ACTIONBAR_UPDATE_STATE only - its player spellcast events are registered on retail builds only - and recolours
+-- usability on ACTIONBAR_UPDATE_USABLE / SPELL_UPDATE_USABLE. Forever does not fire those for every case (an item
+-- cast cancelled), so a state can go stale. Our own pass: after any cast end, spell change, bag change, zoning or the
+-- end of combat, every action button on our bars gets its checked + usable state read again (the lib's own rules:
+-- usable white, no mana = the lib's mana colour, else grey 0.4), debounced, plus one re-check a beat later because the
+-- client's state can trail the event. Secret values are never tested - a button whose answer is secret is left as is.
+-- What fired is counted for /hh btndiag.
+Extra.REFRESH_EVENTS = { "ACTIONBAR_UPDATE_STATE", "ACTIONBAR_UPDATE_USABLE", "SPELL_UPDATE_USABLE", "CURRENT_SPELL_CAST_CHANGED",
+  "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_FAILED", "UNIT_SPELLCAST_INTERRUPTED", "UNIT_SPELLCAST_SUCCEEDED",
+  "UNIT_SPELLCAST_CHANNEL_STOP", "START_AUTOREPEAT_SPELL", "STOP_AUTOREPEAT_SPELL", "BAG_UPDATE_DELAYED",
+  "PLAYER_ENTERING_WORLD", "PLAYER_REGEN_ENABLED" }
+Extra.UNIT_EVENTS = { UNIT_SPELLCAST_STOP = true, UNIT_SPELLCAST_FAILED = true, UNIT_SPELLCAST_INTERRUPTED = true,
+  UNIT_SPELLCAST_SUCCEEDED = true, UNIT_SPELLCAST_CHANNEL_STOP = true }
+Extra.seen, Extra.refreshes, Extra.refused = {}, 0, {}
+
+local function flag(v)
+  if isSecret(v) then return nil end
+  return v == true or v == 1
+end
+
+--- Read one button's state again. Returns true when it was refreshed (an action button with an action).
+function Extra.RefreshButton(b)
+  if type(b) ~= "table" or b._state_type ~= "action" or type(b.HasAction) ~= "function" then return false end
+  if not flag(call(b.HasAction, b)) then return false end
+  local active = flag(call(b.IsCurrentlyActive, b))
+  local auto = flag(call(b.IsAutoRepeat, b))
+  if active ~= nil and b.SetChecked then call(b.SetChecked, b, (active or auto) and true or false) end
+  if b.icon and b.icon.SetVertexColor and not (b.config and b.config.outOfRangeColoring == "button" and b.outOfRange) then
+    local usable, noMana = call(b.IsUsable, b)
+    if not isSecret(usable) and not isSecret(noMana) then
+      if flag(usable) then b.icon:SetVertexColor(1, 1, 1)
+      elseif flag(noMana) and b.config and b.config.colors and b.config.colors.mana then b.icon:SetVertexColor(unpack(b.config.colors.mana))
+      else b.icon:SetVertexColor(0.4, 0.4, 0.4) end
+    end
+  end
+  return true
+end
+
+--- Every bar button we own (bars 1-10 + pet / stance), refreshed. Returns how many.
+function Extra.RefreshAll()
+  local n = 0
+  for _, bar in pairs(Bars.bars or {}) do
+    if type(bar) == "table" and type(bar.buttons) == "table" then
+      for _, b in ipairs(bar.buttons) do if Extra.RefreshButton(b) then n = n + 1 end end
+    end
+  end
+  Extra.refreshes = Extra.refreshes + 1
+  Extra.lastRefreshed = n
+  return n
+end
+
+local pending = false
+function Extra.QueueRefresh()
+  if pending then return end
+  pending = true
+  local function now() pending = false Extra.RefreshAll() end
+  if type(C_Timer) == "table" and C_Timer.After then
+    C_Timer.After(0.05, now)
+    C_Timer.After(0.35, function() Extra.RefreshAll() end)   -- the client's state can trail the event
+  else now() end
+end
+
+function Extra.StartRefresh()
+  if Extra.refreshFrame then return end
+  local f = CreateFrame("Frame")
+  for _, e in ipairs(Extra.REFRESH_EVENTS) do
+    local ok
+    if Extra.UNIT_EVENTS[e] and f.RegisterUnitEvent then ok = pcall(f.RegisterUnitEvent, f, e, "player")
+    else ok = pcall(f.RegisterEvent, f, e) end
+    if not ok then Extra.refused[#Extra.refused + 1] = e end
+  end
+  f:SetScript("OnEvent", function(_, e)
+    Extra.seen[e] = (Extra.seen[e] or 0) + 1
+    Extra.QueueRefresh()
+  end)
+  Extra.refreshFrame = f
+end
+
+function Extra.BtnDiagLines()
+  local out = {}
+  local ev = {}
+  for _, e in ipairs(Extra.REFRESH_EVENTS) do ev[#ev + 1] = e:gsub("UNIT_SPELLCAST_", "CAST_"):gsub("ACTIONBAR_UPDATE_", "AB_") .. "=" .. (Extra.seen[e] or 0) end
+  out[#out + 1] = "bar state events seen: " .. table.concat(ev, " ")
+  out[#out + 1] = ("refresh passes %d, last refreshed %s buttons%s"):format(Extra.refreshes, tostring(Extra.lastRefreshed or 0),
+    #Extra.refused > 0 and (" | client refused: " .. table.concat(Extra.refused, ",")) or "")
+  local bar = Bars.bars and Bars.bars[1]
+  for i, b in ipairs(bar and bar.buttons or {}) do
+    if b._state_type == "action" and flag(call(b.HasAction, b)) then
+      local a = call(b.IsCurrentlyActive, b)
+      local u, m = call(b.IsUsable, b)
+      local checked = b.GetChecked and call(b.GetChecked, b)
+      local r, g = b.icon and b.icon.GetVertexColor and call(b.icon.GetVertexColor, b.icon)
+      out[#out + 1] = ("  bar1 #%d action %s: current=%s usable=%s nomana=%s checked=%s icon=%.2f"):format(i, tostring(b._state_action),
+        isSecret(a) and "SECRET" or tostring(a), isSecret(u) and "SECRET" or tostring(u), isSecret(m) and "SECRET" or tostring(m),
+        tostring(checked), num(r) or -1)
+    end
+  end
+  return out
+end
+
+HH:RegisterSlash("btndiag", function()
+  for _, l in ipairs(Extra.BtnDiagLines()) do HH:Print(l) end
+end, "action bar buttons: which state events fired, each bar-1 slot's current / usable / checked state")

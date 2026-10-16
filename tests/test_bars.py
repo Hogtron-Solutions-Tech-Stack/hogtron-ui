@@ -554,3 +554,45 @@ def test_the_libs_checked_state_drives_the_active_mark(bars):
     lua.execute(f"{b}:SetChecked(false)")
     assert lua.eval(f"{b}.hh.activeFill:IsShown()") is False
     assert errors(lua) == []
+
+
+# ================================================================================================ state refresh (10/15)
+STATE = '''
+B = HogHealsBars.Bars.bars[1].buttons[1]
+B._state_type, B._hasAction, B._state_action = "action", true, 7
+CUR, USE, NOMANA = true, true, false
+function B:IsCurrentlyActive() return CUR end
+function B:IsAutoRepeat() return false end
+function B:IsUsable() return USE, NOMANA end
+B.config.colors = { mana = { 0.5, 0.5, 1 } }
+'''
+
+
+def test_a_cancelled_cast_never_leaves_the_button_lit(bars):
+    # Sean 2026-10-15 in game: the Hearthstone stayed lit (cyan active mark) after the cast was cancelled
+    bars.execute(STATE + "B:SetChecked(true)")
+    assert bars.eval("B.hh.activeFill:IsShown()") is True
+    bars.execute('CUR = false; MockFire("UNIT_SPELLCAST_INTERRUPTED", "player"); MockAdvance(0.1)')
+    assert bars.eval("B.hh.activeFill:IsShown()") is False
+    assert bars.eval("HogHealsBars.Extra.seen.UNIT_SPELLCAST_INTERRUPTED") == 1
+
+
+def test_a_stale_grey_is_read_again(bars):
+    # ... and it looked greyed before it was clicked: the usable colour is read again on bag / usable / zoning events
+    bars.execute(STATE + 'B.icon:SetVertexColor(0.4, 0.4, 0.4); MockFire("BAG_UPDATE_DELAYED"); MockAdvance(0.1)')
+    assert list(bars.eval("B.icon._color").values())[:3] == [1, 1, 1]
+    bars.execute('USE, NOMANA = false, true; MockFire("SPELL_UPDATE_USABLE"); MockAdvance(0.1)')
+    assert list(bars.eval("B.icon._color").values())[:3] == [0.5, 0.5, 1]
+    bars.execute('USE, NOMANA = false, false; MockFire("PLAYER_ENTERING_WORLD"); MockAdvance(0.4)')
+    assert list(bars.eval("B.icon._color").values())[:3] == [0.4, 0.4, 0.4]
+
+
+def test_secret_state_is_left_alone_and_the_diag_counts(bars):
+    bars.execute(STATE + "B:SetChecked(true); MockSetSecrets(true); CUR = MockSecret(false)")
+    bars.execute('MockFire("UNIT_SPELLCAST_STOP", "player"); MockAdvance(0.1)')
+    assert bars.eval("B.hh.activeFill:IsShown()") is True          # a secret answer is never boolean-tested
+    bars.execute("MockSetSecrets(false)")
+    lines = list(bars.eval("HogHealsBars.Extra.BtnDiagLines()").values())
+    assert "CAST_STOP=1" in lines[0]
+    assert any("bar1 #1 action 7" in l for l in lines)
+    assert bars.eval("#HogHeals.errors") == 0
