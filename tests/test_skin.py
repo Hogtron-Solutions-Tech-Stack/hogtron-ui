@@ -1011,6 +1011,8 @@ def test_info_bar_on_the_brass_plaque_and_flat_on_request(skin):
     import pathlib
     assert (pathlib.Path(__file__).resolve().parents[1] / "HogTronUI" / "Media" / "info_plate.tga").exists()
     skin.execute("HogHealsSkin.InfoBar.Refresh()")
+    assert skin.eval("HogHealsSkin.InfoBar.plateOn") is False                  # flat by default since 2026-10-16
+    skin.execute('HogHeals.db.profile.look.menus = "art"; HogHealsSkin.InfoBar.Refresh()')
     assert skin.eval("HogHealsSkin.InfoBar.plateOn") is True
     assert skin.eval("HogUIInfoBar.plate[2]:IsShown()") is True and skin.eval("HogUIInfoBar.bg:IsShown()") is False
     assert list(skin.eval("HogUIInfoBar.plate[1]._texCoord").values()) == [0, 0.06, 0, 1]   # the cap keeps its shape

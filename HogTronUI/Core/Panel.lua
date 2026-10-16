@@ -972,7 +972,8 @@ function Panel.Refresh()
     b:Show()
   end
   Panel.tabRows = #subs > 0 and rowN + 1 or 0
-  f.tabbar:SetHeight(math.max(TAB_H, Panel.tabRows * (TAB_H + 2) - 2))
+  -- a page without tabs gets no empty tab row above it (Sean 2026-10-16: the setup guide had a band of nothing on top)
+  f.tabbar:SetHeight(Panel.tabRows > 0 and math.max(TAB_H, Panel.tabRows * (TAB_H + 2) - 2) or 1)
 
   if current then
     local h1 = current.opt.handler or root.handler
