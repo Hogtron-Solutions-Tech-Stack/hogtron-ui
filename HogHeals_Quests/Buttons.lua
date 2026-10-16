@@ -453,7 +453,8 @@ function Drawer.OwnCells()
     c.entry = e
     c.letter:SetText(e.letter)
     -- the glyph when the client takes the file, the letter when it does not (same rule as the menu bar)
-    local took = e.icon and (c.icon:SetTexture((HH.Tray.MEDIA or "") .. e.icon) ~= false)
+    local took = false
+    if e.icon then took = HH.Look and HH.Look.Icon and HH.Look.Icon(c.icon, e.icon) or (c.icon:SetTexture((HH.Tray.MEDIA or "") .. e.icon) ~= false) end
     c.icon:SetSize(size - 6, size - 6)
     if took then c.icon:Show() c.letter:Hide() else c.icon:Hide() c.letter:Show() end
     c.glyph = took and e.icon or nil

@@ -46,6 +46,22 @@ local function cfg()
   return (p and p.look) or {}
 end
 local function isSecret(v) return type(issecretvalue) == "function" and issecretvalue(v) and true or false end
+
+-- Icons: "art" = the painted set (OpenArt, Sean 2026-10-14 night: one HogTron arcane-tech theme - navy slate, aged
+-- brass, ivory, cyan glow), file HogHeals/Media/<id>_art.tga; "glyph" = the flat cream glyphs that came first.
+Look.MEDIA = "Interface\\AddOns\\HogHeals\\Media\\"
+function Look.IconStyle() return cfg().icons == "glyph" and "glyph" or "art" end
+
+--- Put icon `id` on texture `tex` in the chosen style. Returns took (the client loaded a file), art (it is the
+-- painted one: draw it as it is, no tint). A painted file the client refuses falls back to the glyph.
+function Look.Icon(tex, id)
+  if not tex or not id then return false, false end
+  if Look.IconStyle() == "art" and tex:SetTexture(Look.MEDIA .. id .. "_art") ~= false then
+    if tex.SetTexCoord then tex:SetTexCoord(0, 1, 0, 1) end
+    return true, true
+  end
+  return tex:SetTexture(Look.MEDIA .. id) ~= false, false
+end
 local function num(v) if type(v) == "number" and not isSecret(v) then return v end end
 local function call(f, ...)
   if type(f) ~= "function" then return nil end
@@ -224,6 +240,9 @@ HH:RegisterSlash("look", function(rest)
     return
   elseif FONT_ALIAS[rest] then c.font = FONT_ALIAS[rest]
   elseif rest == "shadow" or rest == "outline" then c.edge = rest
+  elseif rest == "painted" or rest == "glyphs" then
+    c.icons = rest == "painted" and "art" or "glyph"
+    HH:Print("look: icons " .. rest)
   elseif rest == "pixel" then
     local ok, v = Look.MakePixelPerfect()
     HH:Print(ok and ("look: UI scale set to %.3f (pixel-perfect). /hh look unpixel to undo."):format(v) or ("look: cannot - " .. tostring(v)))
@@ -233,7 +252,7 @@ HH:RegisterSlash("look", function(rest)
     HH:Print(ok and ("look: UI scale back to %s."):format(v and ("%.3f"):format(v) or "the game's own") or ("look: cannot - " .. tostring(v)))
     return
   elseif rest ~= "" then
-    HH:Print("look: hogtron | classic | inter | manrope | barlow | shadow | outline | pixel | unpixel")
+    HH:Print("look: hogtron | classic | inter | manrope | barlow | shadow | outline | painted | glyphs | pixel | unpixel")
     return
   end
   Look.Apply()

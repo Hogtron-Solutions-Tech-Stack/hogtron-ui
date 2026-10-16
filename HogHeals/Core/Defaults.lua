@@ -41,7 +41,7 @@ HH.defaults = {
     },
     -- how it looks (Core/Look.lua): style hogtron | classic (reload), font Inter | Manrope | Barlow Condensed,
     -- edge shadow | outline (panel text; text on bars keeps its outline), size -2..+4, pixel = saved pixel-perfect scale
-    look = { style = "hogtron", font = "Inter", edge = "shadow", size = 0 },
+    look = { style = "hogtron", font = "Inter", edge = "shadow", size = 0, icons = "art", menus = "art" },   -- icons / menus: art = painted set | glyph / flat
     frames = {
       hideBlizzard = true,           -- our group frames on = Blizzard's party / raid-style frames off
       soloSharesParty = true,        -- one layout for solo and party (size, growth, anchor); showSolo stays solo's own
@@ -205,7 +205,7 @@ HH.defaults = {
       -- "row" = a row in the strip (xpHeight). Blizzard's experience bar is hidden while ours is the bar.
       xp = { mode = "bar", height = 10, width = 0, color = { 0.13, 0.83, 0.88 }, restedColor = { 0.13, 0.83, 0.88 }, restedAlpha = 0.35,
         questColor = { 0.25, 0.80, 0.35 }, questAlpha = 0.55, text = true, showRested = true, showQuest = true, showPace = true,
-        questMode = "complete", hideAtMax = true, fontSize = 0 },
+        questMode = "complete", hideAtMax = true, fontSize = 0, art = true },   -- art = the painted energy fill (xp_fill / xp_rested)
       pacing = { enabled = true, targetLength = 300, amber = 60, red = 20, showProjection = true },
       advisor = { enabled = true, margin = 0.9, onFrame = false, spells = {} },
     },
@@ -238,7 +238,7 @@ HH.defaults = {
       -- gear on it opens these settings); anchorCursor wins over it. point/x/y = the box, saved by dragging.
       tooltips = { enabled = true, alpha = 0.9, fontSize = nil, anchorCursor = false, anchor = true, point = "BOTTOMRIGHT", x = -40, y = 120, width = 220, height = 90 },
       extras = { buffs = true, xpBar = true, mirror = true, durationSize = 10 },   -- mirror = breath / fatigue timers
-      infoBar = { enabled = true, width = 640, height = 18, fontSize = 11, backgroundAlpha = 0.8, refresh = 1,
+      infoBar = { enabled = true, icons = true, width = 640, height = 18, fontSize = 11, backgroundAlpha = 0.8, refresh = 1,
         time24 = false, serverTime = false, point = "BOTTOM", x = 0, y = 0,
         slots = { "gold", "durability", "bags", "fps", "latency", "time", "session", "tolevel" } },   -- session / tolevel: Core/Session.lua
     },
