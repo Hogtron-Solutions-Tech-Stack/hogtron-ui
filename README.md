@@ -31,6 +31,20 @@ Bugs: open an issue with `/hh version`, `/hh errors` output (or, after a `/reloa
 | `HogHeals_Meter` | Damage / healing meter on the game's own numbers |
 | `HogHeals_Chat` | Chat restyle, URL copy |
 | `HogHeals_Skin` | Blizzard's bags, menu bar, tooltips and windows in the same look; info bar |
+| `HogTron_Awards` | End-of-run awards for dungeons, raids and battlegrounds: five players on stage, 38 honors + 37 roasts, same screen for the whole group (`/hh awards`, `/htr awards`) |
+
+## HogTron Awards
+
+Finish a dungeon, raid or battleground and a gold **VIEW AWARDS** button appears. Five players take the stage with
+their character model and an award: one headline in the middle, four around it, honors and roasts mixed. Everyone in
+the group running HogTron Awards gets the same screen. On WoW: Forever the game hides combat numbers from addons, so
+"who did the most" comes from the order of Blizzard's own damage meter, and everything else is counted by each
+player's own client and shared. `/hh awards preview` shows a fake screen; `/hh awards end` ends a run by hand.
+
+![HogTron Awards stage](docs/mockups/awards/stage-arc.png)
+
+Mockups (arc vs 2x2 layout, cards, prompt, all 75 icons, settings): `docs/mockups/awards/`. The idea comes from Podium
+(All Rights Reserved; patterns only): `docs/superpowers/research/2026-10-15-podium-awards.md`.
 
 ## Install (developers)
 
