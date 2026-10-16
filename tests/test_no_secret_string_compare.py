@@ -10,7 +10,7 @@ PATTERN = re.compile(r'tostring\([^()]*(?:\([^()]*\))?[^()]*\)\s*[=~]=|[=~]=\s*t
 
 
 def addon_lua_files():
-    for folder in sorted(ROOT.glob("HogHeals*")):
+    for folder in sorted(list(ROOT.glob("HogHeals*")) + list(ROOT.glob("HogTron_*"))):
         if not folder.is_dir():
             continue
         for path in sorted(folder.rglob("*.lua")):

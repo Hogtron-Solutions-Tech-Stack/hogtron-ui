@@ -20,6 +20,7 @@ move-folders:
   HogHeals/HogHeals_Skin: HogHeals_Skin
   HogHeals/HogHeals_Training: HogHeals_Training
   HogHeals/HogHeals_Units: HogHeals_Units
+  HogHeals/HogTron_Awards: HogTron_Awards
   HogHeals/HogHeals: HogHeals
 
 ignore:

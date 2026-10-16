@@ -27,7 +27,7 @@ def test_header_children_survive_unknown_event(frames):
 
 def test_no_font_string_is_created_without_a_font():
     bad = []
-    for f in list(ROOT.glob("HogHeals*/*.lua")) + list(ROOT.glob("HogHeals*/Elements/*.lua")) + list(ROOT.glob("HogHeals/Core/*.lua")):
+    for f in list(ROOT.glob("HogHeals*/*.lua")) + list(ROOT.glob("HogHeals*/Elements/*.lua")) + list(ROOT.glob("HogHeals/Core/*.lua")) + list(ROOT.glob("HogTron_*/**/*.lua")):
         for n, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
             if "CreateFontString(" in line and "GameFont" not in line and "HogTronFont" not in line:
                 bad.append(f"{f.name}:{n}")
@@ -40,7 +40,7 @@ def test_every_hogtron_font_object_named_in_code_is_made_by_look():
     look = (ROOT / "HogHeals" / "Core" / "Look.lua").read_text(encoding="utf-8")
     made = set(_re.findall(r"(HogTronFont\w+) = \"GameFont", look))
     used = set()
-    for f in ROOT.glob("HogHeals*/**/*.lua"):
+    for f in list(ROOT.glob("HogHeals*/**/*.lua")) + list(ROOT.glob("HogTron_*/**/*.lua")):
         if "/Libs/" in f.as_posix():
             continue
         used |= set(_re.findall(r'"(HogTronFont\w+)"', f.read_text(encoding="utf-8")))

@@ -90,8 +90,8 @@ def test_every_toc_lists_every_installed_client():
     import pathlib, re
     root = pathlib.Path(__file__).resolve().parent.parent
     want = {"11508", "11509", "20505", "20506", "16001"}
-    tocs = sorted(root.glob("HogHeals*/HogHeals*.toc"))
-    assert len(tocs) == len(sorted(d for d in root.glob('HogHeals*') if d.is_dir()))   # one toc per addon folder, whatever the branch carries
+    tocs = sorted(list(root.glob("HogHeals*/HogHeals*.toc")) + list(root.glob("HogTron_*/HogTron_*.toc")))
+    assert len(tocs) == len([d for pat in ("HogHeals*", "HogTron_*") for d in root.glob(pat) if d.is_dir()])   # one toc per addon folder, whatever the branch carries
     for toc in tocs:
         line = next(l for l in toc.read_text(encoding="utf-8").splitlines() if l.startswith("## Interface:"))
         assert want <= set(re.findall(r"\d+", line)), toc.name
