@@ -156,7 +156,7 @@ def test_meter_ranks_become_scores_and_absent_members_score_zero(aw):
     party(aw)
     aw.execute('MockMeter("DamageDone", "Overall", { "Unit2", "Hognificent", "Unit1" })')
     aw.execute(f'HH_d = {{}}; {A}.Metrics.ReadMeter(HH_d, {A}.Metrics.Roster())')
-    assert aw.eval('HH_d.Unit2.damage') == 3 and aw.eval('HH_d.Hognificent.damage') == 2 and aw.eval('HH_d.Unit1.damage') == 1
+    assert aw.eval('HH_d.Unit2.damage') == 5 and aw.eval('HH_d.Hognificent.damage') == 4 and aw.eval('HH_d.Unit1.damage') == 3
     assert aw.eval('HH_d.Unit3.damage') == 0 and aw.eval('HH_d.Unit4.damage') == 0     # did no damage at all
     assert errors(aw) == []                                                              # secret amounts never touched
 
@@ -527,3 +527,12 @@ def test_slash_commands_and_htr_alias(aw):
     aw.execute(f'{A}.UI.HideStage(); SlashCmdList.HOGTRON("awards preview")')
     assert aw.eval('HogTronAwardsStage:IsShown()') and aw.eval('SLASH_HOGTRON1') == "/htr"
     assert errors(aw) == []
+
+
+def test_a_lone_entry_reads_number_one_not_last(aw):
+    # 2026-10-15 mockup caught "#5 of 5 in dispels" for the only dispeller: scores were relative to the list length
+    party(aw)
+    aw.execute('MockMeter("Dispels", "Overall", { "Hognificent" })')
+    aw.execute(f'HH_d, HH_n, HH_r = {A}.Metrics.Collect({{}}, "dungeon"); HH_w = {A}.Resolve.Winners(HH_d, HH_n, HH_r, "dungeon")')
+    w = {x["award"]["id"]: x for x in lst(aw.eval('HH_w'))}
+    assert w["dispel_daddy"]["name"] == "Hognificent" and w["dispel_daddy"]["detail"] == "#1 of 5 in dispels"

@@ -3,7 +3,7 @@
 -- Three sources, chosen by what Forever actually lets an addon see (measured in diag 2026-10-15, see the research doc):
 --   meter  Blizzard's own damage meter, C_DamageMeter. Covers the whole group. Amounts are SECRET (no compare, no
 --          send), but the client returns each list already ranked, so a player's value here is a RANK SCORE:
---          n - position + 1 for the n players listed, 0 for a group member who is not listed (did none of it).
+--          N - position + 1 with N = max(listed, group size); 0 for a group member who is not listed (did none of it).
 --          Every client reads the same meter, so these need no syncing.
 --   self   plain counters each client keeps about its OWN player (jumps, loot, drinks, emotes, rezzes ...). Shared
 --          with the group over addon messages (Sync.lua) - the only way another player's counter is known.
@@ -196,7 +196,9 @@ function M.ReadMeter(data, roster)
       local list = M.MeterList(def.mode, def.seg)
       if list then
         got[key] = true
-        local n = #list
+        -- score against the bigger of list and group: the top is always N, "did none of it" is always 0, so a lone
+        -- dispeller reads "#1 of 5" (not "#5 of 5") and rank points add up fairly across lists (MVP)
+        local n = math.max(#list, #(roster or {}))
         for _, name in ipairs(roster or {}) do data[name] = data[name] or {} data[name][key] = 0 end
         for i, name in ipairs(list) do
           data[name] = data[name] or {}
