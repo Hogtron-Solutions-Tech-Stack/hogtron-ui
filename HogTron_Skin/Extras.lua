@@ -193,6 +193,39 @@ function Part.XPFrames()
   return out
 end
 
+-- ... and the MOUSE off on them (and their bars), out of combat: a protected container Blizzard shows again in a fight
+-- cannot be hidden then, but with its mouse off it never takes the hover from the buttons above it, shown or not.
+-- What each frame had is kept and given back when ours stops owning XP.
+local mouseWas = setmetatable({}, { __mode = "k" })
+local function setMouse(f, on, depth)
+  if type(f) ~= "table" or depth > 3 then return 0 end
+  local kind = Skin.call(f.GetObjectType, f)
+  if kind == "Texture" or kind == "FontString" or kind == "MaskTexture" then return 0 end
+  local n = 0
+  if f.EnableMouse then
+    if not on then
+      if mouseWas[f] == nil then mouseWas[f] = Skin.call(f.IsMouseEnabled, f) and true or false end
+      Skin.call(f.EnableMouse, f, false)
+      n = 1
+    elseif mouseWas[f] ~= nil then
+      Skin.call(f.EnableMouse, f, mouseWas[f])
+      mouseWas[f] = nil
+    end
+  end
+  for _, c in ipairs(Skin.all(f.GetChildren, f)) do n = n + setMouse(c, on, depth + 1) end
+  return n
+end
+
+function Part.Unmouse(f, off)
+  if InCombatLockdown and InCombatLockdown() and Skin.call(f.IsProtected, f) then
+    HH:RunOutOfCombat(Part.Unmouse, f, off)
+    return 0
+  end
+  local n = setMouse(f, not off, 0)
+  if off then Part.unmoused = (Part.unmoused or 0) + n end
+  return n
+end
+
 function Part.HideBlizzardXP(hide)
   local n = 0
   for _, f in ipairs(Part.XPFrames()) do
@@ -200,10 +233,13 @@ function Part.HideBlizzardXP(hide)
       if hide then
         f.hhUnhidden = nil
         if Skin.HideFrame then Skin.HideFrame(f) else Skin.call(f.Hide, f) end
+        Part.Unmouse(f, true)
         n = n + 1
       elseif f.hhHideHooked then
         f.hhUnhidden = true
-        Skin.call(f.Show, f)
+        Part.Unmouse(f, false)
+        if not (InCombatLockdown and InCombatLockdown() and Skin.call(f.IsProtected, f)) then Skin.call(f.Show, f)
+        else HH:RunOutOfCombat(function() if f.hhUnhidden then Skin.call(f.Show, f) end end) end
       end
     end
   end

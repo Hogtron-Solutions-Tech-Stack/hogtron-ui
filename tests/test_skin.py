@@ -1067,3 +1067,31 @@ def test_under_names_the_frame_holding_the_mouse_and_marks_mouse_frames(skin):
     assert lines[0].startswith("mouse focus: HH_thief")
     assert any(l.startswith("MOUSE HH_thief") for l in lines) and any(l.startswith("HH_art") for l in lines)
     assert errors(skin) == []
+
+
+
+# ---------------------------------------------------------------- protected XP container in combat (2026-10-17 later)
+# After #50 the dead half of bar 1 stayed, and the log filled with "HogTron_Skin called UNKNOWN() (in combat)" x28: the
+# container is PROTECTED on this client; Blizzard shows it mid-fight, our re-hide was refused, it stayed up after.
+def test_a_protected_xp_container_is_never_hidden_in_combat_and_never_takes_the_mouse(skin):
+    skin.execute(XP_CONTAINERS + """
+      local c = MainStatusTrackingBarContainer
+      c._protected = true
+      c.bar1 = CreateFrame("StatusBar", nil, c)
+      HH_blocked = 0
+      local hide = c.Hide
+      c.Hide = function(self, ...) if MockState.inCombat and self._protected then HH_blocked = HH_blocked + 1 return end return hide(self, ...) end
+      HogHeals.XPBarOwned = true; HogHealsSkin.Extras.SkinXP()
+    """)
+    c = "MainStatusTrackingBarContainer"
+    assert skin.eval(f"{c}:IsShown()") is False
+    assert skin.eval(f"{c}._last.EnableMouse[1]") is False and skin.eval(f"{c}.bar1._last.EnableMouse[1]") is False
+    # a fight: Blizzard shows it again - nothing blocked, the hide waits for the fight to end
+    skin.execute(f"MockState.inCombat = true; {c}:Show()")
+    assert skin.eval("HH_blocked") == 0 and skin.eval(f"{c}:IsShown()") is True
+    skin.execute('MockState.inCombat = false; MockFire("PLAYER_REGEN_ENABLED")')
+    assert skin.eval(f"{c}:IsShown()") is False
+    # ours stops owning XP: mouse and frame given back
+    skin.execute("HogHeals.XPBarOwned = false; HogHealsSkin.Extras.SkinXP()")
+    assert skin.eval(f"{c}:IsShown()") is True and skin.eval(f"{c}._last.EnableMouse[1]") is False   # it had none before (mock)
+    assert [e["msg"] for e in skin.eval('HogHeals.errors').values()] == []
