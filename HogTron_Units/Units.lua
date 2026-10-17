@@ -424,9 +424,31 @@ function Units.UpdatePower(f)
   f.powerText:SetText(Units.PowerText(unit, cfg().powerText or "current-max"))
 end
 
+-- ------------------------------------------------------------------------------------------------ names
+-- Sean 2026-10-17: "first and last name as a default". WoW: Forever has last names, and UnitName hands the last name
+-- back as its SECOND value (/hh namediag in game: UnitName("player") = "Crispin", "Hogfire"; GetUnitName(true) =
+-- "Crispin Hogfire"). On the other clients that second value is a realm (cross-realm players only), so the last name
+-- is only read on Forever (toc 16000-19999, the same split HogHeals_Frames' Compat uses) and a realm is never shown.
+function Units.HasLastNames()
+  local _, _, _, toc = call(GetBuildInfo)
+  local n = tonumber(toc) or 0
+  return n >= 16000 and n < 20000
+end
+
+--- The name a frame shows: "full" (first + last, the default) or "first". nil when the client gives none we may read.
+function Units.NameOf(unit, format)
+  local first, second = call(UnitName, unit)
+  first = str(first)
+  if not first then return nil end
+  if (format or cfg().nameFormat or "full") ~= "full" or not Units.HasLastNames() then return first end
+  local last = str(second)
+  if not last or last == "" then return first end
+  return first .. " " .. last
+end
+
 function Units.UpdateInfo(f)
   local unit, d = f.unit, ucfg(f.unit)
-  local name = str(call(UnitName, unit)) or (call(UnitName, unit) ~= nil and "?" or "")
+  local name = Units.NameOf(unit) or (call(UnitName, unit) ~= nil and "?" or "")
   f.name:SetText(d.showName ~= false and name or "")
   if d.showLevel ~= false then
     local lvl, n = Units.LevelText(unit)

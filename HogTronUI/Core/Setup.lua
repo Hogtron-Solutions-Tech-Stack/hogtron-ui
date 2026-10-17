@@ -215,6 +215,7 @@ step("units", "Unit frames", "Units", function()
     focus = toggle("units.focus.enabled", "Focus", { module = "Units", width = "normal" }),
     castbar = toggle("units.target.castbar", "Target's cast bar", { module = "Units", width = "normal" }),
     debuffs = choose("units.target.debuffFilter", "Debuffs on the target", { ["mine-first"] = "Mine first, then the rest", mine = "Only mine", all = "All" }, { module = "Units" }),
+    names = choose("units.nameFormat", "Names", { full = "First and last name", first = "First name only" }, { module = "Units", default = "full" }),
     healthText = choose("units.healthText", "Health text", { ["current-max"] = "343 / 343", percent = "Percent", current = "Current", ["current-percent"] = "Current + percent", none = "None" }, { module = "Units" }),
     hideBlizzard = toggle("units.hideBlizzard", "Hide Blizzard's player and target frames", { module = "Units", reload = true }),
   }
