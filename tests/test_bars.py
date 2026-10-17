@@ -596,3 +596,74 @@ def test_secret_state_is_left_alone_and_the_diag_counts(bars):
     assert "CAST_STOP=1" in lines[0]
     assert any("bar1 #1 action 7" in l for l in lines)
     assert bars.eval("#HogHeals.errors") == 0
+
+
+# ---------------------------------------------------------------- hidden "usable" answers (Sean 2026-10-17)
+# "These abilities are available, but they're grayed out" + "the bars are not showing cool downs": on Forever
+# IsUsableAction can answer with a hidden boolean; the lib's `if isUsable` threw on it, out of Update() before
+# UpdateCooldown. The client has SetAlphaFromBoolean but no SetVertexColorFromBoolean (diag.client).
+def _lab_chunk(start, end_line="end"):
+    src = _lab_src().splitlines()
+    a = next(k for k, l in enumerate(src) if l.startswith(start))
+    b = next(k for k in range(a + 1, len(src)) if src[k] == end_line)
+    return chr(10).join(src[a:b + 1])
+
+
+USABLE_RT = """
+lib = {}
+function issecretvalue(v) return type(v) == "table" and v.secret == true end
+SECRET_TRUE = { secret = true }
+local function tex()
+  local t = { shown = true }
+  function t:SetVertexColor(r, g, b) self.color = { r, g, b } end
+  function t:SetAllPoints() end
+  function t:SetColorTexture() end
+  function t:Show() self.shown = true end
+  function t:Hide() self.shown = false end
+  function t:SetAlphaFromBoolean(v, a, b) self.fromBool = { v, a, b } end
+  return t
+end
+function unpack2(t) return t[1], t[2], t[3] end
+B = { icon = tex(), config = { colors = { mana = { 0.5, 0.5, 1 }, range = { 0.8, 0.1, 0.1 } } } }
+function B:CreateTexture() return tex() end
+"""
+
+
+def test_a_hidden_usable_answer_dims_through_the_client_and_never_greys():
+    from lupa.lua51 import LuaRuntime
+    rt = LuaRuntime()
+    rt.execute(USABLE_RT)
+    rt.execute(_lab_chunk("function lib.hhSecretUsable(self, isUsable, notEnoughMana)"))
+    rt.execute(_lab_chunk("function lib.hhClearDim(self)"))
+    rt.execute(_lab_chunk("function UpdateUsable(self)"))
+    rt.execute("function B:IsUsable() return SECRET_TRUE, false end; UpdateUsable(B)")
+    assert list(rt.eval("B.icon.color").values()) == [1, 1, 1]                        # never the 0.4 grey
+    assert rt.eval("B.hhUnusableDim.shown") is True
+    fb = rt.eval("B.hhUnusableDim.fromBool")
+    assert rt.eval("B.hhUnusableDim.fromBool[1] == SECRET_TRUE") is True and fb[2] == 0 and fb[3] == 0.6   # the client resolves it
+    assert rt.eval("lib.hhSecretUsableCount") == 1
+    # a plain answer later: the dim layer goes, normal colours again
+    rt.execute("function B:IsUsable() return false, false end; UpdateUsable(B)")
+    assert rt.eval("B.hhUnusableDim.shown") is False and list(rt.eval("B.icon.color").values()) == [0.4, 0.4, 0.4]
+    rt.execute("function B:IsUsable() return true, false end; UpdateUsable(B)")
+    assert list(rt.eval("B.icon.color").values()) == [1, 1, 1]
+
+
+def test_a_failing_usable_step_never_takes_the_cooldown_down_with_it():
+    body = _lab_chunk("function Update(self)")
+    assert "pcall(UpdateUsable, self)" in body
+    assert body.index("pcall(UpdateUsable, self)") < body.index("UpdateCooldown(self)")
+    assert "\t\tUpdateUsable(self)\n" not in body                                       # no bare call left in Update
+
+
+def test_our_refresh_sends_a_hidden_answer_to_the_dim_layer(bars):
+    bars.execute(STATE + """
+      MockSetSecrets(true); USE = MockSecret(true)
+      HH_dimmed = 0
+      HogHealsBars.Bars.Lib().hhSecretUsable = function(b) HH_dimmed = HH_dimmed + 1 b.icon:SetVertexColor(1, 1, 1) return true end
+      B.icon:SetVertexColor(0.4, 0.4, 0.4)
+    """)
+    bars.execute('MockFire("SPELL_UPDATE_USABLE"); MockAdvance(0.1)')
+    bars.execute("MockSetSecrets(false)")
+    assert bars.eval("HH_dimmed") >= 1 and list(bars.eval("B.icon._color").values())[:3] == [1, 1, 1]
+    assert bars.eval("#HogHeals.errors") == 0

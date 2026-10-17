@@ -1806,7 +1806,9 @@ function Update(self)
 		end
 		self:SetAlpha(1.0)
 		UpdateButtonState(self)
-		UpdateUsable(self)
+		-- HogTron UI patch (2026-10-17): a step that throws never takes the cooldown swipe down with it
+		local okUsable, errUsable = pcall(UpdateUsable, self)
+		if not okUsable then lib.hhUpdateErrors = (lib.hhUpdateErrors or 0) + 1 lib.hhLastUpdateError = tostring(errUsable) end
 		UpdateCooldown(self)
 		UpdateFlash(self)
 	else
@@ -1963,6 +1965,37 @@ function UpdateButtonState(self)
 	end
 end
 
+-- HogTron UI patch (2026-10-17): on WoW: Forever IsUsableAction can answer with a HIDDEN (secret) boolean. `if isUsable`
+-- on it throws - and that threw out of Update() before UpdateCooldown: in game a new character's usable spells stayed
+-- grey AND no button showed its cooldown (Sean: "available, but they're grayed out", "the bars are not showing cool
+-- downs"). This client has SetAlphaFromBoolean but no SetVertexColorFromBoolean (measured: diag.client), so the icon
+-- stays full colour and a dark layer over it takes its alpha from the hidden answer - resolved by the client, never
+-- tested here. Returns true when the answer was hidden (and handled).
+function lib.hhSecretUsable(self, isUsable, notEnoughMana)
+	if not issecretvalue or not issecretvalue(isUsable) then return false end
+	lib.hhSecretUsableCount = (lib.hhSecretUsableCount or 0) + 1
+	self.icon:SetVertexColor(1.0, 1.0, 1.0)
+	local dim = self.hhUnusableDim
+	if not dim and self.CreateTexture then
+		dim = self:CreateTexture(nil, "ARTWORK", nil, 7)
+		dim:SetAllPoints(self.icon)
+		dim:SetColorTexture(0.04, 0.04, 0.06, 1)
+		self.hhUnusableDim = dim
+	end
+	if dim then
+		if dim.SetAlphaFromBoolean and pcall(dim.SetAlphaFromBoolean, dim, isUsable, 0, 0.6) then
+			dim:Show()
+		else
+			dim:Hide()   -- no way to read it: full colour beats a grey that never clears
+		end
+	end
+	return true
+end
+
+function lib.hhClearDim(self)
+	if self.hhUnusableDim then self.hhUnusableDim:Hide() end
+end
+
 function UpdateUsable(self)
 	-- TODO: make the colors configurable
 	-- TODO: allow disabling of the whole recoloring
@@ -1970,13 +2003,18 @@ function UpdateUsable(self)
 		self.icon:SetVertexColor(unpack(self.config.colors.range))
 	else
 		local isUsable, notEnoughMana = self:IsUsable()
-		if isUsable then
+		if lib.hhSecretUsable(self, isUsable, notEnoughMana) then
+			-- shown through the dim layer; a hidden answer is never tested here
+		elseif isUsable then
+			lib.hhClearDim(self)
 			self.icon:SetVertexColor(1.0, 1.0, 1.0)
 			--self.NormalTexture:SetVertexColor(1.0, 1.0, 1.0)
-		elseif notEnoughMana then
+		elseif notEnoughMana and not (issecretvalue and issecretvalue(notEnoughMana)) then
+			lib.hhClearDim(self)
 			self.icon:SetVertexColor(unpack(self.config.colors.mana))
 			--self.NormalTexture:SetVertexColor(0.5, 0.5, 1.0)
 		else
+			lib.hhClearDim(self)
 			self.icon:SetVertexColor(0.4, 0.4, 0.4)
 			--self.NormalTexture:SetVertexColor(1.0, 1.0, 1.0)
 		end

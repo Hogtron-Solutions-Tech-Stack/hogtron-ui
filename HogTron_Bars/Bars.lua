@@ -528,8 +528,11 @@ HH:RegisterSlash("barsdiag", function()
     for e in pairs(lab and lab.unknownEvents or {}) do miss[#miss + 1] = e end
     table.sort(miss)
     HH:Print(("bars: cooldowns via %s; events this client refused: %s"):format(tostring(lab and lab.cooldownPath or "?"), #miss > 0 and table.concat(miss, ", ") or "none"))
+    HH:Print(("bars: usable answers hidden by the client %d; button update errors %d%s"):format(lab and lab.hhSecretUsableCount or 0,
+      lab and lab.hhUpdateErrors or 0, (lab and lab.hhLastUpdateError) and (" (last: " .. lab.hhLastUpdateError:sub(1, 120) .. ")") or ""))
     local g = HH.db and HH.db.global
-    if g then g.diag = g.diag or {} g.diag.barsCooldown = { path = lab and lab.cooldownPath, refused = table.concat(miss, ",") } end
+    if g then g.diag = g.diag or {} g.diag.barsCooldown = { path = lab and lab.cooldownPath, refused = table.concat(miss, ","),
+      secretUsable = lab and lab.hhSecretUsableCount, updateErrors = lab and lab.hhUpdateErrors, lastUpdateError = lab and lab.hhLastUpdateError } end
   end
   local f, m = {}, {}
   for k in pairs(Bars.found) do f[#f + 1] = k end

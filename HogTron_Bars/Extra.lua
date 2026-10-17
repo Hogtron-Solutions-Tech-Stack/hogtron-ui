@@ -415,7 +415,14 @@ function Extra.RefreshButton(b)
   if active ~= nil and b.SetChecked then call(b.SetChecked, b, (active or auto) and true or false) end
   if b.icon and b.icon.SetVertexColor and not (b.config and b.config.outOfRangeColoring == "button" and b.outOfRange) then
     local usable, noMana = call(b.IsUsable, b)
-    if not isSecret(usable) and not isSecret(noMana) then
+    local lab = Bars.Lib and Bars.Lib()
+    if isSecret(usable) then
+      -- hidden answer (WoW: Forever, 2026-10-17): the lib's dim layer resolves it; the old grey never stays
+      if lab and type(lab.hhSecretUsable) == "function" then call(lab.hhSecretUsable, b, usable, noMana)
+      else b.icon:SetVertexColor(1, 1, 1) end
+      Extra.secretUsable = (Extra.secretUsable or 0) + 1
+    else
+      if lab and type(lab.hhClearDim) == "function" then call(lab.hhClearDim, b) end
       if flag(usable) then b.icon:SetVertexColor(1, 1, 1)
       elseif flag(noMana) and b.config and b.config.colors and b.config.colors.mana then b.icon:SetVertexColor(unpack(b.config.colors.mana))
       else b.icon:SetVertexColor(0.4, 0.4, 0.4) end
