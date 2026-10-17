@@ -23,7 +23,12 @@ local CYAN, CREAM, GREY, GREEN, INK, LINE = { 0.13, 0.83, 0.88 }, { 0.96, 0.92, 
   { 0.25, 0.80, 0.35 }, { 0.07, 0.07, 0.09 }, { 0.20, 0.20, 0.25 }
 local BEAM = "Interface\\AddOns\\HogTronUI\\Media\\waypoint_beam"
 local GLOW = "Interface\\AddOns\\HogTronUI\\Media\\target_glow"
-WP.BEAM_W, WP.BEAM_H, WP.BREATH = 22, 150, 2.2
+WP.BEAM_W, WP.BEAM_H, WP.BREATH = 26, 900, 2.2
+-- Sean 2026-10-17 (v2): "start from above the question mark, so it doesn't interrupt anything ... really, really tall so
+-- I can see it in the distance as I'm running towards it, but only from a certain distance" (retail's waypoint beam).
+-- The objective's point is at the NPC; the "?" floats a head above it, and on screen that head grows as you close in:
+-- the beam's foot sits GAP_K / yards px above the point (measured in game: ~50 px at 25 yd), kept in [GAP_MIN, GAP_MAX].
+WP.GAP_K, WP.GAP_MIN, WP.GAP_MAX = 1250, 40, 240
 local ARROW = "Interface\\AddOns\\HogTronUI\\Media\\quest_arrow"
 -- Blizzard's own art on the navigation frame, made transparent while ours is on (names differ per client build)
 local BLIZZ_PARTS = { "Icon", "Arrow", "DistanceText", "Time", "NavigationLabel", "Description" }
@@ -276,7 +281,13 @@ function WP.Update()
     WP.angle = angle
   else
     f.arrow:Hide()
-    if beam then f.marker:Hide() f.edge:Hide() f.beam:Show() f.base:Show()
+    if beam then
+      -- no ring at the foot any more (it sat on the NPC's name); the shaft starts above the "?"
+      f.marker:Hide() f.edge:Hide() f.base:Hide()
+      f.beam:ClearAllPoints()
+      f.beam:SetPoint("BOTTOM", f, "CENTER", 0, WP.BeamGap(yards))
+      f.beam:SetHeight(o.beamHeight or WP.BEAM_H)
+      if WP.BeamAlpha(yards, o) > 0 then f.beam:Show() else f.beam:Hide() end
     else f.marker:Show() f.edge:Show() f.beam:Hide() f.base:Hide() end
     WP.angle = nil
   end
@@ -291,12 +302,21 @@ end
 --- The marker style: "beam" (default) or "diamond" (the flat marker from before).
 function WP.Style(o) return ((o or cfg()).style == "diamond") and "diamond" or "beam" end
 
---- Pure: the beam's own strength for a distance - full far away, faded close (it would wash over the NPC).
+--- Pure: the beam's strength for a distance. Gone inside beamFrom yards (you are there - the NPC needs no beam),
+-- fading in over the next beamFade yards, full beyond; no distance known = full.
 function WP.BeamAlpha(yards, o)
   o = o or {}
-  local near = o.near or 10
-  if type(yards) == "number" and near > 0 and yards <= near then return o.nearBeamAlpha or 0.18 end
+  if type(yards) ~= "number" then return 1 end
+  local from, fade = o.beamFrom or 15, math.max(1, o.beamFade or 10)
+  if yards <= from then return 0 end
+  if yards < from + fade then return (yards - from) / fade end
   return 1
+end
+
+--- Pure: px from the objective's point up to the beam's foot - above the quest giver's "?" at any distance.
+function WP.BeamGap(yards)
+  if type(yards) ~= "number" or yards <= 0 then return 70 end
+  return math.max(WP.GAP_MIN, math.min(WP.GAP_MAX, WP.GAP_K / yards))
 end
 
 --- Pure: the breathing - between 0.7 and 1.0 of the beam's strength, one breath every BREATH seconds.

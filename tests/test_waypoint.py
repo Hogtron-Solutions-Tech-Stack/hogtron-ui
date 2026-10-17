@@ -195,7 +195,7 @@ def test_options_group_and_diag_lines(wp):
 # "put a glow ... or like a beam of light coming down rather than this diamond ... it looks kind of cheap"
 def test_beam_breathes_fades_up_close_and_texts_sit_under_its_foot(wp):
     wp.execute("HogHealsQuests.Waypoint.Update()")
-    assert wp.eval("HH_w.beam:IsShown()") is True and wp.eval("HH_w.base:IsShown()") is True
+    assert wp.eval("HH_w.beam:IsShown()") is True and wp.eval("HH_w.base:IsShown()") is False   # no ring on the NPC
     assert wp.eval("HH_w.beam._blend") == "ADD"
     assert wp.eval("HH_w.title._points[1][1]") == "TOP" and wp.eval("HH_w.title._points[1][5]") < 0   # under the foot
     W = "HogHealsQuests.Waypoint"
@@ -203,8 +203,9 @@ def test_beam_breathes_fades_up_close_and_texts_sit_under_its_foot(wp):
     a1 = wp.eval(f"{W}.lastBeam")
     wp.execute(f"{W}.OnUpdate(nil, 0.5)")
     assert wp.eval(f"{W}.lastBeam") != a1                                         # it breathes
-    assert wp.eval(f"{W}.BeamAlpha(4, {{ near = 10 }})") < 0.3                  # 4 yd away: faded right down
-    assert wp.eval(f"{W}.BeamAlpha(60, {{ near = 10 }})") == 1
+    assert wp.eval(f"{W}.BeamAlpha(4, {{}})") == 0                              # close: no beam at all
+    assert wp.eval(f"{W}.BeamAlpha(20, {{}})") == 0.5                           # fading in from 15 yd
+    assert wp.eval(f"{W}.BeamAlpha(60, {{}})") == 1
     assert 0.7 <= wp.eval(f"{W}.Breath(0.55)") <= 1.0
 
 
@@ -212,3 +213,23 @@ def test_the_diamond_is_still_a_choice(wp):
     wp.execute('HogHeals.db.profile.quests.waypoint.style = "diamond"; HogHealsQuests.Waypoint.Update()')
     assert wp.eval("HH_w.marker:IsShown()") is True and wp.eval("HH_w.beam:IsShown()") is False
     assert wp.eval("HH_w.title._points[1][1]") == "BOTTOM"                      # name back above the marker
+
+
+
+# ---------------------------------------------------------------- beam v2 (Sean 2026-10-17, second look)
+# "start from above the question mark, so it doesn't interrupt anything ... really, really tall ... only from a certain
+# distance"
+def test_the_beam_starts_above_the_question_mark_at_any_distance_and_is_tall(wp):
+    W_ = "HogHealsQuests.Waypoint"
+    assert wp.eval(f"{W_}.BeamGap(25)") == 50                                     # measured in game: ~50 px at 25 yd
+    assert wp.eval(f"{W_}.BeamGap(10)") > wp.eval(f"{W_}.BeamGap(40)")            # closer = the head is taller on screen
+    assert wp.eval(f"{W_}.BeamGap(2)") == 240 and wp.eval(f"{W_}.BeamGap(500)") == 40
+    wp.execute(f"{W_}.Update()")                                                   # the GO pick: 566 map-yards away
+    p = wp.eval("HH_w.beam._points[1]")
+    assert p[1] == "BOTTOM" and p[3] == "CENTER" and p[5] >= 40                  # its foot well above the point
+    assert wp.eval("HH_w.beam._height") == 900
+
+
+def test_inside_the_beam_distance_there_is_no_beam(wp):
+    wp.execute("HogHeals.db.profile.quests.waypoint.beamFrom = 1000; HogHealsQuests.Waypoint.Update()")
+    assert wp.eval("HH_w.beam:IsShown()") is False and wp.eval("HH_w.arrow:IsShown()") is False

@@ -11,7 +11,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-W, H = 64, 256
+W, H = 64, 512
 OUT = Path(__file__).resolve().parents[2] / "HogTronUI" / "Media" / "waypoint_beam.tga"
 
 
@@ -22,6 +22,9 @@ def main() -> None:
     halo = np.exp(-(x / 0.42) ** 2) * 0.55     # the soft glow around it
     across = np.clip(core + halo, 0, 1)
     up = y ** 1.6                              # full at the bottom, gone at the top
+    # 2026-10-17 v2: the beam now starts in mid-air above the quest giver's "?" - a soft fade-in over its lowest 10 %
+    # instead of a hard bright edge hanging in the air
+    up = up * np.clip((1.0 - y) / 0.10, 0, 1) ** 0.8 + up * (y < 0.0)
     bands = 0.9 + 0.1 * np.sin(y * np.pi * 9)  # faint banding, reads as light not paint
     a = np.clip(across * up * bands, 0, 1)
     rgba = np.zeros((H, W, 4), np.uint8)
