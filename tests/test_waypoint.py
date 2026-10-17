@@ -82,7 +82,7 @@ def test_anchored_to_the_navigation_frame_with_texts(wp):
     assert wp.eval("HH_w.title:GetText()") == "Report to Goldshire"
     detail = wp.eval("HH_w.detail:GetText()")
     assert "191 yd" in detail and "27s" in detail and "ready to turn in" in detail
-    assert wp.eval("HH_w.marker:IsShown()") is True and wp.eval("HH_w.arrow:IsShown()") is False
+    assert wp.eval("HH_w.beam:IsShown()") is True and wp.eval("HH_w.marker:IsShown()") is False and wp.eval("HH_w.arrow:IsShown()") is False   # the beam by default (2026-10-17)
     assert errors(wp) == []
 
 
@@ -100,10 +100,10 @@ def test_blizzard_art_goes_transparent_and_comes_back(wp):
 
 def test_clamped_shows_the_edge_arrow_turned_toward_the_objective(wp):
     wp.execute(f"CLAMPED = true; {W}.Update()")
-    assert wp.eval("HH_w.arrow:IsShown()") is True and wp.eval("HH_w.marker:IsShown()") is False
+    assert wp.eval("HH_w.arrow:IsShown()") is True and wp.eval("HH_w.marker:IsShown()") is False and wp.eval("HH_w.beam:IsShown()") is False   # off-screen: the arrow only
     assert wp.eval(f"{W}.angle") == pytest.approx(0.9828, abs=0.001)
     wp.execute(f"CLAMPED = false; {W}.Update()")
-    assert wp.eval("HH_w.arrow:IsShown()") is False and wp.eval("HH_w.marker:IsShown()") is True
+    assert wp.eval("HH_w.arrow:IsShown()") is False and wp.eval("HH_w.beam:IsShown()") is True
     wp.execute(f"CLAMPED = true; HogHeals.db.profile.quests.waypoint.arrow = false; {W}.Update()")
     assert wp.eval("HH_w.arrow:IsShown()") is False
 
@@ -188,3 +188,27 @@ def test_options_group_and_diag_lines(wp):
     assert "C_Navigation.GetFrame" in lines and "Report to Goldshire" in lines and "191 yd" in lines
     p = wp.eval(f"{W}.Probe()")
     assert p["hasGetFrame"] is True and p["tracked"] == 9
+
+
+
+# ---------------------------------------------------------------- the beam (Sean 2026-10-17)
+# "put a glow ... or like a beam of light coming down rather than this diamond ... it looks kind of cheap"
+def test_beam_breathes_fades_up_close_and_texts_sit_under_its_foot(wp):
+    wp.execute("HogHealsQuests.Waypoint.Update()")
+    assert wp.eval("HH_w.beam:IsShown()") is True and wp.eval("HH_w.base:IsShown()") is True
+    assert wp.eval("HH_w.beam._blend") == "ADD"
+    assert wp.eval("HH_w.title._points[1][1]") == "TOP" and wp.eval("HH_w.title._points[1][5]") < 0   # under the foot
+    W = "HogHealsQuests.Waypoint"
+    wp.execute(f"{W}.OnUpdate(nil, 0.1)")
+    a1 = wp.eval(f"{W}.lastBeam")
+    wp.execute(f"{W}.OnUpdate(nil, 0.5)")
+    assert wp.eval(f"{W}.lastBeam") != a1                                         # it breathes
+    assert wp.eval(f"{W}.BeamAlpha(4, {{ near = 10 }})") < 0.3                  # 4 yd away: faded right down
+    assert wp.eval(f"{W}.BeamAlpha(60, {{ near = 10 }})") == 1
+    assert 0.7 <= wp.eval(f"{W}.Breath(0.55)") <= 1.0
+
+
+def test_the_diamond_is_still_a_choice(wp):
+    wp.execute('HogHeals.db.profile.quests.waypoint.style = "diamond"; HogHealsQuests.Waypoint.Update()')
+    assert wp.eval("HH_w.marker:IsShown()") is True and wp.eval("HH_w.beam:IsShown()") is False
+    assert wp.eval("HH_w.title._points[1][1]") == "BOTTOM"                      # name back above the marker

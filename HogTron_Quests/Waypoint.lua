@@ -21,6 +21,9 @@ HHQ.Waypoint = WP
 
 local CYAN, CREAM, GREY, GREEN, INK, LINE = { 0.13, 0.83, 0.88 }, { 0.96, 0.92, 0.86 }, { 0.70, 0.70, 0.75 },
   { 0.25, 0.80, 0.35 }, { 0.07, 0.07, 0.09 }, { 0.20, 0.20, 0.25 }
+local BEAM = "Interface\\AddOns\\HogTronUI\\Media\\waypoint_beam"
+local GLOW = "Interface\\AddOns\\HogTronUI\\Media\\target_glow"
+WP.BEAM_W, WP.BEAM_H, WP.BREATH = 22, 150, 2.2
 local ARROW = "Interface\\AddOns\\HogTronUI\\Media\\quest_arrow"
 -- Blizzard's own art on the navigation frame, made transparent while ours is on (names differ per client build)
 local BLIZZ_PARTS = { "Icon", "Arrow", "DistanceText", "Time", "NavigationLabel", "Description" }
@@ -178,7 +181,24 @@ function WP.Create()
   f.arrow:SetPoint("CENTER", f, "CENTER", 0, 0)
   if not f.arrow:SetTexture(ARROW) then f.arrow:SetColorTexture(CYAN[1], CYAN[2], CYAN[3], 1) end
   f.arrow:Hide()
-  -- texts: name above, yards / eta / progress below
+  -- the beam (Sean 2026-10-17: "a glow ... or like a beam of light coming down rather than this diamond ... it looks
+  -- kind of cheap"): a soft light shaft rising from the objective with a glow ring at its foot, drawn with ADD, breathing
+  -- slowly; faded right down when you are close so it never washes over the NPC you are talking to. A glow on the
+  -- quest giver's own "?" is not possible: the client draws that one and an addon only knows the objective's point.
+  f.beam = f:CreateTexture(nil, "ARTWORK", nil, -1)
+  f.beam:SetSize(WP.BEAM_W, WP.BEAM_H)
+  f.beam:SetPoint("BOTTOM", f, "CENTER", 0, -2)
+  if f.beam:SetTexture(BEAM) == false then f.beam:SetColorTexture(CYAN[1], CYAN[2], CYAN[3], 0.35) end
+  if f.beam.SetBlendMode then f.beam:SetBlendMode("ADD") end
+  f.beam:SetVertexColor(CYAN[1], CYAN[2], CYAN[3], 1)
+  f.base = f:CreateTexture(nil, "ARTWORK", nil, -2)
+  f.base:SetSize(44, 16)
+  f.base:SetPoint("CENTER", f, "CENTER", 0, 0)
+  if f.base:SetTexture(GLOW) == false then f.base:SetColorTexture(CYAN[1], CYAN[2], CYAN[3], 0.3) end
+  if f.base.SetBlendMode then f.base:SetBlendMode("ADD") end
+  f.base:SetVertexColor(CYAN[1], CYAN[2], CYAN[3], 0.8)
+  f.beam:Hide() f.base:Hide()
+  -- texts: name above, yards / eta / progress below (beam: both under its foot, the shaft stays clear)
   f.title = fs(f, CREAM, 12)
   f.title:SetPoint("BOTTOM", f.marker, "TOP", 0, 6)
   f.detail = fs(f, GREY, 11)
@@ -245,27 +265,71 @@ function WP.Update()
   local clamped = o.arrow ~= false and call(fn(navApi, "WasClampedToScreen")) and true or false
   local valid = fn(navApi, "HasValidScreenPosition")
   if valid and not call(valid) then clamped = o.arrow ~= false end
+  local beam = WP.Style(o) == "beam"
   if clamped then
     local sw, sh = (g("GetScreenWidth") and GetScreenWidth() or 1920), (g("GetScreenHeight") and GetScreenHeight() or 1080)
     local nx, ny = nav:GetCenter()
     local angle = (type(nx) == "number" and type(ny) == "number") and WP.Angle(sw / 2, sh / 2, nx, ny) or 0
     if f.arrow.SetRotation then pcall(f.arrow.SetRotation, f.arrow, -angle) end
     f.arrow:Show()
-    f.marker:Hide() f.edge:Hide()
+    f.marker:Hide() f.edge:Hide() f.beam:Hide() f.base:Hide()
     WP.angle = angle
   else
     f.arrow:Hide()
-    f.marker:Show() f.edge:Show()
+    if beam then f.marker:Hide() f.edge:Hide() f.beam:Show() f.base:Show()
+    else f.marker:Show() f.edge:Show() f.beam:Hide() f.base:Hide() end
     WP.angle = nil
   end
+  WP.PlaceTexts(f, beam and not clamped)
+  WP.beamTarget = WP.BeamAlpha(yards, o)
   f:SetAlpha(WP.Alpha(yards, o))
   f:Show()
   WP.current = { id = id, title = c.title, yards = yards, clamped = clamped }
   return true
 end
 
+--- The marker style: "beam" (default) or "diamond" (the flat marker from before).
+function WP.Style(o) return ((o or cfg()).style == "diamond") and "diamond" or "beam" end
+
+--- Pure: the beam's own strength for a distance - full far away, faded close (it would wash over the NPC).
+function WP.BeamAlpha(yards, o)
+  o = o or {}
+  local near = o.near or 10
+  if type(yards) == "number" and near > 0 and yards <= near then return o.nearBeamAlpha or 0.18 end
+  return 1
+end
+
+--- Pure: the breathing - between 0.7 and 1.0 of the beam's strength, one breath every BREATH seconds.
+function WP.Breath(t) return 0.85 + 0.15 * math.sin((t or 0) * 2 * math.pi / WP.BREATH) end
+
+--- Texts around the marker (diamond) or both under the beam's foot.
+function WP.PlaceTexts(f, underFoot)
+  if WP.textsUnder == underFoot then return end
+  WP.textsUnder = underFoot
+  f.title:ClearAllPoints() f.detail:ClearAllPoints()
+  if underFoot then
+    f.title:SetPoint("TOP", f, "CENTER", 0, -12)
+    f.detail:SetPoint("TOP", f.title, "BOTTOM", 0, -2)
+  else
+    f.title:SetPoint("BOTTOM", f.marker, "TOP", 0, 6)
+    f.detail:SetPoint("TOP", f.marker, "BOTTOM", 0, -6)
+  end
+end
+
+--- Every frame while shown: the beam breathes (cheap: two alphas). Content repaints stay on THROTTLE.
+function WP.Pulse(elapsed)
+  local f = WP.frame
+  if not f or not f.beam or not f.beam:IsShown() then return end
+  WP.t = (WP.t or 0) + (elapsed or 0)
+  local a = (WP.beamTarget or 1) * WP.Breath(WP.t)
+  f.beam:SetVertexColor(CYAN[1], CYAN[2], CYAN[3], a)
+  f.base:SetVertexColor(CYAN[1], CYAN[2], CYAN[3], 0.8 * a)
+  WP.lastBeam = a
+end
+
 --- Distance and eta age while you walk: repaint every THROTTLE seconds while shown.
 function WP.OnUpdate(_, elapsed)
+  WP.Pulse(elapsed)
   WP.elapsed = WP.elapsed + (elapsed or 0)
   if WP.elapsed < WP.THROTTLE then return end
   WP.elapsed = 0

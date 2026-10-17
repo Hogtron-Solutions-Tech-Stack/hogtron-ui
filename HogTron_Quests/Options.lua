@@ -82,6 +82,8 @@ function Options.Build()
         about = { type = "description", order = 0, name = "The quest you are tracking, marked in the world: name, yards and how long at your pace, 4/10 or ready to turn in. Sits on Blizzard's own navigation marker (so it needs a client that has one - /hh wpdiag says). Off-screen: an arrow on the edge pointing the way." },
         enabled = toggle(wp, "enabled", "Waypoint marker", 1, wpr),
         hideBlizzard = toggle(wp, "hideBlizzard", "Hide Blizzard's icon and distance under ours", 2, wpr),
+        style = { type = "select", name = "Marker", order = 2.5, values = { beam = "A beam of light (recommended)", diamond = "A small diamond" },
+          get = function() return wp().style or "beam" end, set = function(_, v) wp().style = v wpr() end },
         title = toggle(wp, "title", "Quest name", 3, wpr),
         eta = toggle(wp, "eta", "Time to reach it at your pace", 4, wpr),
         progress = toggle(wp, "progress", "Objective progress / ready to turn in", 5, wpr),
