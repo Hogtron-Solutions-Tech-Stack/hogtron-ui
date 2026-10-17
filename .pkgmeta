@@ -21,6 +21,7 @@ move-folders:
   HogTronUI/HogTron_Training: HogTron_Training
   HogTronUI/HogTron_Units: HogTron_Units
   HogTronUI/HogHeals_Frames: HogHeals_Frames
+  HogTronUI/HogTron_Awards: HogTron_Awards
   HogTronUI/HogHeals: HogHeals
   HogTronUI/HogTronUI: HogTronUI
 
@@ -33,3 +34,4 @@ ignore:
   - .gitattributes
   - requirements-dev.txt
   - README.md
+  - HogTron_Awards/assets/awards/*.png

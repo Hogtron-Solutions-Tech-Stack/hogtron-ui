@@ -71,8 +71,10 @@ def test_slash_setup_and_wizard_and_options_button_all_open_the_guide(full):
 
 # ------------------------------------------------------------------ the pages
 def test_every_part_has_a_page_in_order(full):
-    assert steps(full) == ["welcome", "look", "modules", "frames", "bindings", "units", "hud", "bars", "plates", "quests",
-                           "dungeons", "chatskin", "done"]
+    want = ["welcome", "look", "modules", "frames", "bindings", "units", "hud", "bars", "plates", "quests", "dungeons", "chatskin"]
+    if (ROOT / "HogTron_Awards").is_dir():
+        want.append("awards")                                # its page shows when the module is installed
+    assert steps(full) == want + ["done"]
 
 
 def test_a_missing_module_skips_its_page(lua):
