@@ -161,7 +161,7 @@ def test_hogui_letter_bar_stands_in_for_blizzards_micro_buttons(skin):
     assert skin.eval(f'{bar}.cells[2].letter:IsShown()') is True and skin.eval(f'{bar}.cells[2].letter._text') == "S"
     assert skin.eval(f'{bar}.cells[1].letter:IsShown()') is False
     assert skin.eval(f'{bar}._last.SetScale[1]') == 1                                # never the menu scale
-    assert skin.eval(f'{bar}.cells[2]._points[1][4]') == 3 + 33                     # 30 px cells, 3 px apart
+    assert skin.eval(f'{bar}.cells[2]._points[1][4]') == 4 + 44                     # 40 px cells, 4 px apart (2026-10-17)
     # unlock: cyan edges + draggable; the dropped spot is kept; reset puts it back
     skin.execute('HogHeals:SlashCommand("unlock")')
     assert skin.eval(f'{bar}.edges[1]._color[2]') == pytest.approx(0.83)
@@ -656,7 +656,7 @@ def test_kill_art_never_touches_buttons_bars_or_ours(skin):
 def test_glyphs_bigger_and_tinted_full_colour_under_the_mouse(skin):
     bar = 'HogHealsMicroBar'
     skin.execute('HogHeals.db.profile.look.icons = "glyph"; HogHealsSkin.Micro.Strip()')   # tints belong to the flat glyphs
-    assert skin.eval(f'{bar}.cells[1]._width') == 30 and skin.eval(f'{bar}.cells[1].icon._width') == 26     # 30 px cells, glyph fills them
+    assert skin.eval(f'{bar}.cells[1]._width') == 40 and skin.eval(f'{bar}.cells[1].icon._width') == 36     # 40 px cells, glyph fills them
     # character = amber at 0.6 of the way from cream; spellbook = cyan
     r, g, b = [skin.eval(f'{bar}.cells[1].icon._color[{i}]') for i in (1, 2, 3)]
     assert (r, g, b) == (pytest.approx(0.96 + (1.0 - 0.96) * 0.6), pytest.approx(0.92 + (0.80 - 0.92) * 0.6), pytest.approx(0.86 + (0.40 - 0.86) * 0.6))
@@ -746,7 +746,7 @@ def test_one_bags_cell_in_the_bar_and_blizzards_slots_hidden(skin):
     assert skin.eval(f'{c} ~= nil') and skin.eval(f'{c}:GetParent() == {bar}') and skin.eval(f'{c}:IsShown()') is True
     assert skin.eval(f'{c}._template') is None                                              # plain button: ToggleAllBags is not protected
     assert skin.eval(f'{c}.label') == "Bags" and skin.eval(f'{c}.icon._texture').endswith(("micro_bags", "micro_bags_art"))
-    assert skin.eval(f'{c}._points[1][4]') == 3 + 3 * 33 and skin.eval(f'{bar}._width') == 3 + 4 * 33   # 4th cell, bar sized for it
+    assert skin.eval(f'{c}._points[1][4]') == 4 + 3 * 44 and skin.eval(f'{bar}._width') == 4 + 4 * 44   # 4th cell, bar sized for it
     skin.execute(f'TOGGLED_BAGS = 0; {c}:GetScript("OnClick")({c})')
     assert skin.eval('TOGGLED_BAGS') == 1
     # Blizzard's slots faded and kept faded, their strip gone, their art still cleared
@@ -761,7 +761,7 @@ def test_one_bags_cell_in_the_bar_and_blizzards_slots_hidden(skin):
     # slots mode: the cell goes, the slots come back flattened under the bar
     skin.execute('HogHeals.OptionsTable().args.Skin.args.micro.args.bagMode.set(nil, "slots")')
     assert skin.eval(f'{c}:IsShown()') is False and skin.eval('MainMenuBarBackpackButton._alpha') == 1
-    assert skin.eval('HogHealsSkin.Micro.strips.bags:IsShown()') is True and skin.eval(f'{bar}._width') == 3 + 3 * 33
+    assert skin.eval('HogHealsSkin.Micro.strips.bags:IsShown()') is True and skin.eval(f'{bar}._width') == 4 + 3 * 44
     assert skin.eval(f'{bar}._points[1][3]') == "TOPRIGHT" and skin.eval('HogHealsSkin.Micro.bagMode') == "slots"
     # and back
     skin.execute('HogHeals.OptionsTable().args.Skin.args.micro.args.bagMode.set(nil, "button")')
@@ -1018,3 +1018,65 @@ def test_info_bar_on_the_brass_plaque_and_flat_on_request(skin):
     assert list(skin.eval("HogUIInfoBar.plate[1]._texCoord").values()) == [0, 0.06, 0, 1]   # the cap keeps its shape
     skin.execute('HogHeals.db.profile.look.menus = "flat"; HogHealsSkin.InfoBar.Refresh()')
     assert skin.eval("HogHealsSkin.InfoBar.plateOn") is False and skin.eval("HogUIInfoBar.bg:IsShown()") is True
+
+
+# ---------------------------------------------------------------- the menu bar on Forever (Sean 2026-10-17)
+# "the legacy doesn't have an image" (a bare "L"), "make these bigger by default and more, you know, like distinct".
+FOREVER_MICRO = r'''
+for _, n in ipairs({ "LegacyMicroButton", "ZzzNewMicroButton", "ProfessionMicroButton", "TalentMicroButton" }) do
+  local b = CreateFrame("Button", n, MicroMenu)
+  function b:GetLeft() return 100 end
+  function b:GetRight() return 128 end
+end
+LegacyMicroButton.tooltipText = "|cffffffffLegacy Rewards|r (L)"
+'''
+
+
+@pytest.fixture
+def micro(lua):
+    lua.execute(CLIENT + FOREVER_MICRO)
+    lua.load_addon("HogTronUI")
+    lua.load_addon("HogTron_Skin")
+    lua.player_login()
+    return lua
+
+
+def cells_by_source(lua):
+    out = {}
+    n = lua.eval('#HogHealsMicroBar.cells')
+    for i in range(1, n + 1):
+        c = f'HogHealsMicroBar.cells[{i}]'
+        if lua.eval(f'{c}:IsShown()') and lua.eval(f'{c}.source ~= nil'):
+            out[lua.eval(f'{c}.source:GetName()')] = i
+    return out
+
+
+def test_no_bare_letters_legacy_gets_its_icon_and_blizzards_label(micro):
+    cells = cells_by_source(micro)
+    leg = f'HogHealsMicroBar.cells[{cells["LegacyMicroButton"]}]'
+    assert micro.eval(f'{leg}.glyph') == "micro_legacy" and micro.eval(f'{leg}.letter:IsShown()') is False
+    assert micro.eval(f'{leg}.label') == "Legacy Rewards"                                  # Blizzard's text, colour + key hint off
+    new = f'HogHealsMicroBar.cells[{cells["ZzzNewMicroButton"]}]'
+    assert micro.eval(f'{new}.glyph') == "micro_other" and micro.eval(f'{new}.label') == "ZzzNew"
+    assert "LegacyMicroButton=micro_legacy" in micro.eval('HogHealsSkin.Micro.cellNames')
+    assert [e["msg"] for e in micro.eval('HogHeals.errors').values()] == []
+
+
+def test_professions_sits_with_the_character_buttons_not_at_the_end(micro):
+    cells = cells_by_source(micro)
+    assert cells["TalentMicroButton"] < cells["ProfessionMicroButton"] < cells["MainMenuMicroButton"]
+    assert cells["ProfessionMicroButton"] < cells["LegacyMicroButton"]               # unknown ones still go last
+
+
+def test_bigger_by_default_and_each_icon_has_its_own_colour_mark(micro):
+    assert micro.eval('HogHeals.db.profile.skin.micro.size') == 40
+    c1 = 'HogHealsMicroBar.cells[1]'
+    assert micro.eval(f'{c1}._width') == 40
+    cells = cells_by_source(micro)
+    leg = f'HogHealsMicroBar.cells[{cells["LegacyMicroButton"]}]'
+    char = f'HogHealsMicroBar.cells[{cells["CharacterMicroButton"]}]'
+    assert micro.eval(f'{leg}.accent:IsShown()') is True
+    assert micro.eval(f'{leg}.accent._color[3]') != micro.eval(f'{char}.accent._color[3]') or \
+        micro.eval(f'{leg}.accent._color[1]') != micro.eval(f'{char}.accent._color[1]')   # different colours
+    micro.execute('HogHeals.db.profile.skin.micro.accent = false; HogHealsSkin.Micro.Strip()')
+    assert micro.eval(f'{leg}.accent:IsShown()') is False
