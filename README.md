@@ -94,6 +94,9 @@ the test harness, not a WoW screenshot).
 
 ## Docs
 
+- `docs/ARCHITECTURE.md` - how the code is set up (folders, core API, module pattern, WoW: Forever rules, tests). Start here.
+- `CLAUDE.md` - the working rules for AI assistants (and humans) in this repo.
+
 - `docs/superpowers/specs/2026-09-13-hogheals-frames-design.md` — design spec
 - `docs/superpowers/research/2026-10-15-healkit-binding-ui.md` — HealKit (All Rights Reserved) as the click-cast UX inspiration; patterns only, no code
 - `docs/superpowers/research/2026-09-13-healing-addon-research.md` — what VuhDo/HealBot/Cell/Grid/Clique/Danders each do best
