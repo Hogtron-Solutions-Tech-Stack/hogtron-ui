@@ -80,6 +80,27 @@ local ART_DIR = "Interface\\AddOns\\HogTronUI\\Media\\cast_"
 local STRIP_W, STRIP_H = 512, 64
 T.artMissing = {}
 
+-- Per-SPELL art (Sean 2026-10-17: "create open art images for casting of spells, for every spell, for every class ...
+-- let's do some of the lower level mage skills so I can test them in game right now"). A cast whose name matches gets
+-- its own OpenArt strip (Media/cast_<art>.tga, 512x64) in place of its school's; the school still gives the colours,
+-- glow and motes. Pattern on the cast name (English client), art file, theme for the colours. Pilot 2026-10-17: four
+-- mage spells, single 1K strips (openart_cast_art.py spell_*).
+T.SPELL_ART = {
+  { "^Fireball", "spell_fireball", "fire" },
+  { "^Frostbolt", "spell_frostbolt", "frost" },
+  { "^Polymorph", "spell_polymorph", "arcane" },
+  { "^Teleport", "spell_teleport", "arcane" },
+  { "^Portal", "spell_teleport", "arcane" },
+}
+
+--- Pure: the strip and theme for a cast name, or nil.
+function T.SpellArt(name)
+  name = str(name)
+  if not name or cfg().spellArt == false then return nil end
+  for _, s in ipairs(T.SPELL_ART) do if name:find(s[1]) then return s[2], s[3] end end
+  return nil
+end
+
 T.ORDER = { "holy", "fire", "frost", "arcane", "shadow", "nature", "earth", "herb", "leather", "water", "gold", "craft", "aim" }
 T.SCHOOLS = { "Holy", "Fire", "Frost", "Arcane", "Shadow", "Nature" }
 T.CLASS_SCHOOL = { PRIEST = "holy", PALADIN = "holy", MAGE = "arcane", WARLOCK = "shadow", SHAMAN = "nature", DRUID = "nature", HUNTER = "aim" }
@@ -174,8 +195,9 @@ function T.ArtCoords(t, width, height, speed)
   return u0, u0 + math.max(0, width or 0) / rep
 end
 
---- Start a themed cast on bar b. key = theme key (nil = plain). Returns true when a theme is on.
-function T.Apply(b, key, startTime)
+--- Start a themed cast on bar b. key = theme key (nil = plain); art = a per-spell strip in place of the theme's.
+-- Returns true when a theme is on.
+function T.Apply(b, key, startTime, art)
   local th = key and T.THEMES[key]
   local o = cfg()
   if not th or o.enabled == false then T.Clear(b) return false end
@@ -189,13 +211,22 @@ function T.Apply(b, key, startTime)
   if b.spark and b.spark.SetVertexColor then
     b.spark:SetVertexColor(math.min(1, th.glow[1] + 0.2), math.min(1, th.glow[2] + 0.2), math.min(1, th.glow[3] + 0.2), 1)
   end
+  local spellStrip = art
   local art = T.ART[key]
+  local file = spellStrip or key
   L.art:Hide()
   L.artOn = false
-  if o.art ~= false and art and not T.artMissing[key] then
-    local ok = L.art:SetTexture(ART_DIR .. key, "REPEAT", "CLAMP")
+  if o.art ~= false and art and not T.artMissing[file] then
+    local ok = L.art:SetTexture(ART_DIR .. file, "REPEAT", "CLAMP")
     if ok == false then
-      T.artMissing[key] = true
+      T.artMissing[file] = true
+      if spellStrip and not T.artMissing[key] then                                      -- the school's instead
+        ok = L.art:SetTexture(ART_DIR .. key, "REPEAT", "CLAMP")
+        if ok == false then T.artMissing[key] = true else file = key end
+      end
+    end
+    if ok == false then
+      -- nothing to draw
     else
       if L.art.SetBlendMode then L.art:SetBlendMode(art[1]) end
       L.art:SetVertexColor(1, 1, 1, math.min(1, (art[3] or 0.9) * (0.55 + 0.45 * (o.intensity or 0.8))))   -- the label must still read on it
@@ -214,6 +245,7 @@ function T.Apply(b, key, startTime)
     if o.motes ~= false and i <= (th.motes.n or 0) then mt:Show() else mt:Hide() end
   end
   T.seen[key] = (T.seen[key] or 0) + 1
+  T.active.art = L.artOn and file or nil
   return true
 end
 
