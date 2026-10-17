@@ -416,7 +416,7 @@ def test_target_mark_styles_and_size_cvars(plates):
     plates.execute('TARGET = "nameplate21"; MockFire("PLAYER_TARGET_CHANGED")')
     assert plates.eval(f'{uf}.hh.glow:IsShown()') is True and plates.eval(f'{uf}.hh.scale') == 1
     assert plates.eval(f'#{uf}.hh.glows') == 8                                      # 9-slice: 4 corners + 4 edges
-    assert plates.eval(f'{uf}.name._points[1][1]') == "BOTTOM" and plates.eval(f'{uf}.name._points[1][3]') == "TOP"       # name centred over the bar
+    assert plates.eval(f'{uf}.name._points[1][1]') == "BOTTOMLEFT" and plates.eval(f'{uf}.name._points[1][3]') == "TOPLEFT"   # name on the bar's left edge (2026-10-17)
     plates.execute('HogHeals.db.profile.plates.target.style = "scale"; HogHealsPlates.Plates.Refresh()')
     assert plates.eval(f'{uf}.hh.glow:IsShown()') is False and plates.eval(f'{uf}.hh.scale') == 1.25
     plates.execute('HogHeals.db.profile.plates.target.style = "outline"; HogHealsPlates.Plates.Refresh()')
@@ -882,3 +882,21 @@ def test_platecvars_asks_by_name_when_there_is_no_list(plates):
     lines, n = list(plates.eval("{ HogHealsPlates.Plates.CVarProbe() }").values())
     assert n == 1 and list(lines.values()) == ["nameplateShowAll=nil"]
     assert errors(plates) == []
+
+
+
+# ---------------------------------------------------------------- the name lines up with the bar (Sean 2026-10-17)
+# from a PvP plate he liked: "the enemy health bar and the name ... the same color and kind of this setup"
+def test_name_sits_on_the_bars_left_edge_by_default_or_centred_by_choice(plates):
+    uf = add(plates, "nameplate41", '{ name = "Brincks", class = "ROGUE", health = 5, maxHealth = 5, isPlayer = true, guid = "P-41" }')
+    assert plates.eval(f'{uf}.name._points[1][1]') == "BOTTOMLEFT" and plates.eval(f'{uf}.name._points[1][2] == {uf}.hh.bar')
+    assert plates.eval(f'{uf}.name._last.SetJustifyH[1]') == "LEFT"
+    assert plates.eval(f'{uf}.hh.nameAt') == "left"
+    plates.execute('HogHeals.db.profile.plates.nameAlign = "center"; HogHealsPlates.Plates.Refresh()')
+    assert plates.eval(f'{uf}.name._points[1][1]') == "BOTTOM" and plates.eval(f'{uf}.hh.nameAt') == "center"
+
+
+def test_a_name_only_friendly_plate_stays_centred(plates):
+    uf = add(plates, "nameplate42", '{ name = "Friend", class = "MAGE", health = 1, maxHealth = 1, isPlayer = true, friendly = true, guid = "P-42" }')
+    assert plates.eval(f'{uf}.hh.nameOnly') is True
+    assert plates.eval(f'{uf}.hh.nameAt') == "center" and plates.eval(f'{uf}.name._points[1][1]') == "BOTTOM"
