@@ -667,3 +667,64 @@ def test_our_refresh_sends_a_hidden_answer_to_the_dim_layer(bars):
     bars.execute("MockSetSecrets(false)")
     assert bars.eval("HH_dimmed") >= 1 and list(bars.eval("B.icon._color").values())[:3] == [1, 1, 1]
     assert bars.eval("#HogHeals.errors") == 0
+
+
+
+# ---------------------------------------------------------------- cooldowns, secret-safe (2026-10-17, "still not showing")
+def _cooldown_rt():
+    from lupa.lua51 import LuaRuntime
+    src = _lab_src().splitlines()
+    a = next(k for k, l in enumerate(src) if l.startswith("\tlocal function hidden(v)"))
+    b = next(k for k in range(a, len(src)) if src[k].startswith("\tfunction UpdateCooldown(self)"))
+    c = next(k for k in range(b + 1, len(src)) if src[k] == "\tend")
+    rt = LuaRuntime()
+    rt.execute("""
+      lib = {}
+      function issecretvalue(v) return type(v) == "table" and v.secret == true end
+      S = { secret = true }
+      defaultCooldownInfo, defaultChargeInfo, defaultLossOfControlInfo = {}, {}, {}
+      local function cd() local c = { calls = {} }
+        function c:Clear() self.calls[#self.calls + 1] = "clear" end
+        function c:SetCooldownFromDurationObject(d) self.calls[#self.calls + 1] = d end
+        function c:SetCooldown(s, d) self.calls[#self.calls + 1] = "numbers" end
+        return c end
+      DUR = { dur = true }
+      B = { cooldown = cd(), chargeCooldown = cd(), lossOfControlCooldown = cd() }
+      function B:GetCooldownInfo() return CD end
+      function B:GetChargeInfo() return nil end
+      function B:GetLoCCooldownInfo() return LOC end
+      function B:GetCooldownDuration() return CDDUR end
+      function B:GetChargeDuration() return nil end
+      function B:GetLoCCooldownDuration() return nil end
+    """)
+    rt.execute(chr(10).join(src[a:c + 1]))
+    return rt
+
+
+def test_hidden_cooldown_flags_are_never_tested_and_the_swipe_still_draws():
+    rt = _cooldown_rt()
+    rt.execute("CD = { isActive = S }; LOC = { isActive = S, shouldReplaceNormalCooldown = S }; CDDUR = DUR; UpdateCooldown(B)")
+    assert rt.eval("B.cooldown.calls[1] == DUR") is True                          # hidden active: drawn, hidden replace: not replaced
+    rt.execute("B.cooldown.calls = {}; CD = { isActive = false }; LOC = {}; UpdateCooldown(B)")
+    assert rt.eval("B.cooldown.calls[1]") == "clear"                              # a plain "not active" still clears
+    rt.execute("B.cooldown.calls = {}; CD = { isActive = true, startTime = S, duration = S }; CDDUR = nil; UpdateCooldown(B)")
+    assert rt.eval("B.cooldown.calls[1]") == "numbers" and rt.eval("lib.hhCooldownFallback") == 1   # no object: the numbers
+    body = _lab_chunk("\tfunction UpdateCooldown(self)", "\tend")
+    assert "not locInfo.shouldReplaceNormalCooldown" not in body and "== nil" not in body
+
+
+def test_one_failing_cooldown_never_stops_the_others():
+    src = _lab_src()
+    assert "local ok, err = pcall(inner, self)" in src and "lib.hhCooldownErrors" in src
+    from lupa.lua51 import LuaRuntime
+    rt = LuaRuntime()
+    rt.execute("lib = {}; function UpdateCooldown(self) if self.bad then error('hidden flag tested') end self.done = true end")
+    rt.execute(_lab_chunk("-- HogTron UI patch (2026-10-17): every cooldown update is guarded", "end"))
+    rt.execute("A, B2 = { bad = true }, {}; for _, b in ipairs({ A, B2 }) do UpdateCooldown(b) end")
+    assert rt.eval("B2.done") is True and rt.eval("lib.hhCooldownErrors") == 1 and "hidden flag tested" in rt.eval("lib.hhLastCooldownError")
+
+
+def test_the_live_counters_save_themselves(bars):
+    bars.execute("local lab = HogHealsBars.Bars.Lib(); lab.hhCooldownErrors = 3; lab.hhLastCooldownError = 'x'; HogHealsBars.Extra.SaveLive()")
+    live = bars.eval("HogHeals.db.global.diag.barsLive")
+    assert live["cooldownErrors"] == 3 and live["lastCooldownError"] == "x"

@@ -2107,29 +2107,46 @@ end
 local SecretCooldownsUseDuration = (WoWRetail and tonumber(buildNumber) >= 66562) or HHDurationObjectsAvailable()
 lib.cooldownPath = SecretCooldownsUseDuration and "duration objects" or "numbers"
 if SecretCooldownsUseDuration then
-	local function SetOrClearCooldown(cooldown, shouldShow, durationObject)
+	-- HogTron UI patch (2026-10-17): NO flag from these tables is ever tested. On WoW: Forever any of them may come back
+	-- hidden (secret), and `not x`, `x == nil` or `if x` on a secret throws - out of UpdateCooldown, and from the
+	-- cooldown event out of the loop over every button: no swipe on any bar (Sean: "cool downs are still not showing").
+	-- A hidden "active" means draw (the duration object knows whether it runs); a hidden "replace" means do not.
+	local function hidden(v) return issecretvalue and issecretvalue(v) and true or false end
+	--- plain true / false for a flag, `ifHidden` when the client hid it, `ifNil` when the table has no such field
+	local function readFlag(v, ifNil, ifHidden)
+		if hidden(v) then return ifHidden end
+		if v == nil then return ifNil end
+		return v and true or false
+	end
+	lib.hhReadFlag = readFlag
+
+	local function SetOrClearCooldown(cooldown, shouldShow, durationObject, info)
 		if not cooldown then return end
-		-- HogTron UI patch: a hidden (secret) flag may not be tested; the duration object knows whether it runs
-		if issecretvalue and issecretvalue(shouldShow) then shouldShow = true end
-		if not shouldShow or not durationObject then
-			cooldown:Clear()
+		if not shouldShow then cooldown:Clear() return end
+		if durationObject then
+			cooldown:SetCooldownFromDurationObject(durationObject)
 			return
 		end
-		cooldown:SetCooldownFromDurationObject(durationObject)
+		-- no duration object: the start / duration numbers go straight to the swipe (it accepts hidden ones)
+		local start, duration = info and info.startTime, info and info.duration
+		if (hidden(start) or type(start) == "number") and (hidden(duration) or type(duration) == "number") and cooldown.SetCooldown then
+			if pcall(cooldown.SetCooldown, cooldown, start, duration) then lib.hhCooldownFallback = (lib.hhCooldownFallback or 0) + 1 return end
+		end
+		cooldown:Clear()
 	end
+	lib.hhSetOrClearCooldown = SetOrClearCooldown
 
 	function UpdateCooldown(self)
 		local cooldownInfo = self:GetCooldownInfo() or defaultCooldownInfo
 		local chargeInfo = self:GetChargeInfo() or defaultChargeInfo
 		local locInfo = self:GetLoCCooldownInfo() or defaultLossOfControlInfo
 
-		-- HogTron UI patch: tables without isActive (older shapes) leave the call to the duration object
-		local function active(v) if v == nil then return true end return v end
-		local showLoC = locInfo.isActive
-		local showCharge = not locInfo.shouldReplaceNormalCooldown and chargeInfo.isActive
-		local showNormal = not locInfo.shouldReplaceNormalCooldown and active(cooldownInfo.isActive)
+		local replace = readFlag(locInfo.shouldReplaceNormalCooldown, false, false)
+		local showLoC = readFlag(locInfo.isActive, false, true)
+		local showCharge = not replace and readFlag(chargeInfo.isActive, false, true)
+		local showNormal = not replace and readFlag(cooldownInfo.isActive, true, true)   -- no field (older shape): draw
 
-		SetOrClearCooldown(self.cooldown, showNormal, self:GetCooldownDuration())
+		SetOrClearCooldown(self.cooldown, showNormal, self:GetCooldownDuration(), cooldownInfo)
 		SetOrClearCooldown(self.chargeCooldown, showCharge, self:GetChargeDuration())
 		SetOrClearCooldown(self.lossOfControlCooldown, showLoC, self:GetLoCCooldownDuration())
 	end
@@ -2241,6 +2258,20 @@ else
 				end
 				CooldownFrame_Set(self.cooldown, start, duration, enable, false, modRate)
 			end
+		end
+	end
+end
+
+-- HogTron UI patch (2026-10-17): every cooldown update is guarded - the cooldown event updates every button in one loop,
+-- and one throw used to end that loop for all of them. Failures are counted for /hh barsdiag (diag.barsLive).
+do
+	local inner = UpdateCooldown
+	lib.hhUpdateCooldownInner = inner
+	function UpdateCooldown(self)
+		local ok, err = pcall(inner, self)
+		if not ok then
+			lib.hhCooldownErrors = (lib.hhCooldownErrors or 0) + 1
+			lib.hhLastCooldownError = tostring(err)
 		end
 	end
 end

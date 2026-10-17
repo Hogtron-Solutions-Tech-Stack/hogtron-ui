@@ -469,6 +469,22 @@ function Extra.StartRefresh()
     Extra.QueueRefresh()
   end)
   Extra.refreshFrame = f
+  if C_Timer and C_Timer.NewTicker then
+    -- the lib's own counters, saved every 3 s (Sean 2026-10-17: no command to type - the next /reload carries them)
+    Extra.liveTicker = C_Timer.NewTicker(3, function() pcall(Extra.SaveLive) end)
+  end
+end
+
+function Extra.SaveLive()
+  local lab = Bars.Lib and Bars.Lib()
+  local g = HH.db and HH.db.global
+  if not lab or not g then return nil end
+  g.diag = g.diag or {}
+  g.diag.barsLive = { at = date and date("%Y-%m-%d %H:%M:%S") or "?", path = lab.cooldownPath,
+    cooldownErrors = lab.hhCooldownErrors or 0, lastCooldownError = lab.hhLastCooldownError,
+    cooldownFallback = lab.hhCooldownFallback or 0, secretUsable = lab.hhSecretUsableCount or 0,
+    updateErrors = lab.hhUpdateErrors or 0, lastUpdateError = lab.hhLastUpdateError, secretUsableRefresh = Extra.secretUsable or 0 }
+  return g.diag.barsLive
 end
 
 function Extra.BtnDiagLines()
