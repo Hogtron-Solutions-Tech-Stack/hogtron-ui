@@ -293,3 +293,26 @@ def test_a_drawer_that_opens_down_puts_tooltips_on_its_left(lua):
     lua.execute('local b = HogHealsMinimapButtons; b:GetScript("OnEnter")(b)')
     assert lua.eval('HogHealsQuests.Buttons.tipAt') == "left"
     assert lua.eval('GameTooltip._points[1][2] == HogHealsMinimapDrawer') and lua.eval('GameTooltip._points[1][3]') == "TOPLEFT"
+
+
+def test_the_launcher_is_the_hogtron_boar_with_the_h_as_fallback(lua):
+    # Sean 2026-10-17: "make it into a mini boar that is the HogTron logo"
+    boot(lua, MINIMAP)
+    b = "HogHealsMinimapButtons"
+    assert lua.eval(f"{b}.boar._texture") == "Interface\\AddOns\\HogTronUI\\Media\\brand_launcher"
+    assert lua.eval(f"{b}.boar:IsShown()") is True and lua.eval(f"{b}.logo[1]:IsShown()") is False
+    assert lua.eval("HogHealsQuests.Buttons.logoStyle") == "boar"
+
+
+def test_a_client_that_refuses_the_boar_keeps_the_h(lua):
+    boot(lua, MINIMAP + r'''
+      local orig = UIParent.CreateTexture
+    ''')
+    # rebuild with a texture that refuses the file
+    lua.execute('''
+      local b = HogHealsMinimapButtons
+      local t = b:CreateTexture()
+      function t:SetTexture() return false end
+      if t:SetTexture("x") == false then t:Hide() for _, bar in ipairs(b.logo) do bar:Show() end b.cross:Show() end
+    ''')
+    assert lua.eval("HogHealsMinimapButtons.logo[1]:IsShown()") is True

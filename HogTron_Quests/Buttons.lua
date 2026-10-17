@@ -22,6 +22,7 @@ local CREAM = { 0.96, 0.92, 0.86 }
 local GREY = { 0.55, 0.55, 0.60 }
 local CELL = { 0.17, 0.17, 0.21 }   -- the square under each icon: lighter than the drawer so dark icons read
 local PAD = 4          -- gap between cells and to the drawer edge
+local BOAR = "Interface\\AddOns\\HogTronUI\\Media\\brand_launcher"
 local LAUNCHER = 28    -- the H button, px (Sean 2026-10-17: 18 was "way smaller" than the map; the logo scales with it)
 local AWAY = 1.0       -- seconds the cursor must be off the drawer before it closes itself
 
@@ -129,6 +130,20 @@ local function build()
   b.cross = solid(b, "ARTWORK", CYAN)
   b.cross:SetSize(math.floor(8 * k + 0.5), math.floor(2 * k + 0.5))
   b.cross:SetPoint("CENTER", b, "CENTER", 0, 0)
+  -- the HogTron boar (Sean 2026-10-17: "now that it's a bigger icon, looks bad ... make it into a mini boar that is the
+  -- HogTron logo"): the logo's own head, cut from the brand vector layers (dev/icons/build_launcher_boar.py), with a
+  -- cyan rim for the dark tile. The drawn H stays as the fallback when the client refuses the file.
+  b.boar = b:CreateTexture(nil, "ARTWORK", nil, 2)
+  b.boar:SetPoint("TOPLEFT", b, "TOPLEFT", 1, -1)
+  b.boar:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -1, 1)
+  if b.boar:SetTexture(BOAR) == false then
+    b.boar:Hide()
+    Drawer.logoStyle = "H"
+  else
+    for _, bar in ipairs(b.logo) do bar:Hide() end
+    b.cross:Hide()
+    Drawer.logoStyle = "boar"
+  end
   b:SetScript("OnClick", function(_, button)
     if button == "RightButton" then
       if HH.OpenOptions then HH:OpenOptions() end
