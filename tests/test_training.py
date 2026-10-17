@@ -156,3 +156,18 @@ def test_a_slow_client_whose_echo_comes_late_is_capped_per_visit(tr):
     assert tr.eval("SET_CALLS") <= 4 * 6
     tr.execute('MockFire("TRAINER_SHOW"); MockAdvance(0.01)')                  # a new visit starts fresh
     assert tr.eval(f"{T}.reads") == 1
+
+
+
+def test_a_list_that_arrives_after_the_window_is_still_read(tr):
+    # in game 2026-10-17 after the freeze fix: mage trainer, 4 visits, 0 spells remembered - the services arrive a moment
+    # after TRAINER_SHOW, and the quiet window then took the client's real TRAINER_UPDATE for our own echo
+    tr.execute(STORM + "HH_SERV = SERVICES; SERVICES = {}")
+    tr.execute('MockFire("TRAINER_SHOW")')
+    tr.execute("MockAdvance(0.05)")
+    assert tr.eval(f"{T}.db().visits") == 0                                    # an empty read is not a visit
+    tr.execute('SERVICES = HH_SERV; MockFire("TRAINER_UPDATE")')            # the list arrives
+    for _ in range(40):
+        tr.execute("MockAdvance(0.05)")
+    assert tr.eval(f"{T}.db().visits") == 1 and tr.eval(f"{T}.lastLearn") == 6
+    assert tr.eval("SET_CALLS") <= 24

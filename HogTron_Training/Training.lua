@@ -83,6 +83,7 @@ function T.Learn()
   if type(setF) == "function" then
     for _, k in ipairs(FILTERS) do if before[k] ~= nil then pcall(setF, k, before[k] and true or false) end end
   end
+  if recorded == 0 then return 0 end                     -- nothing read yet: not a visit (the list is still coming)
   db.visits = (db.visits or 0) + 1
   db.lastSeen = today()
   db.trainer = str(call(UnitName, "npc")) or db.trainer
@@ -302,7 +303,9 @@ function T.Schedule(why)
     T.learning = true
     local ok, n, whyNot = pcall(T.Learn)
     T.learning = false
-    T.quietUntil = T.Now() + T.QUIET
+    -- an EMPTY read (in game 2026-10-17: mage trainer, 4 visits, 0 spells - the list arrives a moment after the window)
+    -- starts no quiet window, so the client's real TRAINER_UPDATE with the list is read (still capped per visit)
+    T.quietUntil = (ok and (n or 0) > 0) and (T.Now() + T.QUIET) or 0
     if not ok then HH:LogError("training read: " .. tostring(n)) n, whyNot = nil, "error" end
     if n and why == "show" then HH:Print(("training: %d services remembered from this trainer."):format(n)) end
     T.lastLearn = n or whyNot
