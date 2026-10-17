@@ -232,7 +232,7 @@ HH.defaults = {
       -- map went black); the tabard designer needs its art
       panels = { enabled = true, alpha = 0.9, titleSize = 13, skip = { WorldMapFrame = true, TaxiFrame = true, TabardFrame = true } },
       auto = { sellJunk = true, repair = true, guildRepair = false },
-      micro = { enabled = true, scale = 1, strip = true, size = 30, tint = true, tintStrength = 0.6 },   -- strip: HogTron UI glyph buttons instead of Blizzard's art; point/x/y once dragged; tint = colour per glyph
+      micro = { enabled = true, scale = 1, strip = true, size = 40, tint = true, tintStrength = 0.6, accent = true },   -- size 30 -> 40 + accent: Sean 2026-10-17 "bigger by default and more distinct"   -- strip: HogTron UI glyph buttons instead of Blizzard's art; point/x/y once dragged; tint = colour per glyph
       bagBar = { enabled = true, mode = "button", scale = 1.2 },   -- mode: button = one Bags cell in the menu bar (slots hidden) | slots = Blizzard's slots flattened; scale for slots
       bags = { enabled = true, qualityMin = 2, fontSize = 12, backgroundAlpha = 0.85 },
       -- anchor = tooltips with no spot of their own dock to the HogHealsTooltipAnchor box (drag it in /hh unlock; the
