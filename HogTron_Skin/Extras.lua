@@ -177,10 +177,25 @@ end
 
 -- Blizzard's experience bar off while the HogTron UI bar owns it (HH.XPBarOwned, HogTron_HUD/XPBar.lua), back when not.
 Part.XP_FRAMES = { "StatusTrackingBarManager", "MainMenuExpBar", "ReputationWatchBar" }
+-- The containers too (Sean 2026-10-17, new character: the lower half of action bar 1 took no hover, no tooltip).
+-- On this engine the XP bars live in MainStatusTrackingBarContainer / SecondaryStatusTrackingBarContainer, their own
+-- Edit Mode frames at the bottom centre - hiding the manager did not hide them. Invisible at 0% XP, but they take the
+-- mouse (their own XP text on hover), right where bar 1 sits.
+function Part.XPFrames()
+  local out, seen = {}, {}
+  local function add(f) if type(f) == "table" and not seen[f] then seen[f] = true out[#out + 1] = f end end
+  for _, name in ipairs(Part.XP_FRAMES) do add(Skin.G(name)) end
+  local mgr = rawget(_G, "StatusTrackingBarManager")
+  for _, key in ipairs(Part.XP_CONTAINERS) do
+    add(rawget(_G, key))
+    if type(mgr) == "table" then add(rawget(mgr, key)) end
+  end
+  return out
+end
+
 function Part.HideBlizzardXP(hide)
   local n = 0
-  for _, name in ipairs(Part.XP_FRAMES) do
-    local f = Skin.G(name)
+  for _, f in ipairs(Part.XPFrames()) do
     if type(f) == "table" and f.Hide then
       if hide then
         f.hhUnhidden = nil
