@@ -19,6 +19,7 @@ local CYAN = { 0.13, 0.83, 0.88 }
 local LINE = { 0.20, 0.20, 0.25 }
 local INK = { 0.10, 0.10, 0.12 }
 Bars.SIZE = 36            -- button size before the bar's scale
+Bars.LEVEL = 30           -- frame level of our bars (Blizzard's bottom-of-screen frames sit well under it)
 Bars.PAGES = 14           -- states bar 1 carries (pages 1-6, bonus 7-10, vehicle / shapeshift / override 12-14)
 
 local function cfg() return HH.db.profile.bars end
@@ -237,6 +238,10 @@ function Bars.Create(n)
   bar:SetMovable(true)
   bar:SetClampedToScreen(true)
   bar:SetFrameStrata("MEDIUM")
+  -- above anything Blizzard leaves on the same strata at the bottom of the screen (its emptied main bar frame, the XP
+  -- bar containers): with equal strata the higher level gets the mouse (Sean 2026-10-17: the lower half of bar 1 took
+  -- no hover). Set before the buttons exist, so they are created above it.
+  if bar.SetFrameLevel then bar:SetFrameLevel(Bars.LEVEL) end
   bar.hhOurs = true
   for i = 1, 12 do
     local b = lib:CreateButton(i, ("HogUIBar%dButton%d"):format(n, i), bar, Bars.ButtonConfig(n, i))
@@ -399,6 +404,20 @@ local function quiet(o)
 end
 Bars.Quiet = quiet
 
+--- Blizzard's main bar FRAME stays (classic clients keep the XP bar and menu buttons on it), but with its buttons gone
+-- it is an empty rectangle at the bottom centre - exactly where bar 1 sits - and it must not take the mouse there.
+-- Out of combat only (it may be protected); what it had is kept for the day Bars is switched off.
+local mouseWas = setmetatable({}, { __mode = "k" })
+function Bars.Unmouse(f)
+  if type(f) ~= "table" or not f.EnableMouse then return false end
+  if InCombatLockdown and InCombatLockdown() then HH:RunOutOfCombat(Bars.Unmouse, f) return false end
+  if mouseWas[f] == nil then mouseWas[f] = call(f.IsMouseEnabled, f) and true or false end
+  call(f.EnableMouse, f, false)
+  if f.EnableMouseWheel then call(f.EnableMouseWheel, f, false) end
+  Bars.unmoused = (Bars.unmoused or 0) + 1
+  return true
+end
+
 --- The main bar's own art off, the frame itself left in place. Returns how many pieces it quieted.
 function Bars.HideMainArt()
   local n, names, kind = 0, {}, "none"
@@ -424,6 +443,7 @@ function Bars.HideMainArt()
         for _, c in ipairs(all(bar.GetChildren, bar)) do
           one(c, name .. ">" .. tostring(call(c.GetName, c) or call(c.GetObjectType, c)))
         end
+        Bars.Unmouse(bar)
         if not hookedBars[bar] and type(hooksecurefunc) == "function" then
           hookedBars[bar] = true
           for _, m in ipairs(Bars.MAIN_ART_HOOKS) do
@@ -439,6 +459,60 @@ function Bars.HideMainArt()
   end
   Bars.mainArt = { kind = kind, count = n, names = table.concat(names, ",") }
   return n
+end
+
+-- ------------------------------------------------------------------------------------------------ who has the mouse
+-- Sean 2026-10-17, for the third time: hovering the middle / lower part of a bar-1 button does nothing. Whatever holds
+-- the mouse there is recorded on its own - no command to type: while the cursor is inside bar 1 and the frame the
+-- client hands the mouse to is not one of our buttons, its name, parent, strata and level are counted into
+-- diag.barsMouse (saved on the next /reload or logout). "nothing" = no frame takes the mouse there at all.
+Bars.thieves = {}
+Bars.MAX_THIEVES = 8
+
+local function focusFrame()
+  local foci = rawget(_G, "GetMouseFoci")
+  if type(foci) == "function" then
+    local ok, list = pcall(foci)
+    return ok and type(list) == "table" and list[1] or nil
+  end
+  local gf = rawget(_G, "GetMouseFocus")
+  if type(gf) == "function" then local ok, v = pcall(gf) return ok and v or nil end
+  return nil
+end
+
+function Bars.MouseProbe()
+  local bar = Bars.bars[1]
+  if type(bar) ~= "table" or not call(bar.IsShown, bar) or not call(bar.IsMouseOver, bar) then return nil end
+  local f = focusFrame()
+  local key
+  if type(f) ~= "table" then
+    key = "nothing (no frame takes the mouse here)"
+  elseif rawget(f, "hhBar") or f == bar then
+    return "ours"
+  else
+    local name = call(f.GetName, f)
+    local p = call(f.GetParent, f)
+    local pn = type(p) == "table" and call(p.GetName, p) or nil
+    key = ("%s < %s [%s L%s]%s"):format(tostring(name or ("<" .. tostring(call(f.GetObjectType, f)) .. ">")), tostring(pn or "?"),
+      tostring(call(f.GetFrameStrata, f)), tostring(call(f.GetFrameLevel, f)), call(f.IsProtected, f) and " protected" or "")
+  end
+  if Bars.thieves[key] == nil then
+    local n = 0
+    for _ in pairs(Bars.thieves) do n = n + 1 end
+    if n >= Bars.MAX_THIEVES then return key end
+  end
+  Bars.thieves[key] = (Bars.thieves[key] or 0) + 1
+  local list = {}
+  for k, c in pairs(Bars.thieves) do list[#list + 1] = k .. " x" .. c end
+  table.sort(list)
+  local g = HH.db and HH.db.global
+  if g then g.diag = g.diag or {} g.diag.barsMouse = { at = date and date("%Y-%m-%d %H:%M:%S") or "?", list = table.concat(list, " | ") } end
+  return key
+end
+
+function Bars.StartMouseProbe()
+  if Bars.mouseTicker or not (C_Timer and C_Timer.NewTicker) then return end
+  Bars.mouseTicker = C_Timer.NewTicker(0.25, function() pcall(Bars.MouseProbe) end)
 end
 
 -- ------------------------------------------------------------------------------------------------ build / refresh
@@ -576,6 +650,7 @@ function Module:OnEnable()
   end
   Bars.Apply("enable")
   HH:SafeCall(HHB.Extra, "StartRefresh")   -- our own checked / usable refresh (Forever drops some of the lib's events)
+  Bars.StartMouseProbe()
   local ev = CreateFrame("Frame")
   pcall(ev.RegisterEvent, ev, "PLAYER_ENTERING_WORLD")
   pcall(ev.RegisterEvent, ev, "UPDATE_BINDINGS")
@@ -641,6 +716,9 @@ HH:RegisterSlash("barsdiag", function()
   HH:Print(("bars: lib %s; %d bars built, %d Blizzard pieces hidden; found %d, missing %d"):format(Bars.Lib() and "loaded" or "MISSING", Bars.built or 0, Bars.hidden or 0, #f, #m))
   if #m > 0 then HH:Print("  missing: " .. table.concat(m, ", ")) end
   do
+    local list = {}
+    for k, c in pairs(Bars.thieves or {}) do list[#list + 1] = k .. " x" .. c end
+    HH:Print("bars: who had the mouse inside bar 1 (not ours): " .. (#list > 0 and table.concat(list, " | ") or "nobody so far"))
     local a = Bars.mainArt or {}
     HH:Print(("bars: Blizzard's main bar art: %s, %d pieces hidden%s"):format(tostring(a.kind or "not run"), a.count or 0,
       (a.names and a.names ~= "") and (" (" .. a.names .. ")") or ""))

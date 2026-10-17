@@ -702,3 +702,32 @@ def test_skin_clears_forevers_gryphons_when_bars_is_off(lua):
     assert lua.eval("MainActionBar.EndCaps.RightEndCap._alpha") == 0
     assert lua.eval("MainActionBar.BorderArt._alpha") == 0
     assert [e["msg"] for e in lua.eval('HogHeals.errors').values()] == []
+
+
+
+# ---------------------------------------------------------------- the lower half of bar 1 (2026-10-17, third report)
+def test_our_bars_sit_above_blizzards_bottom_frames(forever):
+    assert forever.eval("HogUIBar1:GetFrameLevel()") == forever.eval("HogHealsBars.Bars.LEVEL")
+    assert forever.eval("HogUIBar1.buttons[1]:GetFrameLevel()") > forever.eval("HogHealsBars.Bars.LEVEL")
+
+
+def test_blizzards_emptied_main_bar_takes_no_mouse(forever):
+    assert forever.eval("MainActionBar._last.EnableMouse[1]") is False
+
+
+def test_whoever_holds_the_mouse_inside_bar_1_is_recorded(forever):
+    forever.execute("""
+      function HogUIBar1:IsMouseOver() return true end
+      HH_focus = MainActionBar
+      function GetMouseFoci() return { HH_focus } end
+    """)
+    B = "HogHealsBars.Bars"
+    assert "MainActionBar < UIParent [" in forever.eval(f"{B}.MouseProbe()")
+    forever.execute(f"{B}.MouseProbe()")
+    assert "MainActionBar < UIParent" in forever.eval("HogHeals.db.global.diag.barsMouse.list") and " x2" in forever.eval("HogHeals.db.global.diag.barsMouse.list")
+    forever.execute("HH_focus = HogUIBar1.buttons[3]")
+    assert forever.eval(f"{B}.MouseProbe()") == "ours"
+    forever.execute("HH_focus = nil")
+    assert forever.eval(f"{B}.MouseProbe()").startswith("nothing")
+    forever.execute('MockLog.chat = {}; HogHeals:SlashCommand("barsdiag")')
+    assert any("who had the mouse inside bar 1" in l and "MainActionBar" in l for l in forever.eval("MockLog.chat").values())
