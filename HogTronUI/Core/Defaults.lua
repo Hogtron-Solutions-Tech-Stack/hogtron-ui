@@ -198,7 +198,8 @@ HH.defaults = {
       -- swing timer (Swing.lua): auto-attack / Auto Shot bar under the cast bar; showSwing above is the on / off
       -- swing: width 0 = as wide as the strip, else its own width centred on it; spark = bright head on the fill; outline = 1 px
       -- ink frame; fontSize 0 = the strip's font one step larger (Sean 2026-10-05: bigger, wider, cleaner)
-      swing = { color = { 0.96, 0.92, 0.86 }, text = true, precision = 1, hideWhenIdle = true, width = 0, spark = true, outline = true, fontSize = 0 },
+      swing = { color = { 0.96, 0.92, 0.86 }, text = true, precision = 1, hideWhenIdle = true, width = 0, spark = true, outline = true, fontSize = 0,
+        art = true, glow = true, motes = true, flash = true },   -- the animated look (Sean 2026-10-17); art off = the plain bar in `color`
       mana = { textMode = "cur", showTicks = true, showFsrText = true, fsrColor = { 0.13, 0.83, 0.88 }, tickColor = { 0.96, 0.92, 0.86 } },
       -- experience bar (XPBar.lua): showXP above is the on / off. questMode "complete" = reward xp of the quests ready
       -- to turn in, "all" = every quest in the log; hideAtMax = gone at the level cap; fontSize 0 = strip font one step smaller
