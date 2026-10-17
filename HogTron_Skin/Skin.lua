@@ -344,9 +344,19 @@ HH:RegisterSlash("skindiag", function()
   end
   local g = HH.db and HH.db.global
   local xp = (HHS.Extras and HHS.Extras.ProbeXP) and HHS.Extras.ProbeXP() or {}
+  local keepWindows = g and g.diag and g.diag.skin and g.diag.skin.windows
   if g then g.diag = g.diag or {} g.diag.skin = { found = table.concat(f, ","), missing = table.concat(m, ","), xp = table.concat(xp, " ; "),
     micro = micro and micro.containerDiag or nil, bags = micro and micro.bagDiag or nil,
     bagCount = micro and micro.bagCount or nil, bagNames = micro and micro.bagNames or nil, barAnchor = micro and micro.barAnchor or nil,
     overlays = micro and micro.bagOverlayDiag or nil } end
+  if g and g.diag and g.diag.skin and keepWindows then g.diag.skin.windows = keepWindows end
+  do
+    local P = HHS.Panels
+    local list = {}
+    for n, c in pairs(P and P.shows or {}) do list[#list + 1] = n .. "=" .. c end
+    table.sort(list)
+    HH:Print("  windows shown this session: " .. (#list > 0 and table.concat(list, ", ") or "none"))
+    if g and g.diag and g.diag.skin then g.diag.skin.shows = table.concat(list, ",") end
+  end
   if #xp > 0 then HH:Print(("  xp bar textures: %d recorded (diag.skin.xp)"):format(#xp)) end
 end, "which Blizzard frames the skin found / could not find on this client")
