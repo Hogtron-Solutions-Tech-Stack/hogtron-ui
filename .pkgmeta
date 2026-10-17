@@ -35,4 +35,5 @@ ignore:
   - .gitattributes
   - requirements-dev.txt
   - README.md
+  - CLAUDE.md
   - HogTron_Awards/assets/awards/*.png
