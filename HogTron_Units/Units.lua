@@ -869,3 +869,77 @@ HH:RegisterSlash("units", function(arg)
     HH:Print("/hh units lock | unlock | reset")
   end
 end, "unit frames: lock | unlock | reset positions")
+
+-- ------------------------------------------------------------------------------------------------ name probe
+-- Sean 2026-10-17: "first and last name on the unit frames as a default". WoW: Forever draws "Crispin Hogfire" over the
+-- head while UnitName gives "Crispin", and which call returns the last name is not known yet. /hh namediag records
+-- every candidate for the player and the target, every global / C_* function whose name mentions a surname / last /
+-- full / family name (called with "player"), and the text Blizzard's own nameplate shows - then we build on the answer.
+Units.NAME_PATTERNS = { "[Ss]urname", "[Ll]ast[Nn]ame", "[Ff]ull[Nn]ame", "[Ff]amily[Nn]ame", "[Ss]econd[Nn]ame" }
+
+local function showValue(v)
+  if HH.IsSecret and HH.IsSecret(v) then return "<secret>" end
+  if type(v) == "string" then return ("%q"):format(v) end
+  return tostring(v)
+end
+
+function Units.NameProbe()
+  local out = {}
+  local function try(label, f, ...)
+    if type(f) ~= "function" then out[#out + 1] = label .. " = <missing>" return end
+    local r = { pcall(f, ...) }
+    if not r[1] then out[#out + 1] = label .. " ! " .. tostring(r[2]) return end
+    local parts = {}
+    for i = 2, math.min(table.maxn(r), 5) do parts[#parts + 1] = showValue(r[i]) end
+    out[#out + 1] = label .. " = " .. (#parts > 0 and table.concat(parts, ", ") or "(nothing)")
+  end
+  for _, u in ipairs({ "player", "target" }) do
+    try(u .. " UnitName", rawget(_G, "UnitName"), u)
+    try(u .. " UnitFullName", rawget(_G, "UnitFullName"), u)
+    try(u .. " GetUnitName(true)", rawget(_G, "GetUnitName"), u, true)
+    try(u .. " UnitNameUnmodified", rawget(_G, "UnitNameUnmodified"), u)
+    try(u .. " UnitPVPName", rawget(_G, "UnitPVPName"), u)
+  end
+  -- anything the client has that sounds like it
+  local found = {}
+  local function match(k)
+    for _, p in ipairs(Units.NAME_PATTERNS) do if k:find(p) then return true end end
+    return false
+  end
+  for k, v in pairs(_G) do
+    if type(k) == "string" then
+      if type(v) == "function" and match(k) then found[#found + 1] = k
+      elseif type(v) == "table" and k:find("^C_") then
+        for k2, v2 in pairs(v) do
+          if type(k2) == "string" and type(v2) == "function" and match(k2) then found[#found + 1] = k .. "." .. k2 end
+        end
+      end
+    end
+  end
+  table.sort(found)
+  out[#out + 1] = "functions: " .. (#found > 0 and table.concat(found, ", ") or "none")
+  for i = 1, math.min(#found, 16) do
+    local a, b = found[i]:match("^([^%.]+)%.(.+)$")
+    local f = a and type(rawget(_G, a)) == "table" and rawget(_G, a)[b] or rawget(_G, found[i])
+    try(found[i] .. '("player")', f, "player")
+  end
+  -- what Blizzard's own nameplate prints
+  local np = rawget(_G, "C_NamePlate")
+  for _, u in ipairs({ "target", "player" }) do
+    local ok, plate = pcall(function() return np and np.GetNamePlateForUnit and np.GetNamePlateForUnit(u) end)
+    local uf = ok and type(plate) == "table" and rawget(plate, "UnitFrame") or nil
+    local fs = type(uf) == "table" and rawget(uf, "name") or nil
+    if type(fs) == "table" and fs.GetText then try(u .. " nameplate text", fs.GetText, fs)
+    else out[#out + 1] = u .. " nameplate text = <no plate>" end
+  end
+  Units.nameProbe = out
+  return out
+end
+
+HH:RegisterSlash("namediag", function()
+  local out = Units.NameProbe()
+  HH:Print(("namediag: %d lines (all saved to diag.names); target someone with a last name first"):format(#out))
+  for i = 1, math.min(#out, 24) do HH:Print("  " .. out[i]) end
+  local g = HH.db and HH.db.global
+  if g then g.diag = g.diag or {} g.diag.names = { at = date and date("%Y-%m-%d %H:%M:%S") or "?", lines = table.concat(out, "\n") } end
+end, "which call gives a last name on this client (for first + last name on the unit frames)")
