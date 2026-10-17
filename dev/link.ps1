@@ -17,7 +17,7 @@ param(
 )
 
 $repo = Split-Path -Parent $PSScriptRoot
-$addons = @("HogTronUI", "HogHeals", "HogHeals_Frames", "HogTron_Atlas", "HogTron_Bars", "HogTron_Chat", "HogTron_HUD", "HogTron_Meter", "HogTron_Plates", "HogTron_Quests", "HogTron_Skin", "HogTron_Training", "HogTron_Units", "HogTron_Journal")
+$addons = @("HogTronUI", "HogHeals", "HogHeals_Frames", "HogTron_Atlas", "HogTron_Bars", "HogTron_Chat", "HogTron_HUD", "HogTron_Meter", "HogTron_Plates", "HogTron_Quests", "HogTron_Skin", "HogTron_Training", "HogTron_Units", "HogTron_Awards", "HogTron_Journal")
 $map = @{ anniversary = "_anniversary_"; era = "_classic_era_"; retail = "_retail_"; beta = "_classic_beta_" }
 $targets = if ($Client -eq "all") { @("anniversary", "era") } else { @($Client) }
 

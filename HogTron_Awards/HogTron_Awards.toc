@@ -1,0 +1,15 @@
+## Interface: 20505,20506,11508,11509,16001
+## Title: |cffF5EBDCHog|r|cff21D4E0Tron UI|r Awards
+## Notes: HogTron Awards: end-of-run awards for dungeons, raids and battlegrounds. Five players on stage, honors and roasts, the same screen for the whole group.
+## Author: HogTron Solutions (Sean Bilger)
+## Version: @project-version@
+## Dependencies: HogTronUI
+## X-License: MIT
+
+data\awards.lua
+data\finalbosses.lua
+Metrics.lua
+Resolve.lua
+Sync.lua
+UI.lua
+Awards.lua

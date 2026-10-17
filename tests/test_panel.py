@@ -245,12 +245,15 @@ def test_compact_footer_carries_the_modules_actions(panel):
     assert panel.eval(f"{P}.frame.footer:IsShown()") is False
 
 
-def test_painted_menus_by_default_flat_on_request(lua):
-    # Sean 2026-10-14 night: "redo our own menus and make them really nice" - the OpenArt slate / brass skin
+def test_flat_menus_by_default_painted_on_request(lua):
+    # 2026-10-14 night: the OpenArt slate / brass skin was the default; Sean 2026-10-16 in game: "this looks terrible
+    # ... let's go back to a flat look" -> flat is the default, painted stays one switch away (/hh look, setup guide)
     import pathlib
     lua.load_addon("HogTronUI")
     lua.player_login()
     lua.execute("HogHeals.Panel.Open()")
+    assert lua.eval("HogHeals.Panel.artOn") is False and lua.eval("HogHeals.defaults.profile.look.menus") == "flat"
+    lua.execute('HogHeals.db.profile.look.menus = "art"; HogHeals.Panel.ApplyArt()')
     f = "HogHealsPanel"
     media = pathlib.Path(__file__).resolve().parents[1] / "HogTronUI" / "Media"
     for n in ("menu_bg", "menu_corner", "menu_edge_h", "menu_edge_v", "menu_header", "menu_side"):

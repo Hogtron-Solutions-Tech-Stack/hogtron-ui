@@ -127,7 +127,7 @@ def render_args(args, get_ctx):
         order = opt.get("order")
         if callable(order):
             order = 100
-        items.append((float(order or 100), str(key), opt))
+        items.append((100.0 if order is None else float(order), str(key), opt))     # order 0 is a real order (sorted first)
     items.sort(key=lambda x: (x[0], x[1]))
     return [widget_html(k, o, get_ctx) for _, k, o in items]
 
