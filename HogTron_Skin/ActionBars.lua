@@ -35,6 +35,9 @@ Part.ART_PATHS = {
   "MainMenuBar.EndCaps.LeftEndCap", "MainMenuBar.EndCaps.RightEndCap", "MainMenuBar.BorderArt", "MainMenuBar.Background",
   "MainMenuBar.ArtFrame.Background", "MainMenuBarArtFrame.Background", "StanceBar.BarArt", "PetActionBar.BarArt",
   "MultiBarBottomLeft.BarArt", "MultiBarBottomRight.BarArt",
+  -- WoW: Forever's engine renamed the bar: MainActionBar (every MainMenuBar.* path above is missing there)
+  "MainActionBar.EndCaps.LeftEndCap", "MainActionBar.EndCaps.RightEndCap", "MainActionBar.BorderArt",
+  "MainActionBar.Background",
 }
 Part.HIDE = { "ActionBarUpButton", "ActionBarDownButton", "MainMenuBarPerformanceBarFrame", "MainMenuBarVehicleLeaveButton" }
 

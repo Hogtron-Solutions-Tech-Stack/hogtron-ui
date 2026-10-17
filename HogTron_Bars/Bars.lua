@@ -339,6 +339,108 @@ function Bars.HideBlizzard()
   return n
 end
 
+-- ------------------------------------------------------------------------------------------------ the main bar's art
+-- Blizzard's main bar FRAME stays (classic clients hang the XP bar, bags and menu buttons on it), but with our bars up
+-- none of its own art may show: the gryphons, the slot frame and its dividers, the page arrows.
+-- Sean 2026-10-17, a brand-new character: all of that drawn under our bars. Two causes. Skin's art pass yields as soon
+-- as Bars is on, so nobody cleared it; and Skin only knew it as MainMenuBar.*, which WoW: Forever does not have (every
+-- MainMenuBar.* path sat in skin.missing on disk; the client's Edit Mode names the bar MainActionBar). Older characters
+-- looked clean only because their Edit Mode layout had "Hide Bar Art" ticked; a new character starts on Blizzard's
+-- preset layout, art on.
+Bars.MAIN_BARS = { "MainActionBar", "MainMenuBar" }
+-- classic-era clients: named globals (the frame's other children - XP bar, bags, menu buttons - are left alone)
+Bars.CLASSIC_ART = {
+  "MainMenuBarTexture0", "MainMenuBarTexture1", "MainMenuBarTexture2", "MainMenuBarTexture3",
+  "MainMenuBarLeftEndCap", "MainMenuBarRightEndCap", "MainMenuBarPageNumber", "MainMenuBarArtFrameBackground",
+  "MainMenuMaxLevelBar0", "MainMenuMaxLevelBar1", "MainMenuMaxLevelBar2", "MainMenuMaxLevelBar3",
+}
+-- the newer engine keeps its art under keys of the bar; any of these marks the bar as that kind
+Bars.MODERN_KEYS = { "EndCaps", "BorderArt", "ActionBarPageNumber" }
+-- Blizzard methods that rebuild the art (dividers come from a pool on every layout change): our pass runs after them
+Bars.MAIN_ART_HOOKS = { "UpdateDividers", "UpdateEndCaps", "UpdateSystemSettingHideBarArt", "UpdateGridLayout" }
+
+local quieted = setmetatable({}, { __mode = "k" })   -- side tables: no fields written on Blizzard's objects
+local busy = setmetatable({}, { __mode = "k" })
+local hookedBars = setmetatable({}, { __mode = "k" })
+
+local function barsOn() local d = HH.db and HH.db.profile.bars return d ~= nil and d.enabled ~= false end
+
+--- Every return value of a method that returns a list (GetRegions / GetChildren); {} when it errors.
+local function all(f, obj)
+  if type(f) ~= "function" then return {} end
+  local r = { pcall(f, obj) }
+  if not r[1] then return {} end
+  table.remove(r, 1)
+  return r
+end
+
+--- One Blizzard art piece off and kept off: hidden + alpha 0; Blizzard's next Show / SetShown / SetAlpha is undone.
+-- Never a secure button (an action button is never art) and never a protected frame.
+local function quiet(o)
+  if type(o) ~= "table" or rawget(o, "hhOurs") then return false end
+  local kind = call(o.GetObjectType, o)
+  if kind == "CheckButton" or call(o.IsProtected, o) then return false end
+  call(o.SetAlpha, o, 0)
+  call(o.Hide, o)
+  if not quieted[o] and type(hooksecurefunc) == "function" then
+    quieted[o] = true
+    local function again(self)
+      if busy[self] or not barsOn() then return end
+      busy[self] = true
+      call(self.SetAlpha, self, 0)
+      call(self.Hide, self)
+      busy[self] = nil
+    end
+    for _, m in ipairs({ "Show", "SetShown", "SetAlpha" }) do
+      if type(o[m]) == "function" then pcall(hooksecurefunc, o, m, again) end
+    end
+  end
+  return true
+end
+Bars.Quiet = quiet
+
+--- The main bar's own art off, the frame itself left in place. Returns how many pieces it quieted.
+function Bars.HideMainArt()
+  local n, names, kind = 0, {}, "none"
+  local function one(o, label)
+    if quiet(o) then n = n + 1 if #names < 24 then names[#names + 1] = label end end
+  end
+  for _, name in ipairs(Bars.CLASSIC_ART) do
+    local t = rawget(_G, name)
+    if t ~= nil then Bars.found[name] = true kind = "classic" one(t, name) end
+  end
+  for _, name in ipairs(Bars.MAIN_BARS) do
+    local bar = rawget(_G, name)
+    if type(bar) == "table" then
+      Bars.found[name] = true
+      local modern = false
+      for _, k in ipairs(Bars.MODERN_KEYS) do if rawget(bar, k) ~= nil then modern = true end end
+      if modern then
+        kind = "modern:" .. name
+        -- the newer engine: what is still on the bar once its buttons went under the hider is art
+        for _, k in ipairs(Bars.MODERN_KEYS) do one(rawget(bar, k), name .. "." .. k) end
+        one(rawget(bar, "Background"), name .. ".Background")
+        for _, r in ipairs(all(bar.GetRegions, bar)) do one(r, name .. ":" .. tostring(call(r.GetObjectType, r))) end
+        for _, c in ipairs(all(bar.GetChildren, bar)) do
+          one(c, name .. ">" .. tostring(call(c.GetName, c) or call(c.GetObjectType, c)))
+        end
+        if not hookedBars[bar] and type(hooksecurefunc) == "function" then
+          hookedBars[bar] = true
+          for _, m in ipairs(Bars.MAIN_ART_HOOKS) do
+            if type(bar[m]) == "function" then
+              pcall(hooksecurefunc, bar, m, function() if barsOn() then Bars.HideMainArt() end end)
+            end
+          end
+        end
+      end
+    else
+      Bars.missing[name] = true
+    end
+  end
+  Bars.mainArt = { kind = kind, count = n, names = table.concat(names, ",") }
+  return n
+end
+
 -- ------------------------------------------------------------------------------------------------ build / refresh
 function Bars.Build(reason)
   local lib = Bars.Lib()
@@ -347,6 +449,7 @@ function Bars.Build(reason)
   local built = 0
   HH:RunOutOfCombat(function()
     Bars.HideBlizzard()
+    Bars.HideMainArt()
     for n = 1, 8 do
       local bd = cfg().list[n]
       local bar = Bars.bars[n]
@@ -537,6 +640,13 @@ HH:RegisterSlash("barsdiag", function()
   table.sort(f) table.sort(m)
   HH:Print(("bars: lib %s; %d bars built, %d Blizzard pieces hidden; found %d, missing %d"):format(Bars.Lib() and "loaded" or "MISSING", Bars.built or 0, Bars.hidden or 0, #f, #m))
   if #m > 0 then HH:Print("  missing: " .. table.concat(m, ", ")) end
+  do
+    local a = Bars.mainArt or {}
+    HH:Print(("bars: Blizzard's main bar art: %s, %d pieces hidden%s"):format(tostring(a.kind or "not run"), a.count or 0,
+      (a.names and a.names ~= "") and (" (" .. a.names .. ")") or ""))
+    local g = HH.db and HH.db.global
+    if g then g.diag = g.diag or {} g.diag.barsMainArt = { kind = a.kind, count = a.count, names = a.names } end
+  end
   for n = 1, 8 do local b = Bars.bars[n] if b and b.describe then HH:Print("  " .. b.describe()) end end
   local g = HH.db and HH.db.global
   if g then g.diag = g.diag or {} g.diag.bars = { found = table.concat(f, ","), missing = table.concat(m, ","), built = Bars.built, hidden = Bars.hidden, driver = Bars.bars[1] and Bars.bars[1].driver } end
