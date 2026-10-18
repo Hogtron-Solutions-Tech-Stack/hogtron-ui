@@ -280,6 +280,7 @@ step("plates", "Nameplates", "Plates", function()
     intro = text("The bars over heads: flat, readable, with quest mobs and your target marked."),
     target = choose("plates.target.style", "Mark my target with", { glow = "A soft glow (recommended)", brackets = "Sharp corner brackets", scale = "A bigger plate", outline = "An outline", none = "Nothing" },
       { module = "Plates", default = "glow" }),
+    nameAlign = choose("plates.nameAlign", "Name over the bar", { left = "Left, lined up with the bar", center = "Centred" }, { module = "Plates", default = "left" }),
     healthText = choose("plates.healthText", "Health text", { percent = "Percent", value = "Value", none = "None" }, { module = "Plates" }),
     castbar = toggle("plates.castbar", "Their cast bars", { module = "Plates", width = "normal" }),
     quest = toggle("plates.quest.icon", "Quest mobs: ! and progress (2/7)", { module = "Plates", width = "normal" }),
