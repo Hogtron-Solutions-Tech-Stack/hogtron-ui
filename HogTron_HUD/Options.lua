@@ -64,9 +64,18 @@ local function layoutGroup()
   } }
 end
 
+--- "Move it on its own": the bar leaves the strip and keeps its own spot (drag it in /hh unlock).
+local function detachToggle(name, order)
+  return { type = "toggle", name = "Move it on its own (out of the strip)", order = order or 0.05, width = "full",
+    desc = "Off: it sits in the HUD strip with the other bars. On: it keeps its own spot - drag it in /hh unlock.",
+    get = function() return hud()[name] and hud()[name].detached == true end,
+    set = function(_, v) HHD.HUD.Detach(name, v) end }
+end
+
 local function castbarGroup()
   local c = function() return hud().castbar end
   return { type = "group", name = "Castbar", order = 2, args = {
+    detached = detachToggle("castbar"),
     -- its own size (Sean 2026-10-18: "easily change the size of the cast bar, the mana bar ... in HH unlock")
     width = { type = "range", name = "Width (0 = as wide as the strip)", order = 0.1, min = 0, max = 800, step = 2,
       get = function() return c().width or 0 end, set = function(_, v) c().width = v; refresh() end },
@@ -102,6 +111,7 @@ local function swingGroup()
     precision = range(s, "precision", "Time decimals", 4, 0, 2, 1),
     color = colour(s, "color", "Bar colour", 5),
     sizeHeader = { type = "header", name = "Size and look", order = 6 },
+    detached = detachToggle("swing", 6.05),
     height = range(hud, "swingHeight", "Height", 6.1, 4, 40, 1),
     width = { type = "range", name = "Width (0 = as wide as the strip)", order = 6.2, min = 0, max = 800, step = 2,
       get = function() return s().width or 0 end, set = function(_, v) s().width = v; refresh() end },
@@ -147,6 +157,7 @@ local function manaGroup()
   local m = function() return hud().mana end
   return { type = "group", name = "Mana & five-second rule", order = 3, args = {
     note = { type = "description", order = 0, name = "After a mana-costing cast, a 5 s overlay drains across the bar (no regen). Then a spark marks each 2 s regen tick." },
+    detached = detachToggle("mana"),
     width = { type = "range", name = "Width (0 = as wide as the strip)", order = 0.1, min = 0, max = 800, step = 2,
       get = function() return m().width or 0 end, set = function(_, v) m().width = v; refresh() end },
     height = range(hud, "manaHeight", "Height", 0.2, 6, 30, 1),

@@ -63,7 +63,9 @@ function EM.Targets()
     for _, r in ipairs(EM.HUD_ROWS) do
       local row = rows[r.name]
       if type(row) == "table" and row.enabled then
-        add({ key = "hud:" .. r.name, path = r.path, title = r.title, mover = hudAnchor, frame = row, how = "box" })
+        -- a detached bar moves on its own (its box drags the bar, Center centres the bar); else the whole strip
+        add({ key = "hud:" .. r.name, path = r.path, title = row.detached and (r.title .. " (on its own)") or r.title,
+          mover = row.detached and row or hudAnchor, frame = row, how = "box" })
       end
     end
   end

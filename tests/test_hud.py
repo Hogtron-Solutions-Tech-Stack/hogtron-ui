@@ -45,3 +45,29 @@ def test_cast_bar_and_mana_bar_take_their_own_width_or_the_strips(hud):
     assert hud.eval('HogHealsHUD.HUD.rows.castbar:GetWidth()') == 300               # 0 = the strip's width
     hud.execute('HogHeals.db.profile.hud.mana.width = 0; HogHealsHUD.HUD.Refresh()')
     assert hud.eval('HogHealsHUD.HUD.rows.mana:GetWidth()') == 300
+
+
+# ---------------------------------------------------------------- bars that move on their own (backlog 2026-10-18)
+def test_a_detached_bar_sits_at_its_own_spot_and_the_strip_closes_up(hud):
+    hud.execute('''local d = HogHeals.db.profile.hud
+      d.width, d.castbarHeight, d.swingHeight, d.rowSpacing, d.showSwing = 300, 18, 16, 2, true
+      d.castbar.detached, d.castbar.point, d.castbar.x, d.castbar.y = true, "CENTER", 120, -80
+      HogHealsHUD.HUD.Refresh()''')
+    cb = "HogHealsHUD.HUD.rows.castbar"
+    p = list(hud.eval(f'{cb}._points[1]').values())
+    assert p[0] == "CENTER" and hud.eval(f'{cb}._points[1][2] == UIParent') and p[3] == 120 and p[4] == -80
+    assert hud.eval(f'{cb}:GetWidth()') == 300 and hud.eval(f'{cb}.detached') is True
+    # the swing bar moves up to the top of the strip: the cast bar no longer takes a row there
+    assert hud.eval('HogHealsHUD.HUD.rows.swing._points[1][5]') == 0
+    # back in the strip
+    hud.execute('HogHealsHUD.HUD.Detach("castbar", false)')
+    assert hud.eval(f'{cb}.detached') is None and hud.eval(f'{cb}._points[1][2] == HogHealsHUD.HUD.container')
+    assert hud.eval('HogHealsHUD.HUD.rows.swing._points[1][5]') == -(18 + 2)
+
+
+def test_detaching_starts_the_bar_where_it_already_is(hud):
+    hud.execute('''UIParent.GetCenter = function() return 960, 540 end
+      HogHealsHUD.HUD.rows.mana.GetCenter = function() return 1000, 400 end
+      HogHealsHUD.HUD.Detach("mana", true)''')
+    m = "HogHeals.db.profile.hud.mana"
+    assert hud.eval(f'{m}.detached') is True and hud.eval(f'{m}.x') == 40 and hud.eval(f'{m}.y') == -140

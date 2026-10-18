@@ -12,6 +12,55 @@ local ROW_SHOW = { castbar = "showCastbar", swing = "showSwing", mana = "showMan
 local ROW_HEIGHT = { castbar = "castbarHeight", swing = "swingHeight", mana = "manaHeight", xp = "xpHeight", info = "infoHeight" }
 -- rows that show themselves only while something is happening (the slot stays reserved)
 local SELF_SHOWING = { castbar = true, swing = true, xp = true }   -- xp hides itself at the level cap (XPBar.lua)
+-- bars that can leave the strip and sit anywhere (Sean 2026-10-18, after the unlock sizes: the cast bar away from the
+-- mana bar). A detached bar keeps its size; its spot is hud.<name>.point / x / y on the screen's centre.
+HUD.DETACHABLE = { castbar = true, swing = true, mana = true }
+
+--- Offset of a frame's centre from the screen's centre, in the frame's own units (what SetPoint on UIParent takes).
+function HUD.CenterOffset(f)
+  local cx, cy = f:GetCenter()
+  local ux, uy = UIParent:GetCenter()
+  if type(cx) ~= "number" or type(cy) ~= "number" or type(ux) ~= "number" or type(uy) ~= "number" then return nil end
+  local fs = (f.GetEffectiveScale and f:GetEffectiveScale()) or 1
+  local us = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
+  if type(fs) ~= "number" or fs == 0 then fs = 1 end
+  if type(us) ~= "number" then us = 1 end
+  local r = us / fs
+  return math.floor(cx - ux * r + 0.5), math.floor(cy - uy * r + 0.5)
+end
+
+--- Take a bar out of the strip (on = true) or put it back. Its spot starts where it is now: no jump.
+function HUD.Detach(name, on)
+  local d = db()
+  local sub = HUD.DETACHABLE[name] and d[name] or nil
+  if type(sub) ~= "table" then return false end
+  if on and not sub.detached then
+    local row = HUD.rows[name]
+    local x, y   -- (not `row and HUD.CenterOffset(row)`: an and-expression keeps only the first value)
+    if row then x, y = HUD.CenterOffset(row) end
+    sub.point, sub.x, sub.y = "CENTER", x or (d.x or 0), y or ((d.y or 0) + 60)
+  end
+  sub.detached = on and true or false
+  HUD.Refresh()
+  return true
+end
+
+--- A detached bar drags itself (edit mode's box relays to these) and saves its spot when let go.
+function HUD.MakeMovable(row, name)
+  if row.hhMovable then return end
+  row.hhMovable = true
+  if row.SetMovable then row:SetMovable(true) end
+  if row.SetClampedToScreen then row:SetClampedToScreen(true) end
+  row:SetScript("OnDragStart", function(self) if self.detached and self.StartMoving then self:StartMoving() end end)
+  row:SetScript("OnDragStop", function(self)
+    if not self.detached then return end
+    if self.StopMovingOrSizing then self:StopMovingOrSizing() end
+    local sub = db()[name]
+    local x, y = HUD.CenterOffset(self)
+    if type(sub) == "table" and x then sub.point, sub.x, sub.y = "CENTER", x, y end
+    HUD.Layout()
+  end)
+end
 
 function HUD.Create()
   if HUD.anchor then return end
@@ -182,11 +231,23 @@ function HUD.Layout()
     local row = HUD.rows[name]
     local enabled = d[ROW_SHOW[name]] ~= false
     if name == "xp" and d.xp and (d.xp.mode or "bar") ~= "row" then enabled = false end   -- its own bar instead (XPBar.lua)
-    if enabled then
+    local sub = HUD.DETACHABLE[name] and d[name] or nil
+    if enabled and type(sub) == "table" and sub.detached then
+      -- out of the strip: its own spot, its own size; the bars under it close the gap
+      HUD.MakeMovable(row, name)
+      local h = d[ROW_HEIGHT[name]] or 12
+      local own = (sub.width or 0) > 0 and sub.width or d.width
+      row:ClearAllPoints()
+      row:SetPoint(sub.point or "CENTER", UIParent, sub.point or "CENTER", sub.x or 0, sub.y or 0)
+      row:SetSize(own, h)
+      row.detached, row.enabled = true, true
+      if not SELF_SHOWING[name] then row:Show() end
+    elseif enabled then
+      if HUD.DETACHABLE[name] then HUD.MakeMovable(row, name) end
+      row.detached = nil
       local h = d[ROW_HEIGHT[name]] or 12
       row:ClearAllPoints()
       -- cast bar, swing and mana bar may have their own width (0 = the strip's), centred on the strip
-      local sub = (name == "castbar" or name == "swing" or name == "mana") and d[name] or nil
       local own = type(sub) == "table" and (sub.width or 0) > 0 and sub.width or nil
       if own then
         -- a row with its own width may be wider than the strip: centred on it, hanging out both sides
