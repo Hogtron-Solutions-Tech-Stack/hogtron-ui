@@ -199,6 +199,18 @@ function EM.ResizeFor(t)
       w = { get = function() return num(u.width, 200) end, set = function(v) u.width = v end, min = 80, max = 500, step = 5, factor = 2 },
       h = { get = function() return num(u.height, 40) end, set = function(v) u.height = v end, min = 16, max = 120, step = 1 } }
   end
+  if key == "frames" then
+    -- party / raid cells: the layout of the group size you are in now (solo shares party's by default), the same table
+    -- and the same re-apply the Frames options use (ApplyProfile queues itself in combat)
+    local F = G("HogHealsFrames")
+    local mod = type(F) == "table" and F.module or nil
+    local function lay() return mod and mod.LayoutFor and mod:LayoutFor() or nil end
+    if type(lay()) ~= "table" then return nil end
+    local function relayout() if mod.ApplyProfile then pcall(mod.ApplyProfile, mod, mod.bucket) end end
+    return { apply = relayout,
+      w = { get = function() return num(lay().width, 90) end, set = function(v) lay().width = v end, min = 40, max = 300, step = 1 },
+      h = { get = function() return num(lay().height, 60) end, set = function(v) lay().height = v end, min = 12, max = 80, step = 1 } }
+  end
   local bar = key:match("^bar:(.+)$")
   if bar and type(p.bars) == "table" and type(p.bars.list) == "table" then
     local bd = p.bars.list[tonumber(bar) or bar]
