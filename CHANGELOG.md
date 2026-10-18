@@ -1,5 +1,18 @@
 # HogTron UI
 
+## v0.2.0-beta.2
+
+### New
+- **Hearthstone gets its own cast bar**, on every class: a carved hearthstone with glowing recall runes and firelight in
+  the cracks.
+- **Conjure Water** has a new strip: a heavy surge of deep water.
+- **Move the cast bar, swing timer or mana bar on their own.** Each one's tab has "Move it on its own (out of the
+  strip)"; in `/hh unlock` drag its box anywhere, and the bars left in the strip close the gap.
+- **Party / raid frames resize in `/hh unlock`:** drag the corner grip on their box (out of combat).
+
+### Fixed
+- Chat: the text size slider showed 14 until you moved it; it now starts at the chat window's real size.
+
 ## v0.2.0-beta.1
 
 The second public beta, built for WoW: Forever.
