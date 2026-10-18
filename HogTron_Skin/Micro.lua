@@ -193,7 +193,7 @@ end
 --- A frame whose button children are all micro buttons (and there is at least one).
 local function microOnly(f)
   local n = 0
-  for _, ch in ipairs({ Skin.call(f.GetChildren, f) }) do
+  for _, ch in ipairs(Skin.all(f.GetChildren, f)) do   -- every child (Skin.call keeps four values)
     local kind = type(ch) == "table" and Skin.call(ch.GetObjectType, ch)
     if kind == "Button" or kind == "CheckButton" then
       local name = Skin.call(ch.GetName, ch)

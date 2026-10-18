@@ -853,7 +853,9 @@ function Plates.Reset(uf)
   local hh, d = uf.hh, cfg()
   if not hh then return end
   hh.nameOnly, hh.nameClass, hh.questInfo, hh.why = false, nil, nil, nil
-  for _, p in ipairs({ hh.bar, hh.bg, rawget(uf, "HealthBarsContainer") }) do
+  local back = { hh.bar, hh.bg, rawget(uf, "HealthBarsContainer") }
+  for i = 1, 3 do   -- not ipairs: a plate without a bar (hh.bar nil) never got its container back
+    local p = back[i]
     if type(p) == "table" and p.Show then call(p.Show, p) end
   end
   if hh.health then hh.health:Hide() end
