@@ -238,3 +238,23 @@ def test_probe_and_options(lua):
     assert lua.eval('HogHeals.db.profile.quests.buttons.columns') == 1
     assert lua.eval('HogHealsMinimapDrawer:GetWidth()') == 4 + 32
     assert errors(lua) == []
+
+
+# ---------------------------------------------------------------- icon size in the cell (Sean 2026-10-18)
+# "The new icons on the top right are too small. We need to make them the same size as the others." LibDBIcon draws an
+# 18 px icon inside its 31 px button; scaled to the cell it filled ~58% of it. It now fills the cell like ours
+# (cell - 6 px), and gets its own size and points back when the drawer hands the button back.
+def test_a_collected_icon_fills_its_cell_like_ours_and_is_restored(lua):
+    boot(lua, MINIMAP + '''
+      LibDBIcon10_Bagnon.icon:SetSize(18, 18)
+      LibDBIcon10_Bagnon.icon:SetPoint("TOPLEFT", LibDBIcon10_Bagnon, "TOPLEFT", 7, -6)''')
+    lua.execute('HogHeals.db.profile.quests.buttons.size = 28; HogHealsQuests.Buttons.Layout()')
+    scale = lua.eval('LibDBIcon10_Bagnon._last.SetScale[1]')
+    w = lua.eval('LibDBIcon10_Bagnon.icon:GetWidth()')
+    assert w * scale == pytest.approx(28 - 6)                                 # on screen: the cell less 6 px, like ours
+    assert lua.eval('LibDBIcon10_Bagnon.icon._points[1][1]') == "CENTER"
+    lua.execute('HogHeals.db.profile.quests.buttons.enabled = false; HogHealsQuests.Buttons.Refresh()')
+    assert lua.eval('LibDBIcon10_Bagnon.icon:GetWidth()') == 18
+    p = lua.eval('LibDBIcon10_Bagnon.icon._points[1]')
+    assert p[1] == "TOPLEFT" and p[4] == 7 and p[5] == -6
+    assert errors(lua) == []
