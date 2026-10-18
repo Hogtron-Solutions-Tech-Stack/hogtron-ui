@@ -108,3 +108,25 @@ def test_buttons_and_icons_are_not_reported_as_leftovers(win):
       ShowUIPanel(FriendsFrame); MockAdvance(1)
     ''')
     assert win.eval('HogHeals.db.global.diag.skin.windows.FriendsFrame.leftovers') == 0
+
+
+# ---------------------------------------------------------------- the Friends window's last Blizzard pieces (Sean 2026-10-17)
+# diag.skin.windows.SocialUIFrame listed the Battle.net bar's backgrounds and the list's dividers after the strip.
+def test_the_friends_windows_named_leftovers_are_cleared_and_its_scroll_track_stays(win):
+    win.execute('''
+      local f = SocialUIFrame
+      f.BattleNetBar = CreateFrame("Frame", nil, f)
+      f.BattleNetBar.Background = f.BattleNetBar:CreateTexture(); f.BattleNetBar.Background:SetAtlas("friends-frame-infoBG")
+      f.BattleNetBar.ControlsContainer = CreateFrame("Frame", nil, f.BattleNetBar)
+      f.BattleNetBar.ControlsContainer.BattleNetBackground = f.BattleNetBar.ControlsContainer:CreateTexture(); f.BattleNetBar.ControlsContainer.BattleNetBackground:SetTexture(632259)
+      f.FriendsList = CreateFrame("Frame", nil, f)
+      f.FriendsList.TopDivider = f.FriendsList:CreateTexture(); f.FriendsList.TopDivider:SetAtlas("perks-divider-short")
+      f.FriendsList.BottomDivider = f.FriendsList:CreateTexture(); f.FriendsList.BottomDivider:SetAtlas("perks-divider-short")
+      f.FriendsList.ScrollBar = CreateFrame("Frame", nil, f.FriendsList)
+      f.FriendsList.ScrollBar.Track = f.FriendsList.ScrollBar:CreateTexture(); f.FriendsList.ScrollBar.Track:SetAtlas("minimal-scrollbar-track-middle")
+      ShowUIPanel(SocialUIFrame)
+    ''')
+    for path in ("BattleNetBar.Background", "BattleNetBar.ControlsContainer.BattleNetBackground", "FriendsList.TopDivider", "FriendsList.BottomDivider"):
+        assert win.eval(f"SocialUIFrame.{path}._alpha") == 0, path
+    assert win.eval("SocialUIFrame.FriendsList.ScrollBar.Track._alpha") == 1
+    assert errors(win) == []
