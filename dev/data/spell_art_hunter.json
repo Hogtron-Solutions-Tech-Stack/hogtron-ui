@@ -1,0 +1,96 @@
+{
+ "source": "wowhead.com/classic/spells/abilities/hunter (class trainer + class quest; hunter pet spells by name) + nether.wowhead.com tooltip cast times, fetched 2026-10-17",
+ "note": "art planning only: which spells get a strip. Season of Discovery runes / engravings and talents excluded.",
+ "spells": {
+  "Dismiss Pet": {
+   "id": 2641,
+   "level": 10,
+   "schools": 1,
+   "kind": "cast 5"
+  },
+  "Revive Pet": {
+   "id": 982,
+   "level": 10,
+   "schools": 8,
+   "kind": "cast 10"
+  },
+  "Tame Beast": {
+   "id": 1515,
+   "level": 10,
+   "schools": 8,
+   "kind": "cast 20"
+  },
+  "Mend Pet": {
+   "id": 136,
+   "level": 12,
+   "schools": 8,
+   "kind": "cast 5"
+  },
+  "Eagle Eye": {
+   "id": 6197,
+   "level": 14,
+   "schools": 64,
+   "kind": "channel"
+  },
+  "Eyes of the Beast": {
+   "id": 1002,
+   "level": 14,
+   "schools": 8,
+   "kind": "cast 2"
+  },
+  "Scare Beast": {
+   "id": 1513,
+   "level": 14,
+   "schools": 8,
+   "kind": "cast 1.5"
+  },
+  "Volley": {
+   "id": 1510,
+   "level": 40,
+   "schools": 64,
+   "kind": "cast 6"
+  }
+ },
+ "strips": [
+  {
+   "pattern": "^Tame Beast",
+   "strip": "spell_tame_beast",
+   "theme": "nature"
+  },
+  {
+   "pattern": "^Revive Pet",
+   "strip": "spell_revive_pet",
+   "theme": "nature"
+  },
+  {
+   "pattern": "^Dismiss Pet",
+   "strip": "spell_dismiss_pet",
+   "theme": "nature"
+  },
+  {
+   "pattern": "^Mend Pet",
+   "strip": "spell_mend_pet",
+   "theme": "nature"
+  },
+  {
+   "pattern": "^Eagle Eye",
+   "strip": "spell_beast_vision",
+   "theme": "nature"
+  },
+  {
+   "pattern": "^Eyes of the Beast",
+   "strip": "spell_beast_vision",
+   "theme": "nature"
+  },
+  {
+   "pattern": "^Scare Beast",
+   "strip": "spell_scare_beast",
+   "theme": "fire"
+  },
+  {
+   "pattern": "^Volley",
+   "strip": "spell_volley",
+   "theme": "aim"
+  }
+ ]
+}

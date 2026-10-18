@@ -31,6 +31,16 @@ local function call(f, ...)
 end
 local function count(k) Auto.seen[k] = (Auto.seen[k] or 0) + 1 end
 
+--- The first time something is handed in automatically, say so once (per account) and where to switch it off -
+-- Sean 2026-10-17 had a turn-in happen so fast he never saw a page and could not find the setting.
+function Auto.Hint()
+  local g2 = HH.db and HH.db.global
+  if not g2 or g2.autoTurnInHinted then return false end
+  g2.autoTurnInHinted = true
+  HH:Print("Quest handed in automatically. Hold Shift at the NPC to do it yourself; switch it off in /hh -> Quests -> Questing (Auto turn-in).")
+  return true
+end
+
 --- Questie loaded = it owns these chores.
 function Auto.Deferring()
   local f = (type(C_AddOns) == "table" and C_AddOns.IsAddOnLoaded) or g("IsAddOnLoaded")
@@ -93,7 +103,7 @@ function Auto.OnProgress()
   if not o or o.turnIn == false then count("skipped") return false end
   local can = g("IsQuestCompletable")
   if can and not call(can) then count("notCompletable") return false end
-  if g("CompleteQuest") then call(g("CompleteQuest")) count("completed") Auto.last.action = "complete" return true end
+  if g("CompleteQuest") then call(g("CompleteQuest")) count("completed") Auto.last.action = "complete" Auto.Hint() return true end
   return false
 end
 
@@ -109,6 +119,7 @@ function Auto.OnComplete()
   call(take, plan == "take1" and 1 or 0)
   count("rewarded")
   Auto.last.action = "reward"
+  Auto.Hint()
   return true
 end
 

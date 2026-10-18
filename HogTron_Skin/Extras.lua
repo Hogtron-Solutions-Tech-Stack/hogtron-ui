@@ -177,18 +177,69 @@ end
 
 -- Blizzard's experience bar off while the HogTron UI bar owns it (HH.XPBarOwned, HogTron_HUD/XPBar.lua), back when not.
 Part.XP_FRAMES = { "StatusTrackingBarManager", "MainMenuExpBar", "ReputationWatchBar" }
+-- The containers too (Sean 2026-10-17, new character: the lower half of action bar 1 took no hover, no tooltip).
+-- On this engine the XP bars live in MainStatusTrackingBarContainer / SecondaryStatusTrackingBarContainer, their own
+-- Edit Mode frames at the bottom centre - hiding the manager did not hide them. Invisible at 0% XP, but they take the
+-- mouse (their own XP text on hover), right where bar 1 sits.
+function Part.XPFrames()
+  local out, seen = {}, {}
+  local function add(f) if type(f) == "table" and not seen[f] then seen[f] = true out[#out + 1] = f end end
+  for _, name in ipairs(Part.XP_FRAMES) do add(Skin.G(name)) end
+  local mgr = rawget(_G, "StatusTrackingBarManager")
+  for _, key in ipairs(Part.XP_CONTAINERS) do
+    add(rawget(_G, key))
+    if type(mgr) == "table" then add(rawget(mgr, key)) end
+  end
+  return out
+end
+
+-- ... and the MOUSE off on them (and their bars), out of combat: a protected container Blizzard shows again in a fight
+-- cannot be hidden then, but with its mouse off it never takes the hover from the buttons above it, shown or not.
+-- What each frame had is kept and given back when ours stops owning XP.
+local mouseWas = setmetatable({}, { __mode = "k" })
+local function setMouse(f, on, depth)
+  if type(f) ~= "table" or depth > 3 then return 0 end
+  local kind = Skin.call(f.GetObjectType, f)
+  if kind == "Texture" or kind == "FontString" or kind == "MaskTexture" then return 0 end
+  local n = 0
+  if f.EnableMouse then
+    if not on then
+      if mouseWas[f] == nil then mouseWas[f] = Skin.call(f.IsMouseEnabled, f) and true or false end
+      Skin.call(f.EnableMouse, f, false)
+      n = 1
+    elseif mouseWas[f] ~= nil then
+      Skin.call(f.EnableMouse, f, mouseWas[f])
+      mouseWas[f] = nil
+    end
+  end
+  for _, c in ipairs(Skin.all(f.GetChildren, f)) do n = n + setMouse(c, on, depth + 1) end
+  return n
+end
+
+function Part.Unmouse(f, off)
+  if InCombatLockdown and InCombatLockdown() and Skin.call(f.IsProtected, f) then
+    HH:RunOutOfCombat(Part.Unmouse, f, off)
+    return 0
+  end
+  local n = setMouse(f, not off, 0)
+  if off then Part.unmoused = (Part.unmoused or 0) + n end
+  return n
+end
+
 function Part.HideBlizzardXP(hide)
   local n = 0
-  for _, name in ipairs(Part.XP_FRAMES) do
-    local f = Skin.G(name)
+  for _, f in ipairs(Part.XPFrames()) do
     if type(f) == "table" and f.Hide then
       if hide then
         f.hhUnhidden = nil
         if Skin.HideFrame then Skin.HideFrame(f) else Skin.call(f.Hide, f) end
+        Part.Unmouse(f, true)
         n = n + 1
       elseif f.hhHideHooked then
         f.hhUnhidden = true
-        Skin.call(f.Show, f)
+        Part.Unmouse(f, false)
+        if not (InCombatLockdown and InCombatLockdown() and Skin.call(f.IsProtected, f)) then Skin.call(f.Show, f)
+        else HH:RunOutOfCombat(function() if f.hhUnhidden then Skin.call(f.Show, f) end end) end
       end
     end
   end

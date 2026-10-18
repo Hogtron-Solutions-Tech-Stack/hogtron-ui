@@ -22,6 +22,41 @@ end
 
 local function db() return HH.db and HH.db.profile.frames end
 
+-- An element that throws. Sean 2026-10-17, in a party: "dispel / debuffs / buffs: GetAuraDataByIndex(): Auras cannot be
+-- accessed when secret while tainted by 'HogHeals_Frames'" x9 in four minutes. In that state the client refuses ANY
+-- addon a unit's auras - nothing to work around. What we control: that element is cleared on that cell (no stale icons
+-- from before the refusal), the refusal is counted (diag.frames.auraRefused) and logged once per element per session,
+-- and the next aura event simply asks again. Any other error is logged as before.
+UnitButton.auraRefused, UnitButton.refusalLogged = {}, {}
+function UnitButton.ElementFailed(button, name, err)
+  local msg = tostring(err)
+  if msg:find("cannot be accessed when secret", 1, true) then
+    UnitButton.auraRefused[name] = (UnitButton.auraRefused[name] or 0) + 1
+    local el = HHF.Elements and HHF.Elements[name]
+    if el and el.Hide then pcall(el.Hide, button) end
+    -- which reader would answer instead? recorded for the next look (Compat.ProbeAuraReaders, rate-limited)
+    if HHF.Compat and HHF.Compat.ProbeAuraReaders and button and button.unit then
+      pcall(HHF.Compat.ProbeAuraReaders, button.unit, name == "buffs" and "HELPFUL" or "HARMFUL")
+    end
+    if not UnitButton.refusalLogged[name] then
+      UnitButton.refusalLogged[name] = true
+      HH:LogError(name .. ": the client refused this unit's auras to addons (shown again on the next aura update; counted, logged once): " .. msg:sub(1, 160))
+    end
+    local g = HH.db and HH.db.global
+    if g then
+      g.diag = g.diag or {}
+      g.diag.frames = g.diag.frames or {}
+      local parts = {}
+      for k, c in pairs(UnitButton.auraRefused) do parts[#parts + 1] = k .. "=" .. c end
+      table.sort(parts)
+      g.diag.frames.auraRefused = table.concat(parts, " ")
+    end
+    return "refused"
+  end
+  HH:LogError(name .. ": " .. msg)
+  return "error"
+end
+
 local function elementEnabled(name)
   local d = db()
   local element = HHF.Elements[name]
@@ -296,7 +331,7 @@ function UnitButton.OnEvent(button, event, arg1)
     local el = HHF.Elements[name]
     if el.EventSet and el.EventSet[event] and elementEnabled(name) then
       local ok, err = pcall(el.Update, button, unit)
-      if not ok then HH:LogError(name .. ": " .. tostring(err)) end
+      if not ok then UnitButton.ElementFailed(button, name, err) end
     end
   end
   Compat.EndAuraBatch()
@@ -313,7 +348,7 @@ function UnitButton.UpdateAll(button)
     local el = HHF.Elements[name]
     if elementEnabled(name) then
       local ok, err = pcall(el.Update, button, unit)
-      if not ok then HH:LogError(name .. ": " .. tostring(err)) end
+      if not ok then UnitButton.ElementFailed(button, name, err) end
     elseif el.Hide then
       pcall(el.Hide, button)
     end
@@ -325,7 +360,7 @@ function UnitButton.UpdateElement(button, name)
   local el = HHF.Elements[name]
   if el and button.unit and elementEnabled(name) then
     local ok, err = pcall(el.Update, button, button.unit)
-    if not ok then HH:LogError(name .. ": " .. tostring(err)) end
+    if not ok then UnitButton.ElementFailed(button, name, err) end
   end
 end
 
@@ -383,7 +418,7 @@ function UnitButton.StartTickers()
         for _, button in ipairs(buttons) do
           if button.unit and button:IsShown() and not (button.hhFake and not MockUnits) then
             local ok, err = pcall(el.Update, button, button.unit)
-            if not ok then HH:LogError(name .. ": " .. tostring(err)) end
+            if not ok then UnitButton.ElementFailed(button, name, err) end
           end
         end
       end)
