@@ -37,7 +37,39 @@ end
 local saved = setmetatable({}, { __mode = "k" })     -- button -> original parent / points / scale / scripts / art
 local placing = setmetatable({}, { __mode = "k" })   -- button -> true while WE move it (the hooks stand down)
 local hooked = setmetatable({}, { __mode = "k" })
+local iconWas = setmetatable({}, { __mode = "k" })  -- icon texture -> its own size / points before we fitted it
 Drawer.saved = saved
+
+-- A collected button's icon, as big in its cell as ours are in theirs (Sean 2026-10-18, the drawer: "the new icons on
+-- the top right are too small, we need to make them the same size as the others"). LibDBIcon draws an 18 px icon
+-- inside its 31 px button, so the button scaled to the cell showed the art at ~58% of it; our own cells draw theirs
+-- at the cell size - 6 px. The icon's own size and points are kept and put back when the button is handed back.
+Drawer.ICON_INSET = 6
+function Drawer.FitIcon(b, size, scale)
+  local ic = rawget(b, "icon")
+  if type(ic) ~= "table" or type(ic.SetSize) ~= "function" or not scale or scale <= 0 then return false end
+  if not iconWas[ic] then
+    local was = { w = call(ic.GetWidth, ic), h = call(ic.GetHeight, ic), points = {} }
+    for i = 1, (call(ic.GetNumPoints, ic) or 0) do was.points[i] = { call(ic.GetPoint, ic, i) } end
+    iconWas[ic] = was
+  end
+  local px = (size - Drawer.ICON_INSET) / scale
+  call(ic.ClearAllPoints, ic)
+  call(ic.SetPoint, ic, "CENTER", b, "CENTER", 0, 0)
+  call(ic.SetSize, ic, px, px)
+  return true
+end
+
+function Drawer.UnfitIcon(b)
+  local ic = rawget(b, "icon")
+  local was = type(ic) == "table" and iconWas[ic]
+  if not was then return false end
+  call(ic.ClearAllPoints, ic)
+  for _, p in ipairs(was.points) do call(ic.SetPoint, ic, unpack(p)) end
+  if was.w and was.h then call(ic.SetSize, ic, was.w, was.h) end
+  iconWas[ic] = nil
+  return true
+end
 
 -- Blizzard's minimap buttons across client generations. Never collected: not addon buttons, several handle secret
 -- values, and MapSkin already places the ones that matter.
@@ -337,6 +369,7 @@ function Drawer.Release(b)
   local s = saved[b]
   if not s then return end
   placing[b] = true
+  Drawer.UnfitIcon(b)
   call(b.SetScale, b, s.scale or 1)
   call(b.ClearAllPoints, b)
   call(b.SetParent, b, s.parent or Minimap)
@@ -439,6 +472,7 @@ function Drawer.Layout()
     call(b.SetScale, b, scale)
     call(b.ClearAllPoints, b)
     call(b.SetPoint, b, corner, f, corner, ox / scale, oy / scale)
+    Drawer.FitIcon(b, size, scale)
     placing[b] = nil
   end
   for i = #shown + 1, #Drawer.cells do Drawer.cells[i]:Hide() end
