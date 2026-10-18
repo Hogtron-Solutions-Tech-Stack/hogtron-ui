@@ -595,6 +595,40 @@ function Plates.BlizzPieces(uf)
   return out
 end
 
+--- The fill of a plate's health bar, as drawn right now (Sean 2026-10-17: "100%" on a plate whose bar was EMPTY). One
+-- line; hidden values written S, never used. Saved for the last 6 targets in diag.plateFill - target the plate, /reload.
+function Plates.FillLine(uf)
+  local hh = uf and uf.hh
+  local bar = hh and hh.bar
+  if type(bar) ~= "table" then return "no bar" end
+  local function d(v) if isSecret(v) then return "S" end if v == nil then return "nil" end
+    if type(v) == "number" then return ("%.2f"):format(v) end if type(v) == "boolean" then return v and "T" or "F" end return tostring(v) end
+  local fill = call(bar.GetStatusBarTexture, bar)
+  local fa = type(fill) == "table" and call(fill.GetAlpha, fill)
+  local fs = type(fill) == "table" and call(fill.IsShown, fill)
+  local ft = type(fill) == "table" and (call(fill.GetAtlas, fill) or call(fill.GetTexture, fill))
+  local fw = type(fill) == "table" and call(fill.GetWidth, fill)
+  local r, g, b = call(bar.GetStatusBarColor, bar)
+  local mn, mx = call(bar.GetMinMaxValues, bar)
+  local zeroedByUs = type(fill) == "table" and hh.artAlpha and hh.artAlpha[fill] ~= nil
+  return ("fill %s a=%s shown=%s w=%s tex=%s zeroedByUs=%s | bar a=%s shown=%s vis=%s w=%s colour=%s,%s,%s value=%s of %s..%s | dead=%s nameOnly=%s"):format(
+    type(fill) == "table" and "yes" or "NONE", d(fa), d(fs), d(fw), d(ft), d(zeroedByUs), d(call(bar.GetAlpha, bar)), d(call(bar.IsShown, bar)),
+    d(call(bar.IsVisible, bar)), d(call(bar.GetWidth, bar)), d(r), d(g), d(b), d(call(bar.GetValue, bar)), d(mn), d(mx), d(hh.dead), d(hh.nameOnly))
+end
+
+function Plates.NoteFill(uf)
+  local g = HH.db and HH.db.global
+  if not g or not uf or not uf.hh then return nil end
+  g.diag = g.diag or {}
+  local list = g.diag.plateFill or {}
+  local name = call(UnitName, uf.hh.unit)
+  local line = (date and date("%H:%M:%S") or "?") .. " " .. ((type(name) == "string" and not isSecret(name)) and name or "?") .. ": " .. Plates.FillLine(uf)
+  table.insert(list, 1, line)
+  while #list > 6 do table.remove(list) end
+  g.diag.plateFill = list
+  return line
+end
+
 function Plates.NoteTarget(uf)
   local g = HH.db and HH.db.global
   if not g then return end
@@ -731,7 +765,11 @@ function Plates.FriendlyLook(uf)
   if friendly == nil then local r = num(call(UnitReaction, unit, "player")) friendly = r ~= nil and r >= 5 end
   -- anything you can attack is never name-only, whatever the friend / reaction calls said (belt and braces, 2026-09-23)
   if bool(call(UnitCanAttack, "player", unit)) == true then friendly = false end
-  local nameOnly = friendly and d.friendlyNameOnly ~= false
+  -- a dead unit keeps no health bar (Sean 2026-10-17: "the health bars don't go away when something is dead before you
+  -- loot it" - a lootable corpse is an interact target, so the game keeps its plate up): the name-only look, normal size
+  local dead = d.hideDeadBars ~= false and bool(call(UnitIsDead, unit)) == true
+  hh.dead = dead
+  local nameOnly = (friendly and d.friendlyNameOnly ~= false) or dead
   hh.nameOnly = nameOnly
   local pieces = { hh.bar, hh.bg, hh.health, hh.castBar, rawget(uf, "LevelFrame"), rawget(uf, "ClassificationFrame"), rawget(uf, "HealthBarsContainer") }
   for _, p in ipairs(pieces) do
@@ -743,7 +781,7 @@ function Plates.FriendlyLook(uf)
   if nameOnly and hh.questFrame then hh.questFrame:Hide() end
   -- name-only plates carry the name in a bigger font (Sean: "match my own font above my head")
   if uf.name then
-    setFont(uf.name, nameOnly and (d.friendlyNameSize or 14) or (d.fontSize or 13))
+    setFont(uf.name, (nameOnly and not dead) and (d.friendlyNameSize or 14) or (d.fontSize or 13))
     -- width 0 = "as wide as the text": the bigger font had "Benjamin Neta..." cut at Blizzard's width (2026-09-23)
     if nameOnly then call(uf.name.SetWidth, uf.name, 0) if uf.name.SetWordWrap then call(uf.name.SetWordWrap, uf.name, false) end end
   end
@@ -959,13 +997,23 @@ local EVENTS = { "NAME_PLATE_UNIT_ADDED", "NAME_PLATE_UNIT_REMOVED", "PLAYER_TAR
 function Plates.OnEvent(_, e, unit)
   if e == "NAME_PLATE_UNIT_ADDED" then Plates.Added(unit)
   elseif e == "NAME_PLATE_UNIT_REMOVED" then Plates.Removed(unit)
-  elseif e == "PLAYER_TARGET_CHANGED" then Plates.ForEach(Plates.UpdateHighlight)
+  elseif e == "PLAYER_TARGET_CHANGED" then
+    Plates.ForEach(Plates.UpdateHighlight)
+    local tp = rawget(_G, "C_NamePlate") and call(C_NamePlate.GetNamePlateForUnit, "target")
+    local tuf = type(tp) == "table" and rawget(tp, "UnitFrame")
+    if type(tuf) == "table" and tuf.hh then pcall(Plates.NoteFill, tuf) end
   elseif e == "UNIT_THREAT_SITUATION_UPDATE" or e == "UNIT_THREAT_LIST_UPDATE" then
     local uf = unit and Plates.active[unit]
     if uf then Plates.UpdateHighlight(uf) elseif unit == "player" or not unit then Plates.ForEach(Plates.UpdateHighlight) end
   elseif e == "UNIT_HEALTH" or e == "UNIT_MAXHEALTH" then
     local uf = unit and Plates.active[unit]
-    if uf then Plates.UpdateHealth(uf) end
+    if uf then
+      -- died (or came back): the plate's look changes with it, the moment it happens
+      local was = uf.hh and uf.hh.dead or false
+      local now = cfg().hideDeadBars ~= false and bool(call(UnitIsDead, unit)) == true
+      if now ~= was then Plates.FriendlyLook(uf) Plates.UpdateHighlight(uf) end
+      Plates.UpdateHealth(uf)
+    end
   elseif e == "UNIT_FACTION" then
     local uf = unit and Plates.active[unit]
     if uf then Plates.Color(uf) Plates.FriendlyLook(uf) Plates.UpdateHighlight(uf) end

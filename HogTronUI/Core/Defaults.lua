@@ -151,6 +151,7 @@ HH.defaults = {
       -- Guardians), so their names are ours too - without one the engine draws its own small blue name that no addon
       -- can touch (Sean 2026-10-08, "Villa Voodoo's Minion"). friendlyTotems: totems the same way (noisy, off).
       friendlyPets = true, friendlyTotems = false,
+      hideDeadBars = true,            -- a dead unit's plate keeps its name only (Sean 2026-10-17: corpses kept a 0% bar)
       font = "HogTron", fontSize = 13, healthText = "percent",   -- "percent" | "value" | "none"
       barHeight = 14, widthScale = 1.3,   -- bar height in px; plate width as a multiple of Blizzard's (cvar)
       flatBar = true,                 -- plain flat bar: all of Blizzard's art on the health bar hidden (heal / absorb kept)

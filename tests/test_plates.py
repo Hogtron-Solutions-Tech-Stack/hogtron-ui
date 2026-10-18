@@ -882,3 +882,32 @@ def test_platecvars_asks_by_name_when_there_is_no_list(plates):
     lines, n = list(plates.eval("{ HogHealsPlates.Plates.CVarProbe() }").values())
     assert n == 1 and list(lines.values()) == ["nameplateShowAll=nil"]
     assert errors(plates) == []
+
+
+
+# ---------------------------------------------------------------- dead units, the fill (Sean 2026-10-17 backlog)
+def test_a_dead_unit_keeps_its_name_but_no_bar_and_comes_back_when_alive(plates):
+    plates.execute("DEAD = {}; function UnitIsDead(u) return DEAD[u] == true end")
+    uf = add(plates, "nameplate61", '{ name = "Neophyte", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-61" }')
+    assert plates.eval(f"{uf}.healthBar:IsShown()") is True and plates.eval(f"{uf}.hh.dead") is False
+    plates.execute('DEAD.nameplate61 = true; MockFire("UNIT_HEALTH", "nameplate61")')
+    assert plates.eval(f"{uf}.healthBar:IsShown()") is False and plates.eval(f"{uf}.hh.bg:IsShown()") is False
+    assert plates.eval(f"{uf}.hh.health:IsShown()") is False and plates.eval(f"{uf}.hh.dead") is True
+    assert all(plates.eval(f"{uf}.hh.edges[{i}]:IsShown()") is False for i in range(1, plates.eval(f"#{uf}.hh.edges") + 1))
+    assert plates.eval(f"{uf}.name._last.SetFont[2]") == 13                       # normal size, not the friendly one
+    plates.execute('DEAD.nameplate61 = nil; MockFire("UNIT_HEALTH", "nameplate61")')
+    assert plates.eval(f"{uf}.healthBar:IsShown()") is True and plates.eval(f"{uf}.hh.dead") is False
+
+
+def test_dead_bars_can_be_kept(plates):
+    plates.execute("function UnitIsDead() return true end; HogHeals.db.profile.plates.hideDeadBars = false")
+    uf = add(plates, "nameplate62", '{ name = "Neophyte", class = "WARRIOR", health = 0, maxHealth = 5, guid = "C-62" }')
+    assert plates.eval(f"{uf}.healthBar:IsShown()") is True
+
+
+def test_the_target_plates_fill_is_recorded(plates):
+    uf = add(plates, "nameplate63", '{ name = "Scrawny Ursera", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-63" }')
+    plates.execute('local get = C_NamePlate.GetNamePlateForUnit; C_NamePlate.GetNamePlateForUnit = function(u) if u == "target" then return NP[TARGET] end return get(u) end')
+    plates.execute('TARGET = "nameplate63"; MockFire("PLAYER_TARGET_CHANGED")')
+    rec = plates.eval("HogHeals.db.global.diag.plateFill[1]")
+    assert "Scrawny Ursera: fill" in rec and "zeroedByUs=" in rec and "colour=" in rec
