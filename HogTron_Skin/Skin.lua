@@ -332,7 +332,7 @@ HH:RegisterSlash("skindiag", function()
       else
         local first = tostring(w.left or ""):match("^[^|]*") or ""
         HH:Print(("  window %s: %s, %d Blizzard piece(s) still showing%s"):format(n, w.styled and "styled" or "NOT styled", w.leftovers or 0,
-          (w.leftovers or 0) > 0 and (" - e.g. " .. first) or ""))
+          ((w.leftovers or 0) > 0 and (" - e.g. " .. first) or "") .. ((w.panes and w.panes ~= "") and (" (panes: " .. w.panes .. ")") or "")))
       end
     end
   end

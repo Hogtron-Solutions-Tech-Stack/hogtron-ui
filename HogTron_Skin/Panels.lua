@@ -6,7 +6,7 @@ local HHS = HogHealsSkin
 local Skin = HHS.Skin
 local HH = HogHeals
 
-local Part = { name = "panels", styled = {}, hooked = {} }
+local Part = { name = "panels", styled = {}, hooked = {}, subHooked = {}, subs = {}, sideTabPanels = {} }
 HHS.Panels = Part
 
 Part.NAMES = {
@@ -185,14 +185,90 @@ function Part.Strip(f, name)
       end
     end
   end
-  for _, suffix in ipairs({ "Portrait", "PortraitFrame", "TopLeft", "TopRight", "BottomLeft", "BottomRight", "TopBorder", "BottomBorder",
-    "LeftBorder", "RightBorder", "Bg", "TitleBg", "Inset", "InsetBg", "BtnCornerLeft", "BtnCornerRight", "ButtonBottomBorder" }) do
-    local g = rawget(_G, name .. suffix)
-    if type(g) == "table" then
-      if g.GetObjectType and g:GetObjectType() == "Texture" then Skin.Kill(g) else Skin.KillRegions(g) hideWhole(rawget(g, "NineSlice")) end
+  if name ~= "" then   -- an unnamed pane: no global pieces to look up ("" .. "Bg" would be some other global)
+    for _, suffix in ipairs({ "Portrait", "PortraitFrame", "TopLeft", "TopRight", "BottomLeft", "BottomRight", "TopBorder", "BottomBorder",
+      "LeftBorder", "RightBorder", "Bg", "TitleBg", "Inset", "InsetBg", "BtnCornerLeft", "BtnCornerRight", "ButtonBottomBorder" }) do
+      local g = rawget(_G, name .. suffix)
+      if type(g) == "table" then
+        if g.GetObjectType and g:GetObjectType() == "Texture" then Skin.Kill(g) else Skin.KillRegions(g) hideWhole(rawget(g, "NineSlice")) end
+      end
+    end
+    Part.Tabs(f, name)
+  end
+  Part.SubWindows(f, name)
+  Part.SideTabs(f, name)
+end
+
+-- ------------------------------------------------------------------------------------------------ framed panes
+-- Windows whose visible content is a CHILD window with its own frame art. Sean 2026-10-17, /hh under over the Group
+-- Finder: the window under the mouse is LFGListingFrame (a child of the styled LFGParentFrame) with its own metal
+-- NineSlice, Bg, TopTileStreaks, Inset (groupfinder-background, common-insideframe), role background and divider, and
+-- three side tabs (ListingTab / BrowsingTab / WhoListingTab, common-sidetab). The other panes' names are not known
+-- on this client, so any direct child carrying a NineSlice or TopTileStreaks counts as one; each is stripped again
+-- when its tab shows it (its own OnShow - the parent's does not fire on a tab switch).
+Part.FRAMED = { LFGParentFrame = true }
+Part.tinted = setmetatable({}, { __mode = "k" })
+
+--- A Blizzard texture recoloured to ours (desaturated + tint): its shape and its show / hide stay Blizzard's, so a
+-- selection mark or a divider keeps working, only the gold goes.
+function Part.Tint(t, c, a)
+  if type(t) ~= "table" or t.hhOurs or not t.SetVertexColor then return false end
+  if t.SetDesaturated then Skin.call(t.SetDesaturated, t, true) end
+  Skin.call(t.SetVertexColor, t, c[1], c[2], c[3], a or 1)
+  Part.tinted[t] = true
+  return true
+end
+
+--- One pane: stripped like a window; its divider kept as a line in our colour.
+function Part.StripPane(c, cn)
+  Part.Strip(c, cn)
+  local div = rawget(c, "DividerFrame")
+  if type(div) == "table" then
+    for _, r in ipairs(Skin.all(div.GetRegions, div)) do
+      if type(r) == "table" and Skin.call(r.GetObjectType, r) == "Texture" then Part.Tint(r, Skin.LINE) end
     end
   end
-  Part.Tabs(f, name)
+end
+
+function Part.SubWindows(f, name)
+  if not Part.FRAMED[name] then return 0 end
+  local found = {}
+  for _, c in ipairs(Skin.all(f.GetChildren, f)) do
+    if type(c) == "table" and not c.hhOurs and (type(rawget(c, "NineSlice")) == "table" or type(rawget(c, "TopTileStreaks")) == "table") then
+      local cn = Skin.call(c.GetName, c)
+      cn = type(cn) == "string" and cn or ""
+      Part.StripPane(c, cn)
+      found[#found + 1] = cn ~= "" and cn or "?"
+      if not Part.subHooked[c] and c.HookScript then
+        Part.subHooked[c] = true
+        c:HookScript("OnShow", function(self)
+          if Skin.cfg().enabled == false or Skin.cfg().panels.enabled == false or skipped(name) then return end
+          local ok, err = pcall(Part.StripPane, self, cn)
+          if not ok then HH:LogError("skin window " .. name .. " pane " .. cn .. ": " .. tostring(err)) end
+          if C_Timer and C_Timer.After then C_Timer.After(0.3, function() pcall(Part.Report, f, name) end) end
+        end)
+      end
+    end
+  end
+  Part.subs[name] = table.concat(found, ",")
+  return #found
+end
+
+--- Side tabs down a window's edge: Blizzard's tab plate off, an ink cell behind, the selected and hover marks tinted
+-- cyan (still shown / hidden by Blizzard), the icon kept.
+function Part.SideTabs(f, name)
+  if not Part.FRAMED[name] then return 0 end
+  local n = 0
+  for k, tab in pairs(f) do
+    if type(k) == "string" and k:find("Tab$") and type(tab) == "table" and type(rawget(tab, "Background")) == "table" then
+      Skin.Kill(rawget(tab, "Background"))
+      if not Part.sideTabPanels[tab] then Part.sideTabPanels[tab] = Skin.Panel(tab, tab, -2, 0.9) end
+      Part.Tint(rawget(tab, "SelectedTexture"), Skin.CYAN)
+      Part.Tint(rawget(tab, "HighlightTexture"), Skin.CYAN, 0.5)
+      n = n + 1
+    end
+  end
+  return n
 end
 
 --- The tab strip under a window (FriendsFrameTab1.., LFGParentFrameTab1..): Blizzard's tab art off, a flat ink cell
@@ -257,6 +333,12 @@ function Part.Leftovers(f, max)
     for k, v in pairs(parent) do if v == child and type(k) == "string" then return k end end
     return "?"
   end
+  -- unnamed pieces (parentKey only): "Icon", "SelectedTexture", "HighlightTexture" are what they say
+  local function keyFunctional(k)
+    if k:find("Icon", 1, true) then return true end
+    for _, w in ipairs(FUNCTIONAL) do if k:find(w, 1, true) then return true end end
+    return false
+  end
   local function walk(fr, path, depth)
     if #out >= max or depth > 5 or type(fr) ~= "table" or fr.hhOurs then return end
     if not Skin.call(fr.IsShown, fr) then return end
@@ -265,6 +347,7 @@ function Part.Leftovers(f, max)
     for _, r in ipairs(Skin.all(fr.GetRegions, fr)) do
       if #out >= max then return end
       if type(r) == "table" and Skin.call(r.GetObjectType, r) == "Texture" and not r.hhOurs and not isIcon(r) and not isFunctional(r)
+        and not Part.tinted[r] and not keyFunctional(key(fr, r))
         and Skin.call(r.IsShown, r) and (Skin.num(Skin.call(r.GetAlpha, r)) or 1) > 0 then
         local file = Skin.call(r.GetAtlas, r) or Skin.call(r.GetTexture, r)
         if file ~= nil then
@@ -295,7 +378,7 @@ function Part.Report(f, name, err)
   g.diag.skin.windows = g.diag.skin.windows or {}
   local left = err and {} or Part.Leftovers(f)
   g.diag.skin.windows[name] = { at = date and date("%Y-%m-%d %H:%M:%S") or "", styled = f.hhPanel ~= nil, error = err,
-    leftovers = #left, left = table.concat(left, " | ") }
+    leftovers = #left, left = table.concat(left, " | "), panes = Part.subs[name] }
 end
 
 --- Style a window: the once-only parts the first time, the art strip every time. Errors are CAUGHT and logged with
