@@ -911,6 +911,9 @@ def test_the_target_plates_fill_is_recorded(plates):
     plates.execute('TARGET = "nameplate63"; MockFire("PLAYER_TARGET_CHANGED")')
     rec = plates.eval("HogHeals.db.global.diag.plateFill[1]")
     assert "Scrawny Ursera: fill" in rec and "zeroedByUs=" in rec and "colour=" in rec
+    plates.execute('function NP.nameplate63.UnitFrame.healthBar:GetStatusBarColor() return 0.95, 0.8, 0.1 end; TARGET = nil; MockFire("PLAYER_TARGET_CHANGED"); TARGET = "nameplate63"; MockFire("PLAYER_TARGET_CHANGED")')
+    rec = plates.eval("HogHeals.db.global.diag.plateFill[1]")
+    assert "colour=0.95,0.80,0.10 " in rec, rec                                 # blue read too (call() kept two values)
 
 
 # ---------------------------------------------------------------- the container Blizzard hides (Sean 2026-10-17)
