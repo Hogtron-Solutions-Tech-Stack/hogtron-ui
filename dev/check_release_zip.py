@@ -2,6 +2,8 @@
 
 Usage: python dev/check_release_zip.py .release/HogTronUI-v0.1.0.zip
        python dev/check_release_zip.py .release/HogTronUI-v0.1.0.zip --expect-version 0.1.0
+       python dev/check_release_zip.py .release/HogTron_Bars-v0.1.0.zip --only HogTron_Bars   (a per-module project,
+       dev/split: exactly these folders, nothing else)
 
 Fails (exit 1, one line per problem) when:
   - a HogHeals* folder in the repo is not a top-level folder in the zip (missing from .pkgmeta move-folders ->
@@ -21,13 +23,13 @@ ROOT = Path(__file__).resolve().parents[1]
 LEAK = ("tests/", "dev/", "docs/", ".github/", ".pkgmeta", "requirements-dev.txt")
 
 
-def check(zip_path: Path, expect_version: str | None) -> list[str]:
+def check(zip_path: Path, expect_version: str | None, only: list[str] | None = None) -> list[str]:
     bad: list[str] = []
     with zipfile.ZipFile(zip_path) as z:
         names = [n for n in z.namelist() if not n.endswith("/")]
         name_set = set(names)
         tops = {PurePosixPath(n).parts[0] for n in names}
-        repo = {p.name for pat in ("HogHeals*", "HogTron*") for p in ROOT.glob(pat) if p.is_dir()}
+        repo = set(only) if only else {p.name for pat in ("HogHeals*", "HogTron*") for p in ROOT.glob(pat) if p.is_dir()}
 
         for folder in sorted(repo - tops):
             bad.append(f"{folder}: not a top-level folder in the zip (add it to .pkgmeta move-folders)")
@@ -71,11 +73,16 @@ def main() -> int:
         i = args.index("--expect-version")
         expect = args[i + 1]
         del args[i:i + 2]
+    only = None
+    if "--only" in args:
+        i = args.index("--only")
+        only = [f for f in args[i + 1].split(",") if f]
+        del args[i:i + 2]
     zip_path = Path(args[0])
     if not zip_path.is_file():
         print(f"FAIL no zip at {zip_path}")
         return 1
-    bad = check(zip_path, expect)
+    bad = check(zip_path, expect, only)
     with zipfile.ZipFile(zip_path) as z:
         tops = sorted({PurePosixPath(n).parts[0] for n in z.namelist()})
         count = len([n for n in z.namelist() if not n.endswith("/")])

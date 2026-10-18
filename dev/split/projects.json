@@ -1,0 +1,98 @@
+{
+  "_readme": "One CurseForge project per entry. curse_id empty = built and checked on every PR, never uploaded. Fill curse_id (and slug) once the project exists on CurseForge, then run: python dev/split/make_pkgmeta.py --write. Plan + migration: docs/superpowers/research/curseforge-split.md",
+  "bundle": {
+    "title": "HogTron UI",
+    "curse_id": "1744106",
+    "note": "today's all-in-one project (.pkgmeta at the repo root); unchanged by the split until the migration step"
+  },
+  "core": {
+    "name": "HogTronUI",
+    "title": "HogTron UI Core",
+    "folders": [
+      "HogHeals",
+      "HogTronUI"
+    ],
+    "slug": "",
+    "curse_id": ""
+  },
+  "modules": [
+    {
+      "name": "HogTron_Bars",
+      "title": "HogTron UI: Action Bars",
+      "slug": "",
+      "curse_id": ""
+    },
+    {
+      "name": "HogTron_HUD",
+      "title": "HogTron UI: HUD (cast bar, swing, mana)",
+      "slug": "",
+      "curse_id": ""
+    },
+    {
+      "name": "HogTron_Plates",
+      "title": "HogTron UI: Nameplates",
+      "slug": "",
+      "curse_id": ""
+    },
+    {
+      "name": "HogTron_Units",
+      "title": "HogTron UI: Unit Frames",
+      "slug": "",
+      "curse_id": ""
+    },
+    {
+      "name": "HogHeals_Frames",
+      "title": "HogTron UI: Healer Frames (HogHeals)",
+      "slug": "",
+      "curse_id": ""
+    },
+    {
+      "name": "HogTron_Quests",
+      "title": "HogTron UI: Quests & Map",
+      "slug": "",
+      "curse_id": ""
+    },
+    {
+      "name": "HogTron_Skin",
+      "title": "HogTron UI: Skin",
+      "slug": "",
+      "curse_id": ""
+    },
+    {
+      "name": "HogTron_Meter",
+      "title": "HogTron UI: Meter",
+      "slug": "",
+      "curse_id": ""
+    },
+    {
+      "name": "HogTron_Atlas",
+      "title": "HogTron UI: Atlas",
+      "slug": "",
+      "curse_id": ""
+    },
+    {
+      "name": "HogTron_Awards",
+      "title": "HogTron UI: Awards",
+      "slug": "",
+      "curse_id": ""
+    },
+    {
+      "name": "HogTron_Journal",
+      "title": "HogTron UI: Journal",
+      "slug": "",
+      "curse_id": ""
+    },
+    {
+      "name": "HogTron_Chat",
+      "title": "HogTron UI: Chat",
+      "slug": "",
+      "curse_id": ""
+    },
+    {
+      "name": "HogTron_Training",
+      "title": "HogTron UI: Training",
+      "slug": "",
+      "curse_id": ""
+    }
+  ]
+}
