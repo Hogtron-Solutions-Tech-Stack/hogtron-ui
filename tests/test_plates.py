@@ -901,3 +901,23 @@ def test_a_recycled_plate_given_to_a_game_object_keeps_nothing_of_ours(plates):
     plates.execute('MockFire("NAME_PLATE_UNIT_REMOVED", "nameplate51"); function UnitIsGameObject() return false end')
     plates.execute('MockUnits.nameplate51 = { name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-52" }; MockFire("NAME_PLATE_UNIT_ADDED", "nameplate51")')
     assert plates.eval(f'{uf}.healthBar:IsShown()') is True and plates.eval(f'{uf}.hh.object') is None
+
+
+def test_standing_down_a_plate_with_no_bar_still_hides_the_rest(plates):
+    # ipairs({ hh.bar, hh.bg, hh.health, ... }) stopped at the nil bar: health text, level, quest badge, container stayed
+    plates.execute('''
+      local plate = CreateFrame("Frame", nil, WorldFrame)
+      local uf = CreateFrame("Button", nil, plate)
+      uf.HealthBarsContainer = CreateFrame("Frame", nil, uf)
+      uf.name = uf:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+      plate.UnitFrame, plate.unitToken = uf, "nameplate92"
+      NP.nameplate92 = plate
+      MockUnits.nameplate92 = { name = "Odd Plate", health = 1, maxHealth = 1, guid = "C-92" }
+      MockFire("NAME_PLATE_UNIT_ADDED", "nameplate92")
+      uf.hh.health:Show(); uf.hh.level:Show()
+      HogHealsPlates.Plates.StandDown(uf)''')
+    uf = "NP.nameplate92.UnitFrame"
+    assert plates.eval(f"{uf}.hh.bar") is None
+    assert plates.eval(f"{uf}.hh.health:IsShown()") is False and plates.eval(f"{uf}.hh.level:IsShown()") is False
+    assert plates.eval(f"{uf}.HealthBarsContainer:IsShown()") is False
+    assert errors(plates) == []

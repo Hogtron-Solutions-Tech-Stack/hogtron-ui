@@ -852,7 +852,9 @@ end
 function Plates.StandDown(uf)
   local hh = uf and uf.hh
   if not hh then return false end
-  for _, p in ipairs({ hh.bar, hh.bg, hh.health, hh.level, hh.questFrame, rawget(uf, "HealthBarsContainer") }) do
+  local pieces = { hh.bar, hh.bg, hh.health, hh.level, hh.questFrame, rawget(uf, "HealthBarsContainer") }
+  for i = 1, 6 do   -- not ipairs: a plate without a bar (hh.bar / hh.bg nil) skipped every piece after it
+    local p = pieces[i]
     if type(p) == "table" and p.Hide then call(p.Hide, p) end
   end
   for _, e in ipairs(hh.edges or {}) do e:Hide() end
