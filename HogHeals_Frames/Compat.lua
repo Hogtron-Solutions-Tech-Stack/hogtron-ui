@@ -214,3 +214,79 @@ end
 function Compat.Blocked(name)
   return Compat.blocked and Compat.blocked[name] or nil
 end
+
+-- ------------------------------------------------------------------------------------------------ aura reader probe
+-- Sean 2026-10-17, in a party: "GetAuraDataByIndex(): Auras cannot be accessed when secret while tainted by
+-- 'HogHeals_Frames'" - in combat the client refuses that reader to us, so buffs / debuffs / the dispel highlight go
+-- blank. This client carries other readers (C_UnitAuras.GetUnitAuras, GetAuraSlots + GetAuraDataBySlot, the
+-- Buff/Debuff index readers, AuraUtil.ForEachAura); which of them answer in that moment cannot be tested outside the
+-- game. On a refusal each is tried ONCE (pcall, nothing compared or branched on) and what it gave back - an error, a
+-- type, which fields came back secret - is written to diag.auraReaders. At most once a minute, five records a session.
+Compat.PROBE_EVERY, Compat.PROBE_MAX = 60, 5
+Compat.probes = 0
+
+local function describe(v)
+  if Compat.IsSecret(v) then return "secret" end
+  if type(v) ~= "table" then return type(v) end
+  local parts, n = {}, 0
+  for k, x in pairs(v) do
+    n = n + 1
+    if n <= 14 then parts[#parts + 1] = tostring(k) .. "=" .. (Compat.IsSecret(x) and "secret" or type(x)) end
+  end
+  table.sort(parts)
+  return ("table(%d) %s"):format(n, table.concat(parts, " "))
+end
+
+local function try(label, f, ...)
+  if type(f) ~= "function" then return label .. ": absent" end
+  local r = { pcall(f, ...) }
+  if not r[1] then return label .. ": ERR " .. tostring(r[2]):gsub("\n.*", ""):sub(1, 110) end
+  local shown = {}
+  for i = 2, math.min(#r, 4) do shown[#shown + 1] = describe(r[i]) end
+  return label .. ": ok " .. (#shown > 0 and table.concat(shown, " | ") or "(nothing)")
+end
+
+function Compat.ProbeAuraReaders(unit, filter)
+  filter = filter or "HARMFUL"
+  local now = type(GetTime) == "function" and GetTime() or 0
+  if Compat.probes >= Compat.PROBE_MAX or (Compat.lastProbe and now - Compat.lastProbe < Compat.PROBE_EVERY) then return nil end
+  Compat.lastProbe, Compat.probes = now, Compat.probes + 1
+  local C = type(C_UnitAuras) == "table" and C_UnitAuras or {}
+  local lines = {
+    try("GetAuraDataByIndex", C.GetAuraDataByIndex, unit, 1, filter),
+    try("GetUnitAuras", C.GetUnitAuras, unit, filter),
+    try(filter == "HELPFUL" and "GetBuffDataByIndex" or "GetDebuffDataByIndex", filter == "HELPFUL" and C.GetBuffDataByIndex or C.GetDebuffDataByIndex, unit, 1),
+  }
+  -- slots: the first slot number, then that slot's data
+  local slotLine = "GetAuraSlots: absent"
+  if type(C.GetAuraSlots) == "function" then
+    local r = { pcall(C.GetAuraSlots, unit, filter) }
+    if not r[1] then slotLine = "GetAuraSlots: ERR " .. tostring(r[2]):gsub("\n.*", ""):sub(1, 110)
+    else
+      local slot = r[3]
+      slotLine = ("GetAuraSlots: ok %d value(s), first slot %s"):format(#r - 1, describe(slot))
+      if not Compat.IsSecret(slot) and slot ~= nil then lines[#lines + 1] = try("GetAuraDataBySlot", C.GetAuraDataBySlot, unit, slot) end
+    end
+  end
+  lines[#lines + 1] = slotLine
+  local AU = rawget(_G, "AuraUtil")
+  if type(AU) == "table" and type(AU.ForEachAura) == "function" then
+    local seen
+    local ok, err = pcall(AU.ForEachAura, unit, filter, 1, function(a) seen = describe(a) return true end, true)
+    lines[#lines + 1] = ok and ("AuraUtil.ForEachAura: ok " .. tostring(seen or "(no aura)")) or ("AuraUtil.ForEachAura: ERR " .. tostring(err):gsub("\n.*", ""):sub(1, 110))
+  else
+    lines[#lines + 1] = "AuraUtil.ForEachAura: absent"
+  end
+  lines[#lines + 1] = try("UnitAura", rawget(_G, "UnitAura"), unit, 1, filter)
+  local rec = { at = date and date("%Y-%m-%d %H:%M:%S") or "?", unit = tostring(unit), filter = filter,
+    combat = (type(InCombatLockdown) == "function" and InCombatLockdown()) and "yes" or "no", lines = lines }
+  local g = HogHeals and HogHeals.db and HogHeals.db.global
+  if g then
+    g.diag = g.diag or {}
+    local list = g.diag.auraReaders or {}
+    table.insert(list, 1, rec)
+    while #list > Compat.PROBE_MAX do table.remove(list) end
+    g.diag.auraReaders = list
+  end
+  return rec
+end

@@ -76,9 +76,140 @@ T.ART = { holy = { "ADD", 30, 0.7 }, fire = { "ADD", 55, 0.95 }, frost = { "ADD"
   leather = { "BLEND", 10, 0.9 }, water = { "ADD", 30, 0.8 }, gold = { "ADD", 25, 0.8 }, craft = { "ADD", 30, 0.85 },
   aim = { "ADD", 90, 0.5 } }
 T.ART_FILL = 0.5
+-- A spell's own strip is drawn as PAINTED (normal blend, near opaque). Sean 2026-10-17 in game, Frostbolt: "is this the
+-- new mage cast spells? they look the same" - drawn like the school strips (additive at ~55% over a darkened fill)
+-- the art's deep blues and black cracks dropped out and only the pale highlights stayed: the frost school look.
+T.SPELL_STRENGTH = 1.0
 local ART_DIR = "Interface\\AddOns\\HogTronUI\\Media\\cast_"
 local STRIP_W, STRIP_H = 512, 64
 T.artMissing = {}
+
+-- Per-SPELL art (Sean 2026-10-17: "create open art images for casting of spells, for every spell, for every class ...
+-- let's do some of the lower level mage skills so I can test them in game right now"). A cast whose name matches gets
+-- its own OpenArt strip (Media/cast_<art>.tga, 512x64) in place of its school's; the school still gives the colours,
+-- glow and motes. Pattern on the cast name (English client), art file, theme for the colours. Pilot 2026-10-17: four
+-- mage spells, single 1K strips (openart_cast_art.py spell_*).
+T.SPELL_ART = {
+  { "^Fireball", "spell_fireball", "fire" },
+  { "^Frostbolt", "spell_frostbolt", "frost" },
+  { "^Polymorph", "spell_polymorph", "arcane" },
+  { "^Teleport", "spell_teleport", "arcane" },
+  { "^Portal", "spell_teleport", "arcane" },
+  -- 2026-10-17 the rest of the mage set (trainer-taught spells with a cast bar, from Wowhead Classic's mage list + each
+  -- spell's tooltip cast time, dev/data/spell_art_mage.json; Season of Discovery runes and talents left out)
+  { "^Conjure Water", "spell_conjure_water", "frost" },
+  { "^Conjure Food", "spell_conjure_food", "holy" },
+  { "^Conjure Mana", "spell_conjure_gem", "arcane" },
+  { "^Arcane Missiles", "spell_arcane_missiles", "arcane" },
+  { "^Flamestrike", "spell_flamestrike", "fire" },
+  { "^Blizzard", "spell_blizzard", "frost" },
+  { "^Evocation", "spell_evocation", "arcane" },
+  { "^Scorch", "spell_scorch", "fire" },
+  -- 2026-10-17 the other eight classes (Sean: "yeah lets make those"): trainer + class-quest spells with a cast bar
+  -- (Wowhead Classic lists + tooltip cast times, dev/data/spell_art_<class>.json; SoD runes and talents left out).
+  -- Anchored patterns: "^Heal$" must not catch Healing Touch / Healing Wave / Health Funnel, "^Wrath$" not Holy Wrath.
+  -- warrior
+  { "^Slam", "spell_slam", "earth" },
+  -- paladin
+  { "^Holy Light", "spell_holy_light", "holy" },
+  { "^Flash of Light", "spell_flash_of_light", "holy" },
+  { "^Redemption", "spell_redemption", "holy" },
+  { "^Turn Undead", "spell_turn_undead", "holy" },
+  { "^Hammer of Wrath", "spell_hammer_of_wrath", "holy" },
+  { "^Holy Wrath", "spell_holy_wrath", "holy" },
+  { "^Summon Warhorse", "spell_warhorse", "holy" },
+  { "^Summon Charger", "spell_warhorse", "holy" },
+  -- hunter
+  { "^Tame Beast", "spell_tame_beast", "nature" },
+  { "^Revive Pet", "spell_revive_pet", "nature" },
+  { "^Dismiss Pet", "spell_dismiss_pet", "nature" },
+  { "^Mend Pet", "spell_mend_pet", "nature" },
+  { "^Eagle Eye", "spell_beast_vision", "nature" },
+  { "^Eyes of the Beast", "spell_beast_vision", "nature" },
+  { "^Scare Beast", "spell_scare_beast", "fire" },
+  { "^Volley", "spell_volley", "aim" },
+  -- rogue
+  { "Poison", "spell_poison", "nature" },
+  { "^Blinding Powder", "spell_poison", "nature" },
+  { "^Pick Lock", "spell_lockpick", "craft" },
+  { "^Disarm Trap", "spell_lockpick", "craft" },
+  -- priest
+  { "^Lesser Heal$", "spell_heal", "holy" },
+  { "^Heal$", "spell_heal", "holy" },
+  { "^Greater Heal$", "spell_heal", "holy" },
+  { "^Flash Heal", "spell_flash_heal", "holy" },
+  { "^Prayer of Healing", "spell_prayer_of_healing", "holy" },
+  { "^Smite", "spell_smite", "holy" },
+  { "^Holy Fire", "spell_holy_fire", "holy" },
+  { "^Mind Blast", "spell_mind_blast", "shadow" },
+  { "^Mana Burn", "spell_mana_burn", "shadow" },
+  { "^Mind Control", "spell_mind_control", "shadow" },
+  { "^Mind Vision", "spell_mind_vision", "shadow" },
+  { "^Shackle Undead", "spell_shackle_undead", "holy" },
+  { "^Resurrection", "spell_resurrection", "holy" },
+  { "^Starshards", "spell_starshards", "arcane" },
+  -- shaman
+  { "^Healing Wave", "spell_healing_wave", "water" },
+  { "^Lesser Healing Wave", "spell_healing_wave", "water" },
+  { "^Chain Heal", "spell_chain_heal", "water" },
+  { "^Lightning Bolt", "spell_lightning_bolt", "nature" },
+  { "^Chain Lightning", "spell_chain_lightning", "nature" },
+  { "^Ancestral Spirit", "spell_ancestral_spirit", "nature" },
+  { "^Ghost Wolf", "spell_ghost_wolf", "nature" },
+  { "^Far Sight", "spell_far_sight", "water" },
+  { "^Astral Recall", "spell_astral_recall", "arcane" },
+  -- warlock
+  { "^Shadow Bolt", "spell_shadow_bolt", "shadow" },
+  { "^Immolate", "spell_immolate", "fire" },
+  { "^Corruption", "spell_corruption", "shadow" },
+  { "^Searing Pain", "spell_searing_pain", "fire" },
+  { "^Soul Fire", "spell_soul_fire", "fire" },
+  { "^Fear$", "spell_fear", "shadow" },
+  { "^Howl of Terror", "spell_howl_of_terror", "shadow" },
+  { "^Banish", "spell_banish", "shadow" },
+  { "^Drain Life", "spell_drain_life", "shadow" },
+  { "^Drain Mana", "spell_drain_mana", "shadow" },
+  { "^Drain Soul", "spell_drain_soul", "shadow" },
+  { "^Health Funnel", "spell_health_funnel", "shadow" },
+  { "^Rain of Fire", "spell_rain_of_fire", "fire" },
+  { "^Hellfire", "spell_hellfire", "fire" },
+  { "^Ritual of Summoning", "spell_ritual", "shadow" },
+  { "^Ritual of Doom", "spell_ritual", "shadow" },
+  { "^Eye of Kilrogg", "spell_eye_of_kilrogg", "shadow" },
+  { "^Subjugate Demon", "spell_enslave_demon", "shadow" },
+  { "^Enslave Demon", "spell_enslave_demon", "shadow" },
+  { "^Inferno", "spell_inferno", "fire" },
+  { "^Summon Imp", "spell_summon_imp", "fire" },
+  { "^Summon Voidwalker", "spell_summon_voidwalker", "shadow" },
+  { "^Summon Succubus", "spell_summon_succubus", "shadow" },
+  { "^Summon Incubus", "spell_summon_succubus", "shadow" },
+  { "^Summon Felhunter", "spell_summon_felhunter", "shadow" },
+  { "^Summon Felsteed", "spell_dreadsteed", "shadow" },
+  { "^Summon Dreadsteed", "spell_dreadsteed", "shadow" },
+  { "^Create Healthstone", "spell_healthstone", "shadow" },
+  { "^Create Soulstone", "spell_soulstone", "shadow" },
+  { "^Create Firestone", "spell_firestone", "fire" },
+  { "^Create Spellstone", "spell_spellstone", "arcane" },
+  -- druid
+  { "^Wrath$", "spell_wrath", "nature" },
+  { "^Starfire", "spell_starfire", "arcane" },
+  { "^Entangling Roots", "spell_entangling_roots", "nature" },
+  { "^Healing Touch", "spell_healing_touch", "nature" },
+  { "^Regrowth", "spell_regrowth", "nature" },
+  { "^Rebirth", "spell_rebirth", "nature" },
+  { "^Hibernate", "spell_hibernate", "nature" },
+  { "^Soothe Animal", "spell_soothe_animal", "nature" },
+  { "^Tranquility", "spell_tranquility", "nature" },
+  { "^Hurricane", "spell_hurricane", "nature" },
+}
+
+--- Pure: the strip and theme for a cast name, or nil.
+function T.SpellArt(name)
+  name = str(name)
+  if not name or cfg().spellArt == false then return nil end
+  for _, s in ipairs(T.SPELL_ART) do if name:find(s[1]) then return s[2], s[3] end end
+  return nil
+end
 
 T.ORDER = { "holy", "fire", "frost", "arcane", "shadow", "nature", "earth", "herb", "leather", "water", "gold", "craft", "aim" }
 T.SCHOOLS = { "Holy", "Fire", "Frost", "Arcane", "Shadow", "Nature" }
@@ -170,12 +301,15 @@ end
 -- shape at any bar height); u beyond 1 wraps (the strip is loaded with REPEAT).
 function T.ArtCoords(t, width, height, speed)
   local rep = STRIP_W * math.max(1, height or 18) / STRIP_H
-  local u0 = -((t or 0) * (speed or 0)) / rep
+  -- only the FRACTION of a repeat: the strip tiles, so whole repeats look the same - and the client rejects coords far
+  -- out ("TexCoord out of range", Sean 2026-10-17: the swing art passes GetTime(), the PC's uptime, as t)
+  local u0 = -((((t or 0) * (speed or 0)) / rep) % 1)
   return u0, u0 + math.max(0, width or 0) / rep
 end
 
---- Start a themed cast on bar b. key = theme key (nil = plain). Returns true when a theme is on.
-function T.Apply(b, key, startTime)
+--- Start a themed cast on bar b. key = theme key (nil = plain); art = a per-spell strip in place of the theme's.
+-- Returns true when a theme is on.
+function T.Apply(b, key, startTime, art)
   local th = key and T.THEMES[key]
   local o = cfg()
   if not th or o.enabled == false then T.Clear(b) return false end
@@ -189,17 +323,30 @@ function T.Apply(b, key, startTime)
   if b.spark and b.spark.SetVertexColor then
     b.spark:SetVertexColor(math.min(1, th.glow[1] + 0.2), math.min(1, th.glow[2] + 0.2), math.min(1, th.glow[3] + 0.2), 1)
   end
+  local spellStrip = art
   local art = T.ART[key]
+  local file = spellStrip or key
   L.art:Hide()
   L.artOn = false
-  if o.art ~= false and art and not T.artMissing[key] then
-    local ok = L.art:SetTexture(ART_DIR .. key, "REPEAT", "CLAMP")
+  if o.art ~= false and art and not T.artMissing[file] then
+    local ok = L.art:SetTexture(ART_DIR .. file, "REPEAT", "CLAMP")
     if ok == false then
-      T.artMissing[key] = true
+      T.artMissing[file] = true
+      if spellStrip and not T.artMissing[key] then                                      -- the school's instead
+        ok = L.art:SetTexture(ART_DIR .. key, "REPEAT", "CLAMP")
+        if ok == false then T.artMissing[key] = true else file = key end
+      end
+    end
+    if ok == false then
+      -- nothing to draw
     else
-      if L.art.SetBlendMode then L.art:SetBlendMode(art[1]) end
-      L.art:SetVertexColor(1, 1, 1, math.min(1, (art[3] or 0.9) * (0.55 + 0.45 * (o.intensity or 0.8))))   -- the label must still read on it
-      if art[1] == "ADD" then b:SetStatusBarColor(th.fill[1] * T.ART_FILL, th.fill[2] * T.ART_FILL, th.fill[3] * T.ART_FILL) end
+      local spellLoaded = spellStrip ~= nil and file == spellStrip
+      local mode = spellLoaded and "BLEND" or art[1]
+      local strength = spellLoaded and T.SPELL_STRENGTH or (art[3] or 0.9)
+      if L.art.SetBlendMode then L.art:SetBlendMode(mode) end
+      L.art:SetVertexColor(1, 1, 1, math.min(1, strength * (0.55 + 0.45 * (o.intensity or 0.8))))   -- the label must still read on it
+      if mode == "ADD" then b:SetStatusBarColor(th.fill[1] * T.ART_FILL, th.fill[2] * T.ART_FILL, th.fill[3] * T.ART_FILL) end
+      T.active.mode = mode
       L.art:ClearAllPoints()
       L.art:SetPoint("TOPLEFT", b, "TOPLEFT", 0, 0)
       L.art:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 0, 0)
@@ -214,6 +361,7 @@ function T.Apply(b, key, startTime)
     if o.motes ~= false and i <= (th.motes.n or 0) then mt:Show() else mt:Hide() end
   end
   T.seen[key] = (T.seen[key] or 0) + 1
+  T.active.art = L.artOn and file or nil
   return true
 end
 
@@ -268,6 +416,16 @@ end
 
 function T.Line(state)
   local o = cfg()
-  return ("theme: %s (from %s)%s"):format(tostring(state and state.theme or "none"), tostring(state and state.themeWhy or "-"),
-    o.enabled == false and " - themes are off" or "")
+  local a = T.active or {}
+  return ("theme: %s (from %s)%s   art: wanted %s, drew %s (%s)   missing: %s"):format(tostring(state and state.theme or "none"),
+    tostring(state and state.themeWhy or "-"), o.enabled == false and " - themes are off" or "",
+    tostring(state and state.spellArt or "school"), tostring(a.art or "none"), tostring(a.mode or "-"), T.MissingText())
+end
+
+--- The art files this client refused this session, "none" when every file loaded.
+function T.MissingText()
+  local m = {}
+  for k in pairs(T.artMissing) do m[#m + 1] = k end
+  table.sort(m)
+  return #m > 0 and table.concat(m, ",") or "none"
 end

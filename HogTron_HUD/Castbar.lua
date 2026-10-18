@@ -76,8 +76,13 @@ local function begin(state, name, texture, startMS, endMS, notInterruptible, cha
       local _, class = UnitClass("player")
       key, why = T.Resolve(name, spellID, isTradeSkill, class)
     end
-    state.theme, state.themeWhy, state.spellID = key, why, spellID
-    if state.notInterruptible then T.Clear(b) else T.Apply(b, key, state.startTime) end
+    -- a spell with its own OpenArt strip: that strip, its school's colours (2026-10-17 pilot)
+    local spellArt, spellTheme
+    if not forceTheme and T.SpellArt then spellArt, spellTheme = T.SpellArt(name) end
+    if spellArt and not key then key, why = spellTheme, "spell art" end
+    state.theme, state.themeWhy, state.spellID, state.spellArt = key, why, spellID, spellArt
+    if state.notInterruptible then T.Clear(b) else T.Apply(b, key, state.startTime, spellArt) end
+    Castbar.NoteArt(name, key, why, spellArt)
   end
   local dur = state.endTime - state.startTime
   if c.latency and dur > 0 and state.latency > 0 then
@@ -92,6 +97,18 @@ local function begin(state, name, texture, startMS, endMS, notInterruptible, cha
   b:Show()
   b:SetScript("OnUpdate", function(self) Castbar.OnUpdate(self) end)
   Castbar.OnUpdate(b)
+end
+
+--- What the last cast drew, saved (diag.castArt) so a /reload tells which strip the client really loaded.
+function Castbar.NoteArt(name, key, why, spellArt)
+  local g = HH.db and HH.db.global
+  local T = HHD.CastThemes
+  if not g or not T then return end
+  g.diag = g.diag or {}
+  local a = T.active or {}
+  g.diag.castArt = { at = date and date("%Y-%m-%d %H:%M:%S") or "?", name = (type(name) == "string" and not HH.IsSecret(name)) and name or "?",
+    theme = tostring(key), why = tostring(why), wanted = spellArt or "school", drew = a.art or "none", mode = a.mode or "-",
+    missing = T.MissingText() }
 end
 
 local function finish(state)

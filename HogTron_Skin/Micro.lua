@@ -7,7 +7,7 @@ local HH = HogHeals
 local Part = { name = "micro" }
 HHS.Micro = Part
 
-Part.MICRO = { "CharacterMicroButton", "SpellbookMicroButton", "TalentMicroButton", "AchievementMicroButton", "QuestLogMicroButton",
+Part.MICRO = { "CharacterMicroButton", "SpellbookMicroButton", "TalentMicroButton", "ProfessionMicroButton", "AchievementMicroButton", "QuestLogMicroButton",
   "GuildMicroButton", "SocialsMicroButton", "LFDMicroButton", "LFGMicroButton", "CollectionsMicroButton", "EJMicroButton",
   "PVPMicroButton", "StoreMicroButton", "MainMenuMicroButton", "HelpMicroButton", "WorldMapMicroButton" }
 Part.MICRO_ART = { "MicroButtonAndBagsBar.MicroBagBar", "MicroMenu.Background", "MicroButtonAndBagsBar.Background" }
@@ -94,6 +94,29 @@ Part.ICONS = {
   PVPMicroButton = "micro_pvp", StoreMicroButton = "micro_shop", HelpMicroButton = "micro_help", MainMenuMicroButton = "micro_menu",
   WorldMapMicroButton = "micro_map",
 }
+-- Sean 2026-10-17, new character: WoW: Forever has a micro button we had no art for, drawn as a bare "L" ("the legacy
+-- doesn't have an image"). Its family gets its own painted icon; ANY other button we do not know gets the generic one
+-- and Blizzard's own tooltip text - never a bare letter again. The names the client really has go to the skin diag.
+Part.ICON_PATTERNS = { { "^Legacy", "micro_legacy" } }
+Part.ICON_OTHER = "micro_other"
+
+--- The icon id for a Blizzard micro button by name: known name, then a known family, then the generic one.
+function Part.IconFor(name)
+  if Part.ICONS[name] then return Part.ICONS[name] end
+  for _, pi in ipairs(Part.ICON_PATTERNS) do if name:find(pi[1]) then return pi[2] end end
+  return Part.ICON_OTHER
+end
+
+--- What the cell's tooltip says: ours, else Blizzard's own (the button's tooltipText), else the name minus MicroButton.
+function Part.LabelFor(src, name)
+  local lab = Part.LABELS[name]
+  if lab then return lab[1], lab[2] end
+  local short = name:gsub("MicroButton$", "")
+  local tt = type(src) == "table" and rawget(src, "tooltipText")
+  if type(tt) ~= "string" or (Skin.isSecret and Skin.isSecret(tt)) or tt == "" then tt = short end
+  tt = tt:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("%s*%(.-%)%s*$", "")   -- colour codes and "(K)" key hints off
+  return short:sub(1, 1):upper(), tt
+end
 Part.MEDIA = "Interface\\AddOns\\HogTronUI\\Media\\"
 -- The one Bags cell at the end of the bar (Sean 2026-10-02: "the bag icons look terrible... just have one to open all
 -- the bags at once"). A plain button: ToggleAllBags is not protected, so it works in combat without a secure path.
@@ -108,6 +131,7 @@ Part.TINT = {
   micro_guild = { 0.40, 0.85, 0.50 }, micro_social = Skin.CYAN, micro_lfg = { 0.70, 0.55, 0.95 },
   micro_collections = { 0.35, 0.80, 0.75 }, micro_ej = { 0.95, 0.55, 0.35 }, micro_pvp = { 0.90, 0.35, 0.35 },
   micro_shop = { 1.00, 0.85, 0.30 }, micro_help = Skin.CREAM, micro_menu = Skin.CREAM, micro_map = { 0.55, 0.80, 0.40 },
+  micro_legacy = { 0.95, 0.75, 0.45 }, micro_other = Skin.CYAN, micro_bags = { 0.80, 0.62, 0.40 },
 }
 
 --- Cream pulled `s` of the way to the glyph's colour (0 = cream, 1 = the colour).
@@ -265,6 +289,12 @@ local function dress(c)
   c.icon = c:CreateTexture(nil, "ARTWORK")
   c.icon:SetPoint("CENTER", c, "CENTER", 0, 0)
   c.icon.hhOurs = true
+  -- a short bar under the icon in its own colour: the painted set shares one brass frame, so at a glance they blurred
+  -- together (Sean 2026-10-17: "bigger by default and more distinct")
+  c.accent = Skin.Solid(c, "OVERLAY", Skin.CYAN, 0.9)
+  c.accent:SetPoint("BOTTOMLEFT", c, "BOTTOMLEFT", 3, 1)
+  c.accent:SetPoint("BOTTOMRIGHT", c, "BOTTOMRIGHT", -3, 1)
+  c.accent:SetHeight(2)
   c:SetScript("OnEnter", function(self)
     Skin.ColorEdges(self.edges, Skin.CYAN)
     if self.tintFull then self.icon:SetVertexColor(self.tintFull[1], self.tintFull[2], self.tintFull[3]) end
@@ -332,6 +362,11 @@ local function paintCell(c, size, id, letter, label, strength)
   c.tintFull = art and { 1, 1, 1 } or Part.Tint(id, strength > 0 and 1 or 0)
   c.icon:SetVertexColor(c.tint[1], c.tint[2], c.tint[3])
   c.letter:SetTextColor(c.tint[1], c.tint[2], c.tint[3])
+  if c.accent then
+    local a = Part.TINT[id] or Skin.CREAM
+    c.accent:SetColorTexture(a[1], a[2], a[3], 0.9)
+    if (Skin.cfg().micro or {}).accent == false then c.accent:Hide() else c.accent:Show() end
+  end
 end
 
 function Part.AnchorBar()
@@ -367,16 +402,19 @@ function Part.Strip()
   local m = Skin.cfg().micro
   local srcs = Part.MicroButtons()
   local bar = barFrame()
-  local size, pad = m.size or 30, 3
+  local size, pad = m.size or 40, 4
   local strength = m.tint == false and 0 or (m.tintStrength or 0.6)
   local n = 0
+  local names = {}
   for i, src in ipairs(srcs) do
     n = n + 1
     local c = cell(i, bar)
     local name = src:GetName()
-    local lab = Part.LABELS[name]
-    -- the glyph when the client takes the file, the letter when it does not
-    paintCell(c, size, Part.ICONS[name], lab and lab[1] or name:gsub("MicroButton$", ""):sub(1, 1):upper(), lab and lab[2] or name:gsub("MicroButton$", ""), strength)
+    local letter, label = Part.LabelFor(src, name)
+    -- the glyph when the client takes the file, the letter only when it refuses every file
+    local id = Part.IconFor(name)
+    paintCell(c, size, id, letter, label, strength)
+    names[#names + 1] = name .. "=" .. (c.glyph and id or ("letter " .. letter))
     c:ClearAllPoints()
     c:SetPoint("LEFT", bar, "LEFT", pad + (i - 1) * (size + pad), 0)
     c:SetAttribute("type", "click")
@@ -386,6 +424,7 @@ function Part.Strip()
     silence(src)
   end
   for i = n + 1, #bar.cells do bar.cells[i]:Hide() end
+  Part.cellNames = table.concat(names, ",")
   local total = n
   if n > 0 and Part.BagsAsButton() then
     total = n + 1

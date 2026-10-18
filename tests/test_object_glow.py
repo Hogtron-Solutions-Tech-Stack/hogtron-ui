@@ -309,3 +309,20 @@ def test_off_hides_and_options_and_diag(og):
     assert "object glow: on" in d["lines"][1]
     assert any("object glow" in l for l in og.eval("HogHealsPlates.Plates.Diagnose()").values())
     assert og.eval("#HogHeals.errors") == 0
+
+
+
+# ---------------------------------------------------------------- any direction (Sean 2026-10-17)
+# "it only shows up if I'm looking directly at it, which kind of defeats the purpose"
+def test_the_nearest_object_in_any_direction_is_picked(lua):
+    boot(lua, 'CV.SoftTargetInteractArc = "0"; ORIGINAL.SoftTargetInteractArc = "0" ')
+    assert lua.eval('CV.SoftTargetInteractArc') == "2"
+    assert lua.eval("HogHeals.db.global.objectGlow.saved.SoftTargetInteractArc") == "0"      # the player's, kept
+    lua.execute('HogHeals.db.profile.plates.objectGlow.anyDirection = false; HogHealsPlates.ObjectGlow.Apply()')
+    assert lua.eval('CV.SoftTargetInteractArc') == "0"
+    lua.execute('HogHeals:SlashCommand("glow off")')
+    assert lua.eval('CV.SoftTargetInteractArc') == "0"
+
+
+def test_a_client_without_the_arc_cvar_just_records_it(og):
+    assert "SoftTargetInteractArc" in list(og.eval("HogHealsPlates.ObjectGlow.missing").values())

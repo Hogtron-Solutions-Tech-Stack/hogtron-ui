@@ -2,7 +2,7 @@
 
 Not screenshots of WoW. The real Dialog.lua runs in the test harness (lupa + tests/wow_mock.lua) against the sample
 quest API in tests/test_quest_dialog.py; this script walks every texture and font string the code created, resolves
-their anchors, and composites the addon's own art (HogHeals/Media/dialog_*.tga, with the code's tex coords and
+their anchors, and composites the addon's own art (HogTronUI/Media/dialog_*.tga, with the code's tex coords and
 vertex colours) the way the client stacks layers. Text is drawn in Friz Quadrata when a local copy exists (WoW
 ships it inside its archives; a Dialogue UI install has a loose copy), else Georgia - so line breaks can differ a
 little from the game. Item icons and the NPC portrait are placeholders. Quest text and items are SAMPLE DATA.
@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import pathlib
+import re
 import sys
 
 from PIL import Image, ImageDraw, ImageFont
@@ -32,6 +33,26 @@ FRIZ = [pathlib.Path(r"C:/Program Files (x86)/World of Warcraft/_retail_/Interfa
 
 def vals(t):
     return list(t.values()) if t is not None else []
+
+
+# |Tpath:h:w:x:y|t - an inline texture in a font string (coin / XP icons). Ours are drawn from HogTronUI/Media.
+ICON = re.compile(r"\|T([^:|]+)((?::-?\d+)*)\|t")
+
+
+def pieces(s):
+    """Text split into ("t", text) and ("i", media file or None, px) pieces."""
+    out, pos = [], 0
+    for m in ICON.finditer(s):
+        if m.start() > pos:
+            out.append(("t", s[pos:m.start()]))
+        nums = [int(v) for v in m.group(2).split(":")[1:] if v]
+        name = m.group(1).replace("\\", "/").split("/")[-1]
+        f = MEDIA / f"{name}.tga"
+        out.append(("i", f if f.exists() else None, nums[0] if nums else 14))
+        pos = m.end()
+    if pos < len(s):
+        out.append(("t", s[pos:]))
+    return out
 
 
 class Painter:
@@ -87,7 +108,9 @@ class Painter:
         col = (col + [1, 1, 1, 1])[:4]
         name = str(tex) if tex is not None else ""
         src = None
-        if "HogHeals\\Media\\" in name or "HogHeals/Media/" in name:
+        # our art: HogTronUI since the folder rename (only the old HogHeals name was matched here, so every preview
+        # drew our textures as item-icon placeholders)
+        if any(k in name.replace(chr(92), "/") for k in ("HogTronUI/Media/", "HogHeals/Media/")):
             f = MEDIA / (name.replace("\\", "/").split("/")[-1] + ".tga")
             if f.exists():
                 src = Image.open(f).convert("RGBA")
@@ -138,7 +161,7 @@ class Painter:
             words, line = para.split(" "), ""
             for wd in words:
                 cand = (line + " " + wd).strip()
-                if w and line and d.textlength(cand, font=font) > w * self.s:
+                if w and line and self.measure(d, font, cand) > w * self.s:
                     lines.append(line)
                     line = wd
                 else:
@@ -159,8 +182,28 @@ class Painter:
         else:
             y0 = t
         for i, ln in enumerate(lines):
+            if ICON.search(ln) and just != "CENTER":
+                self.rich(img, d, l * self.s, (y0 + i * lh) * self.s, ln, font, col, size)
+                continue
             x = l if just != "CENTER" else l + w / 2
-            d.text((x * self.s, (y0 + i * lh) * self.s), ln, fill=col, font=font, anchor="la" if just != "CENTER" else "ma")
+            d.text((x * self.s, (y0 + i * lh) * self.s), ICON.sub("", ln), fill=col, font=font, anchor="la" if just != "CENTER" else "ma")
+
+    def measure(self, d, font, s):
+        return sum(d.textlength(p[1], font=font) if p[0] == "t" else (p[2] + 2) * self.s for p in pieces(s))
+
+    def rich(self, img, d, x, y, s, font, col, size):
+        """One line with inline icons: text runs, then each icon pasted at the font's height, 2 px off the number."""
+        for p in pieces(s):
+            if p[0] == "t":
+                d.text((x, y), p[1], fill=col, font=font, anchor="la")
+                x += d.textlength(p[1], font=font)
+            else:
+                px = int(p[2] * self.s)
+                x += 2 * self.s
+                if p[1] is not None:
+                    ic = Image.open(p[1]).convert("RGBA").resize((px, px), Image.LANCZOS)
+                    img.alpha_composite(ic, (int(x), int(y + (size * 1.2 * self.s - px) / 2)))
+                x += px
 
     def walk(self, img, frame):
         if not frame["_shown"]:
@@ -205,6 +248,8 @@ def main():
         ("progress-light", 'COMPLETABLE = false; REQUIRED = { { "Tough Wolf Meat", 5, 3 } }; MockFire("QUEST_PROGRESS")', None),
         ("gossip-light", 'GAC = { { title = "Wolves Across the Border", questID = 55, isComplete = true } }; GAV = { { title = "Kobold Camp Cleanup", questID = 101 } }; GOPT = { { name = "I would like to buy something.", gossipOptionID = 3, orderIndex = 0 }, { name = "Make this inn your home.", gossipOptionID = 4, orderIndex = 1 } }; MockFire("GOSSIP_SHOW")', None),
         ("detail-dark", 'HogHeals.db.profile.quests.dialog.theme = "dark"; MockFire("QUEST_DETAIL")', None),
+        # Sean 2026-10-17's turn-in page: two long names next to their number chips, XP + coins as icons
+        ("complete-rewards-light", '''HogHeals.db.profile.quests.dialog.theme = "light"; COMPLETABLE = true; REQUIRED = {}; REWARDS = {}; CHOICES = { { "Hunter's Simple Cloak", 1, 1, 2 }, { "Highlands Defender's Shield", 2, 1, 2 } }; XP = 775; MONEY = 600; MockFire("QUEST_COMPLETE")''', None),
     ]
     for name, prep, pick in shots:
         lua.execute("HogHealsQuests.Dialog.Hide()")

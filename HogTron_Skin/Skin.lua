@@ -264,6 +264,7 @@ function Skin.Under()
         local x, y = cx / s, cy / s
         if l and r and t and b and x >= l and x <= r and y >= b and y <= t then
           local line, level = describe(f)
+          if call(f.IsMouseEnabled, f) then line = "MOUSE " .. line end
           hits[#hits + 1] = { line = line, level = level }
         end
       end
@@ -272,7 +273,13 @@ function Skin.Under()
   end
   table.sort(hits, function(a, b) return a.level > b.level end)
   local out = {}
-  for i = 1, math.min(#hits, 60) do out[i] = hits[i].line end
+  -- the frame the client hands the mouse to (Sean 2026-10-17: half a button took no hover - who has it?)
+  local foci = rawget(_G, "GetMouseFoci")
+  local focus
+  if type(foci) == "function" then local ok, list = pcall(foci) focus = ok and type(list) == "table" and list[1] or nil
+  else local gf = rawget(_G, "GetMouseFocus") if type(gf) == "function" then local ok, v = pcall(gf) focus = ok and v or nil end end
+  out[1] = "mouse focus: " .. (type(focus) == "table" and (describe(focus)) or "none / world")
+  for i = 1, math.min(#hits, 60) do out[#out + 1] = hits[i].line end
   return out
 end
 
@@ -332,7 +339,7 @@ HH:RegisterSlash("skindiag", function()
       else
         local first = tostring(w.left or ""):match("^[^|]*") or ""
         HH:Print(("  window %s: %s, %d Blizzard piece(s) still showing%s"):format(n, w.styled and "styled" or "NOT styled", w.leftovers or 0,
-          (w.leftovers or 0) > 0 and (" - e.g. " .. first) or ""))
+          ((w.leftovers or 0) > 0 and (" - e.g. " .. first) or "") .. ((w.panes and w.panes ~= "") and (" (panes: " .. w.panes .. ")") or "")))
       end
     end
   end
@@ -341,12 +348,23 @@ HH:RegisterSlash("skindiag", function()
     HH:Print("  menu ancestors: " .. tostring(micro.containerDiag or "-") .. " | bag ancestors: " .. tostring(micro.bagDiag or "-"))
     HH:Print(("  bag slots found: %d [%s]; bar anchor: %s; menu buttons: %d"):format(micro.bagCount or 0, tostring(micro.bagNames or ""), tostring(micro.barAnchor), micro.microCount or 0))
     HH:Print("  faded over the slots: " .. tostring(micro.bagOverlayDiag or "-"))
+    HH:Print("  menu cells: " .. tostring(micro.cellNames or "-"))
   end
   local g = HH.db and HH.db.global
   local xp = (HHS.Extras and HHS.Extras.ProbeXP) and HHS.Extras.ProbeXP() or {}
+  local keepWindows = g and g.diag and g.diag.skin and g.diag.skin.windows
   if g then g.diag = g.diag or {} g.diag.skin = { found = table.concat(f, ","), missing = table.concat(m, ","), xp = table.concat(xp, " ; "),
     micro = micro and micro.containerDiag or nil, bags = micro and micro.bagDiag or nil,
     bagCount = micro and micro.bagCount or nil, bagNames = micro and micro.bagNames or nil, barAnchor = micro and micro.barAnchor or nil,
-    overlays = micro and micro.bagOverlayDiag or nil } end
+    overlays = micro and micro.bagOverlayDiag or nil, cells = micro and micro.cellNames or nil } end
+  if g and g.diag and g.diag.skin and keepWindows then g.diag.skin.windows = keepWindows end
+  do
+    local P = HHS.Panels
+    local list = {}
+    for n, c in pairs(P and P.shows or {}) do list[#list + 1] = n .. "=" .. c end
+    table.sort(list)
+    HH:Print("  windows shown this session: " .. (#list > 0 and table.concat(list, ", ") or "none"))
+    if g and g.diag and g.diag.skin then g.diag.skin.shows = table.concat(list, ",") end
+  end
   if #xp > 0 then HH:Print(("  xp bar textures: %d recorded (diag.skin.xp)"):format(#xp)) end
 end, "which Blizzard frames the skin found / could not find on this client")

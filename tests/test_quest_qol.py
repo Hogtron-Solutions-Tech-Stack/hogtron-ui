@@ -1,3 +1,4 @@
+import pathlib
 # Questie's quality-of-life half without its database (HogTron_Quests/Auto.lua, Announce.lua, Tooltip.lua):
 # auto accept / turn in / gossip, party announce of objective progress, "needed for <quest>" tooltips. 2026-10-08.
 import pytest
@@ -55,7 +56,7 @@ def test_accept_on_detail_unless_paused_or_off(qol):
 
 
 def test_turn_in_progress_then_single_reward(qol):
-    qol.execute('MockFire("QUEST_PROGRESS")')
+    qol.execute('HogHeals.db.profile.quests.auto.turnIn = true; MockFire("QUEST_PROGRESS")')      # opted in (off by default)
     assert calls(qol) == [["CompleteQuest"]]
     qol.execute('CALLS = {}; COMPLETABLE = false; MockFire("QUEST_PROGRESS")')
     assert calls(qol) == [] and qol.eval(f"{A}.seen.notCompletable") == 1
@@ -261,3 +262,39 @@ def test_slash_switches(qol):
     assert qol.eval("HogHeals.db.profile.quests.auto.enabled") is True and qol.eval("HogHeals.db.profile.quests.announce.enabled") is False
     qol.execute('HogHeals:SlashCommand("auto bogus")')
     assert any("usage: /hh auto" in m for m in qol.eval("MockLog.chat").values())
+
+
+
+# ---------------------------------------------------------------- auto turn-in visible + off by default (2026-10-17)
+# Sean on a new character: "I just turned in a quest and the dialogue didn't even pop up because it was an auto turn-in
+# so fast. I'm not sure in the settings if I'm seeing where we can turn on and off. That should be in the setup as well."
+def test_auto_turn_in_is_off_by_default_so_the_turn_in_page_shows(qol):
+    assert qol.eval('HogHeals.db.profile.quests.auto.turnIn') is False
+    qol.execute('CALLS = {}; MockFire("QUEST_PROGRESS"); CHOICES = 0; MockFire("QUEST_COMPLETE")')
+    assert calls(qol) == []                                                      # nothing clicked for you
+    assert qol.eval('HogHeals.db.profile.quests.auto.accept') is True             # accepting is unchanged
+
+
+def test_the_first_automatic_hand_in_says_so_once(qol):
+    qol.execute('HogHeals.db.profile.quests.auto.turnIn = true; MockLog.chat = {}; MockFire("QUEST_PROGRESS")')
+    chat = [l for l in qol.eval('MockLog.chat').values()]
+    assert any("handed in automatically" in l and "Auto turn-in" in l for l in chat)
+    qol.execute('MockLog.chat = {}; MockFire("QUEST_PROGRESS")')
+    assert not any("handed in automatically" in l for l in qol.eval('MockLog.chat').values())   # once per account
+
+
+def test_options_say_auto_and_the_setup_guide_has_both_switches(qol):
+    lines = []
+    def walk(t):
+        if t is None or not hasattr(t, "keys"):
+            return
+        for k in list(t.keys()):
+            v = t[k]
+            if hasattr(v, "keys") and v["type"] == "toggle":
+                lines.append(str(v["name"]))
+            if hasattr(v, "keys") and v["args"] is not None:
+                walk(v["args"])
+    walk(qol.eval('HogHeals.OptionsTable().args.Quests.args'))
+    assert any(l.startswith("Auto turn-in") for l in lines) and any(l.startswith("Auto-accept") for l in lines)
+    src = (pathlib.Path(__file__).resolve().parents[1] / "HogTronUI" / "Core" / "Setup.lua").read_text(encoding="utf-8")
+    assert 'toggle("quests.auto.turnIn"' in src and 'toggle("quests.auto.accept"' in src

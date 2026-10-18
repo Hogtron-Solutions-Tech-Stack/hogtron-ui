@@ -292,3 +292,9 @@ def test_painted_energy_fill_and_rested_mist(xp):
     assert (u1 - u0) == pytest.approx(400 / 80)                            # one 512x64 strip = 80 px at 10 px tall
     xp.execute(f"HogHeals.db.profile.hud.xp.art = false; {X}.Update()")
     assert xp.eval("HH_x.art.fill:IsShown()") is False and xp.eval("HH_x.rested:IsShown()") is True
+
+
+def test_xp_strip_coords_stay_in_range_at_a_long_uptime(xp):
+    # GetTime() is the PC's uptime: at 4 days the scroll used to run thousands of repeats out (Sean 2026-10-17)
+    u0, u1 = xp.eval("{ HogHealsHUD.XPBar.ArtCoords(345678.9, 0, 0.5, 400, 10) }").values()
+    assert -1 < u0 <= 0 and u1 - u0 == pytest.approx(0.5 * 400 / 80)

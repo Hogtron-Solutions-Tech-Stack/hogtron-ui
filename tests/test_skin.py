@@ -161,7 +161,7 @@ def test_hogui_letter_bar_stands_in_for_blizzards_micro_buttons(skin):
     assert skin.eval(f'{bar}.cells[2].letter:IsShown()') is True and skin.eval(f'{bar}.cells[2].letter._text') == "S"
     assert skin.eval(f'{bar}.cells[1].letter:IsShown()') is False
     assert skin.eval(f'{bar}._last.SetScale[1]') == 1                                # never the menu scale
-    assert skin.eval(f'{bar}.cells[2]._points[1][4]') == 3 + 33                     # 30 px cells, 3 px apart
+    assert skin.eval(f'{bar}.cells[2]._points[1][4]') == 4 + 44                     # 40 px cells, 4 px apart (2026-10-17)
     # unlock: cyan edges + draggable; the dropped spot is kept; reset puts it back
     skin.execute('HogHeals:SlashCommand("unlock")')
     assert skin.eval(f'{bar}.edges[1]._color[2]') == pytest.approx(0.83)
@@ -656,7 +656,7 @@ def test_kill_art_never_touches_buttons_bars_or_ours(skin):
 def test_glyphs_bigger_and_tinted_full_colour_under_the_mouse(skin):
     bar = 'HogHealsMicroBar'
     skin.execute('HogHeals.db.profile.look.icons = "glyph"; HogHealsSkin.Micro.Strip()')   # tints belong to the flat glyphs
-    assert skin.eval(f'{bar}.cells[1]._width') == 30 and skin.eval(f'{bar}.cells[1].icon._width') == 26     # 30 px cells, glyph fills them
+    assert skin.eval(f'{bar}.cells[1]._width') == 40 and skin.eval(f'{bar}.cells[1].icon._width') == 36     # 40 px cells, glyph fills them
     # character = amber at 0.6 of the way from cream; spellbook = cyan
     r, g, b = [skin.eval(f'{bar}.cells[1].icon._color[{i}]') for i in (1, 2, 3)]
     assert (r, g, b) == (pytest.approx(0.96 + (1.0 - 0.96) * 0.6), pytest.approx(0.92 + (0.80 - 0.92) * 0.6), pytest.approx(0.86 + (0.40 - 0.86) * 0.6))
@@ -718,7 +718,8 @@ def test_hh_under_names_what_blizzard_draws_at_the_cursor(skin):
       HogHeals:SlashCommand("under")
     """)
     lines = skin.eval('HogHeals.db.global.diag.under.lines').split("\n")
-    assert lines[0].startswith("GoldPanel [Frame L7") and "Interface/gold" in lines[0]
+    assert lines[0].startswith("mouse focus: ")                      # who really has the mouse, first (2026-10-17)
+    assert lines[1].startswith("GoldPanel [Frame L7") and "Interface/gold" in lines[1]
     assert all(not l.startswith(("Elsewhere", "Hidden", "HogHeals")) for l in lines)
     assert any(l.startswith("MicroMenu [Frame") and "no textures" in l for l in lines)   # its art is killed, so nothing drawn
     assert errors(skin) == []
@@ -746,7 +747,7 @@ def test_one_bags_cell_in_the_bar_and_blizzards_slots_hidden(skin):
     assert skin.eval(f'{c} ~= nil') and skin.eval(f'{c}:GetParent() == {bar}') and skin.eval(f'{c}:IsShown()') is True
     assert skin.eval(f'{c}._template') is None                                              # plain button: ToggleAllBags is not protected
     assert skin.eval(f'{c}.label') == "Bags" and skin.eval(f'{c}.icon._texture').endswith(("micro_bags", "micro_bags_art"))
-    assert skin.eval(f'{c}._points[1][4]') == 3 + 3 * 33 and skin.eval(f'{bar}._width') == 3 + 4 * 33   # 4th cell, bar sized for it
+    assert skin.eval(f'{c}._points[1][4]') == 4 + 3 * 44 and skin.eval(f'{bar}._width') == 4 + 4 * 44   # 4th cell, bar sized for it
     skin.execute(f'TOGGLED_BAGS = 0; {c}:GetScript("OnClick")({c})')
     assert skin.eval('TOGGLED_BAGS') == 1
     # Blizzard's slots faded and kept faded, their strip gone, their art still cleared
@@ -761,7 +762,7 @@ def test_one_bags_cell_in_the_bar_and_blizzards_slots_hidden(skin):
     # slots mode: the cell goes, the slots come back flattened under the bar
     skin.execute('HogHeals.OptionsTable().args.Skin.args.micro.args.bagMode.set(nil, "slots")')
     assert skin.eval(f'{c}:IsShown()') is False and skin.eval('MainMenuBarBackpackButton._alpha') == 1
-    assert skin.eval('HogHealsSkin.Micro.strips.bags:IsShown()') is True and skin.eval(f'{bar}._width') == 3 + 3 * 33
+    assert skin.eval('HogHealsSkin.Micro.strips.bags:IsShown()') is True and skin.eval(f'{bar}._width') == 4 + 3 * 44
     assert skin.eval(f'{bar}._points[1][3]') == "TOPRIGHT" and skin.eval('HogHealsSkin.Micro.bagMode') == "slots"
     # and back
     skin.execute('HogHeals.OptionsTable().args.Skin.args.micro.args.bagMode.set(nil, "button")')
@@ -1034,3 +1035,140 @@ def test_a_frame_with_a_fifth_non_menu_button_is_not_taken_for_the_menu_bar(skin
       HH_out = HogHealsSkin.Micro.SilenceContainers({ HH_kids[1] }, {})''')
     first = skin.eval("HH_out[1]")
     assert first.startswith("SomeActionsBox:art"), first
+
+
+# ---------------------------------------------------------------- the menu bar on Forever (Sean 2026-10-17)
+# "the legacy doesn't have an image" (a bare "L"), "make these bigger by default and more, you know, like distinct".
+FOREVER_MICRO = r'''
+for _, n in ipairs({ "LegacyMicroButton", "ZzzNewMicroButton", "ProfessionMicroButton", "TalentMicroButton" }) do
+  local b = CreateFrame("Button", n, MicroMenu)
+  function b:GetLeft() return 100 end
+  function b:GetRight() return 128 end
+end
+LegacyMicroButton.tooltipText = "|cffffffffLegacy Rewards|r (L)"
+'''
+
+
+@pytest.fixture
+def micro(lua):
+    lua.execute(CLIENT + FOREVER_MICRO)
+    lua.load_addon("HogTronUI")
+    lua.load_addon("HogTron_Skin")
+    lua.player_login()
+    return lua
+
+
+def cells_by_source(lua):
+    out = {}
+    n = lua.eval('#HogHealsMicroBar.cells')
+    for i in range(1, n + 1):
+        c = f'HogHealsMicroBar.cells[{i}]'
+        if lua.eval(f'{c}:IsShown()') and lua.eval(f'{c}.source ~= nil'):
+            out[lua.eval(f'{c}.source:GetName()')] = i
+    return out
+
+
+def test_no_bare_letters_legacy_gets_its_icon_and_blizzards_label(micro):
+    cells = cells_by_source(micro)
+    leg = f'HogHealsMicroBar.cells[{cells["LegacyMicroButton"]}]'
+    assert micro.eval(f'{leg}.glyph') == "micro_legacy" and micro.eval(f'{leg}.letter:IsShown()') is False
+    assert micro.eval(f'{leg}.label') == "Legacy Rewards"                                  # Blizzard's text, colour + key hint off
+    new = f'HogHealsMicroBar.cells[{cells["ZzzNewMicroButton"]}]'
+    assert micro.eval(f'{new}.glyph') == "micro_other" and micro.eval(f'{new}.label') == "ZzzNew"
+    assert "LegacyMicroButton=micro_legacy" in micro.eval('HogHealsSkin.Micro.cellNames')
+    assert [e["msg"] for e in micro.eval('HogHeals.errors').values()] == []
+
+
+def test_professions_sits_with_the_character_buttons_not_at_the_end(micro):
+    cells = cells_by_source(micro)
+    assert cells["TalentMicroButton"] < cells["ProfessionMicroButton"] < cells["MainMenuMicroButton"]
+    assert cells["ProfessionMicroButton"] < cells["LegacyMicroButton"]               # unknown ones still go last
+
+
+def test_bigger_by_default_and_each_icon_has_its_own_colour_mark(micro):
+    assert micro.eval('HogHeals.db.profile.skin.micro.size') == 40
+    c1 = 'HogHealsMicroBar.cells[1]'
+    assert micro.eval(f'{c1}._width') == 40
+    cells = cells_by_source(micro)
+    leg = f'HogHealsMicroBar.cells[{cells["LegacyMicroButton"]}]'
+    char = f'HogHealsMicroBar.cells[{cells["CharacterMicroButton"]}]'
+    assert micro.eval(f'{leg}.accent:IsShown()') is True
+    assert micro.eval(f'{leg}.accent._color[3]') != micro.eval(f'{char}.accent._color[3]') or \
+        micro.eval(f'{leg}.accent._color[1]') != micro.eval(f'{char}.accent._color[1]')   # different colours
+    micro.execute('HogHeals.db.profile.skin.micro.accent = false; HogHealsSkin.Micro.Strip()')
+    assert micro.eval(f'{leg}.accent:IsShown()') is False
+
+
+# ---------------------------------------------------------------- the dead half of action bar 1 (2026-10-17)
+# Sean on a new character: hovering the top half of a bar-1 button showed its tooltip, the lower half nothing. On this
+# engine the XP bars are their own Edit Mode frames (MainStatusTrackingBarContainer / Secondary...) at the bottom centre,
+# parented to UIParent: hiding StatusTrackingBarManager left them up - invisible at 0% XP, but taking the mouse.
+XP_CONTAINERS = r'''
+StatusTrackingBarManager = CreateFrame("Frame", "StatusTrackingBarManager", UIParent)
+MainStatusTrackingBarContainer = CreateFrame("Frame", "MainStatusTrackingBarContainer", UIParent)
+SecondaryStatusTrackingBarContainer = CreateFrame("Frame", "SecondaryStatusTrackingBarContainer", UIParent)
+StatusTrackingBarManager.MainStatusTrackingBarContainer = MainStatusTrackingBarContainer
+StatusTrackingBarManager.SecondaryStatusTrackingBarContainer = SecondaryStatusTrackingBarContainer
+'''
+
+
+def test_the_xp_bar_containers_hide_too_while_the_hogtron_ui_bar_owns_xp(skin):
+    skin.execute(XP_CONTAINERS + "HogHeals.XPBarOwned = true; HogHealsSkin.Extras.SkinXP()")
+    for f in ("MainStatusTrackingBarContainer", "SecondaryStatusTrackingBarContainer", "StatusTrackingBarManager"):
+        assert skin.eval(f"{f}:IsShown()") is False, f
+    skin.execute("MainStatusTrackingBarContainer:Show()")                    # Edit Mode shows it again: kept hidden
+    assert skin.eval("MainStatusTrackingBarContainer:IsShown()") is False
+    skin.execute("HogHeals.XPBarOwned = false; HogHealsSkin.Extras.SkinXP()")  # ours off: Blizzard's back
+    assert skin.eval("MainStatusTrackingBarContainer:IsShown()") is True
+    assert errors(skin) == []
+
+
+def test_under_names_the_frame_holding_the_mouse_and_marks_mouse_frames(skin):
+    skin.execute(r'''
+      HH_thief = CreateFrame("Frame", "HH_thief", UIParent)
+      function HH_thief:IsMouseEnabled() return true end
+      HH_art = CreateFrame("Frame", "HH_art", UIParent)
+      for _, f in ipairs({ HH_thief, HH_art }) do
+        function f:GetLeft() return -10 end function f:GetRight() return 10 end
+        function f:GetTop() return 10 end function f:GetBottom() return -10 end
+        function f:GetEffectiveScale() return 1 end
+      end
+      local list = { HH_thief, HH_art }
+      function EnumerateFrames(prev)
+        if prev == nil then return list[1] end
+        for i, f in ipairs(list) do if f == prev then return list[i + 1] end end
+      end
+      function GetMouseFoci() return { HH_thief } end
+      HogHeals:SlashCommand("under")
+    ''')
+    lines = skin.eval("HogHeals.db.global.diag.under.lines").split("\n")
+    assert lines[0].startswith("mouse focus: HH_thief")
+    assert any(l.startswith("MOUSE HH_thief") for l in lines) and any(l.startswith("HH_art") for l in lines)
+    assert errors(skin) == []
+
+
+# ---------------------------------------------------------------- protected XP container in combat (2026-10-17 later)
+# After #50 the dead half of bar 1 stayed, and the log filled with "HogTron_Skin called UNKNOWN() (in combat)" x28: the
+# container is PROTECTED on this client; Blizzard shows it mid-fight, our re-hide was refused, it stayed up after.
+def test_a_protected_xp_container_is_never_hidden_in_combat_and_never_takes_the_mouse(skin):
+    skin.execute(XP_CONTAINERS + """
+      local c = MainStatusTrackingBarContainer
+      c._protected = true
+      c.bar1 = CreateFrame("StatusBar", nil, c)
+      HH_blocked = 0
+      local hide = c.Hide
+      c.Hide = function(self, ...) if MockState.inCombat and self._protected then HH_blocked = HH_blocked + 1 return end return hide(self, ...) end
+      HogHeals.XPBarOwned = true; HogHealsSkin.Extras.SkinXP()
+    """)
+    c = "MainStatusTrackingBarContainer"
+    assert skin.eval(f"{c}:IsShown()") is False
+    assert skin.eval(f"{c}._last.EnableMouse[1]") is False and skin.eval(f"{c}.bar1._last.EnableMouse[1]") is False
+    # a fight: Blizzard shows it again - nothing blocked, the hide waits for the fight to end
+    skin.execute(f"MockState.inCombat = true; {c}:Show()")
+    assert skin.eval("HH_blocked") == 0 and skin.eval(f"{c}:IsShown()") is True
+    skin.execute('MockState.inCombat = false; MockFire("PLAYER_REGEN_ENABLED")')
+    assert skin.eval(f"{c}:IsShown()") is False
+    # ours stops owning XP: mouse and frame given back
+    skin.execute("HogHeals.XPBarOwned = false; HogHealsSkin.Extras.SkinXP()")
+    assert skin.eval(f"{c}:IsShown()") is True and skin.eval(f"{c}._last.EnableMouse[1]") is False   # it had none before (mock)
+    assert [e["msg"] for e in skin.eval('HogHeals.errors').values()] == []

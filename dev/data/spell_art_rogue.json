@@ -1,0 +1,154 @@
+{
+ "source": "wowhead.com/classic/spells/abilities/rogue (class trainer + class quest; hunter pet spells by name) + nether.wowhead.com tooltip cast times, fetched 2026-10-17",
+ "note": "art planning only: which spells get a strip. Season of Discovery runes / engravings and talents excluded.",
+ "spells": {
+  "Pick Lock": {
+   "id": 1804,
+   "level": 1,
+   "schools": 1,
+   "kind": "cast 5"
+  },
+  "Crippling Poison": {
+   "id": 3420,
+   "level": 20,
+   "schools": 1,
+   "kind": "cast 3"
+  },
+  "Mind-numbing Poison": {
+   "id": 5763,
+   "level": 24,
+   "schools": 1,
+   "kind": "cast 3"
+  },
+  "Instant Poison II": {
+   "id": 8687,
+   "level": 28,
+   "schools": 1,
+   "kind": "cast 3"
+  },
+  "Deadly Poison": {
+   "id": 2835,
+   "level": 30,
+   "schools": 1,
+   "kind": "cast 3"
+  },
+  "Disarm Trap": {
+   "id": 1842,
+   "level": 30,
+   "schools": 1,
+   "kind": "cast 2"
+  },
+  "Wound Poison": {
+   "id": 13220,
+   "level": 32,
+   "schools": 1,
+   "kind": "cast 3"
+  },
+  "Blinding Powder": {
+   "id": 6510,
+   "level": 34,
+   "schools": 1,
+   "kind": "cast 3"
+  },
+  "Instant Poison III": {
+   "id": 8691,
+   "level": 36,
+   "schools": 1,
+   "kind": "cast 3"
+  },
+  "Deadly Poison II": {
+   "id": 2837,
+   "level": 38,
+   "schools": 1,
+   "kind": "cast 3"
+  },
+  "Mind-numbing Poison II": {
+   "id": 8694,
+   "level": 38,
+   "schools": 1,
+   "kind": "cast 3"
+  },
+  "Wound Poison II": {
+   "id": 13228,
+   "level": 40,
+   "schools": 1,
+   "kind": "cast 3"
+  },
+  "Instant Poison IV": {
+   "id": 11341,
+   "level": 44,
+   "schools": 1,
+   "kind": "cast 3"
+  },
+  "Deadly Poison III": {
+   "id": 11357,
+   "level": 46,
+   "schools": 1,
+   "kind": "cast 3"
+  },
+  "Wound Poison III": {
+   "id": 13229,
+   "level": 48,
+   "schools": 1,
+   "kind": "cast 3"
+  },
+  "Crippling Poison II": {
+   "id": 3421,
+   "level": 50,
+   "schools": 1,
+   "kind": "cast 3"
+  },
+  "Instant Poison V": {
+   "id": 11342,
+   "level": 52,
+   "schools": 1,
+   "kind": "cast 3"
+  },
+  "Mind-numbing Poison III": {
+   "id": 11400,
+   "level": 52,
+   "schools": 1,
+   "kind": "cast 3"
+  },
+  "Deadly Poison IV": {
+   "id": 11358,
+   "level": 54,
+   "schools": 1,
+   "kind": "cast 3"
+  },
+  "Wound Poison IV": {
+   "id": 13230,
+   "level": 56,
+   "schools": 1,
+   "kind": "cast 3"
+  },
+  "Instant Poison VI": {
+   "id": 11343,
+   "level": 60,
+   "schools": 1,
+   "kind": "cast 3"
+  }
+ },
+ "strips": [
+  {
+   "pattern": "Poison",
+   "strip": "spell_poison",
+   "theme": "nature"
+  },
+  {
+   "pattern": "^Blinding Powder",
+   "strip": "spell_poison",
+   "theme": "nature"
+  },
+  {
+   "pattern": "^Pick Lock",
+   "strip": "spell_lockpick",
+   "theme": "craft"
+  },
+  {
+   "pattern": "^Disarm Trap",
+   "strip": "spell_lockpick",
+   "theme": "craft"
+  }
+ ]
+}

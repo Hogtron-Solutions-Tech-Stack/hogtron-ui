@@ -106,7 +106,7 @@ def test_a_secret_spell_id_is_never_used(th):
 def test_fireball_wears_fire(th):
     cast(th, "Fireball", 133)
     assert th.eval("HogHealsHUD.Castbar.state.theme") == "fire"
-    assert bar_colour(th) == pytest.approx([0.50, 0.21, 0.05])   # fire fill dimmed under its light strip (ART_FILL)
+    assert bar_colour(th) == pytest.approx([1, 0.42, 0.1])       # Fireball's own strip is painted on (BLEND): fill not dimmed
     assert glow_shown(th)
     assert motes_shown(th) == 6
     spark = list(th.eval("HH_cb.spark._color").values())[:3]
@@ -166,7 +166,7 @@ def test_glow_and_motes_switches(th):
     th.execute('MockFire("UNIT_SPELLCAST_STOP", "player"); HogHeals.db.profile.hud.castbar.themes.glow = false; HogHeals.db.profile.hud.castbar.themes.motes = true')
     cast(th, "Frostbolt", 116)
     assert not glow_shown(th) and motes_shown(th) == 5
-    assert bar_colour(th) == pytest.approx([0.18, 0.33, 0.43])   # the fill still themed (dimmed: the frost strip is on)
+    assert bar_colour(th) == pytest.approx([0.36, 0.66, 0.86])   # the fill still themed (Frostbolt's own strip: not dimmed)
 
 
 def test_no_class_school_keeps_plain_colours(th):
@@ -256,7 +256,7 @@ def test_preview_never_shows_a_question_mark(th):
 # ================================================================================================ art strips (10/14)
 def test_the_art_strip_fills_the_cast_and_scrolls_toward_the_spark(th):
     th.execute("HH_cb:SetHeight(18)")
-    cast(th, "Fireball", 133)
+    cast(th, "Pyroblast", 133)                      # a fire spell without its own strip (Fireball, Scorch have one since 10/17)
     art = f"{T}.layers.art"
     assert th.eval(f"{art}:IsShown()") is True
     assert th.eval(f"{art}._texture").endswith("cast_fire")
@@ -297,3 +297,100 @@ def test_art_coords_pure(th):
     u0, u1 = th.eval(f"{T}.ArtCoords(2, 72, 36, 30)")
     assert u0 == pytest.approx(-60 / 288) and (u1 - u0) == pytest.approx(0.25)
     assert th.eval(f"{T}.ArtCoords(1, 50, 0, 30)") is not None           # a bar with no height never divides by 0
+
+
+# ---------------------------------------------------------------- "TexCoord out of range" (Sean 2026-10-17, x30)
+# The swing art passes GetTime() - the PC's uptime - as t: the scroll ran to -200,000 and the client threw. Only the
+# fraction of a repeat is kept (the strip tiles, so the picture is the same).
+def test_strip_coords_stay_near_zero_at_any_clock_and_scroll_the_same(th):
+    T = "HogHealsHUD.CastThemes"
+    for t in (0, 1.5, 86400, 345678.9):
+        u0, u1 = th.eval(f"{{ {T}.ArtCoords({t}, 200, 12, 70) }}").values()
+        assert -1 < u0 <= 0, (t, u0)
+        assert u1 - u0 == pytest.approx(200 / (512 * 12 / 64))                 # width in repeats unchanged
+    a = th.eval(f"({T}.ArtCoords(345678.9, 200, 12, 70))")
+    b = th.eval(f"({T}.ArtCoords(345678.9 + 96 / 70, 200, 12, 70))")       # one whole repeat later
+    assert a == pytest.approx(b, abs=1e-6)
+
+
+# ================================================================================================ per-spell art (10/17 pilot)
+# Sean: "create open art images for casting of spells, for every spell, for every class ... some of the lower level mage
+# skills so I can test them in game right now: Frostbolt, Fireball"
+def test_a_spell_with_its_own_strip_gets_it_with_its_schools_colours(th):
+    cast(th, "Fireball", 133)
+    assert th.eval(f"{T}.layers.art._texture").endswith("cast_spell_fireball")
+    assert th.eval(f"{T}.active.key") == "fire" and th.eval(f"{T}.active.art") == "spell_fireball"
+    assert th.eval("HogHealsHUD.Castbar.state.spellArt") == "spell_fireball"
+    for name, art in (("Frostbolt", "spell_frostbolt"), ("Polymorph: Pig", "spell_polymorph"), ("Teleport: Stormwind", "spell_teleport"),
+                      ("Portal: Darnassus", "spell_teleport")):
+        assert th.eval(f'({T}.SpellArt("{name}"))') == art, name
+
+
+def test_spell_art_off_or_missing_falls_back_to_the_school_strip(th):
+    th.execute("HogHeals.db.profile.hud.castbar.themes.spellArt = false")
+    cast(th, "Fireball", 133)
+    assert th.eval(f"{T}.layers.art._texture").endswith("cast_fire")
+    th.execute("HogHeals.db.profile.hud.castbar.themes.spellArt = true")
+    th.execute(f"""local L = {T}.Build(HH_cb); local orig = L.art.SetTexture
+      L.art.SetTexture = function(self, path, ...) if tostring(path):find("cast_spell_") then return false end return orig(self, path, ...) end""")
+    cast(th, "Frostbolt", 116)
+    assert th.eval(f"{T}.layers.art._texture").endswith("cast_frost") and th.eval(f"{T}.artMissing.spell_frostbolt") is True
+
+
+def test_every_class_set_has_strips_and_the_files_exist():
+    # mage 12 strips + the other eight classes' 74 (2026-10-17)
+    import pathlib
+    root = pathlib.Path(__file__).resolve().parents[1]
+    src = (root / "HogTron_HUD" / "CastThemes.lua").read_text(encoding="utf-8")
+    import re
+    arts = set(re.findall(r'\{ "[^"]+", "(spell_[a-z_]+)", "[a-z]+" \}', src))
+    assert len(arts) == 86
+    for a in arts:
+        assert (root / "HogTronUI" / "Media" / f"cast_{a}.tga").is_file(), a
+
+
+def test_mage_spells_match_their_strips(th):
+    for name, art in (("Conjure Water", "spell_conjure_water"), ("Conjure Mana Ruby", "spell_conjure_gem"), ("Arcane Missiles", "spell_arcane_missiles"),
+                      ("Flamestrike", "spell_flamestrike"), ("Blizzard", "spell_blizzard"), ("Evocation", "spell_evocation"), ("Scorch", "spell_scorch"),
+                      ("Conjure Food", "spell_conjure_food"), ("Polymorph: Cow", "spell_polymorph")):
+        assert th.eval(f'({T}.SpellArt("{name}"))') == art, name
+
+
+# ---------------------------------------------------------------- spell strips drawn as painted (Sean 2026-10-17)
+# "is this the new mage cast spells? they look the same" - additive at ~55% over a dimmed fill washed Frostbolt's own
+# art out to the frost school's pale look. A spell strip is BLEND, near opaque; a school strip keeps ADD.
+def test_a_spell_strip_is_drawn_as_painted_and_a_school_strip_stays_additive(th):
+    cast(th, "Frostbolt", 116)
+    assert th.eval("HogHealsHUD.CastThemes.active.art") == "spell_frostbolt"
+    assert th.eval("HogHealsHUD.CastThemes.active.mode") == "BLEND"
+    rec = th.eval("HogHeals.db.global.diag.castArt")
+    assert rec["name"] == "Frostbolt" and rec["wanted"] == "spell_frostbolt" and rec["drew"] == "spell_frostbolt" and rec["mode"] == "BLEND"
+    assert rec["missing"] == "none"
+    th.execute('MockFire("UNIT_SPELLCAST_STOP", "player")')
+    cast(th, "Frost Nova", 122)                                          # no strip of its own: the school's, additive
+    assert th.eval("HogHealsHUD.CastThemes.active.art") == "arcane" and th.eval("HogHealsHUD.CastThemes.active.mode") == "ADD"   # mage default school
+    assert "art: wanted" in th.eval("HogHealsHUD.CastThemes.Line(HogHealsHUD.Castbar.state)")
+
+
+# ---------------------------------------------------------------- the other eight classes (Sean 2026-10-17)
+def test_each_classes_spells_match_their_strips(th):
+    for name, art in (
+        ("Slam", "spell_slam"), ("Holy Light", "spell_holy_light"), ("Summon Warhorse", "spell_warhorse"), ("Hammer of Wrath", "spell_hammer_of_wrath"),
+        ("Tame Beast", "spell_tame_beast"), ("Eyes of the Beast", "spell_beast_vision"), ("Eagle Eye", "spell_beast_vision"), ("Volley", "spell_volley"),
+        ("Instant Poison II", "spell_poison"), ("Mind-numbing Poison III", "spell_poison"), ("Blinding Powder", "spell_poison"), ("Pick Lock", "spell_lockpick"),
+        ("Lesser Heal", "spell_heal"), ("Heal", "spell_heal"), ("Greater Heal", "spell_heal"), ("Flash Heal", "spell_flash_heal"), ("Mind Blast", "spell_mind_blast"),
+        ("Lesser Healing Wave", "spell_healing_wave"), ("Chain Lightning", "spell_chain_lightning"), ("Astral Recall", "spell_astral_recall"),
+        ("Shadow Bolt", "spell_shadow_bolt"), ("Fear", "spell_fear"), ("Summon Incubus", "spell_summon_succubus"), ("Create Healthstone (Major)", "spell_healthstone"),
+        ("Ritual of Doom", "spell_ritual"), ("Summon Felsteed", "spell_dreadsteed"),
+        ("Wrath", "spell_wrath"), ("Healing Touch", "spell_healing_touch"), ("Hurricane", "spell_hurricane")):
+        assert th.eval(f'({T}.SpellArt("{name}"))') == art, name
+
+
+def test_look_alike_names_do_not_borrow_each_others_strip(th):
+    # "^Heal$" must not catch the other heals, "^Wrath$" not Holy Wrath, "^Fear$" not Fear Ward
+    for name, art in (("Healing Touch", "spell_healing_touch"), ("Healing Wave", "spell_healing_wave"), ("Health Funnel", "spell_health_funnel"),
+                      ("Holy Wrath", "spell_holy_wrath"), ("Hammer of Wrath", "spell_hammer_of_wrath")):
+        assert th.eval(f'({T}.SpellArt("{name}"))') == art, name
+    for name in ("Fear Ward", "Heal Pet", "Cure Poison Totem"):
+        got = th.eval(f'({T}.SpellArt("{name}"))')
+        assert got not in ("spell_fear", "spell_heal"), (name, got)
