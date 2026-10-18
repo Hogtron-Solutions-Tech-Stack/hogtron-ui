@@ -52,7 +52,7 @@ def test_nothing_known_until_a_trainer_is_opened(tr):
 
 
 def test_a_trainer_visit_is_remembered_with_filters_restored(tr):
-    tr.execute("MockFire('TRAINER_SHOW')")
+    tr.execute("MockFire('TRAINER_SHOW'); MockAdvance(0.01)")
     assert tr.eval(f"{T}.lastLearn") == 6                                   # the header row is not a spell
     assert tr.eval("FILTER.unavailable") is False and tr.eval("FILTER.used") is False   # put back as they were
     db = tr.eval(f"{T}.db()")
@@ -74,7 +74,7 @@ def test_a_trainer_visit_is_remembered_with_filters_restored(tr):
 
 
 def test_level_up_nudges_and_the_window_lists_it(tr):
-    tr.execute("MockFire('TRAINER_SHOW'); wipe(MockLog.chat); MockUnits.player.level = 22; MockFire('PLAYER_LEVEL_UP', 22)")
+    tr.execute("MockFire('TRAINER_SHOW'); MockAdvance(0.01); wipe(MockLog.chat); MockUnits.player.level = 22; MockFire('PLAYER_LEVEL_UP', 22)")
     chat = "\n".join(tr.eval("MockLog.chat").values())
     assert "Level 22: 4 spells waiting at the trainer (90s 0c)" in chat
     tr.execute(f"{T}.Toggle()")
@@ -89,17 +89,85 @@ def test_level_up_nudges_and_the_window_lists_it(tr):
 
 
 def test_profession_trainer_is_ignored_and_memory_can_be_forgotten(tr):
-    tr.execute("function IsTradeskillTrainer() return true end; MockFire('TRAINER_SHOW')")
+    tr.execute("function IsTradeskillTrainer() return true end; MockFire('TRAINER_SHOW'); MockAdvance(0.01)")
     assert tr.eval(f"{T}.lastLearn") == "profession trainer" and tr.eval(f"{T}.db().visits") == 0
-    tr.execute("function IsTradeskillTrainer() return false end; MockFire('TRAINER_SHOW'); HogHeals:SlashCommand('train forget')")
+    tr.execute("function IsTradeskillTrainer() return false end; MockFire('TRAINER_SHOW'); MockAdvance(0.01); HogHeals:SlashCommand('train forget')")
     assert tr.eval(f"{T}.db().visits") == 0
     assert tr.eval(f"{T}.Short()") == "visit a trainer"
 
 
 def test_info_bar_text_and_weapon_trainer_lookup(tr):
     assert tr.eval("HogHealsSkin.InfoBar.providers.train ~= nil")
-    tr.execute("MockFire('TRAINER_SHOW')")
+    tr.execute("MockFire('TRAINER_SHOW'); MockAdvance(0.01)")
     assert tr.eval("HogHealsSkin.InfoBar.providers.train.value()") == "2 to train  40s 0c"
     axes = tr.eval(f"{T}.Data.Trainers('H', 'axes')")
     assert sorted(t["name"] for t in axes.values()) == ["Hanashi", "Sayoc"]
     assert [t["name"] for t in tr.eval(f"{T}.Data.Trainers('A', 'polearm')").values()] == ["Woo Ping"]
+
+
+# ---------------------------------------------------------------- the freeze (Sean 2026-10-17, new character)
+# "Whenever I click 'I'd like training', the game freezes. And I have to restart." Learn() ran on every TRAINER_UPDATE
+# and flips the trainer's filters to read everything - each flip makes the client send another TRAINER_UPDATE, which
+# ran Learn() again: an event storm that never ends. Here the client's behaviour is copied: a filter CHANGE queues a
+# TRAINER_UPDATE (next frame), and a hard cap stops the test instead of hanging it.
+STORM = """
+SET_CALLS = 0
+function SetTrainerServiceTypeFilter(k, v)
+  SET_CALLS = SET_CALLS + 1
+  if SET_CALLS > 400 then error("trainer event storm") end
+  local changed = FILTER[k] ~= v
+  FILTER[k] = v
+  if changed then C_Timer.After(0, function() MockFire("TRAINER_UPDATE") end) end
+end
+"""
+
+
+def test_opening_a_trainer_never_starts_an_event_storm(tr):
+    tr.execute(STORM)
+    tr.execute('MockFire("TRAINER_SHOW")')
+    for _ in range(40):                                   # two seconds of frames
+        tr.execute("MockAdvance(0.05)")
+    assert tr.eval("SET_CALLS") <= 12                     # one read (3 on, 3 back) and at most one follow-up
+    assert tr.eval(f"{T}.db().visits") == 1
+    assert tr.eval("FILTER.unavailable") is False and tr.eval("FILTER.used") is False   # the player's filters back
+    assert errors(tr) == []
+
+
+def test_a_real_update_later_is_still_read_once(tr):
+    tr.execute(STORM)
+    tr.execute('MockFire("TRAINER_SHOW")')
+    for _ in range(40):
+        tr.execute("MockAdvance(0.05)")
+    before = tr.eval("SET_CALLS")
+    # the player learns a spell 5 s later: one TRAINER_UPDATE from the client, one re-read, and quiet again
+    tr.execute('SERVICES[1][3] = "used"; MockFire("TRAINER_UPDATE")')
+    for _ in range(60):
+        tr.execute("MockAdvance(0.05)")
+    assert 0 < tr.eval("SET_CALLS") - before <= 12
+    assert tr.eval(f'{T}.db().spells["Battle Shout|Rank 3"].known') is True
+
+
+def test_a_slow_client_whose_echo_comes_late_is_capped_per_visit(tr):
+    tr.execute(STORM.replace("C_Timer.After(0,", "C_Timer.After(1.5,"))       # echoes after the quiet window
+    tr.execute('MockFire("TRAINER_SHOW")')
+    for _ in range(200):                                                         # 20 s
+        tr.execute("MockAdvance(0.1)")
+    assert tr.eval(f"{T}.reads") <= 4 and tr.eval(f"{T}.capped") is True
+    assert tr.eval("SET_CALLS") <= 4 * 6
+    tr.execute('MockFire("TRAINER_SHOW"); MockAdvance(0.01)')                  # a new visit starts fresh
+    assert tr.eval(f"{T}.reads") == 1
+
+
+
+def test_a_list_that_arrives_after_the_window_is_still_read(tr):
+    # in game 2026-10-17 after the freeze fix: mage trainer, 4 visits, 0 spells remembered - the services arrive a moment
+    # after TRAINER_SHOW, and the quiet window then took the client's real TRAINER_UPDATE for our own echo
+    tr.execute(STORM + "HH_SERV = SERVICES; SERVICES = {}")
+    tr.execute('MockFire("TRAINER_SHOW")')
+    tr.execute("MockAdvance(0.05)")
+    assert tr.eval(f"{T}.db().visits") == 0                                    # an empty read is not a visit
+    tr.execute('SERVICES = HH_SERV; MockFire("TRAINER_UPDATE")')            # the list arrives
+    for _ in range(40):
+        tr.execute("MockAdvance(0.05)")
+    assert tr.eval(f"{T}.db().visits") == 1 and tr.eval(f"{T}.lastLearn") == 6
+    assert tr.eval("SET_CALLS") <= 24
