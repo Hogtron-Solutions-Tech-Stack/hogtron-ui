@@ -1,0 +1,421 @@
+{
+ "source": "wowhead.com/classic/spells/abilities/warlock (class trainer + class quest; hunter pet spells by name) + nether.wowhead.com tooltip cast times, fetched 2026-10-17",
+ "note": "art planning only: which spells get a strip. Season of Discovery runes / engravings and talents excluded.",
+ "spells": {
+  "Immolate": {
+   "id": 348,
+   "level": 1,
+   "schools": 4,
+   "kind": "cast 2"
+  },
+  "Summon Imp": {
+   "id": 688,
+   "level": 1,
+   "schools": 32,
+   "kind": "cast 10"
+  },
+  "Corruption": {
+   "id": 172,
+   "level": 4,
+   "schools": 32,
+   "kind": "cast 2"
+  },
+  "Shadow Bolt": {
+   "id": 695,
+   "level": 6,
+   "schools": 32,
+   "kind": "cast 2.2"
+  },
+  "Fear": {
+   "id": 5782,
+   "level": 8,
+   "schools": 32,
+   "kind": "cast 1.5"
+  },
+  "Create Healthstone (Minor)": {
+   "id": 6201,
+   "level": 10,
+   "schools": 32,
+   "kind": "cast 3"
+  },
+  "Drain Soul": {
+   "id": 1120,
+   "level": 10,
+   "schools": 32,
+   "kind": "cast 15"
+  },
+  "Summon Voidwalker": {
+   "id": 697,
+   "level": 10,
+   "schools": 32,
+   "kind": "cast 10"
+  },
+  "Health Funnel": {
+   "id": 755,
+   "level": 12,
+   "schools": 32,
+   "kind": "cast 10"
+  },
+  "Drain Life": {
+   "id": 689,
+   "level": 14,
+   "schools": 32,
+   "kind": "cast 5"
+  },
+  "Create Soulstone (Minor)": {
+   "id": 693,
+   "level": 18,
+   "schools": 32,
+   "kind": "cast 3"
+  },
+  "Searing Pain": {
+   "id": 5676,
+   "level": 18,
+   "schools": 4,
+   "kind": "cast 1.5"
+  },
+  "Rain of Fire": {
+   "id": 5740,
+   "level": 20,
+   "schools": 4,
+   "kind": "cast 8"
+  },
+  "Ritual of Summoning": {
+   "id": 698,
+   "level": 20,
+   "schools": 32,
+   "kind": "cast 5"
+  },
+  "Summon Incubus": {
+   "id": 713,
+   "level": 20,
+   "schools": 32,
+   "kind": "cast 10"
+  },
+  "Summon Succubus": {
+   "id": 712,
+   "level": 20,
+   "schools": 32,
+   "kind": "cast 10"
+  },
+  "Create Healthstone (Lesser)": {
+   "id": 6202,
+   "level": 22,
+   "schools": 32,
+   "kind": "cast 3"
+  },
+  "Eye of Kilrogg": {
+   "id": 126,
+   "level": 22,
+   "schools": 32,
+   "kind": "cast 5"
+  },
+  "Drain Mana": {
+   "id": 5138,
+   "level": 24,
+   "schools": 32,
+   "kind": "cast 5"
+  },
+  "Banish": {
+   "id": 710,
+   "level": 28,
+   "schools": 32,
+   "kind": "cast 1.5"
+  },
+  "Create Firestone (Lesser)": {
+   "id": 6366,
+   "level": 28,
+   "schools": 4,
+   "kind": "cast 3"
+  },
+  "Create Soulstone (Lesser)": {
+   "id": 20752,
+   "level": 30,
+   "schools": 32,
+   "kind": "cast 3"
+  },
+  "Hellfire": {
+   "id": 1949,
+   "level": 30,
+   "schools": 4,
+   "kind": "cast 15"
+  },
+  "Subjugate Demon": {
+   "id": 1098,
+   "level": 30,
+   "schools": 32,
+   "kind": "cast 3"
+  },
+  "Summon Felhunter": {
+   "id": 691,
+   "level": 30,
+   "schools": 32,
+   "kind": "cast 10"
+  },
+  "Create Healthstone": {
+   "id": 5699,
+   "level": 34,
+   "schools": 32,
+   "kind": "cast 3"
+  },
+  "Create Firestone": {
+   "id": 17951,
+   "level": 36,
+   "schools": 4,
+   "kind": "cast 3"
+  },
+  "Create Spellstone": {
+   "id": 2362,
+   "level": 36,
+   "schools": 32,
+   "kind": "cast 5"
+  },
+  "Create Soulstone": {
+   "id": 20755,
+   "level": 40,
+   "schools": 32,
+   "kind": "cast 3"
+  },
+  "Howl of Terror": {
+   "id": 5484,
+   "level": 40,
+   "schools": 32,
+   "kind": "cast 2"
+  },
+  "Summon Felsteed": {
+   "id": 5784,
+   "level": 40,
+   "schools": 32,
+   "kind": "cast 3"
+  },
+  "Create Firestone (Greater)": {
+   "id": 17952,
+   "level": 46,
+   "schools": 4,
+   "kind": "cast 3"
+  },
+  "Create Healthstone (Greater)": {
+   "id": 11729,
+   "level": 46,
+   "schools": 32,
+   "kind": "cast 3"
+  },
+  "Create Spellstone (Greater)": {
+   "id": 17727,
+   "level": 48,
+   "schools": 32,
+   "kind": "cast 5"
+  },
+  "Soul Fire": {
+   "id": 6353,
+   "level": 48,
+   "schools": 4,
+   "kind": "cast 6"
+  },
+  "Create Soulstone (Greater)": {
+   "id": 20756,
+   "level": 50,
+   "schools": 32,
+   "kind": "cast 3"
+  },
+  "Inferno": {
+   "id": 1122,
+   "level": 50,
+   "schools": 32,
+   "kind": "cast 2"
+  },
+  "Create Firestone (Major)": {
+   "id": 17953,
+   "level": 56,
+   "schools": 4,
+   "kind": "cast 3"
+  },
+  "Create Healthstone (Major)": {
+   "id": 11730,
+   "level": 58,
+   "schools": 32,
+   "kind": "cast 3"
+  },
+  "Create Soulstone (Major)": {
+   "id": 20757,
+   "level": 60,
+   "schools": 32,
+   "kind": "cast 3"
+  },
+  "Create Spellstone (Major)": {
+   "id": 17728,
+   "level": 60,
+   "schools": 32,
+   "kind": "cast 5"
+  },
+  "Ritual of Doom": {
+   "id": 18540,
+   "level": 60,
+   "schools": 32,
+   "kind": "cast 10"
+  },
+  "Summon Dreadsteed": {
+   "id": 23161,
+   "level": 60,
+   "schools": 32,
+   "kind": "cast 3"
+  }
+ },
+ "strips": [
+  {
+   "pattern": "^Shadow Bolt",
+   "strip": "spell_shadow_bolt",
+   "theme": "shadow"
+  },
+  {
+   "pattern": "^Immolate",
+   "strip": "spell_immolate",
+   "theme": "fire"
+  },
+  {
+   "pattern": "^Corruption",
+   "strip": "spell_corruption",
+   "theme": "shadow"
+  },
+  {
+   "pattern": "^Searing Pain",
+   "strip": "spell_searing_pain",
+   "theme": "fire"
+  },
+  {
+   "pattern": "^Soul Fire",
+   "strip": "spell_soul_fire",
+   "theme": "fire"
+  },
+  {
+   "pattern": "^Fear$",
+   "strip": "spell_fear",
+   "theme": "shadow"
+  },
+  {
+   "pattern": "^Howl of Terror",
+   "strip": "spell_howl_of_terror",
+   "theme": "shadow"
+  },
+  {
+   "pattern": "^Banish",
+   "strip": "spell_banish",
+   "theme": "shadow"
+  },
+  {
+   "pattern": "^Drain Life",
+   "strip": "spell_drain_life",
+   "theme": "shadow"
+  },
+  {
+   "pattern": "^Drain Mana",
+   "strip": "spell_drain_mana",
+   "theme": "shadow"
+  },
+  {
+   "pattern": "^Drain Soul",
+   "strip": "spell_drain_soul",
+   "theme": "shadow"
+  },
+  {
+   "pattern": "^Health Funnel",
+   "strip": "spell_health_funnel",
+   "theme": "shadow"
+  },
+  {
+   "pattern": "^Rain of Fire",
+   "strip": "spell_rain_of_fire",
+   "theme": "fire"
+  },
+  {
+   "pattern": "^Hellfire",
+   "strip": "spell_hellfire",
+   "theme": "fire"
+  },
+  {
+   "pattern": "^Ritual of Summoning",
+   "strip": "spell_ritual",
+   "theme": "shadow"
+  },
+  {
+   "pattern": "^Ritual of Doom",
+   "strip": "spell_ritual",
+   "theme": "shadow"
+  },
+  {
+   "pattern": "^Eye of Kilrogg",
+   "strip": "spell_eye_of_kilrogg",
+   "theme": "shadow"
+  },
+  {
+   "pattern": "^Subjugate Demon",
+   "strip": "spell_enslave_demon",
+   "theme": "shadow"
+  },
+  {
+   "pattern": "^Enslave Demon",
+   "strip": "spell_enslave_demon",
+   "theme": "shadow"
+  },
+  {
+   "pattern": "^Inferno",
+   "strip": "spell_inferno",
+   "theme": "fire"
+  },
+  {
+   "pattern": "^Summon Imp",
+   "strip": "spell_summon_imp",
+   "theme": "fire"
+  },
+  {
+   "pattern": "^Summon Voidwalker",
+   "strip": "spell_summon_voidwalker",
+   "theme": "shadow"
+  },
+  {
+   "pattern": "^Summon Succubus",
+   "strip": "spell_summon_succubus",
+   "theme": "shadow"
+  },
+  {
+   "pattern": "^Summon Incubus",
+   "strip": "spell_summon_succubus",
+   "theme": "shadow"
+  },
+  {
+   "pattern": "^Summon Felhunter",
+   "strip": "spell_summon_felhunter",
+   "theme": "shadow"
+  },
+  {
+   "pattern": "^Summon Felsteed",
+   "strip": "spell_dreadsteed",
+   "theme": "shadow"
+  },
+  {
+   "pattern": "^Summon Dreadsteed",
+   "strip": "spell_dreadsteed",
+   "theme": "shadow"
+  },
+  {
+   "pattern": "^Create Healthstone",
+   "strip": "spell_healthstone",
+   "theme": "shadow"
+  },
+  {
+   "pattern": "^Create Soulstone",
+   "strip": "spell_soulstone",
+   "theme": "shadow"
+  },
+  {
+   "pattern": "^Create Firestone",
+   "strip": "spell_firestone",
+   "theme": "fire"
+  },
+  {
+   "pattern": "^Create Spellstone",
+   "strip": "spell_spellstone",
+   "theme": "arcane"
+  }
+ ]
+}
