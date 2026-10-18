@@ -67,6 +67,10 @@ end
 local function castbarGroup()
   local c = function() return hud().castbar end
   return { type = "group", name = "Castbar", order = 2, args = {
+    -- its own size (Sean 2026-10-18: "easily change the size of the cast bar, the mana bar ... in HH unlock")
+    width = { type = "range", name = "Width (0 = as wide as the strip)", order = 0.1, min = 0, max = 800, step = 2,
+      get = function() return c().width or 0 end, set = function(_, v) c().width = v; refresh() end },
+    height = range(hud, "castbarHeight", "Height", 0.2, 8, 40, 1),
     icon = toggle(c, "icon", "Spell icon", 1),
     showTarget = toggle(c, "showTarget", "Show target name after spell", 2),
     latency = toggle(c, "latency", "Latency segment", 3, "Red segment at the end of the bar = your world latency; the part of the cast you can't interrupt in time."),
@@ -143,6 +147,9 @@ local function manaGroup()
   local m = function() return hud().mana end
   return { type = "group", name = "Mana & five-second rule", order = 3, args = {
     note = { type = "description", order = 0, name = "After a mana-costing cast, a 5 s overlay drains across the bar (no regen). Then a spark marks each 2 s regen tick." },
+    width = { type = "range", name = "Width (0 = as wide as the strip)", order = 0.1, min = 0, max = 800, step = 2,
+      get = function() return m().width or 0 end, set = function(_, v) m().width = v; refresh() end },
+    height = range(hud, "manaHeight", "Height", 0.2, 6, 30, 1),
     textMode = select_(m, "textMode", "Text", 1, { cur = "Current / max", percent = "Percent", none = "None" }),
     showTicks = toggle(m, "showTicks", "Show regen tick spark", 2),
     showFsrText = toggle(m, "showFsrText", "Show five-second countdown text", 3),

@@ -193,6 +193,7 @@ HH.defaults = {
       showCastbar = true, showSwing = true, showMana = true, showXP = true, showInfo = true,
       font = "HogTron", fontSize = 11, texture = "Solid",
       castbar = {
+        width = 0,   -- 0 = as wide as the strip, else its own width centred on it (Sean 2026-10-18: sizes in /hh unlock)
         icon = true, showTarget = true, latency = true, gcd = false, hideBlizzard = true, precision = 1,
         castColor = { 0.13, 0.83, 0.88 }, channelColor = { 0.25, 0.80, 0.35 }, uninterruptibleColor = { 0.6, 0.6, 0.6 },
         failColor = { 0.85, 0.2, 0.2 },
@@ -206,7 +207,7 @@ HH.defaults = {
       -- ink frame; fontSize 0 = the strip's font one step larger (Sean 2026-10-05: bigger, wider, cleaner)
       swing = { color = { 0.96, 0.92, 0.86 }, text = true, precision = 1, hideWhenIdle = true, width = 0, spark = true, outline = true, fontSize = 0,
         art = true, glow = true, motes = true, flash = true },   -- the animated look (Sean 2026-10-17); art off = the plain bar in `color`
-      mana = { textMode = "cur", showTicks = true, showFsrText = true, fsrColor = { 0.13, 0.83, 0.88 }, tickColor = { 0.96, 0.92, 0.86 } },
+      mana = { width = 0, textMode = "cur", showTicks = true, showFsrText = true, fsrColor = { 0.13, 0.83, 0.88 }, tickColor = { 0.96, 0.92, 0.86 } },
       -- experience bar (XPBar.lua): showXP above is the on / off. questMode "complete" = reward xp of the quests ready
       -- to turn in, "all" = every quest in the log; hideAtMax = gone at the level cap; fontSize 0 = strip font one step smaller
       -- mode "bar" = its own bar, the whole screen width along the top until dragged (point/x/y), width 0 = screen;
