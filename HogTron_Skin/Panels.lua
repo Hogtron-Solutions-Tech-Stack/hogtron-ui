@@ -18,6 +18,9 @@ Part.NAMES = {
   "TabardFrame", "GuildRegistrarFrame", "PetitionFrame", "ReadyCheckFrame", "StaticPopup1", "StaticPopup2", "StaticPopup3",
   "InterfaceOptionsFrame", "SettingsPanel", "VideoOptionsFrame", "ChatConfigFrame", "TimeManagerFrame", "CalendarFrame",
   "AchievementFrame", "EncounterJournal", "CollectionsJournal", "GroupFinderFrame", "PVEFrame", "StopwatchFrame",
+  -- WoW: Forever's social window (Friends / Who / Raid tabs down its right side): SocialUIFrame, not FriendsFrame - named
+  -- by /hh under in game 2026-10-17 (Sean: "the Friends list ... I don't know that we ever did that" - it never was)
+  "SocialUIFrame",
 }
 local wanted = {}
 for _, n in ipairs(Part.NAMES) do wanted[n] = true end

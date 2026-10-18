@@ -33,6 +33,7 @@ function MakeWindow(name)
 end
 FriendsFrame = MakeWindow("FriendsFrame")
 LFGParentFrame = MakeWindow("LFGParentFrame")
+SocialUIFrame = MakeWindow("SocialUIFrame")     -- WoW: Forever's Friends window (/hh under, 2026-10-17)
 function ShowUIPanel(f) f:Show() local s = f:GetScript("OnShow") if s then s(f) end end
 '''
 
@@ -51,7 +52,7 @@ def errors(lua):
     return [e["msg"] for e in lua.eval('HogHeals.errors').values()]
 
 
-@pytest.mark.parametrize("name", ["FriendsFrame", "LFGParentFrame"])
+@pytest.mark.parametrize("name", ["FriendsFrame", "LFGParentFrame", "SocialUIFrame"])
 def test_border_portrait_inset_close_and_tabs_are_all_handled(win, name):
     win.execute(f'ShowUIPanel({name})')
     f = name
