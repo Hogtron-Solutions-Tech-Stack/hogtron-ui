@@ -163,3 +163,60 @@ def test_own_width_centres_the_bar_on_the_strip(sw):
     sw.execute("HogHeals.db.profile.hud.swing.width = 0; HogHealsHUD.HUD.Refresh()")
     assert sw.eval("HH_sw._width") == strip and sw.eval("HH_sw._points[1][1]") == "TOPLEFT"
     assert errors(sw) == []
+
+
+# ---------------------------------------------------------------- the animated look (Sean 2026-10-17)
+# "use open art and create a swing timer animation, kind of like we have with all the other cast bars"
+L = 'HogHealsHUD.Swing.look'
+
+
+def test_melee_swing_gets_the_steel_strip_glow_and_sparks(sw):
+    sw.execute('HH_sw:SetWidth(300); HH_sw:SetHeight(14); MockFire("PLAYER_ENTER_COMBAT")')
+    assert sw.eval(f'{L}.on') is True and sw.eval(f'{L}.kind') == "melee"
+    assert sw.eval(f'{L}.art._texture').endswith("swing_melee") and sw.eval(f'{L}.art:IsShown()') is True
+    assert sw.eval(f'{L}.art._blend') == "ADD" and sw.eval(f'{L}.glow:IsShown()') is True
+    shown = sum(1 for i in range(1, 7) if sw.eval(f'{L}.motes[{i}]:IsShown()'))
+    assert shown == 4
+    # halfway through the swing: the strip covers exactly the filled half and scrolls
+    sw.execute('MockState.time = 101.3; HogHealsHUD.Swing.OnUpdate(HH_sw)')
+    assert sw.eval(f'{L}.art._width') == pytest.approx(150)
+    u0 = sw.eval(f'{L}.art._texCoord[1]')
+    sw.execute('MockState.time = 101.5; HogHealsHUD.Swing.OnUpdate(HH_sw)')
+    assert sw.eval(f'{L}.art._texCoord[1]') != u0                                  # it moves
+    assert errors(sw) == []
+
+
+def test_a_landed_swing_flashes_and_the_flash_fades(sw):
+    sw.execute('MockFire("PLAYER_ENTER_COMBAT")')
+    assert sw.eval(f'{L}.flash:IsShown()') is False                                # starting to attack is not a hit
+    sw.execute('MockState.time = 102.7; HogHealsHUD.Swing.OnUpdate(HH_sw)')      # the estimate rolls = a swing landed
+    assert sw.eval(f'{L}.flash:IsShown()') is True and sw.eval('HogHealsHUD.Swing.flashes') == 1
+    sw.execute('MockState.time = 103.2; HogHealsHUD.Swing.OnUpdate(HH_sw)')      # 0.5 s later: faded out
+    assert sw.eval(f'{L}.flash:IsShown()') is False
+    sw.execute('HogHealsHUD.Swing.Start("melee", "cast")')                          # an exact swing on a running bar
+    assert sw.eval('HogHealsHUD.Swing.flashes') == 2
+
+
+def test_ranged_gets_the_wind_strip(sw):
+    sw.execute('HogHealsHUD.Swing.Start("ranged", "cast", nil, "Shoot")')
+    assert sw.eval(f'{L}.art._texture').endswith("swing_ranged") and sw.eval(f'{L}.kind') == "ranged"
+
+
+def test_art_off_is_the_plain_bar_in_your_colour_and_stop_clears_the_look(sw):
+    sw.execute('HogHeals.db.profile.hud.swing.art = false; MockFire("PLAYER_ENTER_COMBAT")')
+    assert sw.eval(f'{L}.on') is False and sw.eval(f'{L}.art:IsShown()') is False
+    c = list(sw.eval('{HH_sw:GetStatusBarColor()}').values())
+    assert c[0] == pytest.approx(0.96)                                              # the cream default, untouched
+    sw.execute('HogHeals.db.profile.hud.swing.art = true; HogHealsHUD.Swing.Start("melee", "cast"); HogHealsHUD.Swing.Stop()')
+    assert sw.eval(f'{L}.on') is False and sw.eval(f'{L}.glow:IsShown()') is False and sw.eval(f'{L}.art:IsShown()') is False
+
+
+def test_a_strip_the_client_refuses_leaves_the_rest_of_the_look(sw):
+    sw.execute('''
+      local orig = HogHealsHUD.Swing.BuildLook
+      HogHealsHUD.Swing.BuildLook = function(b) local Lk = orig(b) function Lk.art:SetTexture() return false end return Lk end
+      MockFire("PLAYER_ENTER_COMBAT")
+    ''')
+    assert sw.eval(f'{L}.artOn') is False and sw.eval(f'{L}.glow:IsShown()') is True
+    assert sw.eval('HogHealsHUD.Swing.artMissing.swing_melee') is True
+    assert errors(sw) == []

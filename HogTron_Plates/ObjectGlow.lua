@@ -295,7 +295,11 @@ end
 
 -- ------------------------------------------------------------------------------------------------ cvars
 G.MANAGED = { "SoftTargetInteract", "SoftTargetInteractRange", "SoftTargetNameplateInteract", "SoftTargetIconGameObject",
-  "SoftTargetInteractOnlyInRange", "nameplateGameObjectMaxDistance" }
+  "SoftTargetInteractOnlyInRange", "nameplateGameObjectMaxDistance", "SoftTargetInteractArc" }
+-- SoftTargetInteractArc (Sean 2026-10-17: "it only shows up if I'm looking directly at it, which kind of defeats the
+-- purpose"): 0 = the object must be straight ahead (the client's default), 1 = in front, 2 = any direction - the nearest
+-- one around you is picked wherever you face. Still ONE object at a time: an addon is never handed a list of what is
+-- around you, only the object the game picks for the interact key. A client without the cvar = recorded as missing.
 
 local function getCVar(k)
   local C = rawget(_G, "C_CVar")
@@ -321,8 +325,10 @@ end
 function G.Wanted(saved)
   local r = math.floor(cfg().range or 15)
   local far = tonumber(saved and saved.nameplateGameObjectMaxDistance) or 0
+  local arc = cfg().anyDirection == false and ((saved and saved.SoftTargetInteractArc) or "0") or "2"
   return { SoftTargetInteract = "3", SoftTargetInteractRange = tostring(r), SoftTargetNameplateInteract = "1",
-    SoftTargetIconGameObject = "1", SoftTargetInteractOnlyInRange = "0", nameplateGameObjectMaxDistance = tostring(math.max(r, far)) }
+    SoftTargetIconGameObject = "1", SoftTargetInteractOnlyInRange = "0", nameplateGameObjectMaxDistance = tostring(math.max(r, far)),
+    SoftTargetInteractArc = arc }
 end
 
 --- Put our values on (originals remembered once, kept until the glow is turned off). Out of combat only.
