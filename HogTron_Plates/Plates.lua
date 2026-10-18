@@ -630,7 +630,9 @@ function Plates.FillLine(uf)
   local fs = type(fill) == "table" and call(fill.IsShown, fill)
   local ft = type(fill) == "table" and (call(fill.GetAtlas, fill) or call(fill.GetTexture, fill))
   local fw = type(fill) == "table" and call(fill.GetWidth, fill)
-  local r, g, b = call(bar.GetStatusBarColor, bar)
+  -- all three (call() keeps two: the fill lines read "colour=0.95,0.80,nil")
+  local okC, r, g, b = pcall(bar.GetStatusBarColor or error, bar)
+  if not okC then r, g, b = nil, nil, nil end
   local mn, mx = call(bar.GetMinMaxValues, bar)
   local zeroedByUs = type(fill) == "table" and hh.artAlpha and hh.artAlpha[fill] ~= nil
   local hc = rawget(uf, "HealthBarsContainer")
