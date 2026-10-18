@@ -272,6 +272,15 @@ function WP.Update()
   f.title:SetTextColor(c.color[1], c.color[2], c.color[3])
   f.detail:SetText(c.detail)
   local navApi = rawget(_G, "C_Navigation")
+  local why = WP.NoTarget(navApi, nav, yards)
+  if why then
+    f:Hide()
+    WP.current = { id = id, title = c.title, yards = yards, noTarget = why }
+    WP.noTarget = why
+    count("noTarget")
+    return false
+  end
+  WP.noTarget = nil
   local clamped = o.arrow ~= false and call(fn(navApi, "WasClampedToScreen")) and true or false
   local valid = fn(navApi, "HasValidScreenPosition")
   if valid and not call(valid) then clamped = o.arrow ~= false end
@@ -326,6 +335,31 @@ function WP.BeamAlpha(yards, o)
   if yards <= from then return 0 end
   if yards < from + fade then return (yards - from) / fade end
   return 1
+end
+
+--- Why there is NO usable target in the world right now, or nil. Sean 2026-10-17 (Camping 101: Herbalism, ready to turn
+-- in): the title, "ready to turn in" and an arrow sat in the MIDDLE of the screen with no distance, wherever he turned.
+-- The client had no position for the turn-in: no distance, no valid screen spot, its navigation frame parked at the
+-- screen's centre - an arrow there points nowhere. Then nothing is drawn in the world (the tracker's GO row still has
+-- the quest).
+function WP.NoTarget(navApi, nav, yards)
+  local st = call(fn(navApi, "GetTargetState"))
+  if type(st) == "number" and not isSecret(st) then
+    local E = rawget(_G, "Enum")
+    local NS = type(E) == "table" and type(E.NavigationState) == "table" and E.NavigationState or {}
+    if st == (NS.Invalid or 0) then return "client: invalid target" end
+    if st == (NS.Disabled or 3) then return "client: navigation disabled" end
+  end
+  local validFn = fn(navApi, "HasValidScreenPosition")
+  if not validFn or call(validFn) then return nil end
+  if type(yards) ~= "number" then return "no screen position and no distance" end
+  local sw, sh = (g("GetScreenWidth") and GetScreenWidth() or 1920), (g("GetScreenHeight") and GetScreenHeight() or 1080)
+  local nx, ny = call(nav.GetCenter, nav)
+  nx, ny = num(nx), num(ny)
+  if nx and ny and math.abs(nx - sw / 2) < sw * 0.05 and math.abs(ny - sh / 2) < sh * 0.05 then
+    return "off screen with the frame parked mid-screen (no edge to point from)"
+  end
+  return nil
 end
 
 --- Is the tracked target hidden behind something, per the client? false when the client cannot say.
@@ -441,6 +475,7 @@ function WP.Lines()
   if c then out[#out + 1] = ("  tracking %s (%s) %s%s"):format(tostring(c.title), tostring(c.id), c.yards and (WP.FormatDistance(c.yards) or "") or "distance unknown", c.clamped and ", off-screen arrow" or "")
   else out[#out + 1] = "  nothing tracked (click a quest in the tracker, or let the GO row pick)." end
   if p.unknownEvents ~= "" then out[#out + 1] = "  events this client lacks: " .. p.unknownEvents end
+  if WP.noTarget then out[#out + 1] = "  nothing drawn in the world: " .. WP.noTarget end
   out[#out + 1] = ("  blocked-view lift: %s (last state %s, now %s)"):format(tostring(WP.path.occlusion or "not asked yet"),
     tostring(WP.lastState), WP.blocked and "LIFTED" or "normal")
   return out

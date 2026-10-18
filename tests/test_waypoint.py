@@ -257,3 +257,32 @@ def test_a_client_that_cannot_say_changes_nothing_and_says_so(wp):
     wp.execute(f"C_Navigation.GetTargetState = nil; {W_}.Update()")
     assert wp.eval(f"{W_}.blocked") is False and wp.eval(f"{W_}.path.occlusion") == "none"
     assert any("blocked-view lift: none" in l for l in wp.eval(f"{W_}.Lines()").values())
+
+
+
+# ---------------------------------------------------------------- no usable target (Sean 2026-10-17)
+# "it says it's ready to turn in, but anywhere I turn, the quest stays in the middle of my screen" - no distance, no
+# valid screen spot, the client's frame parked mid-screen: nothing is drawn in the world then.
+def test_no_position_and_no_distance_draws_nothing_in_the_world(wp):
+    W_ = "HogHealsQuests.Waypoint"
+    wp.execute(f"VALIDPOS = false; NAVDIST = nil; C_Navigation.GetDistance = function() return nil end; {W_}.Distance = function() return nil end; {W_}.Update()")
+    assert wp.eval("HH_w:IsShown()") is False
+    assert "no distance" in wp.eval(f"{W_}.noTarget")
+    assert any("nothing drawn in the world" in l for l in wp.eval(f"{W_}.Lines()").values())
+
+
+def test_an_invalid_target_state_draws_nothing(wp):
+    W_ = "HogHealsQuests.Waypoint"
+    wp.execute(f"C_Navigation.GetTargetState = function() return 0 end; {W_}.Update()")
+    assert wp.eval("HH_w:IsShown()") is False and wp.eval(f"{W_}.noTarget") == "client: invalid target"
+    wp.execute(f"C_Navigation.GetTargetState = function() return 2 end; {W_}.Update()")   # in range again
+    assert wp.eval("HH_w:IsShown()") is True and wp.eval(f"{W_}.noTarget") is None
+
+
+def test_off_screen_with_the_frame_parked_mid_screen_draws_nothing(wp):
+    W_ = "HogHealsQuests.Waypoint"
+    wp.execute(f"""VALIDPOS = false
+      local nav = {W_}.NavFrame()
+      function nav:GetCenter() return GetScreenWidth() / 2, GetScreenHeight() / 2 end
+      {W_}.Update()""")
+    assert wp.eval("HH_w:IsShown()") is False and "parked mid-screen" in wp.eval(f"{W_}.noTarget")
