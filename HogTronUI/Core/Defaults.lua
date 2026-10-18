@@ -193,7 +193,7 @@ HH.defaults = {
         -- CastThemes.lua: the bar takes on the cast (holy / fire / frost / arcane / shadow / nature / mining / herbs /
         -- fishing / opening / crafting / aimed), read off the client; glow = soft light behind the bar, motes = the
         -- specks off the fill's head
-        themes = { enabled = true, glow = true, motes = true, art = true, intensity = 0.8 },
+        themes = { enabled = true, spellArt = true, glow = true, motes = true, art = true, intensity = 0.8 },
       },
       -- swing timer (Swing.lua): auto-attack / Auto Shot bar under the cast bar; showSwing above is the on / off
       -- swing: width 0 = as wide as the strip, else its own width centred on it; spark = bright head on the fill; outline = 1 px

@@ -76,8 +76,12 @@ local function begin(state, name, texture, startMS, endMS, notInterruptible, cha
       local _, class = UnitClass("player")
       key, why = T.Resolve(name, spellID, isTradeSkill, class)
     end
-    state.theme, state.themeWhy, state.spellID = key, why, spellID
-    if state.notInterruptible then T.Clear(b) else T.Apply(b, key, state.startTime) end
+    -- a spell with its own OpenArt strip: that strip, its school's colours (2026-10-17 pilot)
+    local spellArt, spellTheme
+    if not forceTheme and T.SpellArt then spellArt, spellTheme = T.SpellArt(name) end
+    if spellArt and not key then key, why = spellTheme, "spell art" end
+    state.theme, state.themeWhy, state.spellID, state.spellArt = key, why, spellID, spellArt
+    if state.notInterruptible then T.Clear(b) else T.Apply(b, key, state.startTime, spellArt) end
   end
   local dur = state.endTime - state.startTime
   if c.latency and dur > 0 and state.latency > 0 then

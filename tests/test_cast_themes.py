@@ -256,7 +256,7 @@ def test_preview_never_shows_a_question_mark(th):
 # ================================================================================================ art strips (10/14)
 def test_the_art_strip_fills_the_cast_and_scrolls_toward_the_spark(th):
     th.execute("HH_cb:SetHeight(18)")
-    cast(th, "Fireball", 133)
+    cast(th, "Pyroblast", 133)                      # a fire spell without its own strip (Fireball, Scorch have one since 10/17)
     art = f"{T}.layers.art"
     assert th.eval(f"{art}:IsShown()") is True
     assert th.eval(f"{art}._texture").endswith("cast_fire")
@@ -297,3 +297,47 @@ def test_art_coords_pure(th):
     u0, u1 = th.eval(f"{T}.ArtCoords(2, 72, 36, 30)")
     assert u0 == pytest.approx(-60 / 288) and (u1 - u0) == pytest.approx(0.25)
     assert th.eval(f"{T}.ArtCoords(1, 50, 0, 30)") is not None           # a bar with no height never divides by 0
+
+
+
+# ================================================================================================ per-spell art (10/17 pilot)
+# Sean: "create open art images for casting of spells, for every spell, for every class ... some of the lower level mage
+# skills so I can test them in game right now: Frostbolt, Fireball"
+def test_a_spell_with_its_own_strip_gets_it_with_its_schools_colours(th):
+    cast(th, "Fireball", 133)
+    assert th.eval(f"{T}.layers.art._texture").endswith("cast_spell_fireball")
+    assert th.eval(f"{T}.active.key") == "fire" and th.eval(f"{T}.active.art") == "spell_fireball"
+    assert th.eval("HogHealsHUD.Castbar.state.spellArt") == "spell_fireball"
+    for name, art in (("Frostbolt", "spell_frostbolt"), ("Polymorph: Pig", "spell_polymorph"), ("Teleport: Stormwind", "spell_teleport"),
+                      ("Portal: Darnassus", "spell_teleport")):
+        assert th.eval(f'({T}.SpellArt("{name}"))') == art, name
+
+
+def test_spell_art_off_or_missing_falls_back_to_the_school_strip(th):
+    th.execute("HogHeals.db.profile.hud.castbar.themes.spellArt = false")
+    cast(th, "Fireball", 133)
+    assert th.eval(f"{T}.layers.art._texture").endswith("cast_fire")
+    th.execute("HogHeals.db.profile.hud.castbar.themes.spellArt = true")
+    th.execute(f"""local L = {T}.Build(HH_cb); local orig = L.art.SetTexture
+      L.art.SetTexture = function(self, path, ...) if tostring(path):find("cast_spell_") then return false end return orig(self, path, ...) end""")
+    cast(th, "Frostbolt", 116)
+    assert th.eval(f"{T}.layers.art._texture").endswith("cast_frost") and th.eval(f"{T}.artMissing.spell_frostbolt") is True
+
+
+
+def test_the_whole_mage_set_has_strips_and_the_files_exist():
+    import pathlib
+    root = pathlib.Path(__file__).resolve().parents[1]
+    src = (root / "HogTron_HUD" / "CastThemes.lua").read_text(encoding="utf-8")
+    import re
+    arts = set(re.findall(r'\{ "\^[^"]+", "(spell_[a-z_]+)", "[a-z]+" \}', src))
+    assert len(arts) == 12
+    for a in arts:
+        assert (root / "HogTronUI" / "Media" / f"cast_{a}.tga").is_file(), a
+
+
+def test_mage_spells_match_their_strips(th):
+    for name, art in (("Conjure Water", "spell_conjure_water"), ("Conjure Mana Ruby", "spell_conjure_gem"), ("Arcane Missiles", "spell_arcane_missiles"),
+                      ("Flamestrike", "spell_flamestrike"), ("Blizzard", "spell_blizzard"), ("Evocation", "spell_evocation"), ("Scorch", "spell_scorch"),
+                      ("Conjure Food", "spell_conjure_food"), ("Polymorph: Cow", "spell_polymorph")):
+        assert th.eval(f'({T}.SpellArt("{name}"))') == art, name
