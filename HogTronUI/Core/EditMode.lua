@@ -8,6 +8,11 @@
 -- The settings open in the options window in compact form beside the frame: only that frame's section (scale, size,
 -- buttons, rows ... whatever its options already are), plus Position: Center horizontally / vertically / full settings.
 --
+-- Sean 2026-10-18: "easily change the size of the cast bar, the manabar, different things ... add all of that to HH
+-- unlock". Each HUD bar (cast bar, swing timer, mana bar, info line) is its own box now - click it for ITS size, drag
+-- it to move the whole strip - and every frame with a size has a cyan grip in its corner: drag it to resize (right =
+-- wider, down = taller; action bars scale). The HUD strip itself has a gear (its bars' boxes cover it).
+--
 -- Centering moves the frame onto the screen's centre line and then runs the frame's OWN drag-stop handler, so it is
 -- saved exactly the way a drag would save it. Every handler here saves point / x / y and lays out with the same point
 -- on both sides, so CENTER-on-CENTER round-trips.
@@ -27,6 +32,10 @@ local function call(f, ...)
 end
 local function locked() return not (HH.db and HH.db.profile and HH.db.profile.locked == false) end
 
+-- the HUD strip's bars, each its own box in edit mode (the info line's height lives in the strip's layout section)
+EM.HUD_ROWS = { { name = "castbar", path = "HUD.castbar", title = "Cast bar" }, { name = "swing", path = "HUD.swing", title = "Swing timer" },
+  { name = "mana", path = "HUD.mana", title = "Mana bar" }, { name = "info", path = "HUD.layout", title = "Info line" } }
+
 -- unit frame globals (Units.GLOBAL_NAME) -> their options section
 EM.UNITS = { player = "HogUIPlayer", target = "HogUITarget", targettarget = "HogUITargetOfTarget", pet = "HogUIPet", focus = "HogUIFocus" }
 EM.UNIT_LABEL = { player = "Player frame", target = "Target frame", targettarget = "Target of target", pet = "Pet frame", focus = "Focus frame" }
@@ -45,7 +54,19 @@ function EM.Targets()
     end
   end
   add({ key = "frames", path = "Frames.layout", title = "Party / raid frames", mover = G("HogHealsAnchor"), how = "click" })
-  add({ key = "hud", path = "HUD.layout", title = "HUD", mover = G("HogHealsHUDAnchor"), how = "click" })
+  local hudAnchor = G("HogHealsHUDAnchor")
+  -- shown in unlock by the HUD module itself (which may run after us): its gear is shown regardless
+  add({ key = "hud", path = "HUD.layout", title = "HUD", mover = hudAnchor, how = "gear", alwaysShown = true })
+  local HHD = G("HogHealsHUD")
+  local rows = type(HHD) == "table" and type(HHD.HUD) == "table" and HHD.HUD.rows or nil
+  if type(rows) == "table" and hudAnchor then
+    for _, r in ipairs(EM.HUD_ROWS) do
+      local row = rows[r.name]
+      if type(row) == "table" and row.enabled then
+        add({ key = "hud:" .. r.name, path = r.path, title = r.title, mover = hudAnchor, frame = row, how = "box" })
+      end
+    end
+  end
   add({ key = "xp", path = "HUD.xp", title = "Experience bar", mover = G("HogHealsXPBar"), how = "gear" })
   local tracker = G("HogHealsQuestTracker")
   add({ key = "tracker", path = "Quests.tracker", title = "Quest tracker", mover = tracker, saver = tracker and tracker.header, how = "gear" })
@@ -136,6 +157,186 @@ function EM.OpenFull(path)
   P.Open()
 end
 
+-- ------------------------------------------------------------------------------------------------ sizes
+local function prof() return HH.db and HH.db.profile end
+local function num(v, d) if type(v) == "number" then return v end return d end
+local function hudRefresh() local H = G("HogHealsHUD") if type(H) == "table" and H.HUD and H.HUD.Refresh then pcall(H.HUD.Refresh) end end
+local function unitsRefresh() local U = G("HogHealsUnits") if type(U) == "table" and U.Units and U.Units.Refresh then HH:RunOutOfCombat(U.Units.Refresh) end end
+local function barsApply() local B = G("HogHealsBars") if type(B) == "table" and B.Bars and B.Bars.Apply then HH:RunOutOfCombat(B.Bars.Apply, "edit resize") end end
+EM.ROW_HEIGHT = { castbar = "castbarHeight", swing = "swingHeight", mana = "manaHeight", info = "infoHeight" }
+
+--- What dragging a target's grip changes: { w = dim, h = dim, s = dim, apply = fn } (dim = get / set / min / max /
+-- step / factor), or nil when it has no size. factor 2 = the frame grows both ways from its centre, so the grip keeps
+-- up with the cursor.
+function EM.ResizeFor(t)
+  local p = prof()
+  if not p or not t then return nil end
+  local key = t.key
+  local hud = p.hud
+  local row = key:match("^hud:(.+)$")
+  if row and type(hud) == "table" then
+    local spec = { apply = hudRefresh }
+    local sub = hud[row]
+    if row ~= "info" and type(sub) == "table" then
+      spec.w = { get = function() local w = num(sub.width, 0) return w > 0 and w or num(hud.width, 300) end,
+        set = function(v) sub.width = v end, min = 60, max = 800, step = 2, factor = 2 }
+    end
+    local hk = EM.ROW_HEIGHT[row]
+    spec.h = { get = function() return num(hud[hk], 12) end, set = function(v) hud[hk] = v end, min = 4, max = 40, step = 1 }
+    return spec
+  end
+  if key == "xp" and type(hud) == "table" and type(hud.xp) == "table" then
+    local x = hud.xp
+    return { apply = hudRefresh,
+      w = { get = function() local w = num(x.width, 0) if w > 0 then return w end local f = G("HogHealsXPBar") return num(f and call(f.GetWidth, f), 1000) end,
+        set = function(v) x.width = v end, min = 100, max = 2000, step = 10, factor = 2 },
+      h = { get = function() return num(x.height, 10) end, set = function(v) x.height = v end, min = 4, max = 30, step = 1 } }
+  end
+  local unit = key:match("^unit:(.+)$")
+  if unit and type(p.units) == "table" and type(p.units[unit]) == "table" then
+    local u = p.units[unit]
+    return { apply = unitsRefresh,
+      w = { get = function() return num(u.width, 200) end, set = function(v) u.width = v end, min = 80, max = 500, step = 5, factor = 2 },
+      h = { get = function() return num(u.height, 40) end, set = function(v) u.height = v end, min = 16, max = 120, step = 1 } }
+  end
+  local bar = key:match("^bar:(.+)$")
+  if bar and type(p.bars) == "table" and type(p.bars.list) == "table" then
+    local bd = p.bars.list[tonumber(bar) or bar]
+    if type(bd) == "table" then
+      return { apply = barsApply, s = { get = function() return num(bd.scale, 1) end, set = function(v) bd.scale = v end, min = 0.5, max = 2, step = 0.05 } }
+    end
+  end
+  return nil
+end
+
+local function cursor()
+  local x, y = call(G("GetCursorPosition"))
+  local sc = num(UIParent.GetEffectiveScale and UIParent:GetEffectiveScale(), 1)
+  if sc == 0 then sc = 1 end
+  return num(x, 0) / sc, num(y, 0) / sc
+end
+
+local function snap(v, d)
+  v = math.max(d.min, math.min(d.max, v))
+  local st = d.step or 1
+  return math.floor(v / st + 0.5) * st
+end
+
+--- Start a resize from the cursor (the grip's mouse-down). Out of combat only (bars and unit frames are secure).
+function EM.BeginResize(t)
+  if not t or not t.resize then return false end
+  if InCombatLockdown and InCombatLockdown() then HH:Print("edit: not in combat") return false end
+  local R = t.resize
+  local x, y = cursor()
+  local ref = t.box or t.clickFrame or t.mover
+  EM.resizing = { t = t, x = x, y = y, w = R.w and R.w.get(), h = R.h and R.h.get(), s = R.s and R.s.get(),
+    ref = math.max(1, num(ref and call(ref.GetWidth, ref), 100)) }
+  EM.driver = EM.driver or CreateFrame("Frame")
+  EM.driver:SetScript("OnUpdate", function()
+    local r = EM.resizing
+    if not r then return end
+    local cx, cy = cursor()
+    EM.ResizeStep(cx - r.x, cy - r.y)
+  end)
+  return true
+end
+
+--- The cursor moved dx right / dy up since the grip was grabbed: right = wider, down = taller, right = bigger scale.
+-- Applies only a change (snapped to the setting's step, inside its range). Returns true when something changed.
+function EM.ResizeStep(dx, dy)
+  local r = EM.resizing
+  if not r then return false end
+  local R, changed = r.t.resize, false
+  if R.w and r.w then local v = snap(r.w + dx * (R.w.factor or 1), R.w) if v ~= R.w.get() then R.w.set(v) changed = true end end
+  if R.h and r.h then local v = snap(r.h - dy, R.h) if v ~= R.h.get() then R.h.set(v) changed = true end end
+  if R.s and r.s then local v = snap(r.s * (r.ref + dx) / r.ref, R.s) if math.abs(v - R.s.get()) > 1e-6 then R.s.set(v) changed = true end end
+  if changed and R.apply then R.apply() end
+  return changed
+end
+
+function EM.EndResize()
+  local r = EM.resizing
+  if EM.driver then EM.driver:SetScript("OnUpdate", nil) end
+  EM.resizing = nil
+  if not r then return false end
+  EM.lastResize = r.t.key
+  -- an open settings panel for this frame: reopened so its sliders show the new numbers
+  local P = HH.Panel
+  if EM.current == r.t and P and P.compact and P.frame and P.frame:IsShown() then EM.Open(r.t) end
+  return true
+end
+
+EM.grips = {}
+local function grip(t, onFrame)
+  local g = EM.grips[t.key]
+  if not g then
+    g = CreateFrame("Frame", nil, UIParent)
+    g:SetSize(12, 12)
+    g:SetFrameStrata("DIALOG")
+    g:EnableMouse(true)
+    g.edge = g:CreateTexture(nil, "BACKGROUND")
+    g.edge:SetAllPoints(g)
+    g.edge:SetColorTexture(INK[1], INK[2], INK[3], 1)
+    g.fill = g:CreateTexture(nil, "ARTWORK")
+    g.fill:SetPoint("TOPLEFT", g, "TOPLEFT", 2, -2)
+    g.fill:SetPoint("BOTTOMRIGHT", g, "BOTTOMRIGHT", -2, 2)
+    g.fill:SetColorTexture(CYAN[1], CYAN[2], CYAN[3], 1)
+    g:SetScript("OnMouseDown", function(self, button) if button == "LeftButton" then EM.BeginResize(self.target) end end)
+    g:SetScript("OnMouseUp", function() EM.EndResize() end)
+    g:SetScript("OnEnter", function(self)
+      if not GameTooltip then return end
+      GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+      GameTooltip:AddLine((self.target and self.target.title or "?") .. ": drag to resize")
+      GameTooltip:Show()
+    end)
+    g:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+    EM.grips[t.key] = g
+  end
+  g.target = t
+  g:ClearAllPoints()
+  g:SetPoint("CENTER", onFrame, "BOTTOMRIGHT", 0, 0)
+  g:Show()
+  return g
+end
+
+EM.boxes = {}
+--- A click / drag box over a frame that has no box of its own (the HUD's bars): click = its settings, drag = move the
+-- frame it belongs to (through that frame's own drag handlers, so it saves the same way).
+local function box(t)
+  local b = EM.boxes[t.key]
+  if not b then
+    b = CreateFrame("Frame", nil, UIParent)
+    b:SetFrameStrata("HIGH")
+    b:EnableMouse(true)
+    if b.RegisterForDrag then b:RegisterForDrag("LeftButton") end
+    b.bg = b:CreateTexture(nil, "BACKGROUND")
+    b.bg:SetAllPoints(b)
+    b.bg:SetColorTexture(CYAN[1], CYAN[2], CYAN[3], 0.22)
+    b.label = b:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
+    b.label:SetPoint("CENTER", b, "CENTER", 0, 0)
+    local function relay(self, script)
+      local d = self.target and self.target.mover
+      local f = d and d.GetScript and d:GetScript(script)
+      if type(f) == "function" then pcall(f, d) end
+    end
+    b:SetScript("OnDragStart", function(self) self.hhDragged = true relay(self, "OnDragStart") end)
+    b:SetScript("OnDragStop", function(self) relay(self, "OnDragStop") end)
+    b:SetScript("OnMouseUp", function(self, button)
+      if locked() then return end
+      if self.hhDragged then self.hhDragged = nil return end
+      if button == "LeftButton" or button == "RightButton" then EM.Open(self.target) end
+    end)
+    EM.boxes[t.key] = b
+  end
+  b.target = t
+  b.label:SetText(t.title)
+  b:ClearAllPoints()
+  b:SetAllPoints(t.frame)
+  b:Show()
+  t.box = b
+  return b
+end
+
 -- ------------------------------------------------------------------------------------------------ click + gears
 local function attachClick(t)
   local f = t.clickFrame or t.mover
@@ -179,24 +380,34 @@ local function gear(t)
   b.target = t
   b:ClearAllPoints()
   b:SetPoint("TOPRIGHT", t.mover, "TOPRIGHT", 6, 6)
-  if t.mover.IsShown and t.mover:IsShown() then b:Show() else b:Hide() end
+  if t.alwaysShown or (t.mover.IsShown and t.mover:IsShown()) then b:Show() else b:Hide() end
   return b
 end
 
 function EM.SetUnlocked(unlocked)
   if unlocked then
     local n = 0
+    local live = {}
     for _, t in ipairs(EM.Targets()) do
-      if t.how == "gear" then gear(t) else attachClick(t) end
+      if t.how == "gear" then gear(t) elseif t.how == "box" then box(t) else attachClick(t) end
+      live[t.key] = true
+      t.resize = EM.ResizeFor(t)
+      if t.resize then grip(t, t.box or t.clickFrame or t.mover) elseif EM.grips[t.key] then EM.grips[t.key]:Hide() end
       n = n + 1
     end
+    -- a bar switched off since the last unlock: its box and grip go
+    for key, g in pairs(EM.grips) do if not live[key] then g:Hide() end end
+    for key, b in pairs(EM.boxes) do if not live[key] then b:Hide() end end
     EM.count = n
     if not EM.hinted then
       EM.hinted = true
-      HH:Print("edit mode: click a cyan box, or the gear on a frame, for its settings and centring.")
+      HH:Print("edit mode: click a cyan box, or the gear on a frame, for its settings and centring; drag a corner grip to resize.")
     end
   else
     for _, b in pairs(EM.cogs) do b:Hide() end
+    for _, b in pairs(EM.boxes) do b:Hide() end
+    for _, g in pairs(EM.grips) do g:Hide() end
+    EM.EndResize()
     local P = HH.Panel
     if P and P.compact and P.frame and P.frame:IsShown() then P.frame:Hide() end
   end

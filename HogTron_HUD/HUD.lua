@@ -185,9 +185,11 @@ function HUD.Layout()
     if enabled then
       local h = d[ROW_HEIGHT[name]] or 12
       row:ClearAllPoints()
-      local own = name == "swing" and d.swing and (d.swing.width or 0) > 0 and d.swing.width or nil
+      -- cast bar, swing and mana bar may have their own width (0 = the strip's), centred on the strip
+      local sub = (name == "castbar" or name == "swing" or name == "mana") and d[name] or nil
+      local own = type(sub) == "table" and (sub.width or 0) > 0 and sub.width or nil
       if own then
-        -- the swing bar may be wider than the strip: centred on it, hanging out both sides
+        -- a row with its own width may be wider than the strip: centred on it, hanging out both sides
         row:SetPoint("TOP", HUD.container, "TOP", 0, -y)
         row:SetSize(own, h)
       else

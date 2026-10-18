@@ -35,3 +35,13 @@ def test_unlock_shows_hud_anchor(hud):
 def test_module_registered_with_options_hook(hud):
     assert hud.eval('HogHeals.modules.HUD ~= nil')
     assert hud.eval('type(HogHeals.modules.HUD.GetOptions)') == "function"
+
+
+def test_cast_bar_and_mana_bar_take_their_own_width_or_the_strips(hud):
+    # Sean 2026-10-18: sizes per bar in /hh unlock - the cast bar and mana bar get their own width like the swing bar
+    hud.execute('local d = HogHeals.db.profile.hud; d.width = 300; d.mana.width = 200; d.castbar.width = 0; HogHealsHUD.HUD.Refresh()')
+    assert hud.eval('HogHealsHUD.HUD.rows.mana:GetWidth()') == 200
+    assert hud.eval('HogHealsHUD.HUD.rows.mana._points[1][1]') == "TOP"             # centred on the strip
+    assert hud.eval('HogHealsHUD.HUD.rows.castbar:GetWidth()') == 300               # 0 = the strip's width
+    hud.execute('HogHeals.db.profile.hud.mana.width = 0; HogHealsHUD.HUD.Refresh()')
+    assert hud.eval('HogHealsHUD.HUD.rows.mana:GetWidth()') == 300

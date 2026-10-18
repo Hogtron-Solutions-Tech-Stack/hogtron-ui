@@ -96,7 +96,9 @@ def test_drag_boxes_say_a_click_opens_settings(ed):
     ed.execute('HogHeals:SlashCommand("unlock")')
     assert ed.eval("HogHealsBars.Bars.bars[2].handle.label._text") == "Action bar 2  -  drag, or click for settings"
     assert ed.eval("HogHealsAnchor.label._text") == "Party / raid frames  -  drag, or click for settings"
-    assert ed.eval("HogHealsHUDAnchor.label._text") == "HUD  -  drag, or click for settings"
+    # the HUD strip: a gear (its bars' own boxes cover it - Sean 2026-10-18), each bar a labelled box
+    assert ed.eval("HogHeals.EditMode.cogs.hud:IsShown()") is True
+    assert ed.eval("HogHeals.EditMode.boxes['hud:castbar'].label._text") == "Cast bar"
 
 
 
@@ -140,4 +142,80 @@ def test_the_frames_settings_carry_test_buttons_in_the_footer(ed):
     ed.execute(f"{P}.frame.footer.buttons[3]:Click()")
     assert ed.eval("HogHealsFrames.TestMode.active") is not True
     assert ed.eval(f"{P}.ActionsFor('plates')") is None
+    assert errors(ed) == []
+
+
+
+# ---------------------------------------------------------------- sizes in /hh unlock (Sean 2026-10-18)
+# "Do we have a way right now to easily change the size of the cast bar, the manabar, different things? Can we add all
+# of that to HH unlock?" - each HUD bar is its own box (click = its size), and a corner grip resizes by dragging.
+def target(ed, key):
+    ed.execute(f'for _, t in ipairs(HogHeals.EditMode.Targets()) do if t.key == "{key}" then HH_T = t end end')
+    return "HH_T"
+
+
+def test_each_hud_bar_is_its_own_box_with_its_own_size_settings(ed):
+    ed.execute('HogHeals:SlashCommand("unlock")')
+    keys = [t["key"] for t in ed.eval("HogHeals.EditMode.Targets()").values()]
+    for k in ("hud:castbar", "hud:swing", "hud:mana", "hud:info"):
+        assert k in keys, k
+        assert ed.eval(f"HogHeals.EditMode.boxes['{k}']:IsShown()") is True
+        assert ed.eval(f"HogHeals.EditMode.grips['{k}']:IsShown()") is True
+    b = "HogHeals.EditMode.boxes['hud:castbar']"
+    ed.execute(f'{b}:GetScript("OnMouseUp")({b}, "LeftButton")')
+    controls = list(ed.eval("HogHeals.Panel.controls").keys())
+    assert "edit.width" in controls and "edit.height" in controls                 # the cast bar's own width + height
+    assert errors(ed) == []
+
+
+def test_dragging_a_bars_box_moves_the_whole_strip(ed):
+    ed.execute('HogHeals:SlashCommand("unlock")')
+    b = "HogHeals.EditMode.boxes['hud:mana']"
+    ed.execute(f'HH_moved = 0; HogHealsHUDAnchor.StartMoving = function() HH_moved = HH_moved + 1 end; {b}:GetScript("OnDragStart")({b})')
+    assert ed.eval("HH_moved") == 1
+    ed.execute(f'{b}:GetScript("OnDragStop")({b}); {b}:GetScript("OnMouseUp")({b}, "LeftButton")')
+    assert ed.eval("HogHeals.Panel.frame == nil or not HogHeals.Panel.frame:IsShown()") is True   # a drag is not a click
+    assert errors(ed) == []
+
+
+def test_the_grip_resizes_the_cast_bar_wider_and_taller(ed):
+    ed.execute('HogHeals:SlashCommand("unlock"); HogHeals.db.profile.hud.width = 300; HogHeals.db.profile.hud.castbarHeight = 18')
+    t = target(ed, "hud:castbar")
+    ed.execute(f'{t}.resize = HogHeals.EditMode.ResizeFor({t}); HogHeals.EditMode.BeginResize({t})')
+    ed.execute('HogHeals.EditMode.ResizeStep(20, -5)')                           # 20 right, 5 down
+    d = "HogHeals.db.profile.hud"
+    assert ed.eval(f"{d}.castbar.width") == 340                                  # grows both ways from the centre
+    assert ed.eval(f"{d}.castbarHeight") == 23
+    assert ed.eval("HogHealsHUD.HUD.rows.castbar:GetWidth()") == 340             # applied live
+    ed.execute('HogHeals.EditMode.ResizeStep(-1000, 1000)')                      # clamped to the range
+    assert ed.eval(f"{d}.castbar.width") == 60 and ed.eval(f"{d}.castbarHeight") == 4
+    ed.execute('HogHeals.EditMode.EndResize()')
+    assert ed.eval("HogHeals.EditMode.resizing") is None and ed.eval("HogHeals.EditMode.lastResize") == "hud:castbar"
+    assert errors(ed) == []
+
+
+def test_the_grip_resizes_unit_frames_and_scales_action_bars_out_of_combat(ed):
+    ed.execute('HogHeals:SlashCommand("unlock")')
+    t = target(ed, "unit:player")
+    ed.execute(f'{t}.resize = HogHeals.EditMode.ResizeFor({t}); HogHeals.EditMode.BeginResize({t}); HogHeals.EditMode.ResizeStep(10, -10); HogHeals.EditMode.EndResize()')
+    u = "HogHeals.db.profile.units.player"
+    assert ed.eval(f"{u}.width") == 260 and ed.eval(f"{u}.height") == 52       # 240 + 2x10, 42 + 10
+    t = target(ed, "bar:1")
+    ed.execute(f'{t}.resize = HogHeals.EditMode.ResizeFor({t}); HogHeals.db.profile.bars.list[1].scale = 1')
+    ed.execute(f'HogHeals.EditMode.BeginResize({t}); HogHeals.EditMode.ResizeStep(HogHeals.EditMode.resizing.ref / 2, 0); HogHeals.EditMode.EndResize()')
+    assert ed.eval("HogHeals.db.profile.bars.list[1].scale") == 1.5
+    # in combat: refused (bars and unit frames are secure)
+    ed.execute(f'MockState.inCombat = true; HH_ok = HogHeals.EditMode.BeginResize({t}); MockState.inCombat = false')
+    assert ed.eval("HH_ok") is False and ed.eval("HogHeals.EditMode.resizing") is None
+    assert errors(ed) == []
+
+
+def test_locking_hides_every_box_and_grip(ed):
+    ed.execute('HogHeals:SlashCommand("unlock")')
+    assert ed.eval("HogHeals.EditMode.grips['unit:player']:IsShown()") is True
+    ed.execute('HogHeals:SlashCommand("lock")')
+    for k in ("hud:castbar", "hud:mana"):
+        assert ed.eval(f"HogHeals.EditMode.boxes['{k}']:IsShown()") is False
+    assert ed.eval("HogHeals.EditMode.grips['unit:player']:IsShown()") is False
+    assert ed.eval("HogHeals.EditMode.grips['hud:castbar']:IsShown()") is False
     assert errors(ed) == []
