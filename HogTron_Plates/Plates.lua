@@ -866,15 +866,35 @@ function Plates.Update(uf)
   piece("highlight", Plates.UpdateHighlight, uf)
 end
 
+--- A game object took over a plate we skinned for a unit: every piece of ours off, Blizzard's bar too (an object has
+-- no health). The next unit to get this plate brings its own look back (Update -> FriendlyLook shows the bar).
+function Plates.StandDown(uf)
+  local hh = uf and uf.hh
+  if not hh then return false end
+  -- an object FIRST: anything that answers a hide (the health container keeper in #64) must see a plate with no unit
+  hh.unit, hh.object = nil, true
+  local pieces = { hh.bar, hh.bg, hh.health, hh.level, hh.questFrame, rawget(uf, "HealthBarsContainer") }
+  for i = 1, 6 do   -- not ipairs: a plate without a bar (hh.bar / hh.bg nil) skipped every piece after it
+    local p = pieces[i]
+    if type(p) == "table" and p.Hide then call(p.Hide, p) end
+  end
+  for _, e in ipairs(hh.edges or {}) do e:Hide() end
+  pcall(Plates.Light, uf, false)
+  pcall(Plates.Bracket, uf, false)
+  Plates.stoodDown = (Plates.stoodDown or 0) + 1
+  return true
+end
+
 --- Back to a full plate the moment a unit leaves it: Blizzard recycles plates, and the next occupant must not
 -- inherit name-only (hidden bar), the big friendly font, a class colour or a target mark.
 function Plates.Reset(uf)
   local hh, d = uf.hh, cfg()
   if not hh then return end
-  hh.nameOnly, hh.nameClass, hh.questInfo, hh.why = false, nil, nil, nil
+  hh.nameOnly, hh.nameClass, hh.questInfo, hh.why, hh.object = false, nil, nil, nil, nil
   for _, p in ipairs({ hh.bar, hh.bg, rawget(uf, "HealthBarsContainer") }) do
     if type(p) == "table" and p.Show then call(p.Show, p) end
   end
+  -- (a game object taking this plate next gets all of it hidden again: Plates.StandDown in Added)
   if hh.health then hh.health:Hide() end
   Plates.Light(uf, false)
   Plates.Bracket(uf, false)
@@ -914,6 +934,10 @@ function Plates.Added(unit)
   -- skinning it as a unit plate would hang a health bar under a herb
   if call(rawget(_G, "UnitIsGameObject"), unit) == true then
     Plates.skips["game object"] = (Plates.skips["game object"] or 0) + 1
+    -- ... and a RECYCLED plate must not keep the last unit's look (Sean 2026-10-17: an empty black bar over an ore
+    -- node - the previous occupant's dark backing, which Reset had shown again for the next unit)
+    local uf = Plates.FrameFor(unit)
+    if type(uf) == "table" and uf.hh then Plates.StandDown(uf) end
     return
   end
   local uf, why = Plates.FrameFor(unit)
@@ -923,7 +947,7 @@ function Plates.Added(unit)
     return
   end
   Plates.Skin(uf)
-  uf.hh.unit = unit
+  uf.hh.unit, uf.hh.object = unit, nil
   Plates.active[unit] = uf
   Plates.Update(uf)
   pcall(sample, unit, uf)

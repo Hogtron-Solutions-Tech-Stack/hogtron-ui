@@ -884,6 +884,44 @@ def test_platecvars_asks_by_name_when_there_is_no_list(plates):
     assert errors(plates) == []
 
 
+# ---------------------------------------------------------------- recycled plate -> ore node (Sean 2026-10-17)
+# "above a node, I'm not sure what this black rectangle is that's empty": a plate skinned for a unit was reused for
+# the game object the interact key picks, and kept our dark bar backing.
+def test_a_recycled_plate_given_to_a_game_object_keeps_nothing_of_ours(plates):
+    uf = add(plates, "nameplate51", '{ name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-51" }')
+    assert plates.eval(f'{uf}.hh.bg:IsShown()') is True
+    plates.execute('MockFire("NAME_PLATE_UNIT_REMOVED", "nameplate51")')
+    # the client hands the same frame to an ore vein
+    plates.execute('function UnitIsGameObject(u) return u == "nameplate51" end; MockUnits.nameplate51 = { name = "Copper Vein" }')
+    plates.execute('MockFire("NAME_PLATE_UNIT_ADDED", "nameplate51")')
+    assert plates.eval(f'{uf}.hh.bg:IsShown()') is False and plates.eval(f'{uf}.healthBar:IsShown()') is False
+    assert all(plates.eval(f'{uf}.hh.edges[{i}]:IsShown()') is False for i in range(1, plates.eval(f'#{uf}.hh.edges') + 1))
+    assert plates.eval(f'{uf}.hh.object') is True
+    # and back to a unit: its own look again
+    plates.execute('MockFire("NAME_PLATE_UNIT_REMOVED", "nameplate51"); function UnitIsGameObject() return false end')
+    plates.execute('MockUnits.nameplate51 = { name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-52" }; MockFire("NAME_PLATE_UNIT_ADDED", "nameplate51")')
+    assert plates.eval(f'{uf}.healthBar:IsShown()') is True and plates.eval(f'{uf}.hh.object') is None
+
+
+def test_standing_down_a_plate_with_no_bar_still_hides_the_rest(plates):
+    # ipairs({ hh.bar, hh.bg, hh.health, ... }) stopped at the nil bar: health text, level, quest badge, container stayed
+    plates.execute('''
+      local plate = CreateFrame("Frame", nil, WorldFrame)
+      local uf = CreateFrame("Button", nil, plate)
+      uf.HealthBarsContainer = CreateFrame("Frame", nil, uf)
+      uf.name = uf:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+      plate.UnitFrame, plate.unitToken = uf, "nameplate92"
+      NP.nameplate92 = plate
+      MockUnits.nameplate92 = { name = "Odd Plate", health = 1, maxHealth = 1, guid = "C-92" }
+      MockFire("NAME_PLATE_UNIT_ADDED", "nameplate92")
+      uf.hh.health:Show(); uf.hh.level:Show()
+      HogHealsPlates.Plates.StandDown(uf)''')
+    uf = "NP.nameplate92.UnitFrame"
+    assert plates.eval(f"{uf}.hh.bar") is None
+    assert plates.eval(f"{uf}.hh.health:IsShown()") is False and plates.eval(f"{uf}.hh.level:IsShown()") is False
+    assert plates.eval(f"{uf}.HealthBarsContainer:IsShown()") is False
+    assert errors(plates) == []
+
 
 # ---------------------------------------------------------------- the name lines up with the bar (Sean 2026-10-17)
 # from a PvP plate he liked: "the enemy health bar and the name ... the same color and kind of this setup"
