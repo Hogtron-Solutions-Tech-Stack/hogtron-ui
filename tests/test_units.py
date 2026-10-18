@@ -414,3 +414,11 @@ def test_names_choice_is_in_the_options_and_the_setup_guide(units):
     assert found is not None and found["values"]["full"] == "First and last name"
     found["set"](None, "first")
     assert units.eval('HogHeals.db.profile.units.nameFormat') == "first"
+
+
+# ---------------------------------------------------------------- call() arity (found 2026-10-17 from the plate diag)
+def test_the_legacy_aura_reader_keeps_the_source(units):
+    # UnitAura's caster is its 7th value; the helper returned 6, so source was always nil on clients without C_UnitAuras
+    units.execute('MockUnits.target = { name = "K", class = "WARRIOR", health = 1, maxHealth = 1, guid = "C-77", auras = { { name = "Corruption", type = "Magic", duration = 18, expires = 95, source = "player" } } }')
+    a = units.eval('HogHealsUnits.Auras.Get("target", 1, "HARMFUL")')
+    assert a["name"] == "Corruption" and a["source"] == "player"
