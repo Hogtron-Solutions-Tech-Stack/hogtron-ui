@@ -596,3 +596,235 @@ def test_secret_state_is_left_alone_and_the_diag_counts(bars):
     assert "CAST_STOP=1" in lines[0]
     assert any("bar1 #1 action 7" in l for l in lines)
     assert bars.eval("#HogHeals.errors") == 0
+
+
+# ---------------------------------------------------------------- hidden "usable" answers (Sean 2026-10-17)
+# "These abilities are available, but they're grayed out" + "the bars are not showing cool downs": on Forever
+# IsUsableAction can answer with a hidden boolean; the lib's `if isUsable` threw on it, out of Update() before
+# UpdateCooldown. The client has SetAlphaFromBoolean but no SetVertexColorFromBoolean (diag.client).
+def _lab_chunk(start, end_line="end"):
+    src = _lab_src().splitlines()
+    a = next(k for k, l in enumerate(src) if l.startswith(start))
+    b = next(k for k in range(a + 1, len(src)) if src[k] == end_line)
+    return chr(10).join(src[a:b + 1])
+
+
+USABLE_RT = """
+lib = {}
+function issecretvalue(v) return type(v) == "table" and v.secret == true end
+SECRET_TRUE = { secret = true }
+local function tex()
+  local t = { shown = true }
+  function t:SetVertexColor(r, g, b) self.color = { r, g, b } end
+  function t:SetAllPoints() end
+  function t:SetColorTexture() end
+  function t:Show() self.shown = true end
+  function t:Hide() self.shown = false end
+  function t:SetAlphaFromBoolean(v, a, b) self.fromBool = { v, a, b } end
+  return t
+end
+function unpack2(t) return t[1], t[2], t[3] end
+B = { icon = tex(), config = { colors = { mana = { 0.5, 0.5, 1 }, range = { 0.8, 0.1, 0.1 } } } }
+function B:CreateTexture() return tex() end
+"""
+
+
+def test_a_hidden_usable_answer_dims_through_the_client_and_never_greys():
+    from lupa.lua51 import LuaRuntime
+    rt = LuaRuntime()
+    rt.execute(USABLE_RT)
+    rt.execute(_lab_chunk("function lib.hhSecretUsable(self, isUsable, notEnoughMana)"))
+    rt.execute(_lab_chunk("function lib.hhClearDim(self)"))
+    rt.execute(_lab_chunk("function UpdateUsable(self)"))
+    rt.execute("function B:IsUsable() return SECRET_TRUE, false end; UpdateUsable(B)")
+    assert list(rt.eval("B.icon.color").values()) == [1, 1, 1]                        # never the 0.4 grey
+    assert rt.eval("B.hhUnusableDim.shown") is True
+    fb = rt.eval("B.hhUnusableDim.fromBool")
+    assert rt.eval("B.hhUnusableDim.fromBool[1] == SECRET_TRUE") is True and fb[2] == 0 and fb[3] == 0.6   # the client resolves it
+    assert rt.eval("lib.hhSecretUsableCount") == 1
+    # a plain answer later: the dim layer goes, normal colours again
+    rt.execute("function B:IsUsable() return false, false end; UpdateUsable(B)")
+    assert rt.eval("B.hhUnusableDim.shown") is False and list(rt.eval("B.icon.color").values()) == [0.4, 0.4, 0.4]
+    rt.execute("function B:IsUsable() return true, false end; UpdateUsable(B)")
+    assert list(rt.eval("B.icon.color").values()) == [1, 1, 1]
+
+
+def test_a_failing_usable_step_never_takes_the_cooldown_down_with_it():
+    body = _lab_chunk("function Update(self)")
+    assert "pcall(UpdateUsable, self)" in body
+    assert body.index("pcall(UpdateUsable, self)") < body.index("UpdateCooldown(self)")
+    assert "\t\tUpdateUsable(self)\n" not in body                                       # no bare call left in Update
+
+
+def test_our_refresh_sends_a_hidden_answer_to_the_dim_layer(bars):
+    bars.execute(STATE + """
+      MockSetSecrets(true); USE = MockSecret(true)
+      HH_dimmed = 0
+      HogHealsBars.Bars.Lib().hhSecretUsable = function(b) HH_dimmed = HH_dimmed + 1 b.icon:SetVertexColor(1, 1, 1) return true end
+      B.icon:SetVertexColor(0.4, 0.4, 0.4)
+    """)
+    bars.execute('MockFire("SPELL_UPDATE_USABLE"); MockAdvance(0.1)')
+    bars.execute("MockSetSecrets(false)")
+    assert bars.eval("HH_dimmed") >= 1 and list(bars.eval("B.icon._color").values())[:3] == [1, 1, 1]
+    assert bars.eval("#HogHeals.errors") == 0
+
+
+
+# ---------------------------------------------------------------- cooldowns, secret-safe (2026-10-17, "still not showing")
+def _cooldown_rt():
+    from lupa.lua51 import LuaRuntime
+    src = _lab_src().splitlines()
+    a = next(k for k, l in enumerate(src) if l.startswith("\tlocal function hidden(v)"))
+    b = next(k for k in range(a, len(src)) if src[k].startswith("\tfunction UpdateCooldown(self)"))
+    c = next(k for k in range(b + 1, len(src)) if src[k] == "\tend")
+    rt = LuaRuntime()
+    rt.execute("""
+      lib = {}
+      function issecretvalue(v) return type(v) == "table" and v.secret == true end
+      S = { secret = true }
+      defaultCooldownInfo, defaultChargeInfo, defaultLossOfControlInfo = {}, {}, {}
+      local function cd() local c = { calls = {} }
+        function c:Clear() self.calls[#self.calls + 1] = "clear" end
+        function c:SetCooldownFromDurationObject(d) self.calls[#self.calls + 1] = d end
+        function c:SetCooldown(s, d) self.calls[#self.calls + 1] = "numbers" end
+        return c end
+      DUR = { dur = true }
+      B = { cooldown = cd(), chargeCooldown = cd(), lossOfControlCooldown = cd() }
+      function B:GetCooldownInfo() return CD end
+      function B:GetChargeInfo() return nil end
+      function B:GetLoCCooldownInfo() return LOC end
+      function B:GetCooldownDuration() return CDDUR end
+      function B:GetChargeDuration() return nil end
+      function B:GetLoCCooldownDuration() return nil end
+    """)
+    rt.execute(chr(10).join(src[a:c + 1]))
+    return rt
+
+
+def test_hidden_cooldown_flags_are_never_tested_and_the_swipe_still_draws():
+    rt = _cooldown_rt()
+    rt.execute("CD = { isActive = S }; LOC = { isActive = S, shouldReplaceNormalCooldown = S }; CDDUR = DUR; UpdateCooldown(B)")
+    assert rt.eval("B.cooldown.calls[1] == DUR") is True                          # hidden active: drawn, hidden replace: not replaced
+    rt.execute("B.cooldown.calls = {}; CD = { isActive = false }; LOC = {}; UpdateCooldown(B)")
+    assert rt.eval("B.cooldown.calls[1]") == "clear"                              # a plain "not active" still clears
+    rt.execute("B.cooldown.calls = {}; CD = { isActive = true, startTime = S, duration = S }; CDDUR = nil; UpdateCooldown(B)")
+    assert rt.eval("B.cooldown.calls[1]") == "numbers" and rt.eval("lib.hhCooldownFallback") == 1   # no object: the numbers
+    body = _lab_chunk("\tfunction UpdateCooldown(self)", "\tend")
+    assert "not locInfo.shouldReplaceNormalCooldown" not in body and "== nil" not in body
+
+
+def test_one_failing_cooldown_never_stops_the_others():
+    src = _lab_src()
+    assert "local ok, err = pcall(inner, self)" in src and "lib.hhCooldownErrors" in src
+    from lupa.lua51 import LuaRuntime
+    rt = LuaRuntime()
+    rt.execute("lib = {}; function UpdateCooldown(self) if self.bad then error('hidden flag tested') end self.done = true end")
+    rt.execute(_lab_chunk("-- HogTron UI patch (2026-10-17): every cooldown update is guarded", "end"))
+    rt.execute("A, B2 = { bad = true }, {}; for _, b in ipairs({ A, B2 }) do UpdateCooldown(b) end")
+    assert rt.eval("B2.done") is True and rt.eval("lib.hhCooldownErrors") == 1 and "hidden flag tested" in rt.eval("lib.hhLastCooldownError")
+
+
+def test_the_live_counters_save_themselves(bars):
+    bars.execute("local lab = HogHealsBars.Bars.Lib(); lab.hhCooldownErrors = 3; lab.hhLastCooldownError = 'x'; HogHealsBars.Extra.SaveLive()")
+    live = bars.eval("HogHeals.db.global.diag.barsLive")
+    assert live["cooldownErrors"] == 3 and live["lastCooldownError"] == "x"
+
+
+
+# ---------------------------------------------------------------- cooldown evidence (2026-10-17, fourth report)
+def test_the_live_save_records_what_the_client_and_the_swipe_do(bars):
+    bars.execute(STATE + """
+      C_ActionBar = C_ActionBar or {}
+      C_ActionBar.GetActionCooldown = function(slot) if slot == 7 then return { isActive = true, startTime = 100, duration = 25 } end return { isActive = false } end
+      C_ActionBar.GetActionCooldownDuration = function(slot) return { dur = true } end
+      B.cooldown = CreateFrame("Cooldown", nil, B)
+      HogHealsBars.Extra.SaveLive()
+    """)
+    live = bars.eval("HogHeals.db.global.diag.barsLive")
+    assert live["cooling"] == 1
+    c = live["cooldowns"]
+    assert c.startswith("COOLING b1#1 slot 7: isActive=T start=100.0 dur=25.0") and "durObj=table" in c and "widget shown=" in c
+    assert "| usable lib=T/F" in c and "icon=" in c
+
+
+def test_hidden_cooldown_values_are_written_s_never_used(bars):
+    bars.execute(STATE + """
+      MockSetSecrets(true)
+      C_ActionBar = C_ActionBar or {}
+      C_ActionBar.GetActionCooldown = function() return { isActive = MockSecret(true), startTime = MockSecret(5), duration = MockSecret(9) } end
+      B.cooldown = CreateFrame("Cooldown", nil, B)
+      HogHealsBars.Extra.SaveLive()
+      MockSetSecrets(false)
+    """)
+    c = bars.eval("HogHeals.db.global.diag.barsLive.cooldowns")
+    assert "COOLING b1#1 slot 7: isActive=S start=S dur=S" in c
+
+
+
+# ---------------------------------------------------------------- hidden "has an action" (2026-10-17, the root of grey + no cooldowns)
+def _hasaction_rt():
+    from lupa.lua51 import LuaRuntime
+    src = _lab_src().splitlines()
+    a = next(k for k, l in enumerate(src) if l.startswith("local function hhHidden(v)"))
+    b = next(k for k in range(a, len(src)) if src[k].startswith("Action.HasAction"))
+    rt = LuaRuntime()
+    rt.execute("""
+      lib = {}
+      function issecretvalue(v) return type(v) == "table" and v.secret == true end
+      S = { secret = true }
+      ANS, TEX = S, 12345
+      function HasAction(slot) return ANS end
+      function GetActionTexture(slot) return TEX end
+      Action = {}
+    """)
+    rt.execute(chr(10).join(src[a:b + 1]))
+    return rt
+
+
+def test_a_hidden_has_action_answer_never_reaches_an_if_and_falls_back_to_the_icon():
+    rt = _hasaction_rt()
+    assert rt.eval("Action.HasAction({ _state_action = 1 })") is True and rt.eval("lib.hhHasActionHidden") == 1
+    rt.execute("TEX = nil")
+    assert rt.eval("Action.HasAction({ _state_action = 2 })") is False            # hidden answer, no icon: empty slot
+    rt.execute("TEX = S")
+    assert rt.eval("Action.HasAction({ _state_action = 3 })") is True             # hidden icon too: the icon is on screen
+    rt.execute("ANS = false; TEX = 1")
+    assert rt.eval("Action.HasAction({ _state_action = 4 })") is False            # a plain answer is used as it is
+
+
+def test_a_missing_has_action_global_uses_the_icon():
+    rt = _hasaction_rt()
+    rt.execute("HasAction = nil; TEX = 99")
+    assert rt.eval("Action.HasAction({ _state_action = 1 })") is True and rt.eval("lib.hhHasActionMissing") is True
+
+
+def test_the_live_save_records_the_raw_answers(bars):
+    bars.execute(STATE + "HogHealsBars.Extra.SaveLive()")
+    raw = bars.eval("HogHeals.db.global.diag.barsLive.raw")
+    assert raw.startswith("b1#1 type=action slot=7.0 HasAction=")
+
+
+
+# ---------------------------------------------------------------- template functions hiding the lib's (2026-10-17)
+# in game: HasAction(slot) = true (plain) for the client, button:HasAction() = false for the lib - the template's own
+# function, mixed onto the button, answered instead of the lib's.
+def test_a_template_function_that_hides_a_lib_method_is_removed(bars):
+    bars.execute("""
+      HH_G = { HasAction = function() return nil end, UpdateAction = function() end, Shared = function() return "lib" end }
+      HH_A = setmetatable({ HasAction = function() return true end }, { __index = HH_G })
+      HH_b = setmetatable({}, { __index = HH_A })
+      HH_b.HasAction = function() return false end          -- the template's, raw on the button
+      HH_b.Shared = HH_G.Shared                             -- the lib's own, set raw: kept
+      HH_b.OnlyTemplate = function() return "t" end          -- no lib method of that name: kept
+      HH_n = HogHealsBars.Bars.Unshadow(HH_b)
+    """)
+    assert bars.eval("HH_n") == 1
+    assert bars.eval("HH_b:HasAction()") is True                                 # the lib's answers now
+    assert bars.eval("rawget(HH_b, 'Shared') ~= nil") is True and bars.eval("rawget(HH_b, 'OnlyTemplate') ~= nil") is True
+    assert "HasAction x1" in bars.eval("HogHealsBars.Bars.ShadowedText()")
+
+
+def test_barsdiag_and_the_live_save_name_what_was_removed(bars):
+    bars.execute("HogHealsBars.Bars.shadowed.HasAction = 12; HogHealsBars.Extra.SaveLive(); MockLog.chat = {}; HogHeals:SlashCommand('barsdiag')")
+    assert "HasAction x12" in bars.eval("HogHeals.db.global.diag.barsLive.shadowed")
+    assert any("template functions that hid the lib's" in l and "HasAction x12" in l for l in bars.eval("MockLog.chat").values())
