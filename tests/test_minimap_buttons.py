@@ -238,3 +238,81 @@ def test_probe_and_options(lua):
     assert lua.eval('HogHeals.db.profile.quests.buttons.columns') == 1
     assert lua.eval('HogHealsMinimapDrawer:GetWidth()') == 4 + 32
     assert errors(lua) == []
+
+
+# ---------------------------------------------------------------- tooltips under the H (Sean 2026-10-17)
+# "the tooltip of the name is kind of blocking the other buttons ... it should go underneath the logo"; the H's own
+# tooltip also sat over the drawer once it opened. And the H was "way smaller" than the map.
+TIP = r'''
+function GameTooltip:SetOwner(o, a) self._owner, self._anchor = o, a self._lines = {} end
+function GameTooltip:IsOwned(o) return self._owner == o end
+'''
+
+
+def docked_below_h(lua):
+    p = lua.eval('GameTooltip._points[1]')
+    return p[1] == "TOPRIGHT" and lua.eval('GameTooltip._points[1][2] == HogHealsMinimapButtons') and p[3] == "BOTTOMRIGHT"
+
+
+def test_the_h_is_bigger_and_its_logo_scales_with_it(lua):
+    boot(lua, MINIMAP)
+    assert lua.eval('HogHealsMinimapButtons:GetWidth()') == 28 and lua.eval('HogHealsMinimapButtons:GetHeight()') == 28
+    assert lua.eval('HogHealsMinimapButtons.logo[1]:GetHeight()') > 10                 # the H grew with the button
+
+
+def test_the_h_and_its_cells_put_their_tooltip_under_the_h(lua):
+    boot(lua, MINIMAP + TIP)
+    lua.execute('local b = HogHealsMinimapButtons; b:GetScript("OnEnter")(b)')
+    assert lua.eval('GameTooltip._anchor') == "ANCHOR_NONE" and docked_below_h(lua)
+    assert lua.eval('GameTooltip._lines[1]') == "HogTron UI"
+    lua.execute('HogHealsQuests.Buttons.Toggle(true); GameTooltip:ClearAllPoints()')
+    cell = 'HogHealsQuests.Buttons.own[1]'
+    assert lua.eval(f'{cell} ~= nil')
+    lua.execute(f'local c = {cell}; c:GetScript("OnEnter")(c)')
+    assert docked_below_h(lua) and lua.eval('HogHealsQuests.Buttons.tipAt') == "below"
+    assert errors(lua) == []
+
+
+def test_a_collected_addon_buttons_own_tooltip_is_moved_under_the_h(lua):
+    boot(lua, MINIMAP + TIP + r'''
+      -- the owner's OnEnter, as LibDBIcon does it: its own anchor beside the button
+      LibDBIcon10_Bagnon:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_LEFT"); GameTooltip:AddLine("Bagnon"); GameTooltip:SetPoint("RIGHT", self, "LEFT")
+      end)
+    ''')
+    assert lua.eval('LibDBIcon10_Bagnon:GetParent() == HogHealsMinimapDrawer')        # collected
+    lua.execute('local b = LibDBIcon10_Bagnon; GameTooltip:ClearAllPoints(); b:GetScript("OnEnter")(b)')
+    assert lua.eval('GameTooltip._lines[1]') == "Bagnon"                               # its text kept
+    assert docked_below_h(lua)                                                        # its spot ours
+    assert errors(lua) == []
+
+
+def test_a_drawer_that_opens_down_puts_tooltips_on_its_left(lua):
+    boot(lua, MINIMAP + TIP)
+    lua.execute('HogHeals.db.profile.quests.buttons.side = "right"; HogHealsQuests.Buttons.Anchor()')
+    lua.execute('local b = HogHealsMinimapButtons; b:GetScript("OnEnter")(b)')
+    assert lua.eval('HogHealsQuests.Buttons.tipAt') == "left"
+    assert lua.eval('GameTooltip._points[1][2] == HogHealsMinimapDrawer') and lua.eval('GameTooltip._points[1][3]') == "TOPLEFT"
+
+
+def test_the_launcher_is_the_hogtron_boar_with_the_h_as_fallback(lua):
+    # Sean 2026-10-17: "make it into a mini boar that is the HogTron logo"
+    boot(lua, MINIMAP)
+    b = "HogHealsMinimapButtons"
+    assert lua.eval(f"{b}.boar._texture") == "Interface\\AddOns\\HogTronUI\\Media\\brand_launcher"
+    assert lua.eval(f"{b}.boar:IsShown()") is True and lua.eval(f"{b}.logo[1]:IsShown()") is False
+    assert lua.eval("HogHealsQuests.Buttons.logoStyle") == "boar"
+
+
+def test_a_client_that_refuses_the_boar_keeps_the_h(lua):
+    boot(lua, MINIMAP + r'''
+      local orig = UIParent.CreateTexture
+    ''')
+    # rebuild with a texture that refuses the file
+    lua.execute('''
+      local b = HogHealsMinimapButtons
+      local t = b:CreateTexture()
+      function t:SetTexture() return false end
+      if t:SetTexture("x") == false then t:Hide() for _, bar in ipairs(b.logo) do bar:Show() end b.cross:Show() end
+    ''')
+    assert lua.eval("HogHealsMinimapButtons.logo[1]:IsShown()") is True

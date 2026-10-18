@@ -737,13 +737,31 @@ function Plates.ApplyLook(uf)
     setFont(uf.name, d.fontSize or 13)
     -- width 0 = as wide as the text: "Ferocious Grizzled Be..." was Blizzard's fixed name width (2026-09-23);
     -- and centred over the bar: with width 0 it hung off Blizzard's left anchor (in game, "Mottled Worg")
-    call(uf.name.ClearAllPoints, uf.name)
-    call(uf.name.SetPoint, uf.name, "BOTTOM", hh.bar or uf, "TOP", 0, 3)
-    if uf.name.SetJustifyH then call(uf.name.SetJustifyH, uf.name, "CENTER") end
+    Plates.PlaceName(uf)
     call(uf.name.SetWidth, uf.name, 0)
     if uf.name.SetWordWrap then call(uf.name.SetWordWrap, uf.name, false) end
   end
   -- the cast bar is ours now (Castbar.lua); SkinCastbar stays for profiles that turn the HogTron UI bar off
+end
+
+--- The name over the bar. "left" (default): flush with the bar's left edge - Sean 2026-10-17, from a PvP plate he liked
+-- ("the enemy health bar and the name ... the same color and kind of this setup"): the name lines up with the bar it
+-- names (its colour already matches: class colour for players, reaction colour for NPCs). "center": over the middle.
+-- A name-only plate (no bar) is always centred.
+function Plates.PlaceName(uf)
+  local hh, d = uf.hh, cfg()
+  if not uf.name or not hh then return nil end
+  local anchor = hh.bar or uf
+  call(uf.name.ClearAllPoints, uf.name)
+  local left = not hh.nameOnly and (d.nameAlign or "left") == "left"
+  if left then
+    call(uf.name.SetPoint, uf.name, "BOTTOMLEFT", anchor, "TOPLEFT", 0, 3)
+  else
+    call(uf.name.SetPoint, uf.name, "BOTTOM", anchor, "TOP", 0, 3)
+  end
+  if uf.name.SetJustifyH then call(uf.name.SetJustifyH, uf.name, left and "LEFT" or "CENTER") end
+  hh.nameAt = left and "left" or "center"
+  return hh.nameAt
 end
 
 --- Blizzard's cast bar on the plate (a StatusBar under the health bar), flattened once: our texture, dark backing,
@@ -814,6 +832,7 @@ function Plates.FriendlyLook(uf)
     setFont(uf.name, (nameOnly and not dead) and (d.friendlyNameSize or 14) or (d.fontSize or 13))
     -- width 0 = "as wide as the text": the bigger font had "Benjamin Neta..." cut at Blizzard's width (2026-09-23)
     if nameOnly then call(uf.name.SetWidth, uf.name, 0) if uf.name.SetWordWrap then call(uf.name.SetWordWrap, uf.name, false) end end
+    Plates.PlaceName(uf)   -- name-only: centred; back to a bar: its own alignment again
   end
   -- keep the bar hidden when Blizzard shows it on plate reuse
   if hh.bar and not hh.barHideHooked and type(hooksecurefunc) == "function" then
@@ -915,15 +934,35 @@ function Plates.Update(uf)
   piece("highlight", Plates.UpdateHighlight, uf)
 end
 
+--- A game object took over a plate we skinned for a unit: every piece of ours off, Blizzard's bar too (an object has
+-- no health). The next unit to get this plate brings its own look back (Update -> FriendlyLook shows the bar).
+function Plates.StandDown(uf)
+  local hh = uf and uf.hh
+  if not hh then return false end
+  -- an object FIRST: anything that answers a hide (the health container keeper in #64) must see a plate with no unit
+  hh.unit, hh.object = nil, true
+  local pieces = { hh.bar, hh.bg, hh.health, hh.level, hh.questFrame, rawget(uf, "HealthBarsContainer") }
+  for i = 1, 6 do   -- not ipairs: a plate without a bar (hh.bar / hh.bg nil) skipped every piece after it
+    local p = pieces[i]
+    if type(p) == "table" and p.Hide then call(p.Hide, p) end
+  end
+  for _, e in ipairs(hh.edges or {}) do e:Hide() end
+  pcall(Plates.Light, uf, false)
+  pcall(Plates.Bracket, uf, false)
+  Plates.stoodDown = (Plates.stoodDown or 0) + 1
+  return true
+end
+
 --- Back to a full plate the moment a unit leaves it: Blizzard recycles plates, and the next occupant must not
 -- inherit name-only (hidden bar), the big friendly font, a class colour or a target mark.
 function Plates.Reset(uf)
   local hh, d = uf.hh, cfg()
   if not hh then return end
-  hh.nameOnly, hh.nameClass, hh.questInfo, hh.why = false, nil, nil, nil
+  hh.nameOnly, hh.nameClass, hh.questInfo, hh.why, hh.object = false, nil, nil, nil, nil
   for _, p in ipairs({ hh.bar, hh.bg, rawget(uf, "HealthBarsContainer") }) do
     if type(p) == "table" and p.Show then call(p.Show, p) end
   end
+  -- (a game object taking this plate next gets all of it hidden again: Plates.StandDown in Added)
   if hh.health then hh.health:Hide() end
   Plates.Light(uf, false)
   Plates.Bracket(uf, false)
@@ -963,6 +1002,10 @@ function Plates.Added(unit)
   -- skinning it as a unit plate would hang a health bar under a herb
   if call(rawget(_G, "UnitIsGameObject"), unit) == true then
     Plates.skips["game object"] = (Plates.skips["game object"] or 0) + 1
+    -- ... and a RECYCLED plate must not keep the last unit's look (Sean 2026-10-17: an empty black bar over an ore
+    -- node - the previous occupant's dark backing, which Reset had shown again for the next unit)
+    local uf = Plates.FrameFor(unit)
+    if type(uf) == "table" and uf.hh then Plates.StandDown(uf) end
     return
   end
   local uf, why = Plates.FrameFor(unit)
@@ -972,7 +1015,7 @@ function Plates.Added(unit)
     return
   end
   Plates.Skin(uf)
-  uf.hh.unit = unit
+  uf.hh.unit, uf.hh.object = unit, nil
   Plates.active[unit] = uf
   Plates.Update(uf)
   pcall(sample, unit, uf)

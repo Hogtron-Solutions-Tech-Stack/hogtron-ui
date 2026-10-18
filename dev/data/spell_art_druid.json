@@ -1,0 +1,118 @@
+{
+ "source": "wowhead.com/classic/spells/abilities/druid (class trainer + class quest; hunter pet spells by name) + nether.wowhead.com tooltip cast times, fetched 2026-10-17",
+ "note": "art planning only: which spells get a strip. Season of Discovery runes / engravings and talents excluded.",
+ "spells": {
+  "Wrath": {
+   "id": 5177,
+   "level": 6,
+   "schools": 8,
+   "kind": "cast 1.7"
+  },
+  "Entangling Roots": {
+   "id": 339,
+   "level": 8,
+   "schools": 8,
+   "kind": "cast 1.5"
+  },
+  "Healing Touch": {
+   "id": 5186,
+   "level": 8,
+   "schools": 8,
+   "kind": "cast 2"
+  },
+  "Regrowth": {
+   "id": 8936,
+   "level": 12,
+   "schools": 8,
+   "kind": "cast 2"
+  },
+  "Hibernate": {
+   "id": 2637,
+   "level": 18,
+   "schools": 8,
+   "kind": "cast 1.5"
+  },
+  "Rebirth": {
+   "id": 20484,
+   "level": 20,
+   "schools": 8,
+   "kind": "cast 2"
+  },
+  "Starfire": {
+   "id": 2912,
+   "level": 20,
+   "schools": 64,
+   "kind": "cast 3.5"
+  },
+  "Soothe Animal": {
+   "id": 2908,
+   "level": 22,
+   "schools": 8,
+   "kind": "cast 1.5"
+  },
+  "Tranquility": {
+   "id": 740,
+   "level": 30,
+   "schools": 8,
+   "kind": "cast 10"
+  },
+  "Hurricane": {
+   "id": 16914,
+   "level": 40,
+   "schools": 8,
+   "kind": "cast 10"
+  }
+ },
+ "strips": [
+  {
+   "pattern": "^Wrath$",
+   "strip": "spell_wrath",
+   "theme": "nature"
+  },
+  {
+   "pattern": "^Starfire",
+   "strip": "spell_starfire",
+   "theme": "arcane"
+  },
+  {
+   "pattern": "^Entangling Roots",
+   "strip": "spell_entangling_roots",
+   "theme": "nature"
+  },
+  {
+   "pattern": "^Healing Touch",
+   "strip": "spell_healing_touch",
+   "theme": "nature"
+  },
+  {
+   "pattern": "^Regrowth",
+   "strip": "spell_regrowth",
+   "theme": "nature"
+  },
+  {
+   "pattern": "^Rebirth",
+   "strip": "spell_rebirth",
+   "theme": "nature"
+  },
+  {
+   "pattern": "^Hibernate",
+   "strip": "spell_hibernate",
+   "theme": "nature"
+  },
+  {
+   "pattern": "^Soothe Animal",
+   "strip": "spell_soothe_animal",
+   "theme": "nature"
+  },
+  {
+   "pattern": "^Tranquility",
+   "strip": "spell_tranquility",
+   "theme": "nature"
+  },
+  {
+   "pattern": "^Hurricane",
+   "strip": "spell_hurricane",
+   "theme": "nature"
+  }
+ ]
+}

@@ -52,15 +52,64 @@ def test_not_in_combat_and_not_twice(lua):
     assert not lua.eval(f'{S}.open')
 
 
-def test_a_profile_that_did_the_old_wizard_gets_a_chat_line_not_the_window(lua):
+def suite(lua):
     for m in all_modules():
         lua.load_addon(m)
     lua.player_login()
-    lua.execute('HogHeals.db.profile.wizardDone = true; HogHeals.db.profile.setupVersion = nil; MockLog.chat = {}; MockAdvance(5)')
+    lua.execute('wipe(HogHeals.errors)')
+    return lua
+
+
+# Sean 2026-10-17, a brand-new character on an account that had finished setup: no guide. The profile is shared by every
+# character (AceDB "Default"), so "done" has to be per character.
+def test_a_new_character_on_a_profile_another_character_set_up_gets_the_guide_with_keep_first(lua):
+    suite(lua)
+    lua.execute('HogHeals.db.profile.wizardDone = true; HogHeals.db.profile.frames.layouts.party.width = 123; MockAdvance(5)')
+    assert lua.eval(f'{S}.open') and lua.eval('HogHeals.Panel.selected') == "welcome"
+    w = lua.eval(f'{S}.Table().args.welcome.args')
+    assert w["keep"] is not None and w["quick"] is None                       # nothing that resets the shared profile
+    assert w["keep"]["order"] < w["walk"]["order"]
+    lua.execute(f'{S}.Table().args.welcome.args.keep.func()')
+    assert lua.eval('HogHeals.db.char.setupDone') is True
+    assert lua.eval('HogHeals.db.profile.frames.layouts.party.width') == 123  # the other characters' settings untouched
+    assert lua.eval('HogHeals.db.char.atlas.role') == "auto"                  # this character's own piece written
+    assert not lua.eval('HogHealsPanel:IsShown()')
+    lua.execute(f'{S}.open = false; MockFire("PLAYER_LOGIN"); MockAdvance(5)')
+    assert not lua.eval(f'{S}.open')                                           # once per character
+    assert errors(lua) == []
+
+
+def test_a_character_that_finished_is_not_asked_again_but_the_next_character_is(lua):
+    suite(lua)
+    lua.execute('HogHeals.db.char.setupDone = true; MockAdvance(5)')
     assert not lua.eval(f'{S}.open')
-    assert any("/hh setup" in l for l in lst(lua.eval('MockLog.chat')))
-    lua.execute('MockLog.chat = {}; MockFire("PLAYER_LOGIN"); MockAdvance(5)')
-    assert not any("/hh setup" in l for l in lst(lua.eval('MockLog.chat')))           # once
+    # same shared profile, a character that has not seen it yet (its own db.char is empty)
+    lua.execute('HogHeals.db.char.setupDone = nil; MockFire("PLAYER_LOGIN"); MockAdvance(5)')
+    assert lua.eval(f'{S}.open')
+
+
+def test_closing_without_finishing_asks_again_next_login(lua):
+    suite(lua)
+    lua.execute('MockAdvance(5)')
+    assert lua.eval(f'{S}.open')
+    lua.execute(f'HogHealsPanel:Hide(); {S}.open = false; MockFire("PLAYER_LOGIN"); MockAdvance(5)')
+    assert lua.eval(f'{S}.open')
+
+
+def test_quick_start_never_resets_a_shared_profile_someone_set_up(lua):
+    suite(lua)
+    lua.execute('HogHeals.db.profile.wizardDone = true; HogHeals.db.profile.frames.layouts.party.width = 123')
+    lua.execute(f'{S}.QuickStart()')
+    assert lua.eval('HogHeals.db.profile.frames.layouts.party.width') == 123
+    # a fresh profile still gets the recommended preset
+    lua.execute('HogHeals.db.profile.wizardDone = nil')
+    lua.execute(f'{S}.QuickStart()')
+    assert lua.eval('HogHeals.db.profile.frames.layouts.party.width') == lua.eval('HogHeals.defaults.profile.frames.layouts.party.width')
+
+
+def test_a_fresh_profile_keeps_quick_start_and_no_keep_button(full):
+    w = full.eval(f'{S}.Table().args.welcome.args')
+    assert w["quick"] is not None and w["keep"] is None
 
 
 def test_slash_setup_and_wizard_and_options_button_all_open_the_guide(full):
@@ -174,6 +223,7 @@ def test_finish_saves_and_closes(full):
     assert full.eval('HogHeals.Panel.selected') == "done"
     full.execute(f'{S}.Table().args.done.args.finish.func()')
     assert full.eval('HogHeals.db.profile.wizardDone') is True and full.eval('HogHeals.db.profile.setupVersion') == 2
+    assert full.eval('HogHeals.db.char.setupDone') is True                 # per character
     assert not full.eval('HogHealsPanel:IsShown()')
     full.execute('MockFire("PLAYER_LOGIN"); MockAdvance(5)')
     assert not full.eval(f'{S}.open')                         # never pops up again

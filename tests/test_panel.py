@@ -269,3 +269,43 @@ def test_flat_menus_by_default_painted_on_request(lua):
     assert lua.eval(f"{f}.art.bg:IsShown()") is False and lua.eval(f"{f}.accent:IsShown()") is True
     assert list(lua.eval(f"{f}.titleHog._points[1]").values())[3] == 16
     assert lua.eval("#HogHeals.errors") == 0
+
+
+# ---------------------------------------------------------------- labels wrap (Sean 2026-10-17)
+# in game: "Lock position (otherwise drag the header to move it; /hh unlock ...)" ran straight over the next column.
+LONG = "Lock position (otherwise drag the header to move it; /hh unlock then drag, /hh lock when it is where you want it)"
+
+
+def test_long_labels_wrap_inside_their_column_and_push_the_next_row_down(core):
+    core.execute('''HogHeals.Panel.Open(function() return { type = "group", name = "x", args = { g = { type = "group", name = "G", order = 1, args = {
+      long = { type = "toggle", order = 1, name = "''' + LONG + '''", get = function() return true end, set = function() end },
+      right = { type = "toggle", order = 2, name = "Watch new quests", get = function() return false end, set = function() end },
+      below = { type = "toggle", order = 3, name = "Hide finished quests", get = function() return false end, set = function() end },
+      slider = { type = "range", order = 4, name = "''' + LONG + '''", min = 0, max = 10, step = 1, get = function() return 5 end, set = function() end },
+      pick = { type = "select", order = 5, name = "''' + LONG + '''", values = { a = "A" }, get = function() return "a" end, set = function() end },
+    } } } } end)''')
+    c = lambda k: f'HogHeals.Panel.controls["g.{k}"]'
+    col_w = core.eval(f'{c("long")}._width')
+    lw = core.eval(f'{c("long")}.label._width')
+    assert lw == col_w - 24                                                      # the label stops at its own column
+    assert core.eval(f'{c("long")}.label:GetStringHeight()') > 14                 # and wraps onto more lines
+    h = core.eval(f'{c("long")}._height')
+    assert h > 26                                                                # the row grew with it
+    y_long = core.eval(f'{c("long")}._points[1][5]')
+    y_below = core.eval(f'{c("below")}._points[1][5]')
+    assert y_long - y_below >= h                                                 # the next row starts under it
+    # range / select: the control moves down under the wrapped label
+    lh = core.eval(f'{c("slider")}.label:GetStringHeight()')
+    assert lh > 14 and core.eval(f'{c("slider")}.slider._points[1][5]') == -(lh + 6)
+    assert core.eval(f'{c("pick")}.button._points[1][5]') < -18
+    assert [e["msg"] for e in core.eval('HogHeals.errors').values()] == []
+
+
+def test_a_short_label_keeps_the_old_row_heights(core):
+    core.execute('''HogHeals.Panel.Open(function() return { type = "group", name = "x", args = { g = { type = "group", name = "G", order = 1, args = {
+      t = { type = "toggle", order = 1, name = "Short", get = function() return true end, set = function() end },
+      r = { type = "range", order = 2, name = "Short", min = 0, max = 1, step = 1, get = function() return 0 end, set = function() end },
+      s = { type = "select", order = 3, name = "Short", values = { a = "A" }, get = function() return "a" end, set = function() end },
+    } } } } end)''')
+    c = lambda k: f'HogHeals.Panel.controls["g.{k}"]._height'
+    assert core.eval(c("t")) == 26 and core.eval(c("r")) == 44 and core.eval(c("s")) == 46

@@ -416,7 +416,7 @@ def test_target_mark_styles_and_size_cvars(plates):
     plates.execute('TARGET = "nameplate21"; MockFire("PLAYER_TARGET_CHANGED")')
     assert plates.eval(f'{uf}.hh.glow:IsShown()') is True and plates.eval(f'{uf}.hh.scale') == 1
     assert plates.eval(f'#{uf}.hh.glows') == 8                                      # 9-slice: 4 corners + 4 edges
-    assert plates.eval(f'{uf}.name._points[1][1]') == "BOTTOM" and plates.eval(f'{uf}.name._points[1][3]') == "TOP"       # name centred over the bar
+    assert plates.eval(f'{uf}.name._points[1][1]') == "BOTTOMLEFT" and plates.eval(f'{uf}.name._points[1][3]') == "TOPLEFT"   # name on the bar's left edge (2026-10-17)
     plates.execute('HogHeals.db.profile.plates.target.style = "scale"; HogHealsPlates.Plates.Refresh()')
     assert plates.eval(f'{uf}.hh.glow:IsShown()') is False and plates.eval(f'{uf}.hh.scale') == 1.25
     plates.execute('HogHeals.db.profile.plates.target.style = "outline"; HogHealsPlates.Plates.Refresh()')
@@ -956,3 +956,59 @@ def test_a_name_only_plate_keeps_its_container_hidden(plates):
     plates.execute(f"{uf}.HealthBarsContainer:Hide()")
     assert plates.eval(f"{uf}.HealthBarsContainer:IsShown()") is False and (plates.eval(f"{uf}.hh.kept") or 0) == 0
     assert errors(plates) == []
+
+
+# ---------------------------------------------------------------- recycled plate -> ore node (Sean 2026-10-17)
+# "above a node, I'm not sure what this black rectangle is that's empty": a plate skinned for a unit was reused for
+# the game object the interact key picks, and kept our dark bar backing.
+def test_a_recycled_plate_given_to_a_game_object_keeps_nothing_of_ours(plates):
+    uf = add(plates, "nameplate51", '{ name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-51" }')
+    assert plates.eval(f'{uf}.hh.bg:IsShown()') is True
+    plates.execute('MockFire("NAME_PLATE_UNIT_REMOVED", "nameplate51")')
+    # the client hands the same frame to an ore vein
+    plates.execute('function UnitIsGameObject(u) return u == "nameplate51" end; MockUnits.nameplate51 = { name = "Copper Vein" }')
+    plates.execute('MockFire("NAME_PLATE_UNIT_ADDED", "nameplate51")')
+    assert plates.eval(f'{uf}.hh.bg:IsShown()') is False and plates.eval(f'{uf}.healthBar:IsShown()') is False
+    assert all(plates.eval(f'{uf}.hh.edges[{i}]:IsShown()') is False for i in range(1, plates.eval(f'#{uf}.hh.edges') + 1))
+    assert plates.eval(f'{uf}.hh.object') is True
+    # and back to a unit: its own look again
+    plates.execute('MockFire("NAME_PLATE_UNIT_REMOVED", "nameplate51"); function UnitIsGameObject() return false end')
+    plates.execute('MockUnits.nameplate51 = { name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-52" }; MockFire("NAME_PLATE_UNIT_ADDED", "nameplate51")')
+    assert plates.eval(f'{uf}.healthBar:IsShown()') is True and plates.eval(f'{uf}.hh.object') is None
+
+
+def test_standing_down_a_plate_with_no_bar_still_hides_the_rest(plates):
+    # ipairs({ hh.bar, hh.bg, hh.health, ... }) stopped at the nil bar: health text, level, quest badge, container stayed
+    plates.execute('''
+      local plate = CreateFrame("Frame", nil, WorldFrame)
+      local uf = CreateFrame("Button", nil, plate)
+      uf.HealthBarsContainer = CreateFrame("Frame", nil, uf)
+      uf.name = uf:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+      plate.UnitFrame, plate.unitToken = uf, "nameplate92"
+      NP.nameplate92 = plate
+      MockUnits.nameplate92 = { name = "Odd Plate", health = 1, maxHealth = 1, guid = "C-92" }
+      MockFire("NAME_PLATE_UNIT_ADDED", "nameplate92")
+      uf.hh.health:Show(); uf.hh.level:Show()
+      HogHealsPlates.Plates.StandDown(uf)''')
+    uf = "NP.nameplate92.UnitFrame"
+    assert plates.eval(f"{uf}.hh.bar") is None
+    assert plates.eval(f"{uf}.hh.health:IsShown()") is False and plates.eval(f"{uf}.hh.level:IsShown()") is False
+    assert plates.eval(f"{uf}.HealthBarsContainer:IsShown()") is False
+    assert errors(plates) == []
+
+
+# ---------------------------------------------------------------- the name lines up with the bar (Sean 2026-10-17)
+# from a PvP plate he liked: "the enemy health bar and the name ... the same color and kind of this setup"
+def test_name_sits_on_the_bars_left_edge_by_default_or_centred_by_choice(plates):
+    uf = add(plates, "nameplate41", '{ name = "Brincks", class = "ROGUE", health = 5, maxHealth = 5, isPlayer = true, guid = "P-41" }')
+    assert plates.eval(f'{uf}.name._points[1][1]') == "BOTTOMLEFT" and plates.eval(f'{uf}.name._points[1][2] == {uf}.hh.bar')
+    assert plates.eval(f'{uf}.name._last.SetJustifyH[1]') == "LEFT"
+    assert plates.eval(f'{uf}.hh.nameAt') == "left"
+    plates.execute('HogHeals.db.profile.plates.nameAlign = "center"; HogHealsPlates.Plates.Refresh()')
+    assert plates.eval(f'{uf}.name._points[1][1]') == "BOTTOM" and plates.eval(f'{uf}.hh.nameAt') == "center"
+
+
+def test_a_name_only_friendly_plate_stays_centred(plates):
+    uf = add(plates, "nameplate42", '{ name = "Friend", class = "MAGE", health = 1, maxHealth = 1, isPlayer = true, friendly = true, guid = "P-42" }')
+    assert plates.eval(f'{uf}.hh.nameOnly') is True
+    assert plates.eval(f'{uf}.hh.nameAt') == "center" and plates.eval(f'{uf}.name._points[1][1]') == "BOTTOM"

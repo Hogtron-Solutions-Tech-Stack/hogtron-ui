@@ -1,0 +1,74 @@
+{
+ "source": "wowhead.com/classic/spells/abilities/mage (trainer-taught) + nether.wowhead.com tooltip cast times, fetched 2026-10-17",
+ "note": "art planning only: which spells get a strip. Season of Discovery runes and talents excluded.",
+ "spells": {
+  "Fireball": {
+   "id": 133,
+   "level": 1,
+   "schools": 4,
+   "kind": "cast 1.5"
+  },
+  "Frostbolt": {
+   "id": 116,
+   "level": 4,
+   "schools": 16,
+   "kind": "cast 1.5"
+  },
+  "Conjure Water": {
+   "id": 5504,
+   "level": 4,
+   "schools": 64,
+   "kind": "cast 3"
+  },
+  "Conjure Food": {
+   "id": 587,
+   "level": 6,
+   "schools": 64,
+   "kind": "cast 3"
+  },
+  "Polymorph": {
+   "id": 118,
+   "level": 8,
+   "schools": 64,
+   "kind": "cast 1.5"
+  },
+  "Arcane Missiles": {
+   "id": 5143,
+   "level": 8,
+   "schools": 64,
+   "kind": "cast 3"
+  },
+  "Flamestrike": {
+   "id": 2120,
+   "level": 16,
+   "schools": 4,
+   "kind": "cast 3"
+  },
+  "Blizzard": {
+   "id": 10,
+   "level": 20,
+   "schools": 16,
+   "kind": "cast 8"
+  },
+  "Evocation": {
+   "id": 12051,
+   "level": 20,
+   "schools": 64,
+   "kind": "cast 8"
+  },
+  "Scorch": {
+   "id": 2948,
+   "level": 22,
+   "schools": 4,
+   "kind": "cast 1.5"
+  },
+  "Teleport / Portal (12 spells, one strip)": {
+   "kind": "cast 10",
+   "level": 20
+  },
+  "Conjure Mana gems (4 spells, one strip)": {
+   "kind": "cast 3",
+   "level": 28
+  }
+ }
+}
