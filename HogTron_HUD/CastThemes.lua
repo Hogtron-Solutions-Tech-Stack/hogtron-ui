@@ -201,6 +201,10 @@ T.SPELL_ART = {
   { "^Soothe Animal", "spell_soothe_animal", "nature" },
   { "^Tranquility", "spell_tranquility", "nature" },
   { "^Hurricane", "spell_hurricane", "nature" },
+  -- 2026-10-18 every class (Sean: "cast bars for both Hearthstone and Conjure Water ... heavy water ... the Hearthstone,
+  -- we can do something creative"): a carved hearthstone with glowing recall runes; Conjure Water above got the heavy
+  -- surge strip (the other candidates: openart_cast_art.py raw/).
+  { "^Hearthstone", "spell_hearthstone", "arcane" },
 }
 
 --- Pure: the strip and theme for a cast name, or nil.

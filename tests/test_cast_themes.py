@@ -171,7 +171,7 @@ def test_glow_and_motes_switches(th):
 
 def test_no_class_school_keeps_plain_colours(th):
     th.execute('MockState.playerClass = "WARRIOR"')
-    cast(th, "Hearthstone", 8690)
+    cast(th, "Linen Bandage", 746)                     # no school, no strip of its own (Hearthstone has one since 10-18)
     assert th.eval("HogHealsHUD.Castbar.state.theme") is None
     assert bar_colour(th) == pytest.approx([0.13, 0.83, 0.88])
     assert not glow_shown(th)
@@ -338,13 +338,13 @@ def test_spell_art_off_or_missing_falls_back_to_the_school_strip(th):
 
 
 def test_every_class_set_has_strips_and_the_files_exist():
-    # mage 12 strips + the other eight classes' 74 (2026-10-17)
+    # mage 12 strips + the other eight classes' 74 (2026-10-17) + Hearthstone, every class (2026-10-18)
     import pathlib
     root = pathlib.Path(__file__).resolve().parents[1]
     src = (root / "HogTron_HUD" / "CastThemes.lua").read_text(encoding="utf-8")
     import re
     arts = set(re.findall(r'\{ "[^"]+", "(spell_[a-z_]+)", "[a-z]+" \}', src))
-    assert len(arts) == 86
+    assert len(arts) == 87
     for a in arts:
         assert (root / "HogTronUI" / "Media" / f"cast_{a}.tga").is_file(), a
 
@@ -354,6 +354,18 @@ def test_mage_spells_match_their_strips(th):
                       ("Flamestrike", "spell_flamestrike"), ("Blizzard", "spell_blizzard"), ("Evocation", "spell_evocation"), ("Scorch", "spell_scorch"),
                       ("Conjure Food", "spell_conjure_food"), ("Polymorph: Cow", "spell_polymorph")):
         assert th.eval(f'({T}.SpellArt("{name}"))') == art, name
+
+
+# ---------------------------------------------------------------- Hearthstone, every class (Sean 2026-10-18)
+# "cast bars for both Hearthstone and Conjure Water ... the Hearthstone, we can do something creative"
+def test_hearthstone_has_its_own_strip_for_a_class_with_no_school(th):
+    th.execute('MockState.playerClass = "WARRIOR"')
+    cast(th, "Hearthstone", 8690)
+    assert th.eval("HogHealsHUD.Castbar.state.spellArt") == "spell_hearthstone"
+    assert th.eval("HogHealsHUD.Castbar.state.theme") == "arcane" and th.eval("HogHealsHUD.Castbar.state.themeWhy") == "spell art"
+    assert th.eval("HogHealsHUD.CastThemes.active.art") == "spell_hearthstone" and th.eval("HogHealsHUD.CastThemes.active.mode") == "BLEND"
+    assert th.eval('({T}.SpellArt("Hearthstone"))'.format(T=T)) == "spell_hearthstone"
+    assert th.eval('({T}.SpellArt("Hearth Fire"))'.format(T=T)) is None
 
 
 # ---------------------------------------------------------------- spell strips drawn as painted (Sean 2026-10-17)
