@@ -88,6 +88,35 @@ tabs. Diagnostics: a `/hh <thing>diag` command that writes to `HH.db.global.diag
   them). Hide/alpha and post-hooks (`hooksecurefunc`) are fine.
 - **No combat log for addons.** Per-player combat numbers only via `C_DamageMeter` (ranked lists, secret amounts).
 
+### 4b. WoW: Forever client facts (measured in game, 2026-10-17)
+
+Each one was read off the client's own saved diagnostics, not assumed. Where the fix lives is in brackets (PR numbers
+from the 2026-10-17 batch; see issue #73 for the merge order).
+
+| The client... | Consequence | Handled in |
+|---|---|---|
+| answers `HasAction(slot)` hidden (secret) or not at all | LibActionButton's `if self:HasAction()` threw before usable / cooldown | `lib.hhHasAction` (#59) |
+| mixes `ActionButtonTemplate` functions **raw** onto the button, shadowing LibActionButton's methods | the lib's code never ran: grey icons, no cooldown swipe, every lib patch dead | `Bars.Unshadow` (#59) |
+| calls the main bar `MainActionBar` (no `MainMenuBar.*` art) | Blizzard's bar art drew under ours on new characters | `Bars.HideMainArt` (#47) |
+| refuses `EnableMouse` on our secure bar buttons in combat | `ADDON_ACTION_BLOCKED` + the game's warning popup | `Bars.SetMouse`: only a change, queued after combat (#68) |
+| blames us for `Button:SetPassThroughButtons()` when addon code changes the super-tracked quest in combat | Blizzard rebuilds its quest POI buttons on our tainted call | `Go.SuperTrack` waits for the end of combat (#68) |
+| reports `C_Navigation.GetTargetState()` = 0 (`Invalid`) for a good, on-screen target | trusting it hid the quest beam everywhere | the state never hides the marker (#60) |
+| has no `GetCoinTextureString` | money printed "6s 0c" | our coin icons (#70) |
+| hides a nameplate's `HealthBarsContainer` on its own schedule | an empty bar under our edge + "100%" | `Plates.KeepContainer` post-hooks (#64) |
+| `GetTime()` is the PC's uptime (often 100k+ s) | a texture scroll fed raw `GetTime()` went "TexCoord out of range" | keep the fraction of a repeat (#72) |
+| windows: Friends = `SocialUIFrame`, Group Finder's visible pane = `LFGListingFrame` (child of `LFGParentFrame`, own NineSlice) | skinning the classic names did nothing | `Panels.NAMES`, `Part.FRAMED` (#65, #69) |
+| fires `TRAINER_UPDATE` for every filter flip | learning on that event froze the game (event storm) | one read after `TRAINER_SHOW` (#57) |
+
+Code traps found on the way:
+- `ipairs` stops at the first `nil`: a piece list with an optional frame in the middle silently skips the rest. Use
+  `for i = 1, n`.
+- Our per-file `call()` helpers keep a fixed number of return values. Read `GetVertexColor`, `GetHitRectInsets` and the
+  like with `pcall` directly (#74).
+- `Plates.QuietArt` fades every child of the health bar it does not keep: anything of ours parented to the bar must be
+  on its keep list (#71 was closed for this).
+- Lua texture paths written through Python / bash layers lose backslashes (`\r` in `\reward_xp` is a carriage return):
+  build paths from parts in tests and pin them exactly.
+
 ## 5. Tests and tools
 
 ```bash
@@ -113,6 +142,12 @@ be added to `.pkgmeta` move-folders**, or it ships nested and never loads (the p
 `/hh errors` (caught errors), `/hh svinfo` (settings load forensics), `/hh apicheck` (client capabilities),
 `/hh skindiag` (skin + which Blizzard art is still showing per window), `/hh under` (what's drawn under the cursor),
 `/hh framediag`, `/hh platediag`, `/hh barsdiag`, `/hh meterdiag`, `/hh questdiag`, `/hh awards probe`, `/hh journal probe`.
+Recorders that write on their own (no command needed; read them from the SavedVariables after a `/reload`):
+`diag.errors` (every caught error, per session, with counts), `diag.waypoint` (what the quest marker did and why,
+`/hh wpdiag`), `diag.castArt` (which cast-bar strip was drawn, `/hh castdiag`), `diag.plateFill` (the target plate's
+fill, bar and container), `diag.barsLive` / `diag.barsMouse` / `diag.barsGeometry` (bar state, who holds the mouse over
+bar 1, button geometry), `diag.skin.windows` (per Blizzard window: styled, Blizzard pieces still showing, panes).
+Reading them off disk: `lupa` can `execute()` the SavedVariables file and walk `HogTronUIDB.global.diag`.
 Most write to `HogTronUIDB.global.diag` too: `WTF/Account/<acct>/SavedVariables/HogTronUI.lua` after a `/reload` or logout.
 
 ## 7. Docs
