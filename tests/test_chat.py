@@ -166,3 +166,9 @@ def test_clicking_a_url_opens_the_copy_box(chat):
     chat.execute('_, M = FILTERS.CHAT_MSG_SAY(ChatFrame1, "CHAT_MSG_SAY", "look https://a.b/c", "Bob")')
     assert "|Hhogurl:https://a.b/c|h" in chat.eval('M')
     assert errors(chat) == []
+
+
+def test_the_text_size_slider_starts_at_the_chat_windows_real_size(chat):
+    # `local _, size = cf and cf:GetFont()` kept only the first value (the font path): the slider always read 14
+    chat.execute('ChatFrame1.GetFont = function() return "Fonts\\ARIALN.TTF", 17, "" end; HogHeals.db.profile.chat.fontSize = nil')
+    assert chat.eval('HogHeals.OptionsTable().args.Chat.args.fontSize.get()') == 17
