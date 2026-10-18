@@ -286,3 +286,33 @@ def test_off_screen_with_the_frame_parked_mid_screen_draws_nothing(wp):
       function nav:GetCenter() return GetScreenWidth() / 2, GetScreenHeight() / 2 end
       {W_}.Update()""")
     assert wp.eval("HH_w:IsShown()") is False and "parked mid-screen" in wp.eval(f"{W_}.noTarget")
+
+
+# ---------------------------------------------------------------- what the marker did, saved (Sean 2026-10-17)
+# "I dont see the quest beam anymore" - and the save held no trace of why. Every outcome change is recorded.
+def test_each_outcome_change_is_saved_with_the_clients_answers(wp):
+    W_ = "HogHealsQuests.Waypoint"
+    wp.execute(f"""Enum = Enum or {{}}; Enum.NavigationState = {{ Invalid = 0, Occluded = 1, InRange = 2, Disabled = 3 }}
+      HH_state = 2; C_Navigation.GetTargetState = function() return HH_state end
+      {W_}.lastOutcome = nil; HogHeals.db.global.diag.waypoint = nil; {W_}.Update()""")
+    rec = wp.eval("HogHeals.db.global.diag.waypoint")
+    assert rec["outcome"] == "beam" and rec["state"] == "2" and rec["validScreen"] == "yes" and rec["quest"] == "9"
+    assert "Invalid=0" in rec["enum"] and "InRange=2" in rec["enum"]
+    wp.execute(f"for i = 1, 5 do {W_}.Update() end")                              # unchanged: no new history lines
+    assert len(wp.eval("HogHeals.db.global.diag.waypoint.history")) == 1
+    wp.execute(f"HH_state = 0; {W_}.Update()")
+    rec = wp.eval("HogHeals.db.global.diag.waypoint")
+    assert rec["outcome"] == "hidden: client: invalid target" and rec["state"] == "0"
+    assert len(rec["history"]) == 2
+    wp.execute(f"TRACKED = nil; {W_}.Update()")
+    assert wp.eval("HogHeals.db.global.diag.waypoint.outcome") == "nothing super-tracked"
+    assert any("last outcome: nothing super-tracked" in l for l in wp.eval(f"{W_}.Lines()").values())
+    assert errors(wp) == []
+
+
+def test_a_secret_target_state_is_written_as_secret(wp):
+    W_ = "HogHealsQuests.Waypoint"
+    wp.execute(f"""MockSetSecrets(true); C_Navigation.GetTargetState = function() return MockSecret(2) end
+      {W_}.lastOutcome = nil; {W_}.Update()""")
+    assert wp.eval("HogHeals.db.global.diag.waypoint.state") == "secret"
+    assert errors(wp) == []

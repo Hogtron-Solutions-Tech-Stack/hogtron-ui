@@ -261,6 +261,7 @@ function WP.Update()
     f:Hide()
     if WP.blizzardHidden and WP.attachedTo then WP.BlizzardArt(WP.attachedTo, true) end
     WP.current = nil
+    WP.Record(o.enabled == false and "off (setting)" or (not id and "nothing super-tracked") or "no navigation frame", id, nil, nil)
     return false
   end
   WP.Attach(nav)
@@ -278,6 +279,7 @@ function WP.Update()
     WP.current = { id = id, title = c.title, yards = yards, noTarget = why }
     WP.noTarget = why
     count("noTarget")
+    WP.Record("hidden: " .. why, id, navApi, yards)
     return false
   end
   WP.noTarget = nil
@@ -320,6 +322,49 @@ function WP.Update()
   f:SetAlpha(WP.Alpha(yards, o))
   f:Show()
   WP.current = { id = id, title = c.title, yards = yards, clamped = clamped }
+  WP.Record(clamped and "arrow (off screen)" or (not beam and "diamond")
+    or (WP.BeamAlpha(yards, o) > 0 and "beam" or "beam faded (inside beamFrom yards)"), id, navApi, yards)
+  return true
+end
+
+--- What the marker did, saved when it CHANGES (Sean 2026-10-17: "I dont see the quest beam anymore", and the save
+-- held no trace of why). diag.waypoint: outcome, the client's raw target state + its enum names, the screen-position
+-- answer, yards, and the last 8 changes. Plain strings only: a secret is written as "secret", never compared.
+function WP.StateText(navApi)
+  local st = call(fn(navApi, "GetTargetState"))
+  if isSecret(st) then return "secret" end
+  return type(st) == "number" and ("%d"):format(st) or "none"
+end
+
+function WP.EnumText()
+  local E = rawget(_G, "Enum")
+  local NS = type(E) == "table" and type(E.NavigationState) == "table" and E.NavigationState or nil
+  if not NS then return "no Enum.NavigationState" end
+  local parts = {}
+  for k, v in pairs(NS) do parts[#parts + 1] = tostring(k) .. "=" .. tostring(v) end
+  table.sort(parts)
+  return table.concat(parts, ",")
+end
+
+function WP.Record(outcome, id, navApi, yards)
+  if WP.lastOutcome == outcome then return false end
+  WP.lastOutcome = outcome
+  local gl = HH.db and HH.db.global
+  if not gl then return false end
+  gl.diag = gl.diag or {}
+  local valid = navApi and fn(navApi, "HasValidScreenPosition") and call(fn(navApi, "HasValidScreenPosition"))
+  local rec = gl.diag.waypoint or {}
+  local at = date and date("%Y-%m-%d %H:%M:%S") or "?"
+  rec.at, rec.outcome, rec.quest = at, outcome, id and ("%d"):format(id) or "none"
+  rec.state = navApi and WP.StateText(navApi) or "-"
+  rec.enum = WP.EnumText()
+  rec.validScreen = (isSecret(valid) and "secret") or (valid == nil and "no answer") or (valid and "yes" or "no")
+  rec.yards = num(yards) and ("%d"):format(math.floor(yards)) or "unknown"
+  rec.nav, rec.distance = WP.path.nav, WP.path.distance
+  rec.history = rec.history or {}
+  table.insert(rec.history, ("%s %s (state %s, screen %s, %s yd)"):format(at, outcome, rec.state, rec.validScreen, rec.yards))
+  while #rec.history > 8 do table.remove(rec.history, 1) end
+  gl.diag.waypoint = rec
   return true
 end
 
@@ -476,6 +521,8 @@ function WP.Lines()
   else out[#out + 1] = "  nothing tracked (click a quest in the tracker, or let the GO row pick)." end
   if p.unknownEvents ~= "" then out[#out + 1] = "  events this client lacks: " .. p.unknownEvents end
   if WP.noTarget then out[#out + 1] = "  nothing drawn in the world: " .. WP.noTarget end
+  out[#out + 1] = ("  last outcome: %s; client target state %s (%s)"):format(tostring(WP.lastOutcome or "not run yet"),
+    WP.StateText(rawget(_G, "C_Navigation")), WP.EnumText())
   out[#out + 1] = ("  blocked-view lift: %s (last state %s, now %s)"):format(tostring(WP.path.occlusion or "not asked yet"),
     tostring(WP.lastState), WP.blocked and "LIFTED" or "normal")
   return out
