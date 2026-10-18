@@ -50,6 +50,7 @@ jobs:
           if [ -z "$id" ]; then echo "::error::HogTronUI/HogTronUI.toc has no '## X-Curse-Project-ID: <number>'"; exit 1; fi
           if [ -z "$CF_API_TOKEN" ]; then echo "::error::repo secret CF_API_TOKEN is not set"; exit 1; fi
           echo "CurseForge project $id, token present"
+          python dev/check_changelog.py "${GITHUB_REF_NAME}"   # the notes CurseForge shows come from CHANGELOG.md
 
       # Build once with uploads off, gate the zip, and only then build again with uploads on.
       - name: Build (no upload)
