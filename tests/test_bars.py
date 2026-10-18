@@ -744,6 +744,7 @@ def test_the_live_save_records_what_the_client_and_the_swipe_do(bars):
     assert live["cooling"] == 1
     c = live["cooldowns"]
     assert c.startswith("COOLING b1#1 slot 7: isActive=T start=100.0 dur=25.0") and "durObj=table" in c and "widget shown=" in c
+    assert "| usable lib=T/F" in c and "icon=" in c
 
 
 def test_hidden_cooldown_values_are_written_s_never_used(bars):

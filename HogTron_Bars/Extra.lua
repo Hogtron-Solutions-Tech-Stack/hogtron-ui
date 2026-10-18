@@ -511,6 +511,15 @@ function Extra.CooldownLines(max)
           desc(ls), desc(ld), dur == nil and "nil" or (isSecret(dur) and "S" or type(dur)),
           desc(cdv("IsShown")), desc(cdv("IsVisible")), desc(cdv("GetAlpha")), desc(cdv("GetFrameLevel")), desc(call(b.GetFrameLevel, b)),
           desc(cdv("GetWidth")), desc(cdv("GetHeight")), desc(cdv("GetCooldownDuration")), desc(cdv("GetDrawSwipe")))
+        -- "usable" too (Sean 2026-10-17: every icon grey): the lib's own answer, both client calls, the icon's colour now
+        local lu, lm = call(b.IsUsable, b)
+        local gu = call(rawget(_G, "IsUsableAction"), slot)
+        local cu = type(CAB) == "table" and type(CAB.IsUsableAction) == "function" and call(CAB.IsUsableAction, slot) or nil
+        local r, gg, bb = call(rawget(b, "icon") and b.icon.GetVertexColor, b.icon)
+        local dim = rawget(b, "hhUnusableDim")
+        line = line .. (" | usable lib=%s/%s global=%s C_=%s icon=%s,%s,%s dim=%s"):format(desc(lu), desc(lm),
+          rawget(_G, "IsUsableAction") and desc(gu) or "nofn", type(CAB) == "table" and type(CAB.IsUsableAction) == "function" and desc(cu) or "nofn",
+          desc(r), desc(gg), desc(bb), dim and desc(call(dim.IsShown, dim)) or "none")
         local cooling = isSecret(active) or active == true or ((num(ld) or 0) > 1.6)
         if cooling then hot[#hot + 1] = line else cold[#cold + 1] = line end
       end
