@@ -171,7 +171,7 @@ HH.defaults = {
       -- ObjectGlow.lua: the ore vein / herb / chest / quest object / bobber the game picked for the interact key glows,
       -- tinted by kind; range = yards the game looks (SoftTargetInteractRange); offset = up / down from its plate;
       -- hideBlocked = no glow on what you cannot use yet (else grey and still)
-      objectGlow = { enabled = true, range = 15, size = 56, intensity = 0.9, label = true, offset = 0, hideBlocked = false,
+      objectGlow = { enabled = true, anyDirection = true, range = 15, size = 56, intensity = 0.9, label = true, offset = 0, hideBlocked = false,
         kinds = { herb = true, ore = true, chest = true, quest = true, bobber = true, other = false } },
       nameClass = "friendly",         -- player names on plates in class colour: "friendly" | "all" | "none"
       friendlyNameOnly = true,        -- friendly plates: just the name, no health bar
