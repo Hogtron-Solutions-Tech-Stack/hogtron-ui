@@ -6,7 +6,7 @@ local HHS = HogHealsSkin
 local Skin = HHS.Skin
 local HH = HogHeals
 
-local Part = { name = "panels", styled = {}, hooked = {} }
+local Part = { name = "panels", styled = {}, hooked = {}, shows = {} }
 HHS.Panels = Part
 
 Part.NAMES = {
@@ -293,9 +293,16 @@ function Part.Report(f, name, err)
   g.diag = g.diag or {}
   g.diag.skin = g.diag.skin or {}
   g.diag.skin.windows = g.diag.skin.windows or {}
-  local left = err and {} or Part.Leftovers(f)
-  g.diag.skin.windows[name] = { at = date and date("%Y-%m-%d %H:%M:%S") or "", styled = f.hhPanel ~= nil, error = err,
-    leftovers = #left, left = table.concat(left, " | ") }
+  -- the style is recorded FIRST: walking what is left can throw on a window with forbidden / secret pieces, and that
+  -- used to lose the whole record silently (Sean 2026-10-17: the Friends window looked stock and left no trace)
+  local rec = { at = date and date("%Y-%m-%d %H:%M:%S") or "", styled = f.hhPanel ~= nil, error = err,
+    shown = Skin.call(f.IsShown, f) and true or false, strata = Skin.call(f.GetFrameStrata, f), level = Skin.call(f.GetFrameLevel, f),
+    panelLevel = f.hhPanel and f.hhPanel.GetFrameLevel and Skin.call(f.hhPanel.GetFrameLevel, f.hhPanel) or nil }
+  g.diag.skin.windows[name] = rec
+  if err then return end
+  local ok, left = pcall(Part.Leftovers, f)
+  if ok then rec.leftovers, rec.left = #left, table.concat(left, " | ")
+  else rec.leftoversError = tostring(left):sub(1, 300) end
 end
 
 --- Style a window: the once-only parts the first time, the art strip every time. Errors are CAUGHT and logged with
@@ -324,6 +331,8 @@ local function watch(f)
   if type(f) ~= "table" or Part.hooked[f] or not f.HookScript then return end
   Part.hooked[f] = true
   f:HookScript("OnShow", function(self)
+    local n = self.GetName and self:GetName() or "?"
+    Part.shows[n] = (Part.shows[n] or 0) + 1
     if Skin.cfg().enabled ~= false and Skin.cfg().panels.enabled ~= false then Part.Style(self) end
   end)
   if f.IsShown and f:IsShown() then Part.Style(f) end

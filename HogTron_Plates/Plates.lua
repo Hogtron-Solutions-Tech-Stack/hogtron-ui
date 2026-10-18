@@ -676,13 +676,31 @@ function Plates.ApplyLook(uf)
     setFont(uf.name, d.fontSize or 13)
     -- width 0 = as wide as the text: "Ferocious Grizzled Be..." was Blizzard's fixed name width (2026-09-23);
     -- and centred over the bar: with width 0 it hung off Blizzard's left anchor (in game, "Mottled Worg")
-    call(uf.name.ClearAllPoints, uf.name)
-    call(uf.name.SetPoint, uf.name, "BOTTOM", hh.bar or uf, "TOP", 0, 3)
-    if uf.name.SetJustifyH then call(uf.name.SetJustifyH, uf.name, "CENTER") end
+    Plates.PlaceName(uf)
     call(uf.name.SetWidth, uf.name, 0)
     if uf.name.SetWordWrap then call(uf.name.SetWordWrap, uf.name, false) end
   end
   -- the cast bar is ours now (Castbar.lua); SkinCastbar stays for profiles that turn the HogTron UI bar off
+end
+
+--- The name over the bar. "left" (default): flush with the bar's left edge - Sean 2026-10-17, from a PvP plate he liked
+-- ("the enemy health bar and the name ... the same color and kind of this setup"): the name lines up with the bar it
+-- names (its colour already matches: class colour for players, reaction colour for NPCs). "center": over the middle.
+-- A name-only plate (no bar) is always centred.
+function Plates.PlaceName(uf)
+  local hh, d = uf.hh, cfg()
+  if not uf.name or not hh then return nil end
+  local anchor = hh.bar or uf
+  call(uf.name.ClearAllPoints, uf.name)
+  local left = not hh.nameOnly and (d.nameAlign or "left") == "left"
+  if left then
+    call(uf.name.SetPoint, uf.name, "BOTTOMLEFT", anchor, "TOPLEFT", 0, 3)
+  else
+    call(uf.name.SetPoint, uf.name, "BOTTOM", anchor, "TOP", 0, 3)
+  end
+  if uf.name.SetJustifyH then call(uf.name.SetJustifyH, uf.name, left and "LEFT" or "CENTER") end
+  hh.nameAt = left and "left" or "center"
+  return hh.nameAt
 end
 
 --- Blizzard's cast bar on the plate (a StatusBar under the health bar), flattened once: our texture, dark backing,
@@ -746,6 +764,7 @@ function Plates.FriendlyLook(uf)
     setFont(uf.name, nameOnly and (d.friendlyNameSize or 14) or (d.fontSize or 13))
     -- width 0 = "as wide as the text": the bigger font had "Benjamin Neta..." cut at Blizzard's width (2026-09-23)
     if nameOnly then call(uf.name.SetWidth, uf.name, 0) if uf.name.SetWordWrap then call(uf.name.SetWordWrap, uf.name, false) end end
+    Plates.PlaceName(uf)   -- name-only: centred; back to a bar: its own alignment again
   end
   -- keep the bar hidden when Blizzard shows it on plate reuse
   if hh.bar and not hh.barHideHooked and type(hooksecurefunc) == "function" then

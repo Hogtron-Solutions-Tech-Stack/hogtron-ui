@@ -83,6 +83,7 @@ function T.Learn()
   if type(setF) == "function" then
     for _, k in ipairs(FILTERS) do if before[k] ~= nil then pcall(setF, k, before[k] and true or false) end end
   end
+  if recorded == 0 then return 0 end                     -- nothing read yet: not a visit (the list is still coming)
   db.visits = (db.visits or 0) + 1
   db.lastSeen = today()
   db.trainer = str(call(UnitName, "npc")) or db.trainer
@@ -277,6 +278,43 @@ function T.RegisterDatatext()
   return true
 end
 
+-- ------------------------------------------------------------------------------------------------ reading safely
+-- Sean 2026-10-17, new character: "Whenever I click 'I'd like training', the game freezes. And I have to restart."
+-- Learn() ran on every TRAINER_UPDATE, and Learn() flips the trainer's filters to read every service (and puts them
+-- back) - each flip makes the client send another TRAINER_UPDATE, which ran Learn() again: an event storm that never
+-- ended (the harness counted 1,602 filter flips in two seconds and climbing). Now: one read a frame after
+-- TRAINER_SHOW; TRAINER_UPDATE re-reads only when it is not our own echo (QUIET seconds after our read) and debounced;
+-- at most MAX_READS reads per visit.
+T.QUIET = 1.0
+T.MAX_READS = 4
+T.reads = 0
+
+function T.Now() return (type(GetTime) == "function" and num(GetTime())) or 0 end
+
+function T.Schedule(why)
+  if T.pending then return false end
+  if (T.reads or 0) >= T.MAX_READS then T.capped = true return false end
+  T.pending = true
+  local function run()
+    if not T.pending then return end
+    T.pending = false
+    if (T.reads or 0) >= T.MAX_READS then T.capped = true return end
+    T.reads = (T.reads or 0) + 1
+    T.learning = true
+    local ok, n, whyNot = pcall(T.Learn)
+    T.learning = false
+    -- an EMPTY read (in game 2026-10-17: mage trainer, 4 visits, 0 spells - the list arrives a moment after the window)
+    -- starts no quiet window, so the client's real TRAINER_UPDATE with the list is read (still capped per visit)
+    T.quietUntil = (ok and (n or 0) > 0) and (T.Now() + T.QUIET) or 0
+    if not ok then HH:LogError("training read: " .. tostring(n)) n, whyNot = nil, "error" end
+    if n and why == "show" then HH:Print(("training: %d services remembered from this trainer."):format(n)) end
+    T.lastLearn = n or whyNot
+    T.Refresh()
+  end
+  if C_Timer and C_Timer.After then C_Timer.After(why == "show" and 0 or T.QUIET, run) else run() end
+  return true
+end
+
 -- ------------------------------------------------------------------------------------------------ wiring
 local Module = {}
 T.module = Module
@@ -285,12 +323,17 @@ function Module:OnEnable()
   if cfg().enabled == false then return end
   local ev = CreateFrame("Frame")
   for _, e in ipairs({ "TRAINER_SHOW", "TRAINER_UPDATE", "PLAYER_LEVEL_UP" }) do pcall(ev.RegisterEvent, ev, e) end
+  pcall(ev.RegisterEvent, ev, "TRAINER_CLOSED")
   ev:SetScript("OnEvent", function(_, e, arg1)
-    if e == "TRAINER_SHOW" or e == "TRAINER_UPDATE" then
-      local n, why = T.Learn()
-      if n and e == "TRAINER_SHOW" then HH:Print(("training: %d services remembered from this trainer."):format(n)) end
-      T.lastLearn = n or why
-      T.Refresh()
+    if e == "TRAINER_SHOW" then
+      T.reads, T.quietUntil, T.capped = 0, 0, false
+      T.Schedule("show")
+    elseif e == "TRAINER_UPDATE" then
+      -- our own read flips the filters and the client answers each flip with TRAINER_UPDATE: never read on that echo
+      if T.learning or T.Now() < (T.quietUntil or 0) then T.echoes = (T.echoes or 0) + 1 return end
+      T.Schedule("update")
+    elseif e == "TRAINER_CLOSED" then
+      T.pending = false
     elseif e == "PLAYER_LEVEL_UP" then
       local plan = T.PlanFrom(T.db().spells, num(arg1) or T.Level())
       if cfg().nudge ~= false and #plan.now > 0 then

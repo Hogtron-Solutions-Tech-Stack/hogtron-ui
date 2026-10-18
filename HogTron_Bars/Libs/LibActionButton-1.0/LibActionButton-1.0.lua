@@ -1806,7 +1806,9 @@ function Update(self)
 		end
 		self:SetAlpha(1.0)
 		UpdateButtonState(self)
-		UpdateUsable(self)
+		-- HogTron UI patch (2026-10-17): a step that throws never takes the cooldown swipe down with it
+		local okUsable, errUsable = pcall(UpdateUsable, self)
+		if not okUsable then lib.hhUpdateErrors = (lib.hhUpdateErrors or 0) + 1 lib.hhLastUpdateError = tostring(errUsable) end
 		UpdateCooldown(self)
 		UpdateFlash(self)
 	else
@@ -1963,6 +1965,37 @@ function UpdateButtonState(self)
 	end
 end
 
+-- HogTron UI patch (2026-10-17): on WoW: Forever IsUsableAction can answer with a HIDDEN (secret) boolean. `if isUsable`
+-- on it throws - and that threw out of Update() before UpdateCooldown: in game a new character's usable spells stayed
+-- grey AND no button showed its cooldown (Sean: "available, but they're grayed out", "the bars are not showing cool
+-- downs"). This client has SetAlphaFromBoolean but no SetVertexColorFromBoolean (measured: diag.client), so the icon
+-- stays full colour and a dark layer over it takes its alpha from the hidden answer - resolved by the client, never
+-- tested here. Returns true when the answer was hidden (and handled).
+function lib.hhSecretUsable(self, isUsable, notEnoughMana)
+	if not issecretvalue or not issecretvalue(isUsable) then return false end
+	lib.hhSecretUsableCount = (lib.hhSecretUsableCount or 0) + 1
+	self.icon:SetVertexColor(1.0, 1.0, 1.0)
+	local dim = self.hhUnusableDim
+	if not dim and self.CreateTexture then
+		dim = self:CreateTexture(nil, "ARTWORK", nil, 7)
+		dim:SetAllPoints(self.icon)
+		dim:SetColorTexture(0.04, 0.04, 0.06, 1)
+		self.hhUnusableDim = dim
+	end
+	if dim then
+		if dim.SetAlphaFromBoolean and pcall(dim.SetAlphaFromBoolean, dim, isUsable, 0, 0.6) then
+			dim:Show()
+		else
+			dim:Hide()   -- no way to read it: full colour beats a grey that never clears
+		end
+	end
+	return true
+end
+
+function lib.hhClearDim(self)
+	if self.hhUnusableDim then self.hhUnusableDim:Hide() end
+end
+
 function UpdateUsable(self)
 	-- TODO: make the colors configurable
 	-- TODO: allow disabling of the whole recoloring
@@ -1970,13 +2003,18 @@ function UpdateUsable(self)
 		self.icon:SetVertexColor(unpack(self.config.colors.range))
 	else
 		local isUsable, notEnoughMana = self:IsUsable()
-		if isUsable then
+		if lib.hhSecretUsable(self, isUsable, notEnoughMana) then
+			-- shown through the dim layer; a hidden answer is never tested here
+		elseif isUsable then
+			lib.hhClearDim(self)
 			self.icon:SetVertexColor(1.0, 1.0, 1.0)
 			--self.NormalTexture:SetVertexColor(1.0, 1.0, 1.0)
-		elseif notEnoughMana then
+		elseif notEnoughMana and not (issecretvalue and issecretvalue(notEnoughMana)) then
+			lib.hhClearDim(self)
 			self.icon:SetVertexColor(unpack(self.config.colors.mana))
 			--self.NormalTexture:SetVertexColor(0.5, 0.5, 1.0)
 		else
+			lib.hhClearDim(self)
 			self.icon:SetVertexColor(0.4, 0.4, 0.4)
 			--self.NormalTexture:SetVertexColor(1.0, 1.0, 1.0)
 		end
@@ -2069,29 +2107,46 @@ end
 local SecretCooldownsUseDuration = (WoWRetail and tonumber(buildNumber) >= 66562) or HHDurationObjectsAvailable()
 lib.cooldownPath = SecretCooldownsUseDuration and "duration objects" or "numbers"
 if SecretCooldownsUseDuration then
-	local function SetOrClearCooldown(cooldown, shouldShow, durationObject)
+	-- HogTron UI patch (2026-10-17): NO flag from these tables is ever tested. On WoW: Forever any of them may come back
+	-- hidden (secret), and `not x`, `x == nil` or `if x` on a secret throws - out of UpdateCooldown, and from the
+	-- cooldown event out of the loop over every button: no swipe on any bar (Sean: "cool downs are still not showing").
+	-- A hidden "active" means draw (the duration object knows whether it runs); a hidden "replace" means do not.
+	local function hidden(v) return issecretvalue and issecretvalue(v) and true or false end
+	--- plain true / false for a flag, `ifHidden` when the client hid it, `ifNil` when the table has no such field
+	local function readFlag(v, ifNil, ifHidden)
+		if hidden(v) then return ifHidden end
+		if v == nil then return ifNil end
+		return v and true or false
+	end
+	lib.hhReadFlag = readFlag
+
+	local function SetOrClearCooldown(cooldown, shouldShow, durationObject, info)
 		if not cooldown then return end
-		-- HogTron UI patch: a hidden (secret) flag may not be tested; the duration object knows whether it runs
-		if issecretvalue and issecretvalue(shouldShow) then shouldShow = true end
-		if not shouldShow or not durationObject then
-			cooldown:Clear()
+		if not shouldShow then cooldown:Clear() return end
+		if durationObject then
+			cooldown:SetCooldownFromDurationObject(durationObject)
 			return
 		end
-		cooldown:SetCooldownFromDurationObject(durationObject)
+		-- no duration object: the start / duration numbers go straight to the swipe (it accepts hidden ones)
+		local start, duration = info and info.startTime, info and info.duration
+		if (hidden(start) or type(start) == "number") and (hidden(duration) or type(duration) == "number") and cooldown.SetCooldown then
+			if pcall(cooldown.SetCooldown, cooldown, start, duration) then lib.hhCooldownFallback = (lib.hhCooldownFallback or 0) + 1 return end
+		end
+		cooldown:Clear()
 	end
+	lib.hhSetOrClearCooldown = SetOrClearCooldown
 
 	function UpdateCooldown(self)
 		local cooldownInfo = self:GetCooldownInfo() or defaultCooldownInfo
 		local chargeInfo = self:GetChargeInfo() or defaultChargeInfo
 		local locInfo = self:GetLoCCooldownInfo() or defaultLossOfControlInfo
 
-		-- HogTron UI patch: tables without isActive (older shapes) leave the call to the duration object
-		local function active(v) if v == nil then return true end return v end
-		local showLoC = locInfo.isActive
-		local showCharge = not locInfo.shouldReplaceNormalCooldown and chargeInfo.isActive
-		local showNormal = not locInfo.shouldReplaceNormalCooldown and active(cooldownInfo.isActive)
+		local replace = readFlag(locInfo.shouldReplaceNormalCooldown, false, false)
+		local showLoC = readFlag(locInfo.isActive, false, true)
+		local showCharge = not replace and readFlag(chargeInfo.isActive, false, true)
+		local showNormal = not replace and readFlag(cooldownInfo.isActive, true, true)   -- no field (older shape): draw
 
-		SetOrClearCooldown(self.cooldown, showNormal, self:GetCooldownDuration())
+		SetOrClearCooldown(self.cooldown, showNormal, self:GetCooldownDuration(), cooldownInfo)
 		SetOrClearCooldown(self.chargeCooldown, showCharge, self:GetChargeDuration())
 		SetOrClearCooldown(self.lossOfControlCooldown, showLoC, self:GetLoCCooldownDuration())
 	end
@@ -2203,6 +2258,20 @@ else
 				end
 				CooldownFrame_Set(self.cooldown, start, duration, enable, false, modRate)
 			end
+		end
+	end
+end
+
+-- HogTron UI patch (2026-10-17): every cooldown update is guarded - the cooldown event updates every button in one loop,
+-- and one throw used to end that loop for all of them. Failures are counted for /hh barsdiag (diag.barsLive).
+do
+	local inner = UpdateCooldown
+	lib.hhUpdateCooldownInner = inner
+	function UpdateCooldown(self)
+		local ok, err = pcall(inner, self)
+		if not ok then
+			lib.hhCooldownErrors = (lib.hhCooldownErrors or 0) + 1
+			lib.hhLastCooldownError = tostring(err)
 		end
 	end
 end
@@ -2794,7 +2863,25 @@ local GetActionCooldownInfo = C_ActionBar and C_ActionBar.GetActionCooldown or G
 local GetActionChargeInfo = C_ActionBar and C_ActionBar.GetActionCharges or GetActionChargeInfoFallback
 local GetActionLoCCooldownInfo = C_ActionBar and C_ActionBar.GetActionLossOfControlCooldownInfo or GetActionLoCCooldownInfoFallback
 
-Action.HasAction                = function(self) return HasAction(self._state_action) end
+-- HogTron UI patch (2026-10-17): on WoW: Forever the client's "is there an action in this slot" can come back HIDDEN
+-- (secret), or the global may be missing. Every Update starts with `if self:HasAction() then` - a hidden answer threw
+-- there, before the usable colour and the cooldown, on every button: all icons grey, no cooldowns, and no error counted
+-- (the guarded steps were never reached; buttons were never registered for cooldown updates). The in-game recorder
+-- found NO button with a plain "has an action" while the bars were full. A hidden answer is replaced by "this slot has
+-- an icon" (a hidden icon = yes: the icon is on screen anyway); a missing global by C_ActionBar.HasAction.
+local function hhHidden(v) return issecretvalue and issecretvalue(v) and true or false end
+function lib.hhHasAction(slot)
+	local f = HasAction or (C_ActionBar and C_ActionBar.HasAction)
+	local v
+	if f then v = f(slot) else lib.hhHasActionMissing = true end
+	if f and not hhHidden(v) then return v end
+	lib.hhHasActionHidden = (lib.hhHasActionHidden or 0) + 1
+	local tf = GetActionTexture or (C_ActionBar and C_ActionBar.GetActionTexture)
+	local tex = tf and tf(slot)
+	if hhHidden(tex) then return true end
+	return tex ~= nil
+end
+Action.HasAction                = function(self) return lib.hhHasAction(self._state_action) end
 Action.GetActionText            = function(self) return GetActionText(self._state_action) end
 Action.GetTexture               = function(self) return GetActionTexture(self._state_action) end
 Action.GetCount                 = function(self) return GetActionCount(self._state_action) end

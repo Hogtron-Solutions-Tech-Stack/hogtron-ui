@@ -27,6 +27,7 @@ HH.defaults = {
       enabled = true, hideBlizzard = true, tooltips = true,
       classColors = true, reactionColors = true, healthColor = { 0.25, 0.80, 0.35 },
       healthText = "current-max", powerText = "current-max",   -- percent | current | current-max | current-percent | none (Sean: "343 / 343")
+      nameFormat = "full",   -- full = first + last name (WoW: Forever has last names; Sean 2026-10-17) | first
       texture = "Solid", font = "HogTron", fontSize = 12, backgroundAlpha = 0.6,
       -- flanking the bottom centre (ElvUI's arrangement): player left, target right, small frames beside them
       player = { enabled = true, width = 240, height = 42, powerHeight = 8, showPower = true, showName = true, showLevel = true, point = "BOTTOM", x = -280, y = 230 },
@@ -121,11 +122,14 @@ HH.defaults = {
       -- the marker in the world over the super-tracked quest (Waypoint.lua): anchored to Blizzard's navigation frame,
       -- hideBlizzard = its icon / text transparent under ours; eta at your pace; arrow = edge arrow when off-screen;
       -- near = yards inside which the marker dims to nearAlpha
-      waypoint = { enabled = true, hideBlizzard = true, title = true, eta = true, progress = true, arrow = true, near = 10, nearAlpha = 0.5, scale = 1, fontSize = 12 },
+      waypoint = { enabled = true, hideBlizzard = true, title = true, eta = true, progress = true, arrow = true, near = 10, nearAlpha = 0.5, scale = 1, fontSize = 12,
+        style = "beam", beamFrom = 15, beamFade = 10, beamHeight = 900, liftWhenBlocked = true },   -- beam: hidden inside beamFrom yards, full past +beamFade   -- beam = a light shaft from the objective (Sean 2026-10-17) | diamond
       -- Questie's quality-of-life half without its database (Auto / Announce / Tooltip.lua); each defers to Questie when
       -- it is loaded. auto: pauseKey SHIFT | CTRL | ALT | NONE held = nothing automatic; chooseReward false = a real
       -- choice (2+ items) is always yours. announce: party = PARTY / RAID when grouped, self = your own chat frame.
-      auto = { enabled = true, accept = true, turnIn = true, gossip = true, chooseReward = false, acceptTrivial = true, pauseKey = "SHIFT" },
+      -- turnIn off by default (Sean 2026-10-17, new character: "I just turned in a quest and the dialogue didn't even pop
+      -- up because it was an auto turn-in so fast" - the turn-in page and its rewards show unless you switch it on)
+      auto = { enabled = true, accept = true, turnIn = false, gossip = true, chooseReward = false, acceptTrivial = true, pauseKey = "SHIFT" },
       announce = { enabled = true, party = true, self = false, accepted = false, turnedIn = false },
       -- the quest giver's pages in our window instead of Blizzard's (Dialog.lua): theme ink | parchment; keys = Space /
       -- 1-9 while it is open (never in combat); xpShare = the reward XP as a share of your level; point/x/y once dragged
@@ -152,6 +156,7 @@ HH.defaults = {
       -- can touch (Sean 2026-10-08, "Villa Voodoo's Minion"). friendlyTotems: totems the same way (noisy, off).
       friendlyPets = true, friendlyTotems = false,
       font = "HogTron", fontSize = 13, healthText = "percent",   -- "percent" | "value" | "none"
+      nameAlign = "left",             -- left = flush with the bar's left edge (Sean 2026-10-17, the PvP plate look) | center
       barHeight = 14, widthScale = 1.3,   -- bar height in px; plate width as a multiple of Blizzard's (cvar)
       flatBar = true,                 -- plain flat bar: all of Blizzard's art on the health bar hidden (heal / absorb kept)
       hideBorders = true,             -- Blizzard's own bar border / selection line off (ours is the dark 1 px edge)
@@ -198,7 +203,8 @@ HH.defaults = {
       -- swing timer (Swing.lua): auto-attack / Auto Shot bar under the cast bar; showSwing above is the on / off
       -- swing: width 0 = as wide as the strip, else its own width centred on it; spark = bright head on the fill; outline = 1 px
       -- ink frame; fontSize 0 = the strip's font one step larger (Sean 2026-10-05: bigger, wider, cleaner)
-      swing = { color = { 0.96, 0.92, 0.86 }, text = true, precision = 1, hideWhenIdle = true, width = 0, spark = true, outline = true, fontSize = 0 },
+      swing = { color = { 0.96, 0.92, 0.86 }, text = true, precision = 1, hideWhenIdle = true, width = 0, spark = true, outline = true, fontSize = 0,
+        art = true, glow = true, motes = true, flash = true },   -- the animated look (Sean 2026-10-17); art off = the plain bar in `color`
       mana = { textMode = "cur", showTicks = true, showFsrText = true, fsrColor = { 0.13, 0.83, 0.88 }, tickColor = { 0.96, 0.92, 0.86 } },
       -- experience bar (XPBar.lua): showXP above is the on / off. questMode "complete" = reward xp of the quests ready
       -- to turn in, "all" = every quest in the log; hideAtMax = gone at the level cap; fontSize 0 = strip font one step smaller
@@ -232,7 +238,7 @@ HH.defaults = {
       -- map went black); the tabard designer needs its art
       panels = { enabled = true, alpha = 0.9, titleSize = 13, skip = { WorldMapFrame = true, TaxiFrame = true, TabardFrame = true } },
       auto = { sellJunk = true, repair = true, guildRepair = false },
-      micro = { enabled = true, scale = 1, strip = true, size = 30, tint = true, tintStrength = 0.6 },   -- strip: HogTron UI glyph buttons instead of Blizzard's art; point/x/y once dragged; tint = colour per glyph
+      micro = { enabled = true, scale = 1, strip = true, size = 40, tint = true, tintStrength = 0.6, accent = true },   -- size 30 -> 40 + accent: Sean 2026-10-17 "bigger by default and more distinct"   -- strip: HogTron UI glyph buttons instead of Blizzard's art; point/x/y once dragged; tint = colour per glyph
       bagBar = { enabled = true, mode = "button", scale = 1.2 },   -- mode: button = one Bags cell in the menu bar (slots hidden) | slots = Blizzard's slots flattened; scale for slots
       bags = { enabled = true, qualityMin = 2, fontSize = 12, backgroundAlpha = 0.85 },
       -- anchor = tooltips with no spot of their own dock to the HogHealsTooltipAnchor box (drag it in /hh unlock; the
