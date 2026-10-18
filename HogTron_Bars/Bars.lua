@@ -69,6 +69,58 @@ end
 -- ------------------------------------------------------------------------------------------------ the look
 --- The HogTron UI cell on a lib button: Blizzard's slot art off, ink backdrop + 1 px outline, trimmed icon. The
 -- backdrop and outline double as the grid: shown for an empty slot only when the grid is on.
+-- What you see = what you can click (Sean 2026-10-17, third report: the lower part of a bar-1 button took no hover; in
+-- game diag.barsMouse said NO frame had the mouse there - not Blizzard's, not ours). The stock button template draws its
+-- icon and cooldowns at its own fixed size from the top-left corner; on a button made smaller than the template they
+-- hang out past the button's clickable area - you see the bottom of the icon, the mouse finds nothing. The same
+-- overhang puts the cooldown swipe off the cell. Pinned to the button here, and the hit area to its very edges.
+Bars.PINNED = { "icon", "cooldown", "chargeCooldown", "lossOfControlCooldown" }
+function Bars.PinToButton(b)
+  local n = 0
+  for _, k in ipairs(Bars.PINNED) do
+    local r = rawget(b, k)
+    if type(r) == "table" and r.ClearAllPoints and r.SetAllPoints then
+      call(r.ClearAllPoints, r)
+      call(r.SetAllPoints, r, b)
+      n = n + 1
+    end
+  end
+  if b.SetHitRectInsets then call(b.SetHitRectInsets, b, 0, 0, 0, 0) end
+  return n
+end
+
+--- Where bar 1's first button really is versus what it draws (for /hh barsdiag and diag.barsGeometry): rects in screen
+-- px (left, right, top, bottom), hit insets, mouse on. Saved once a few seconds after login - no command needed.
+function Bars.GeometryLines()
+  local out = {}
+  local bar = Bars.bars[1]
+  local b = bar and bar.buttons and bar.buttons[1]
+  if type(b) ~= "table" then return out end
+  local function rect(f, label)
+    if type(f) ~= "table" then out[#out + 1] = label .. ": none" return end
+    local s = call(f.GetEffectiveScale, f) or 1
+    local l, r, t, bo = call(f.GetLeft, f), call(f.GetRight, f), call(f.GetTop, f), call(f.GetBottom, f)
+    local function px(v) return type(v) == "number" and ("%d"):format(math.floor(v * s + 0.5)) or "?" end
+    out[#out + 1] = ("%s: L%s R%s T%s B%s"):format(label, px(l), px(r), px(t), px(bo))
+  end
+  rect(bar, "bar 1")
+  rect(b, "button 1")
+  rect(rawget(b, "icon"), "  its icon")
+  rect(rawget(b, "cooldown"), "  its cooldown")
+  local il, ir, it, ib = call(b.GetHitRectInsets, b)
+  out[#out + 1] = ("  hit insets %s %s %s %s, mouse %s"):format(tostring(il), tostring(ir), tostring(it), tostring(ib),
+    tostring(call(b.IsMouseEnabled, b)))
+  return out
+end
+
+function Bars.SaveGeometry()
+  local g = HH.db and HH.db.global
+  if not g then return nil end
+  g.diag = g.diag or {}
+  g.diag.barsGeometry = { at = date and date("%Y-%m-%d %H:%M:%S") or "?", lines = table.concat(Bars.GeometryLines(), " | ") }
+  return g.diag.barsGeometry
+end
+
 function Bars.Dress(b)
   if b.hh then return b.hh end
   local hh = {}
@@ -80,6 +132,7 @@ function Bars.Dress(b)
   local nt = call(b.GetNormalTexture, b)
   if type(nt) == "table" then call(nt.SetTexture, nt, nil) call(nt.SetAlpha, nt, 0) end
   if type(b.icon) == "table" and b.icon.SetTexCoord then call(b.icon.SetTexCoord, b.icon, 0.08, 0.92, 0.08, 0.92) end
+  Bars.PinToButton(b)
   hh.backdrop = b:CreateTexture(nil, "BACKGROUND", nil, -8)
   hh.backdrop:SetColorTexture(INK[1], INK[2], INK[3], 0.9)
   hh.backdrop:SetAllPoints(b)
@@ -511,6 +564,7 @@ function Bars.MouseProbe()
 end
 
 function Bars.StartMouseProbe()
+  if C_Timer and C_Timer.After then C_Timer.After(4, function() pcall(Bars.SaveGeometry) end) end
   if Bars.mouseTicker or not (C_Timer and C_Timer.NewTicker) then return end
   Bars.mouseTicker = C_Timer.NewTicker(0.25, function() pcall(Bars.MouseProbe) end)
 end
@@ -719,6 +773,8 @@ HH:RegisterSlash("barsdiag", function()
     local list = {}
     for k, c in pairs(Bars.thieves or {}) do list[#list + 1] = k .. " x" .. c end
     HH:Print("bars: who had the mouse inside bar 1 (not ours): " .. (#list > 0 and table.concat(list, " | ") or "nobody so far"))
+    for _, l in ipairs(Bars.GeometryLines()) do HH:Print("  " .. l) end
+    pcall(Bars.SaveGeometry)
     local a = Bars.mainArt or {}
     HH:Print(("bars: Blizzard's main bar art: %s, %d pieces hidden%s"):format(tostring(a.kind or "not run"), a.count or 0,
       (a.names and a.names ~= "") and (" (" .. a.names .. ")") or ""))

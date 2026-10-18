@@ -731,3 +731,27 @@ def test_whoever_holds_the_mouse_inside_bar_1_is_recorded(forever):
     assert forever.eval(f"{B}.MouseProbe()").startswith("nothing")
     forever.execute('MockLog.chat = {}; HogHeals:SlashCommand("barsdiag")')
     assert any("who had the mouse inside bar 1" in l and "MainActionBar" in l for l in forever.eval("MockLog.chat").values())
+
+
+
+# ---------------------------------------------------------------- what you see = what you can click (2026-10-17)
+# in game diag.barsMouse: inside bar 1, "nothing (no frame takes the mouse here)" - the template's icon / cooldown hung
+# out past the (smaller) button, so the bottom of the icon had no button under it.
+def test_icon_and_cooldowns_are_pinned_to_the_button_and_the_hit_area_is_its_edges(bars):
+    bars.execute("""
+      HH_b = CreateFrame("CheckButton", "HH_b", UIParent)
+      HH_b.icon = HH_b:CreateTexture(); HH_b.icon:SetPoint("TOPLEFT", HH_b, "TOPLEFT", 0, 0); HH_b.icon:SetSize(45, 45)
+      HH_b.cooldown = CreateFrame("Cooldown", nil, HH_b); HH_b.cooldown:SetPoint("TOPLEFT", HH_b.icon, "TOPLEFT", 2, -2)
+      HogHealsBars.Bars.PinToButton(HH_b)
+    """)
+    for k in ("icon", "cooldown"):
+        assert bars.eval(f"HH_b.{k}._points[1][1]") == "ALL" and bars.eval(f"HH_b.{k}._points[1][2] == HH_b") is True, k
+        assert bars.eval(f"#HH_b.{k}._points") == 1, k                                  # the template's own anchor is gone
+    assert list(bars.eval("HH_b._last.SetHitRectInsets").values()) == [0, 0, 0, 0]
+    assert bars.eval("HogUIBar1.buttons[1]._last.SetHitRectInsets ~= nil") is True                  # every bar button dressed so
+
+
+def test_the_geometry_of_bar_1_saves_itself(bars):
+    bars.execute("HogHealsBars.Bars.SaveGeometry()")
+    lines = bars.eval("HogHeals.db.global.diag.barsGeometry.lines")
+    assert "bar 1:" in lines and "button 1:" in lines and "its icon:" in lines and "hit insets" in lines
