@@ -83,3 +83,56 @@ jobs:
           GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           args: -n "HogTronUI-{project-version}"
+
+  # ---- per-module CurseForge projects (dev/split, docs/superpowers/research/curseforge-split.md) ----
+  # Every project is BUILT and zip-gated on every run, so its packaging stays proven; a project is UPLOADED only on a
+  # tag AND while dev/split/projects.json says live (2026-10-18: on; every project has its id).
+  split-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      projects: ${{ steps.m.outputs.projects }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: m
+        run: |
+          python3 dev/split/make_pkgmeta.py --check
+          echo "projects=$(python3 dev/split/make_pkgmeta.py --matrix)" >> "$GITHUB_OUTPUT"
+
+  split:
+    needs: split-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: ${{ fromJSON(needs.split-matrix.outputs.projects) }}
+    env:
+      IS_TAG: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build ${{ matrix.project.name }} (no upload)
+        uses: BigWigsMods/packager@v2
+        with:
+          args: -d -m dev/split/pkgmeta/${{ matrix.project.name }}.pkgmeta -n "${{ matrix.project.name }}-{project-version}"
+
+      - name: Zip gate (only its own folders)
+        run: |
+          zip=$(ls .release/${{ matrix.project.name }}-*.zip)
+          if [ "$IS_TAG" = "true" ]; then
+            python dev/check_release_zip.py "$zip" --only "${{ matrix.project.folders }}" --expect-version "${GITHUB_REF_NAME}"
+          else
+            python dev/check_release_zip.py "$zip" --only "${{ matrix.project.folders }}"
+          fi
+
+      - name: Upload (tag + project created only)
+        if: env.IS_TAG == 'true' && matrix.project.curse_id != ''
+        uses: BigWigsMods/packager@v2
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+        with:
+          args: -m dev/split/pkgmeta/${{ matrix.project.name }}.pkgmeta -p ${{ matrix.project.curse_id }} -n "${{ matrix.project.name }}-{project-version}"
