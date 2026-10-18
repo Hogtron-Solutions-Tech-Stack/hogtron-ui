@@ -93,6 +93,31 @@ function Go.Pick(list, yardsById, rule, level)
   return best
 end
 
+--- Point the client's super-track (map arrow, waypoint) at a quest. NEVER in combat: Sean 2026-10-17, x16 at once,
+-- "ADDON_ACTION_BLOCKED: HogTron_Quests called Button:SetPassThroughButtons()". Changing the super-tracked quest
+-- from addon code makes Blizzard rebuild its quest POI buttons on OUR (tainted) call, and those buttons' setup is
+-- protected in combat. Out of combat it is harmless; in combat the newest wish waits for the end of combat.
+-- Returns "set", "queued", or nil when this client has no super-track.
+function Go.SuperTrack(id)
+  local st = rawget(_G, "C_SuperTrack")
+  if type(st) ~= "table" or type(st.SetSuperTrackedQuestID) ~= "function" then return nil end
+  if type(InCombatLockdown) == "function" and InCombatLockdown() then
+    Go.pendingTrack = id
+    if not Go.trackQueued then
+      Go.trackQueued = true
+      HH:RunOutOfCombat(function()
+        Go.trackQueued = nil
+        local want = Go.pendingTrack
+        Go.pendingTrack = nil
+        if want then Go.SuperTrack(want) end
+      end)
+    end
+    return "queued"
+  end
+  pcall(st.SetSuperTrackedQuestID, id)
+  return "set"
+end
+
 --- Pick for the live log (cached per quest-log generation + player position bucket, the tracker repaints often).
 function Go.Current(list)
   local d = cfg()
@@ -101,11 +126,8 @@ function Go.Current(list)
   local yards = Go.Yards()
   local pick = Go.Pick(list, yards, d.rule or "balanced")
   if pick and d.superTrack ~= false and pick.quest.id and Go.lastTracked ~= pick.quest.id then
-    local st = rawget(_G, "C_SuperTrack")
-    if type(st) == "table" and type(st.SetSuperTrackedQuestID) == "function" then
-      pcall(st.SetSuperTrackedQuestID, pick.quest.id)
-      Go.lastTracked = pick.quest.id
-    end
+    -- what GO asked for, set or queued (a quest the player pointed at by hand is not overridden)
+    if Go.SuperTrack(pick.quest.id) then Go.lastTracked = pick.quest.id end
   end
   Go.last = pick
   return pick

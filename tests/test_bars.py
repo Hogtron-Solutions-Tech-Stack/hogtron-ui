@@ -598,6 +598,38 @@ def test_secret_state_is_left_alone_and_the_diag_counts(bars):
     assert bars.eval("#HogHeals.errors") == 0
 
 
+# ---------------------------------------------------------------- no secure EnableMouse in combat (Sean 2026-10-17)
+# "ADDON_ACTION_BLOCKED: HogTron_Bars called HogUIBar1Button3:EnableMouse() (in combat)" + the game's warning popup:
+# UpdateCell runs on every lib update and set the mouse every time. Only a change is applied; in combat it waits.
+MOUSE = '''
+  HH_b = HogUIBar1.buttons[3]
+  HH_b._mouse, HH_b._mouseCalls = true, 0
+  function HH_b:IsMouseEnabled() return self._mouse end
+  function HH_b:EnableMouse(on) if InCombatLockdown() then error("blocked: EnableMouse in combat") end self._mouse = on self._mouseCalls = self._mouseCalls + 1 end
+'''
+
+
+def test_an_unchanged_mouse_state_is_never_set_again(bars):
+    bars.execute(MOUSE + 'for i = 1, 5 do HogHealsBars.Bars.UpdateCell(HH_b) end')
+    assert bars.eval('HH_b._mouseCalls') == 0                                  # filled or grid: mouse already on
+    bars.execute('MockState.inCombat = true; for i = 1, 5 do HogHealsBars.Bars.UpdateCell(HH_b) end')
+    assert bars.eval('HH_b._mouseCalls') == 0 and errors(bars) == []
+
+
+def test_a_click_through_change_in_combat_waits_for_the_end_of_combat(bars):
+    bars.execute(MOUSE + '''
+      HogHeals.db.profile.bars.list[1].clickThrough = true
+      HH_b._hasAction = false
+      MockState.inCombat = true
+      for i = 1, 4 do HogHealsBars.Bars.UpdateCell(HH_b) end
+    ''')
+    assert bars.eval('HH_b._mouseCalls') == 0 and bars.eval('HH_b._mouse') is True   # nothing touched in combat
+    assert bars.eval('HogHeals:QueuedCount()') == 1                                  # one redo queued, not four
+    bars.execute('MockState.inCombat = false; MockFire("PLAYER_REGEN_ENABLED")')
+    assert bars.eval('HH_b._mouse') is False and bars.eval('HH_b._mouseCalls') == 1  # applied after combat
+    assert errors(bars) == []
+
+
 # ---------------------------------------------------------------- hidden "usable" answers (Sean 2026-10-17)
 # "These abilities are available, but they're grayed out" + "the bars are not showing cool downs": on Forever
 # IsUsableAction can answer with a hidden boolean; the lib's `if isUsable` threw on it, out of Update() before
@@ -669,7 +701,6 @@ def test_our_refresh_sends_a_hidden_answer_to_the_dim_layer(bars):
     assert bars.eval("#HogHeals.errors") == 0
 
 
-
 # ---------------------------------------------------------------- cooldowns, secret-safe (2026-10-17, "still not showing")
 def _cooldown_rt():
     from lupa.lua51 import LuaRuntime
@@ -730,7 +761,6 @@ def test_the_live_counters_save_themselves(bars):
     assert live["cooldownErrors"] == 3 and live["lastCooldownError"] == "x"
 
 
-
 # ---------------------------------------------------------------- cooldown evidence (2026-10-17, fourth report)
 def test_the_live_save_records_what_the_client_and_the_swipe_do(bars):
     bars.execute(STATE + """
@@ -758,7 +788,6 @@ def test_hidden_cooldown_values_are_written_s_never_used(bars):
     """)
     c = bars.eval("HogHeals.db.global.diag.barsLive.cooldowns")
     assert "COOLING b1#1 slot 7: isActive=S start=S dur=S" in c
-
 
 
 # ---------------------------------------------------------------- hidden "has an action" (2026-10-17, the root of grey + no cooldowns)
@@ -802,7 +831,6 @@ def test_the_live_save_records_the_raw_answers(bars):
     bars.execute(STATE + "HogHealsBars.Extra.SaveLive()")
     raw = bars.eval("HogHeals.db.global.diag.barsLive.raw")
     assert raw.startswith("b1#1 type=action slot=7.0 HasAction=")
-
 
 
 # ---------------------------------------------------------------- template functions hiding the lib's (2026-10-17)
