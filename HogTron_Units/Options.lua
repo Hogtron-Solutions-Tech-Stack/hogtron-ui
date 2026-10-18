@@ -86,6 +86,7 @@ function Options.Build()
         healthColor = colour(g, "healthColor", "Fallback health colour", 6),
         healthText = select_(g, "healthText", "Health text", 7, { percent = "Percent", current = "Current", ["current-max"] = "Current / max", ["current-percent"] = "Current + percent", none = "None" }),
         powerText = select_(g, "powerText", "Power text", 8, { ["current-max"] = "Current / max", current = "Current", none = "None" }),
+        nameFormat = select_(g, "nameFormat", "Names", 8.5, { full = "First and last name", first = "First name only" }),
         texture = select_(g, "texture", "Bar texture", 9, mediaList("statusbar")),
         font = select_(g, "font", "Font", 10, mediaList("font")),
         fontSize = range(g, "fontSize", "Text size (default for every frame)", 11, 7, 28, 1),

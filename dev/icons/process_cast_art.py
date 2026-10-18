@@ -76,11 +76,12 @@ def main():
     ap.add_argument("raw", type=Path)
     ap.add_argument("--blend", type=float, default=0.12, help="fraction of the width crossfaded to loop it")
     ap.add_argument("--floor", type=int, default=10, help="brightness below this = pure black (light themes)")
+    ap.add_argument("--out", default=None, help="file name in Media without .tga (default cast_<theme>; swing strips: swing_<kind>)")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
     img = process(a.theme, a.raw, a.blend, a.floor)
     r = seam_ratio(img)
-    path = MEDIA / f"cast_{a.theme}.tga"
+    path = MEDIA / f"{a.out or ('cast_' + a.theme)}.tga"
     print(("would write " if a.dry_run else "wrote ") + f"{path.relative_to(MEDIA.parents[1])} {img.size} seam/typical {r:.2f}")
     if r > 2.0:
         raise SystemExit("REFUSING: the loop seam is more than twice a normal column step - raise --blend")

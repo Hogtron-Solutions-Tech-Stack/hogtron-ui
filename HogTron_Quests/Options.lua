@@ -93,9 +93,10 @@ function Options.Build()
       } },
       qol = { type = "group", name = "Questing", order = 2.7, args = {
         about = { type = "description", order = 0, name = "The chores Questie does, without its database: accept what you click, hand in what you finished, take the only reward, pick the one quest on a gossip menu; tell the party when an objective moves; name the quest on a mob or item tooltip. All of it steps aside when Questie is loaded. Hold the pause key while talking to an NPC and nothing is automatic." },
-        autoHeader = { type = "header", name = "At the quest giver", order = 1 },
-        accept = toggle(au, "accept", "Accept the quest you clicked", 1.1, nop),
-        turnIn = toggle(au, "turnIn", "Hand in finished quests and take the only reward", 1.2, nop),
+        autoHeader = { type = "header", name = "Auto accept / auto turn-in", order = 1 },
+        enabled = toggle(au, "enabled", "Automatic questing at all (off = every quest page is yours to click)", 1.05, nop),
+        accept = toggle(au, "accept", "Auto-accept: take the quest you clicked without its page", 1.1, nop),
+        turnIn = toggle(au, "turnIn", "Auto turn-in: hand in finished quests and take the only reward (skips the turn-in page)", 1.2, nop),
         chooseReward = toggle(au, "chooseReward", "(reserved) never pick between rewards - a real choice is always yours", 1.25, nop, "Kept off: with two or more rewards on offer the page waits for you."),
         gossip = toggle(au, "gossip", "Pick the one quest on a gossip page / hand in finished ones", 1.3, nop),
         acceptTrivial = toggle(au, "acceptTrivial", "Also take grey (trivial) quests from gossip pages", 1.4, nop),

@@ -58,6 +58,8 @@ function Options.Table()
         hideBorders = { type = "toggle", name = "Hide Blizzard's bar border (the yellow line)", order = 7.1,
           get = function() return p().hideBorders ~= false end, set = function(_, v) p().hideBorders = v and true or false; refresh() end },
         friendlyNameOnly = toggle(p, "friendlyNameOnly", "Friendly plates: name only (no health bar)", 7.5),
+        nameAlign = { type = "select", name = "Name over the bar", order = 7.6, values = { left = "Left, lined up with the bar", center = "Centred" },
+          get = function() return p().nameAlign or "left" end, set = function(_, v) p().nameAlign = v refresh() end },
         friendlyNameSize = range(p, "friendlyNameSize", "Friendly name text size", 7.6, 8, 24, 1),
         hots = { type = "toggle", name = "My HoTs above friendly heads (short buffs only, centred; long buffs stay on the party frame)", order = 7.61, width = "full",
           get = function() return (p().buffs or {}).enabled ~= false end, set = function(_, v) p().buffs = p().buffs or {} p().buffs.enabled = v and true or false; refresh() end },
