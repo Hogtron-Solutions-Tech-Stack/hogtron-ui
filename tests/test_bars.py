@@ -596,3 +596,35 @@ def test_secret_state_is_left_alone_and_the_diag_counts(bars):
     assert "CAST_STOP=1" in lines[0]
     assert any("bar1 #1 action 7" in l for l in lines)
     assert bars.eval("#HogHeals.errors") == 0
+
+
+# ---------------------------------------------------------------- no secure EnableMouse in combat (Sean 2026-10-17)
+# "ADDON_ACTION_BLOCKED: HogTron_Bars called HogUIBar1Button3:EnableMouse() (in combat)" + the game's warning popup:
+# UpdateCell runs on every lib update and set the mouse every time. Only a change is applied; in combat it waits.
+MOUSE = '''
+  HH_b = HogUIBar1.buttons[3]
+  HH_b._mouse, HH_b._mouseCalls = true, 0
+  function HH_b:IsMouseEnabled() return self._mouse end
+  function HH_b:EnableMouse(on) if InCombatLockdown() then error("blocked: EnableMouse in combat") end self._mouse = on self._mouseCalls = self._mouseCalls + 1 end
+'''
+
+
+def test_an_unchanged_mouse_state_is_never_set_again(bars):
+    bars.execute(MOUSE + 'for i = 1, 5 do HogHealsBars.Bars.UpdateCell(HH_b) end')
+    assert bars.eval('HH_b._mouseCalls') == 0                                  # filled or grid: mouse already on
+    bars.execute('MockState.inCombat = true; for i = 1, 5 do HogHealsBars.Bars.UpdateCell(HH_b) end')
+    assert bars.eval('HH_b._mouseCalls') == 0 and errors(bars) == []
+
+
+def test_a_click_through_change_in_combat_waits_for_the_end_of_combat(bars):
+    bars.execute(MOUSE + '''
+      HogHeals.db.profile.bars.list[1].clickThrough = true
+      HH_b._hasAction = false
+      MockState.inCombat = true
+      for i = 1, 4 do HogHealsBars.Bars.UpdateCell(HH_b) end
+    ''')
+    assert bars.eval('HH_b._mouseCalls') == 0 and bars.eval('HH_b._mouse') is True   # nothing touched in combat
+    assert bars.eval('HogHeals:QueuedCount()') == 1                                  # one redo queued, not four
+    bars.execute('MockState.inCombat = false; MockFire("PLAYER_REGEN_ENABLED")')
+    assert bars.eval('HH_b._mouse') is False and bars.eval('HH_b._mouseCalls') == 1  # applied after combat
+    assert errors(bars) == []
