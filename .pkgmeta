@@ -1,5 +1,10 @@
 package-as: HogTronUI
 
+# the CurseForge / Wago / GitHub file notes: a written changelog, not the packager's list of every commit
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
+
 # Libraries are vendored in HogTronUI/Libs (no externals) so local dev == packaged build.
 #
 # The repo root holds every addon folder side by side. The packager copies the root into
