@@ -384,3 +384,17 @@ def test_look_alike_names_do_not_borrow_each_others_strip(th):
     for name in ("Fear Ward", "Heal Pet", "Cure Poison Totem"):
         got = th.eval(f'({T}.SpellArt("{name}"))')
         assert got not in ("spell_fear", "spell_heal"), (name, got)
+
+
+# ---------------------------------------------------------------- "TexCoord out of range" (Sean 2026-10-17, x30)
+# The swing art passes GetTime() - the PC's uptime - as t: the scroll ran to -200,000 and the client threw. Only the
+# fraction of a repeat is kept (the strip tiles, so the picture is the same).
+def test_strip_coords_stay_near_zero_at_any_clock_and_scroll_the_same(th):
+    T = "HogHealsHUD.CastThemes"
+    for t in (0, 1.5, 86400, 345678.9):
+        u0, u1 = th.eval(f"{{ {T}.ArtCoords({t}, 200, 12, 70) }}").values()
+        assert -1 < u0 <= 0, (t, u0)
+        assert u1 - u0 == pytest.approx(200 / (512 * 12 / 64))                 # width in repeats unchanged
+    a = th.eval(f"({T}.ArtCoords(345678.9, 200, 12, 70))")
+    b = th.eval(f"({T}.ArtCoords(345678.9 + 96 / 70, 200, 12, 70))")       # one whole repeat later
+    assert a == pytest.approx(b, abs=1e-6)

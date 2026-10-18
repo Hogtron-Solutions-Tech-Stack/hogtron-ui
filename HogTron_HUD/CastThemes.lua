@@ -301,7 +301,9 @@ end
 -- shape at any bar height); u beyond 1 wraps (the strip is loaded with REPEAT).
 function T.ArtCoords(t, width, height, speed)
   local rep = STRIP_W * math.max(1, height or 18) / STRIP_H
-  local u0 = -((t or 0) * (speed or 0)) / rep
+  -- only the FRACTION of a repeat: the strip tiles, so whole repeats look the same - and the client rejects coords far
+  -- out ("TexCoord out of range", Sean 2026-10-17: the swing art passes GetTime(), the PC's uptime, as t)
+  local u0 = -((((t or 0) * (speed or 0)) / rep) % 1)
   return u0, u0 + math.max(0, width or 0) / rep
 end
 
