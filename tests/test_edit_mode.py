@@ -235,3 +235,17 @@ def test_a_detached_bars_box_drags_that_bar_alone_and_saves_its_spot(ed):
     assert ed.eval("HH_bar") == 1 and ed.eval("HH_strip") == 0                    # the bar moved, not the strip
     assert ed.eval("HogHeals.db.profile.hud.castbar.x") == 100 and ed.eval("HogHeals.db.profile.hud.castbar.y") == 60
     assert errors(ed) == []
+
+
+def test_the_party_frames_grip_resizes_the_cells_of_the_current_layout(ed):
+    # backlog 2026-10-18: party / raid frames size per group layout (solo shares party's by default)
+    ed.execute('HogHeals:SlashCommand("unlock")')
+    assert ed.eval("HogHeals.EditMode.grips.frames:IsShown()") is True
+    t = target(ed, "frames")
+    ed.execute(f'HH_lay = HogHealsFrames.module:LayoutFor(); HH_w, HH_h = HH_lay.width, HH_lay.height')
+    ed.execute(f'{t}.resize = HogHeals.EditMode.ResizeFor({t}); HogHeals.EditMode.BeginResize({t}); HogHeals.EditMode.ResizeStep(12, -6); HogHeals.EditMode.EndResize()')
+    assert ed.eval("HogHealsFrames.module:LayoutFor().width") == ed.eval("HH_w") + 12
+    assert ed.eval("HogHealsFrames.module:LayoutFor().height") == ed.eval("HH_h") + 6
+    ed.execute(f'HogHeals.EditMode.BeginResize({t}); HogHeals.EditMode.ResizeStep(-1000, 1000); HogHeals.EditMode.EndResize()')
+    assert ed.eval("HogHealsFrames.module:LayoutFor().width") == 40 and ed.eval("HogHealsFrames.module:LayoutFor().height") == 12
+    assert errors(ed) == []

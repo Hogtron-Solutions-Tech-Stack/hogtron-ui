@@ -17,7 +17,8 @@ end
 
 local function currentSize()
   local cf = _G.ChatFrame1
-  local _, size = cf and cf.GetFont and cf:GetFont()
+  local size   -- (not `cf and cf:GetFont()`: an and-expression keeps only the first value, the font path)
+  if cf and cf.GetFont then size = select(2, cf:GetFont()) end
   return size and math.floor(size + 0.5) or 14
 end
 
