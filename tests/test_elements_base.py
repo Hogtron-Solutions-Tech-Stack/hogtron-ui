@@ -100,3 +100,36 @@ def test_elements_registered_in_order(frames):
     order = list(frames.eval('HogHealsFrames.ElementOrder').values())
     for name in ["health", "power", "name", "range", "aggro", "raidIcon", "statusIcons"]:
         assert name in order
+
+
+
+# ---------------------------------------------------------------- the client refusing auras (Sean 2026-10-17, in a party)
+# "Auras cannot be accessed when secret while tainted by 'HogHeals_Frames'" x9: clear the element, count, log once.
+def test_an_aura_refusal_clears_the_element_counts_and_logs_once(btn):
+    btn.execute("""
+      wipe(HogHeals.errors)
+      HH_hid = 0
+      local el = HogHealsFrames.Elements.buffs
+      HH_origUpdate, HH_origHide = el.Update, el.Hide
+      el.Update = function() error("GetAuraDataByIndex(): Auras cannot be accessed when secret while tainted by 'HogHeals_Frames'") end
+      el.Hide = function() HH_hid = HH_hid + 1 end
+      for i = 1, 3 do HogHealsFrames.UnitButton.UpdateElement(HH_b, "buffs") end
+      el.Update, el.Hide = HH_origUpdate, HH_origHide
+    """)
+    assert btn.eval("HH_hid") == 3                                                   # cleared each time: no stale icons
+    msgs = [e["msg"] for e in btn.eval("HogHeals.errors").values()]
+    assert len([m for m in msgs if "refused this unit's auras" in m]) == 1           # logged once
+    assert btn.eval("HogHealsFrames.UnitButton.auraRefused.buffs") == 3
+    assert "buffs=3" in btn.eval("HogHeals.db.global.diag.frames.auraRefused")
+
+
+def test_any_other_element_error_is_still_logged_every_time(btn):
+    btn.execute("""
+      wipe(HogHeals.errors)
+      local el = HogHealsFrames.Elements.buffs
+      local orig = el.Update
+      el.Update = function() error("something else broke") end
+      HogHealsFrames.UnitButton.UpdateElement(HH_b, "buffs")
+      el.Update = orig
+    """)
+    assert any("something else broke" in e["msg"] for e in btn.eval("HogHeals.errors").values())
