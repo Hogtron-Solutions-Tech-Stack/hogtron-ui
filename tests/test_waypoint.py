@@ -233,3 +233,27 @@ def test_the_beam_starts_above_the_question_mark_at_any_distance_and_is_tall(wp)
 def test_inside_the_beam_distance_there_is_no_beam(wp):
     wp.execute("HogHeals.db.profile.quests.waypoint.beamFrom = 1000; HogHealsQuests.Waypoint.Update()")
     assert wp.eval("HH_w.beam:IsShown()") is False and wp.eval("HH_w.arrow:IsShown()") is False
+
+
+
+# ---------------------------------------------------------------- blocked view (Sean 2026-10-17, v3)
+# "Can we hide the beam behind objects so it only appears above them if they are blocked?" - no depth for addons; the
+# client's own occluded flag (retail C_Navigation.GetTargetState) lifts the beam into the sky instead.
+def test_a_blocked_target_lifts_the_beam_into_the_sky(wp):
+    W_ = "HogHealsQuests.Waypoint"
+    wp.execute(f"{W_}.Update()")
+    base = wp.eval("HH_w.beam._points[1][5]")
+    wp.execute(f"""Enum = Enum or {{}}; Enum.NavigationState = {{ Invalid = 0, Occluded = 1, InRange = 2, Disabled = 3 }}
+      HH_state = 1; C_Navigation.GetTargetState = function() return HH_state end; {W_}.Update()""")
+    assert wp.eval("HH_w.beam._points[1][5]") == base + wp.eval(f"{W_}.OCCLUDED_LIFT")
+    assert wp.eval(f"{W_}.blocked") is True and wp.eval(f"{W_}.beamTarget") < 1
+    assert wp.eval("HogHeals.db.global.diag.waypointOcclusion.api") == "C_Navigation.GetTargetState"
+    wp.execute(f"HH_state = 2; {W_}.Update()")                                   # in view again
+    assert wp.eval("HH_w.beam._points[1][5]") == base and wp.eval(f"{W_}.blocked") is False
+
+
+def test_a_client_that_cannot_say_changes_nothing_and_says_so(wp):
+    W_ = "HogHealsQuests.Waypoint"
+    wp.execute(f"C_Navigation.GetTargetState = nil; {W_}.Update()")
+    assert wp.eval(f"{W_}.blocked") is False and wp.eval(f"{W_}.path.occlusion") == "none"
+    assert any("blocked-view lift: none" in l for l in wp.eval(f"{W_}.Lines()").values())

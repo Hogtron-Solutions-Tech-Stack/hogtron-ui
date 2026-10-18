@@ -86,6 +86,7 @@ function Options.Build()
           get = function() return wp().style or "beam" end, set = function(_, v) wp().style = v wpr() end },
         beamFrom = range(wp, "beamFrom", "Beam shows from (yards away)", 2.6, 0, 80, 1, wpr),
         beamHeight = range(wp, "beamHeight", "Beam height", 2.7, 150, 1600, 50, wpr),
+        liftWhenBlocked = toggle(wp, "liftWhenBlocked", "When the game says it's behind something, lift the beam into the sky", 2.8, wpr),
         title = toggle(wp, "title", "Quest name", 3, wpr),
         eta = toggle(wp, "eta", "Time to reach it at your pace", 4, wpr),
         progress = toggle(wp, "progress", "Objective progress / ready to turn in", 5, wpr),

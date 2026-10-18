@@ -29,6 +29,11 @@ WP.BEAM_W, WP.BEAM_H, WP.BREATH = 26, 900, 2.2
 -- The objective's point is at the NPC; the "?" floats a head above it, and on screen that head grows as you close in:
 -- the beam's foot sits GAP_K / yards px above the point (measured in game: ~50 px at 25 yd), kept in [GAP_MIN, GAP_MAX].
 WP.GAP_K, WP.GAP_MIN, WP.GAP_MAX = 1250, 40, 240
+-- Sean 2026-10-17 (v3): "Can we hide the beam behind objects so it only appears above them if they are blocked?" A frame
+-- is drawn over the 3D world - an addon gets no depth and no line of sight. What the client CAN say (retail:
+-- C_Navigation.GetTargetState) is whether the tracked target is occluded right now; then the beam lifts OCCLUDED_LIFT px
+-- into the sky and dims, a beacon over whatever is in the way. Without that call nothing changes (diag says so).
+WP.OCCLUDED_LIFT, WP.OCCLUDED_ALPHA = 180, 0.7
 local ARROW = "Interface\\AddOns\\HogTronUI\\Media\\quest_arrow"
 -- Blizzard's own art on the navigation frame, made transparent while ours is on (names differ per client build)
 local BLIZZ_PARTS = { "Icon", "Arrow", "DistanceText", "Time", "NavigationLabel", "Description" }
@@ -284,15 +289,24 @@ function WP.Update()
     if beam then
       -- no ring at the foot any more (it sat on the NPC's name); the shaft starts above the "?"
       f.marker:Hide() f.edge:Hide() f.base:Hide()
+      local hidden = o.liftWhenBlocked ~= false and WP.Occluded()
+      WP.blocked = hidden
       f.beam:ClearAllPoints()
-      f.beam:SetPoint("BOTTOM", f, "CENTER", 0, WP.BeamGap(yards))
+      f.beam:SetPoint("BOTTOM", f, "CENTER", 0, WP.BeamGap(yards) + (hidden and WP.OCCLUDED_LIFT or 0))
       f.beam:SetHeight(o.beamHeight or WP.BEAM_H)
       if WP.BeamAlpha(yards, o) > 0 then f.beam:Show() else f.beam:Hide() end
     else f.marker:Show() f.edge:Show() f.beam:Hide() f.base:Hide() end
     WP.angle = nil
   end
   WP.PlaceTexts(f, beam and not clamped)
-  WP.beamTarget = WP.BeamAlpha(yards, o)
+  WP.beamTarget = WP.BeamAlpha(yards, o) * (WP.blocked and WP.OCCLUDED_ALPHA or 1)
+  local gl = HH.db and HH.db.global
+  if gl and WP.path.occlusion and (WP.savedState ~= tostring(WP.lastState) or WP.savedPath ~= WP.path.occlusion) then
+    WP.savedState, WP.savedPath = tostring(WP.lastState), WP.path.occlusion
+    gl.diag = gl.diag or {}
+    gl.diag.waypointOcclusion = { api = WP.path.occlusion, lastState = tostring(WP.lastState), blocked = WP.blocked and true or false,
+      at = date and date("%Y-%m-%d %H:%M:%S") or "?" }
+  end
   f:SetAlpha(WP.Alpha(yards, o))
   f:Show()
   WP.current = { id = id, title = c.title, yards = yards, clamped = clamped }
@@ -311,6 +325,20 @@ function WP.BeamAlpha(yards, o)
   if yards <= from then return 0 end
   if yards < from + fade then return (yards - from) / fade end
   return 1
+end
+
+--- Is the tracked target hidden behind something, per the client? false when the client cannot say.
+function WP.Occluded()
+  local navApi = rawget(_G, "C_Navigation")
+  local f = fn(navApi, "GetTargetState")
+  if not f then WP.path.occlusion = "none" return false end
+  WP.path.occlusion = "C_Navigation.GetTargetState"
+  local st = call(f)
+  if isSecret(st) then WP.lastState = "secret" return false end
+  WP.lastState = st
+  local E = rawget(_G, "Enum")
+  local occluded = (type(E) == "table" and type(E.NavigationState) == "table" and E.NavigationState.Occluded) or 1
+  return st ~= nil and st == occluded
 end
 
 --- Pure: px from the objective's point up to the beam's foot - above the quest giver's "?" at any distance.
@@ -411,6 +439,8 @@ function WP.Lines()
   if c then out[#out + 1] = ("  tracking %s (%s) %s%s"):format(tostring(c.title), tostring(c.id), c.yards and (WP.FormatDistance(c.yards) or "") or "distance unknown", c.clamped and ", off-screen arrow" or "")
   else out[#out + 1] = "  nothing tracked (click a quest in the tracker, or let the GO row pick)." end
   if p.unknownEvents ~= "" then out[#out + 1] = "  events this client lacks: " .. p.unknownEvents end
+  out[#out + 1] = ("  blocked-view lift: %s (last state %s, now %s)"):format(tostring(WP.path.occlusion or "not asked yet"),
+    tostring(WP.lastState), WP.blocked and "LIFTED" or "normal")
   return out
 end
 
