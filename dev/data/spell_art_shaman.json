@@ -1,0 +1,107 @@
+{
+ "source": "wowhead.com/classic/spells/abilities/shaman (class trainer + class quest; hunter pet spells by name) + nether.wowhead.com tooltip cast times, fetched 2026-10-17",
+ "note": "art planning only: which spells get a strip. Season of Discovery runes / engravings and talents excluded.",
+ "spells": {
+  "Healing Wave": {
+   "id": 332,
+   "level": 6,
+   "schools": 8,
+   "kind": "cast 2"
+  },
+  "Lightning Bolt": {
+   "id": 529,
+   "level": 8,
+   "schools": 8,
+   "kind": "cast 2"
+  },
+  "Ancestral Spirit": {
+   "id": 2008,
+   "level": 12,
+   "schools": 8,
+   "kind": "cast 10"
+  },
+  "Ghost Wolf": {
+   "id": 2645,
+   "level": 20,
+   "schools": 8,
+   "kind": "cast 3"
+  },
+  "Lesser Healing Wave": {
+   "id": 8004,
+   "level": 20,
+   "schools": 8,
+   "kind": "cast 1.5"
+  },
+  "Far Sight": {
+   "id": 6196,
+   "level": 26,
+   "schools": 8,
+   "kind": "cast 2"
+  },
+  "Astral Recall": {
+   "id": 556,
+   "level": 30,
+   "schools": 8,
+   "kind": "cast 10"
+  },
+  "Chain Lightning": {
+   "id": 421,
+   "level": 32,
+   "schools": 8,
+   "kind": "cast 2.5"
+  },
+  "Chain Heal": {
+   "id": 1064,
+   "level": 40,
+   "schools": 8,
+   "kind": "cast 2.5"
+  }
+ },
+ "strips": [
+  {
+   "pattern": "^Healing Wave",
+   "strip": "spell_healing_wave",
+   "theme": "water"
+  },
+  {
+   "pattern": "^Lesser Healing Wave",
+   "strip": "spell_healing_wave",
+   "theme": "water"
+  },
+  {
+   "pattern": "^Chain Heal",
+   "strip": "spell_chain_heal",
+   "theme": "water"
+  },
+  {
+   "pattern": "^Lightning Bolt",
+   "strip": "spell_lightning_bolt",
+   "theme": "nature"
+  },
+  {
+   "pattern": "^Chain Lightning",
+   "strip": "spell_chain_lightning",
+   "theme": "nature"
+  },
+  {
+   "pattern": "^Ancestral Spirit",
+   "strip": "spell_ancestral_spirit",
+   "theme": "nature"
+  },
+  {
+   "pattern": "^Ghost Wolf",
+   "strip": "spell_ghost_wolf",
+   "theme": "nature"
+  },
+  {
+   "pattern": "^Far Sight",
+   "strip": "spell_far_sight",
+   "theme": "water"
+  },
+  {
+   "pattern": "^Astral Recall",
+   "strip": "spell_astral_recall",
+   "theme": "arcane"
+  }
+ ]
+}
