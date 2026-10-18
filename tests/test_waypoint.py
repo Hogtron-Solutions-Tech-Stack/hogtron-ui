@@ -271,12 +271,17 @@ def test_no_position_and_no_distance_draws_nothing_in_the_world(wp):
     assert any("nothing drawn in the world" in l for l in wp.eval(f"{W_}.Lines()").values())
 
 
-def test_an_invalid_target_state_draws_nothing(wp):
+def test_an_invalid_target_state_with_a_screen_spot_still_draws_the_beam(wp):
+    # Sean 2026-10-17, diag.waypoint in game: "hidden: client: invalid target (state 0, screen yes, 62 yd)" - this
+    # client reports Invalid for a good target. The state never hides the marker; position + distance decide.
     W_ = "HogHealsQuests.Waypoint"
-    wp.execute(f"C_Navigation.GetTargetState = function() return 0 end; {W_}.Update()")
-    assert wp.eval("HH_w:IsShown()") is False and wp.eval(f"{W_}.noTarget") == "client: invalid target"
-    wp.execute(f"C_Navigation.GetTargetState = function() return 2 end; {W_}.Update()")   # in range again
+    wp.execute(f"""Enum = Enum or {{}}; Enum.NavigationState = {{ Invalid = 0, Occluded = 1, InRange = 2, Disabled = 3 }}
+      NAVDIST = 62; C_Navigation.GetTargetState = function() return 0 end; {W_}.Update()""")
     assert wp.eval("HH_w:IsShown()") is True and wp.eval(f"{W_}.noTarget") is None
+    assert wp.eval("HH_w.beam:IsShown()") is True
+    assert wp.eval("HogHeals.db.global.diag.waypoint.outcome") == "beam"
+    wp.execute(f"C_Navigation.GetTargetState = function() return 3 end; {W_}.Update()")   # "Disabled": same rule
+    assert wp.eval("HH_w:IsShown()") is True
 
 
 def test_off_screen_with_the_frame_parked_mid_screen_draws_nothing(wp):
@@ -300,9 +305,9 @@ def test_each_outcome_change_is_saved_with_the_clients_answers(wp):
     assert "Invalid=0" in rec["enum"] and "InRange=2" in rec["enum"]
     wp.execute(f"for i = 1, 5 do {W_}.Update() end")                              # unchanged: no new history lines
     assert len(wp.eval("HogHeals.db.global.diag.waypoint.history")) == 1
-    wp.execute(f"HH_state = 0; {W_}.Update()")
+    wp.execute(f"VALIDPOS = false; NAVDIST = nil; C_Navigation.GetDistance = function() return nil end; {W_}.Distance = function() return nil end; HH_state = 0; {W_}.Update()")
     rec = wp.eval("HogHeals.db.global.diag.waypoint")
-    assert rec["outcome"] == "hidden: client: invalid target" and rec["state"] == "0"
+    assert rec["outcome"] == "hidden: no screen position and no distance" and rec["state"] == "0" and rec["validScreen"] == "no"
     assert len(rec["history"]) == 2
     wp.execute(f"TRACKED = nil; {W_}.Update()")
     assert wp.eval("HogHeals.db.global.diag.waypoint.outcome") == "nothing super-tracked"

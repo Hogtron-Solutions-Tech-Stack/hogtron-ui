@@ -387,14 +387,10 @@ end
 -- The client had no position for the turn-in: no distance, no valid screen spot, its navigation frame parked at the
 -- screen's centre - an arrow there points nowhere. Then nothing is drawn in the world (the tracker's GO row still has
 -- the quest).
+-- The client's target STATE is not used to hide: Sean 2026-10-17, diag.waypoint at a quest giver 62 yd away, on screen:
+-- "state 0 (Invalid), screen yes, 62 yd" - this client says Invalid for a perfectly good target, and trusting it hid
+-- the beam everywhere. Only position and distance decide.
 function WP.NoTarget(navApi, nav, yards)
-  local st = call(fn(navApi, "GetTargetState"))
-  if type(st) == "number" and not isSecret(st) then
-    local E = rawget(_G, "Enum")
-    local NS = type(E) == "table" and type(E.NavigationState) == "table" and E.NavigationState or {}
-    if st == (NS.Invalid or 0) then return "client: invalid target" end
-    if st == (NS.Disabled or 3) then return "client: navigation disabled" end
-  end
   local validFn = fn(navApi, "HasValidScreenPosition")
   if not validFn or call(validFn) then return nil end
   if type(yards) ~= "number" then return "no screen position and no distance" end
