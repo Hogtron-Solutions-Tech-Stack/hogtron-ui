@@ -367,3 +367,11 @@ def test_banished_frames_lose_their_unit_watch(lua):
     assert lua.eval('MockUnitWatch[TargetFrame]') is None
     assert lua.eval('HogHealsUnits.Units.watched[PetFrame]') is True
     assert errors(lua) == []
+
+
+# ---------------------------------------------------------------- call() arity (found 2026-10-17 from the plate diag)
+def test_the_legacy_aura_reader_keeps_the_source(units):
+    # UnitAura's caster is its 7th value; the helper returned 6, so source was always nil on clients without C_UnitAuras
+    units.execute('MockUnits.target = { name = "K", class = "WARRIOR", health = 1, maxHealth = 1, guid = "C-77", auras = { { name = "Corruption", type = "Magic", duration = 18, expires = 95, source = "player" } } }')
+    a = units.eval('HogHealsUnits.Auras.Get("target", 1, "HARMFUL")')
+    assert a["name"] == "Corruption" and a["source"] == "player"

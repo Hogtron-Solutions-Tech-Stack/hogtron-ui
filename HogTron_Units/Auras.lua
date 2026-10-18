@@ -20,8 +20,8 @@ local function num(v) if type(v) == "number" and not isSecret(v) then return v e
 local function str(v) if type(v) == "string" and not isSecret(v) then return v end end
 local function call(f, ...)
   if type(f) ~= "function" then return nil end
-  local ok, a, b, c, d, e, g = pcall(f, ...)
-  if ok then return a, b, c, d, e, g end
+  local ok, a, b, c, d, e, g, h = pcall(f, ...)
+  if ok then return a, b, c, d, e, g, h end   -- 7: UnitAura's source is its 7th value (was dropped)
 end
 
 --- One aura by index through whichever reader this client has: { icon, count, dispel, duration, expires } or nil.

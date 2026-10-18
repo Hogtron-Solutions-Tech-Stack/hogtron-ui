@@ -882,3 +882,18 @@ def test_platecvars_asks_by_name_when_there_is_no_list(plates):
     lines, n = list(plates.eval("{ HogHealsPlates.Plates.CVarProbe() }").values())
     assert n == 1 and list(lines.values()) == ["nameplateShowAll=nil"]
     assert errors(plates) == []
+
+
+# ---------------------------------------------------------------- call() arity in the plate diag (2026-10-17)
+# Sean's saves read "colour=0.95,0.80,nil" and "font=nil": the helper keeps two values; GetFont was read at index 5.
+def test_plate_diag_reads_all_four_colour_values_and_the_font_size(plates):
+    uf = add(plates, "nameplate81", '{ name = "Young Wolf", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-81" }')
+    plates.execute(f'''
+      local t = {uf}.healthBar:CreateTexture(); {uf}.healthBar.oddArt = t
+      t:SetTexture("odd"); t:SetVertexColor(1, 0.5, 0.25, 0.75)
+      {uf}.name.GetFont = function() return "Fonts\\FRIZQT__.TTF", 13, "OUTLINE" end''')
+    lines = list(plates.eval(f"HogHealsPlates.Plates.DescribeBar({uf})").values())
+    assert any("key=oddArt" in l and "colour=1,0.5,0.25,0.75" in l for l in lines), lines
+    plates.execute('wipe(MockLog.chat or {}); HogHeals:SlashCommand("platediag")')
+    chat = "\n".join(plates.eval("MockLog.chat").values())
+    assert "font=13" in chat
