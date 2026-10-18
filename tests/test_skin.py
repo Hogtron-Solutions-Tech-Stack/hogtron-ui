@@ -718,7 +718,8 @@ def test_hh_under_names_what_blizzard_draws_at_the_cursor(skin):
       HogHeals:SlashCommand("under")
     """)
     lines = skin.eval('HogHeals.db.global.diag.under.lines').split("\n")
-    assert lines[0].startswith("GoldPanel [Frame L7") and "Interface/gold" in lines[0]
+    assert lines[0].startswith("mouse focus: ")                      # who really has the mouse, first (2026-10-17)
+    assert lines[1].startswith("GoldPanel [Frame L7") and "Interface/gold" in lines[1]
     assert all(not l.startswith(("Elsewhere", "Hidden", "HogHeals")) for l in lines)
     assert any(l.startswith("MicroMenu [Frame") and "no textures" in l for l in lines)   # its art is killed, so nothing drawn
     assert errors(skin) == []
@@ -1080,3 +1081,78 @@ def test_bigger_by_default_and_each_icon_has_its_own_colour_mark(micro):
         micro.eval(f'{leg}.accent._color[1]') != micro.eval(f'{char}.accent._color[1]')   # different colours
     micro.execute('HogHeals.db.profile.skin.micro.accent = false; HogHealsSkin.Micro.Strip()')
     assert micro.eval(f'{leg}.accent:IsShown()') is False
+
+
+# ---------------------------------------------------------------- the dead half of action bar 1 (2026-10-17)
+# Sean on a new character: hovering the top half of a bar-1 button showed its tooltip, the lower half nothing. On this
+# engine the XP bars are their own Edit Mode frames (MainStatusTrackingBarContainer / Secondary...) at the bottom centre,
+# parented to UIParent: hiding StatusTrackingBarManager left them up - invisible at 0% XP, but taking the mouse.
+XP_CONTAINERS = r'''
+StatusTrackingBarManager = CreateFrame("Frame", "StatusTrackingBarManager", UIParent)
+MainStatusTrackingBarContainer = CreateFrame("Frame", "MainStatusTrackingBarContainer", UIParent)
+SecondaryStatusTrackingBarContainer = CreateFrame("Frame", "SecondaryStatusTrackingBarContainer", UIParent)
+StatusTrackingBarManager.MainStatusTrackingBarContainer = MainStatusTrackingBarContainer
+StatusTrackingBarManager.SecondaryStatusTrackingBarContainer = SecondaryStatusTrackingBarContainer
+'''
+
+
+def test_the_xp_bar_containers_hide_too_while_the_hogtron_ui_bar_owns_xp(skin):
+    skin.execute(XP_CONTAINERS + "HogHeals.XPBarOwned = true; HogHealsSkin.Extras.SkinXP()")
+    for f in ("MainStatusTrackingBarContainer", "SecondaryStatusTrackingBarContainer", "StatusTrackingBarManager"):
+        assert skin.eval(f"{f}:IsShown()") is False, f
+    skin.execute("MainStatusTrackingBarContainer:Show()")                    # Edit Mode shows it again: kept hidden
+    assert skin.eval("MainStatusTrackingBarContainer:IsShown()") is False
+    skin.execute("HogHeals.XPBarOwned = false; HogHealsSkin.Extras.SkinXP()")  # ours off: Blizzard's back
+    assert skin.eval("MainStatusTrackingBarContainer:IsShown()") is True
+    assert errors(skin) == []
+
+
+def test_under_names_the_frame_holding_the_mouse_and_marks_mouse_frames(skin):
+    skin.execute(r'''
+      HH_thief = CreateFrame("Frame", "HH_thief", UIParent)
+      function HH_thief:IsMouseEnabled() return true end
+      HH_art = CreateFrame("Frame", "HH_art", UIParent)
+      for _, f in ipairs({ HH_thief, HH_art }) do
+        function f:GetLeft() return -10 end function f:GetRight() return 10 end
+        function f:GetTop() return 10 end function f:GetBottom() return -10 end
+        function f:GetEffectiveScale() return 1 end
+      end
+      local list = { HH_thief, HH_art }
+      function EnumerateFrames(prev)
+        if prev == nil then return list[1] end
+        for i, f in ipairs(list) do if f == prev then return list[i + 1] end end
+      end
+      function GetMouseFoci() return { HH_thief } end
+      HogHeals:SlashCommand("under")
+    ''')
+    lines = skin.eval("HogHeals.db.global.diag.under.lines").split("\n")
+    assert lines[0].startswith("mouse focus: HH_thief")
+    assert any(l.startswith("MOUSE HH_thief") for l in lines) and any(l.startswith("HH_art") for l in lines)
+    assert errors(skin) == []
+
+
+# ---------------------------------------------------------------- protected XP container in combat (2026-10-17 later)
+# After #50 the dead half of bar 1 stayed, and the log filled with "HogTron_Skin called UNKNOWN() (in combat)" x28: the
+# container is PROTECTED on this client; Blizzard shows it mid-fight, our re-hide was refused, it stayed up after.
+def test_a_protected_xp_container_is_never_hidden_in_combat_and_never_takes_the_mouse(skin):
+    skin.execute(XP_CONTAINERS + """
+      local c = MainStatusTrackingBarContainer
+      c._protected = true
+      c.bar1 = CreateFrame("StatusBar", nil, c)
+      HH_blocked = 0
+      local hide = c.Hide
+      c.Hide = function(self, ...) if MockState.inCombat and self._protected then HH_blocked = HH_blocked + 1 return end return hide(self, ...) end
+      HogHeals.XPBarOwned = true; HogHealsSkin.Extras.SkinXP()
+    """)
+    c = "MainStatusTrackingBarContainer"
+    assert skin.eval(f"{c}:IsShown()") is False
+    assert skin.eval(f"{c}._last.EnableMouse[1]") is False and skin.eval(f"{c}.bar1._last.EnableMouse[1]") is False
+    # a fight: Blizzard shows it again - nothing blocked, the hide waits for the fight to end
+    skin.execute(f"MockState.inCombat = true; {c}:Show()")
+    assert skin.eval("HH_blocked") == 0 and skin.eval(f"{c}:IsShown()") is True
+    skin.execute('MockState.inCombat = false; MockFire("PLAYER_REGEN_ENABLED")')
+    assert skin.eval(f"{c}:IsShown()") is False
+    # ours stops owning XP: mouse and frame given back
+    skin.execute("HogHeals.XPBarOwned = false; HogHealsSkin.Extras.SkinXP()")
+    assert skin.eval(f"{c}:IsShown()") is True and skin.eval(f"{c}._last.EnableMouse[1]") is False   # it had none before (mock)
+    assert [e["msg"] for e in skin.eval('HogHeals.errors').values()] == []

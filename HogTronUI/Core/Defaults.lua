@@ -27,6 +27,7 @@ HH.defaults = {
       enabled = true, hideBlizzard = true, tooltips = true,
       classColors = true, reactionColors = true, healthColor = { 0.25, 0.80, 0.35 },
       healthText = "current-max", powerText = "current-max",   -- percent | current | current-max | current-percent | none (Sean: "343 / 343")
+      nameFormat = "full",   -- full = first + last name (WoW: Forever has last names; Sean 2026-10-17) | first
       texture = "Solid", font = "HogTron", fontSize = 12, backgroundAlpha = 0.6,
       -- flanking the bottom centre (ElvUI's arrangement): player left, target right, small frames beside them
       player = { enabled = true, width = 240, height = 42, powerHeight = 8, showPower = true, showName = true, showLevel = true, point = "BOTTOM", x = -280, y = 230 },
