@@ -114,7 +114,7 @@ Code traps found on the way:
   like with `pcall` directly (#74).
 - `Plates.QuietArt` fades every child of the health bar it does not keep: anything of ours parented to the bar must be
   on its keep list (#71 was closed for this).
-- Lua texture paths written through Python / bash layers lose backslashes (`` in `eward_xp` is a carriage return):
+- Lua texture paths written through Python / bash layers lose backslashes (`\r` in `\reward_xp` is a carriage return):
   build paths from parts in tests and pin them exactly.
 
 ## 5. Tests and tools
