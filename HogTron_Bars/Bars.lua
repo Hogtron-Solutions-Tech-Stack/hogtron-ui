@@ -339,6 +339,56 @@ function Bars.HideBlizzard()
   return n
 end
 
+-- ------------------------------------------------------------------------------------------------ template shadowing
+-- Sean 2026-10-17: icons were grey and NO cooldown ever showed on our bars. The recorder then showed the client saying
+-- every slot HAS an action (HasAction = true, plain) while the lib's own button:HasAction() said false - and not one of
+-- the lib patches ever showed in the counters. The client's ActionButtonTemplate mixes its own functions straight onto
+-- the button table; where one shares a name with a LibActionButton method (HasAction, cooldown / usable readers ...),
+-- the template's raw field wins over the lib's metatable and the lib's code never runs. Every function the template
+-- put on the button under a name the LIB defines (its Action / Generic tables, never the frame's own widget methods) is
+-- removed, so the lib's method answers. What was removed is recorded (Bars.shadowed, /hh barsdiag, diag.barsLive).
+Bars.shadowed = {}
+
+function Bars.Unshadow(b)
+  local mt = getmetatable(b)
+  local A = type(mt) == "table" and type(mt.__index) == "table" and mt.__index or nil
+  if not A then return 0 end
+  local amt = getmetatable(A)
+  local G = type(amt) == "table" and type(amt.__index) == "table" and amt.__index or nil
+  local drop = {}
+  for k, v in pairs(b) do
+    if type(k) == "string" and type(v) == "function" then
+      local libf = rawget(A, k) or (G and rawget(G, k))
+      if type(libf) == "function" and libf ~= v then drop[#drop + 1] = k end
+    end
+  end
+  for _, k in ipairs(drop) do
+    rawset(b, k, nil)
+    Bars.shadowed[k] = (Bars.shadowed[k] or 0) + 1
+  end
+  return #drop
+end
+
+--- Every bar button's state again after an unshadow (the lib's Update now runs its own HasAction).
+function Bars.UnshadowAll()
+  local n = 0
+  for _, bar in pairs(Bars.bars) do
+    for _, b in ipairs(bar.buttons or {}) do
+      local k = Bars.Unshadow(b)
+      n = n + k
+      if k > 0 and type(b.UpdateAction) == "function" then pcall(b.UpdateAction, b, true) end
+    end
+  end
+  return n
+end
+
+function Bars.ShadowedText()
+  local list = {}
+  for k, c in pairs(Bars.shadowed) do list[#list + 1] = k .. " x" .. c end
+  table.sort(list)
+  return #list > 0 and table.concat(list, ", ") or "none"
+end
+
 -- ------------------------------------------------------------------------------------------------ build / refresh
 function Bars.Build(reason)
   local lib = Bars.Lib()
@@ -357,6 +407,9 @@ function Bars.Build(reason)
         bar:Hide()
       end
     end
+    -- after the layout, when every button has its lib type (UpdateAction ran): the template's look-alikes off
+    local okU, errU = pcall(Bars.UnshadowAll)
+    if not okU then HH:LogError("bars unshadow: " .. tostring(errU)) end
     if HHB.Extra and HHB.Extra.Build then
       local ok, err = pcall(HHB.Extra.Build)
       if not ok then HH:LogError("bars pet/stance: " .. tostring(err)) end
@@ -528,6 +581,7 @@ HH:RegisterSlash("barsdiag", function()
     for e in pairs(lab and lab.unknownEvents or {}) do miss[#miss + 1] = e end
     table.sort(miss)
     HH:Print(("bars: cooldowns via %s; events this client refused: %s"):format(tostring(lab and lab.cooldownPath or "?"), #miss > 0 and table.concat(miss, ", ") or "none"))
+    HH:Print("bars: template functions that hid the lib's (removed): " .. Bars.ShadowedText())
     HH:Print(("bars: usable answers hidden by the client %d; button update errors %d%s"):format(lab and lab.hhSecretUsableCount or 0,
       lab and lab.hhUpdateErrors or 0, (lab and lab.hhLastUpdateError) and (" (last: " .. lab.hhLastUpdateError:sub(1, 120) .. ")") or ""))
     local g = HH.db and HH.db.global

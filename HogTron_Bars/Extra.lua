@@ -567,6 +567,8 @@ function Extra.SaveLive()
   local okR, raw = pcall(Extra.RawLines, 4)
   g.diag.barsLive.raw = okR and table.concat(raw, " || ") or ("raw error: " .. tostring(raw))
   g.diag.barsLive.hasActionHidden = lab.hhHasActionHidden or 0
+  g.diag.barsLive.shadowed = Bars.ShadowedText and Bars.ShadowedText() or "?"
+  g.diag.barsLive.libPatched = type(lab.hhHasAction) == "function"   -- our patched lib copy is the one running
   g.diag.barsLive.hasActionMissing = lab.hhHasActionMissing and true or false
   return g.diag.barsLive
 end

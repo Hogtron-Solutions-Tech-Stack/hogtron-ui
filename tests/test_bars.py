@@ -802,3 +802,29 @@ def test_the_live_save_records_the_raw_answers(bars):
     bars.execute(STATE + "HogHealsBars.Extra.SaveLive()")
     raw = bars.eval("HogHeals.db.global.diag.barsLive.raw")
     assert raw.startswith("b1#1 type=action slot=7.0 HasAction=")
+
+
+
+# ---------------------------------------------------------------- template functions hiding the lib's (2026-10-17)
+# in game: HasAction(slot) = true (plain) for the client, button:HasAction() = false for the lib - the template's own
+# function, mixed onto the button, answered instead of the lib's.
+def test_a_template_function_that_hides_a_lib_method_is_removed(bars):
+    bars.execute("""
+      HH_G = { HasAction = function() return nil end, UpdateAction = function() end, Shared = function() return "lib" end }
+      HH_A = setmetatable({ HasAction = function() return true end }, { __index = HH_G })
+      HH_b = setmetatable({}, { __index = HH_A })
+      HH_b.HasAction = function() return false end          -- the template's, raw on the button
+      HH_b.Shared = HH_G.Shared                             -- the lib's own, set raw: kept
+      HH_b.OnlyTemplate = function() return "t" end          -- no lib method of that name: kept
+      HH_n = HogHealsBars.Bars.Unshadow(HH_b)
+    """)
+    assert bars.eval("HH_n") == 1
+    assert bars.eval("HH_b:HasAction()") is True                                 # the lib's answers now
+    assert bars.eval("rawget(HH_b, 'Shared') ~= nil") is True and bars.eval("rawget(HH_b, 'OnlyTemplate') ~= nil") is True
+    assert "HasAction x1" in bars.eval("HogHealsBars.Bars.ShadowedText()")
+
+
+def test_barsdiag_and_the_live_save_name_what_was_removed(bars):
+    bars.execute("HogHealsBars.Bars.shadowed.HasAction = 12; HogHealsBars.Extra.SaveLive(); MockLog.chat = {}; HogHeals:SlashCommand('barsdiag')")
+    assert "HasAction x12" in bars.eval("HogHeals.db.global.diag.barsLive.shadowed")
+    assert any("template functions that hid the lib's" in l and "HasAction x12" in l for l in bars.eval("MockLog.chat").values())
