@@ -60,3 +60,27 @@ def test_slash_prints_the_pick_and_sets_the_rule(go):
     go.execute("HogHeals:SlashCommand('go travel')")
     assert go.eval("HogHeals.db.profile.quests.go.rule") == "travel"
     assert errors(go) == []
+
+
+# ---------------------------------------------------------------- super-track never changed in combat (Sean 2026-10-17)
+# x16 "ADDON_ACTION_BLOCKED: HogTron_Quests called Button:SetPassThroughButtons()": Blizzard rebuilds its quest POI
+# buttons on our super-track call; in combat that rebuild is blocked. The newest wish waits for the end of combat.
+TRACK = "TRACKED, CALLS = nil, 0; C_SuperTrack = { SetSuperTrackedQuestID = function(id) CALLS = CALLS + 1 TRACKED = id end, GetSuperTrackedQuestID = function() return TRACKED end }"
+
+
+def test_go_does_not_super_track_in_combat_and_catches_up_after(go):
+    go.execute(TRACK + "; MockState.inCombat = true; for i = 1, 3 do HogHealsQuests.Tracker.Update() end")
+    assert go.eval("CALLS") == 0 and go.eval("TRACKED") is None
+    go.execute('MockState.inCombat = false; MockFire("PLAYER_REGEN_ENABLED")')
+    assert go.eval("CALLS") == 1 and go.eval("TRACKED") == 9                 # balanced pick, once
+    assert errors(go) == []
+
+
+def test_pointing_by_hand_in_combat_waits_and_go_does_not_override_it(go):
+    go.execute(TRACK + "; HogHealsQuests.Tracker.Update()")
+    assert go.eval("TRACKED") == 9
+    go.execute("MockState.inCombat = true; HogHealsQuests.Menu.Point({ id = 7 })")
+    assert go.eval("TRACKED") == 9                                             # not in combat
+    go.execute('MockState.inCombat = false; MockFire("PLAYER_REGEN_ENABLED"); HogHealsQuests.Tracker.Update()')
+    assert go.eval("TRACKED") == 7                                             # the hand pick landed and stays
+    assert errors(go) == []

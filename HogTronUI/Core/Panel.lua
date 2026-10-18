@@ -534,6 +534,21 @@ local function labelOn(row)
   return row.label
 end
 
+--- Every option label wraps inside its own column and the row grows to fit (Sean 2026-10-17, in game: a long label
+-- ran straight across the next column - "Lock position (otherwise drag the header to move it; /hh unlock..." over
+-- "Watch new quests"). Returns the label's height in px (one line = 14).
+local LINE_H = 14
+local function wrapLabel(fs, width)
+  if not fs then return LINE_H end
+  if fs.SetWordWrap then fs:SetWordWrap(true) end
+  if fs.SetJustifyV then fs:SetJustifyV("TOP") end
+  fs:SetWidth(math.max(24, width or 0))
+  local h = fs.GetStringHeight and fs:GetStringHeight()
+  if type(h) ~= "number" or h <= 0 then h = LINE_H end
+  return math.ceil(h)
+end
+Panel.WrapLabel = wrapLabel
+
 local function dim(row, off)
   row:SetAlpha(off and 0.4 or 1)
 end
@@ -576,17 +591,18 @@ makers.toggle = function()
   r.button:SetAllPoints(r)
   r.box = CreateFrame("Frame", nil, r)
   r.box:SetSize(16, 16)
-  r.box:SetPoint("LEFT", r, "LEFT", 0, 0)
+  r.box:SetPoint("TOPLEFT", r, "TOPLEFT", 0, -5)
   skin(r.box, RAISED, LINE)
   r.tick = solid(r.box, "ARTWORK", CYAN)
   r.tick:SetPoint("TOPLEFT", r.box, "TOPLEFT", 3, -3)
   r.tick:SetPoint("BOTTOMRIGHT", r.box, "BOTTOMRIGHT", -3, 3)
-  labelOn(r):SetPoint("LEFT", r.box, "RIGHT", 8, 0)
+  labelOn(r):SetPoint("TOPLEFT", r.box, "TOPRIGHT", 8, -1)
   r.button.hover = function(on) setBorder(r.box, on and CYAN or LINE) end
   return r
 end
-fillers.toggle = function(r, opt, info, _, off)
+fillers.toggle = function(r, opt, info, width, off)
   r.label:SetText(tostring(val(opt.name, info) or ""))
+  local lh = wrapLabel(r.label, (width or 200) - 24)
   r.checked = valM(opt.get, info) and true or false
   if r.checked then r.tick:Show() else r.tick:Hide() end
   tooltip(r.button, opt, info)
@@ -595,7 +611,7 @@ fillers.toggle = function(r, opt, info, _, off)
     call(opt.set, info, not r.checked)
     Panel.Refresh()
   end)
-  return 26
+  return math.max(26, lh + 12)
 end
 
 makers.execute = function()
@@ -605,8 +621,11 @@ makers.execute = function()
   r.button:SetPoint("TOPRIGHT", r, "TOPRIGHT", 0, -2)
   return r
 end
-fillers.execute = function(r, opt, info, _, off)
+fillers.execute = function(r, opt, info, width, off)
   r.button.label:SetText(tostring(val(opt.name, info) or ""))
+  if r.button.label.SetJustifyH then r.button.label:SetJustifyH("CENTER") end
+  local bh = math.max(24, wrapLabel(r.button.label, (width or 200) - 16) + 10)
+  r.button:SetHeight(bh)
   r.button.off = off
   tooltip(r.button, opt, info)
   r.button:SetScript("OnClick", function()
@@ -614,7 +633,7 @@ fillers.execute = function(r, opt, info, _, off)
     call(opt.func, info)
     Panel.Refresh()
   end)
-  return 32
+  return bh + 8
 end
 
 makers.range = function()
@@ -647,10 +666,14 @@ local function fmtNum(v, step)
   if step and step < 1 then return (step < 0.1 and "%.2f" or "%.1f"):format(v) end
   return tostring(math.floor(v + 0.5))
 end
-fillers.range = function(r, opt, info, _, off)
+fillers.range = function(r, opt, info, width, off)
   local min, max, step = tonumber(opt.min) or 0, tonumber(opt.max) or 100, tonumber(opt.step) or 1
   r.label:SetText(tostring(val(opt.name, info) or ""))
+  local lh = wrapLabel(r.label, (width or 200) - 52)     -- room for the value on the right
   local s = r.slider
+  s:ClearAllPoints()
+  s:SetPoint("TOPLEFT", r, "TOPLEFT", 0, -(lh + 6))
+  s:SetPoint("TOPRIGHT", r, "TOPRIGHT", 0, -(lh + 6))
   s:SetScript("OnValueChanged", nil)
   s:SetMinMaxValues(min, max)
   if s.SetValueStep then s:SetValueStep(step) end
@@ -671,7 +694,7 @@ fillers.range = function(r, opt, info, _, off)
   end)
   r.last = cur
   s:SetScript("OnMouseUp", function() Panel.Refresh() end)
-  return 44
+  return lh + 30
 end
 
 makers.select = function()
@@ -687,8 +710,12 @@ makers.select = function()
   r.button.arrow:SetText("v")
   return r
 end
-fillers.select = function(r, opt, info, _, off)
+fillers.select = function(r, opt, info, width, off)
   r.label:SetText(tostring(val(opt.name, info) or ""))
+  local lh = wrapLabel(r.label, width or 200)
+  r.button:ClearAllPoints()
+  r.button:SetPoint("TOPLEFT", r, "TOPLEFT", 0, -(lh + 4))
+  r.button:SetPoint("TOPRIGHT", r, "TOPRIGHT", 0, -(lh + 4))
   local values = valM(opt.values, info)
   if type(values) ~= "table" then values = {} end
   local cur = valM(opt.get, info)
@@ -702,7 +729,7 @@ fillers.select = function(r, opt, info, _, off)
     if off then return end
     openMenu(self, entries, cur, function(key) call(opt.set, info, key); Panel.Refresh() end)
   end)
-  return 46
+  return lh + 32
 end
 
 makers.input = function()
@@ -726,9 +753,13 @@ makers.input = function()
   r.apply.label:SetText("Apply")
   return r
 end
-fillers.input = function(r, opt, info, _, off)
+fillers.input = function(r, opt, info, width, off)
   local multi = opt.multiline and true or false
   r.label:SetText(tostring(val(opt.name, info) or ""))
+  local lh = wrapLabel(r.label, (width or 200) - (multi and 68 or 0))
+  r.well:ClearAllPoints()
+  r.well:SetPoint("TOPLEFT", r, "TOPLEFT", 0, -(lh + 4))
+  r.well:SetPoint("BOTTOMRIGHT", r, "BOTTOMRIGHT", 0, 6)
   local e = r.edit
   e:SetMultiLine(multi)
   e:SetText(tostring(valM(opt.get, info) or ""))
@@ -743,7 +774,7 @@ fillers.input = function(r, opt, info, _, off)
   e:SetScript("OnEscapePressed", function(self) self:ClearFocus(); Panel.Refresh() end)
   if multi then r.apply:Show(); r.apply:SetScript("OnClick", commit) else r.apply:Hide() end
   tooltip(r.well, opt, info)
-  return multi and 110 or 48
+  return (multi and 110 or 48) + (lh - LINE_H)
 end
 
 makers.color = function()
@@ -752,12 +783,12 @@ makers.color = function()
   r.button:SetAllPoints(r)
   r.box = CreateFrame("Frame", nil, r)
   r.box:SetSize(28, 16)
-  r.box:SetPoint("LEFT", r, "LEFT", 0, 0)
+  r.box:SetPoint("TOPLEFT", r, "TOPLEFT", 0, -5)
   skin(r.box, RAISED, LINE)
   r.swatch = solid(r.box, "ARTWORK", CYAN)
   r.swatch:SetPoint("TOPLEFT", r.box, "TOPLEFT", 1, -1)
   r.swatch:SetPoint("BOTTOMRIGHT", r.box, "BOTTOMRIGHT", -1, 1)
-  labelOn(r):SetPoint("LEFT", r.box, "RIGHT", 8, 0)
+  labelOn(r):SetPoint("TOPLEFT", r.box, "TOPRIGHT", 8, -1)
   r.button.hover = function(on) setBorder(r.box, on and CYAN or LINE) end
   return r
 end
@@ -783,8 +814,9 @@ local function pickColor(cr, cg, cb, ca, hasAlpha, apply)
     cp:Hide(); cp:Show()
   end
 end
-fillers.color = function(r, opt, info, _, off)
+fillers.color = function(r, opt, info, width, off)
   r.label:SetText(tostring(val(opt.name, info) or ""))
+  local lh = wrapLabel(r.label, (width or 200) - 36)
   local cr, cg, cb, ca = valM(opt.get, info)
   cr, cg, cb, ca = tonumber(cr) or 1, tonumber(cg) or 1, tonumber(cb) or 1, tonumber(ca) or 1
   r.swatch:SetColorTexture(cr, cg, cb, 1)
@@ -796,7 +828,7 @@ fillers.color = function(r, opt, info, _, off)
       r.swatch:SetColorTexture(nr, ng, nb, 1)
     end)
   end)
-  return 26
+  return math.max(26, lh + 12)
 end
 
 makers.widget = function() return rowFrame() end

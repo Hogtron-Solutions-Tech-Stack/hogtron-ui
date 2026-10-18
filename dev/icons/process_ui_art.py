@@ -31,6 +31,9 @@ SHEETS = {
                 "tray_meter"],
     "icons_d": ["tray_plates", "tray_lock", "tray_bind", "tray_hover", "tray_minimap", "tray_quest", "tray_timer",
                 "tray_gold", "brand_boar"],
+    # 2026-10-17: Forever's Legacy micro button + a generic glyph for any button we have no art for. None = a spare
+    # tile (other legacy variants, swing, housing, bell, calendar, torch) kept in raw/ only.
+    "icons_e": ["micro_legacy", None, None, "micro_other", None, None, None, None, None],
 }
 EMBLEMS = {
     "info_a": ["info_gold", "info_durability", "info_bags", "info_fps", "info_latency", "info_time", "info_coords",
@@ -95,6 +98,8 @@ def do_sheets(table, size, pad, suffix, dry):
         m = mask_of(rgb, bg)
         boxes = components(m, len(names))
         for name, box in zip(names, boxes):
+            if not name:
+                continue
             img = cut(rgb.astype(np.uint8), m, box, size, pad)
             dest = MEDIA / f"{name}{suffix}.tga"
             print(("would write " if dry else "wrote ") + f"{dest.name} {img.size} from {sheet} box {box} (bg {bg.astype(int).tolist()})")

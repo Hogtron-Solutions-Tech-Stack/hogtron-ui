@@ -160,7 +160,10 @@ function WM.Skin(f)
   local hidden = 0
   local function strip(fr)
     if type(fr) ~= "table" or type(fr.GetRegions) ~= "function" then return end
-    for _, r in ipairs({ call(fr.GetRegions, fr) }) do
+    -- every region: { call(...) } kept only the first two (this file's call() returns two values)
+    local res = { pcall(fr.GetRegions, fr) }
+    for i = 2, (res[1] and #res or 1) do
+      local r = res[i]
       if type(r) == "table" and not r.hhOurs and r.GetObjectType and call(r.GetObjectType, r) == "Texture" then
         call(r.SetAlpha, r, 0)
         hidden = hidden + 1

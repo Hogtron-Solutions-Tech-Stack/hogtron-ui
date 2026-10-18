@@ -103,6 +103,11 @@ def click_pick(lua, i):
 
 
 # ================================================================================================ mute
+def ic(name, size=14):
+    """The inline icon escape Dialog.Icon writes for a HogTronUI/Media file."""
+    return "|T" + "\\".join(["Interface", "AddOns", "HogTronUI", "Media", name]) + f":{size}:{size}:2:0|t"
+
+
 def test_blizzard_frames_stop_hearing_their_page_events_and_get_them_back(dlg):
     assert dlg.eval('QuestFrame:IsEventRegistered("QUEST_DETAIL")') is False
     assert dlg.eval('QuestFrame:IsEventRegistered("QUEST_FINISHED")') is False
@@ -159,8 +164,8 @@ def test_detail_page_text_xp_share_and_accept(dlg):
     assert dlg.eval("HogTronUIDialog.title:GetText()") == "Wolves Across the Border"
     assert dlg.eval("HogTronUIDialog.body:GetText()").startswith("Those wolves")
     assert dlg.eval("HogTronUIDialog.objectives:GetText()").startswith("Bring 8")
-    assert dlg.eval("HogTronUIDialog.xp:GetText()") == "+1,250 XP  (14% of a level)"
-    assert dlg.eval("HogTronUIDialog.money:GetText()") == "7s 50c"
+    assert dlg.eval("HogTronUIDialog.xp:GetText()") == ic("reward_xp") + " +1,250 XP  (14% of a level)"
+    assert dlg.eval("HogTronUIDialog.money:GetText()") == "7" + ic("coin_silver") + "  50" + ic("coin_copper")
     assert dlg.eval("HogTronUIDialog.primary.label:GetText()") == "Accept"
     assert dlg.eval("HogTronUIDialog.secondary.label:GetText()") == "Decline"
     assert bound(dlg, "SPACE") == "HogTronUIDialogPrimary"
@@ -352,7 +357,7 @@ def test_preview_needs_no_npc_and_sends_nothing(dlg):
 
 def test_max_level_drops_the_share(dlg):
     dlg.execute('MockUnits.player.level = 60; MockFire("QUEST_DETAIL")')
-    assert dlg.eval("HogTronUIDialog.xp:GetText()") == "+1,250 XP"
+    assert dlg.eval("HogTronUIDialog.xp:GetText()") == ic("reward_xp") + " +1,250 XP"
 
 
 def test_pure_helpers(dlg):
@@ -423,3 +428,42 @@ def test_rewards_are_icon_tiles_two_to_a_row_in_colours_that_read_on_paper(dlg):
     assert green == pytest.approx([0.08, 0.42, 0.02])                 # Blizzard's bright green would vanish on parchment
     assert dlg.eval("HogTronUIDialogRow1.icon._texture") == 1
     assert dlg.eval("HogTronUIDialogRow1.key.text:IsShown()") is False  # an offer is not picked on the detail page
+
+
+
+# ---------------------------------------------------------------- reward polish (Sean 2026-10-17, a turn-in page in game)
+# "the text gets close to the 2" / "images for the currency received instead of S or C" / "a small image for XP that
+# is slightly different" / "the spacing on the bottom left with the left button and the bottom of the dialog box".
+def test_money_is_coin_icons_and_zero_coins_are_left_out(dlg):
+    icon = lambda c: ic("coin_" + c)
+    assert dlg.eval(f"{D}.Money(600, 14)") == "6" + icon("silver")                      # was "6s 0c"
+    assert dlg.eval(f"{D}.Money(1234567, 14)") == "123" + icon("gold") + "  45" + icon("silver") + "  67" + icon("copper")
+    assert dlg.eval(f"{D}.Money(5, 14)") == "5" + icon("copper")
+    assert dlg.eval(f"{D}.Money(0, 14)") is None and dlg.eval(f"{D}.Money(nil, 14)") is None
+    assert "s " not in dlg.eval(f"{D}.Money(600, 14)") and not dlg.eval(f"{D}.Money(600, 14)").endswith("c")
+
+
+def test_the_reward_icons_ship_with_the_addon():
+    import pathlib
+    media = pathlib.Path(__file__).resolve().parent.parent / "HogTronUI" / "Media"
+    for n in ("coin_gold", "coin_silver", "coin_copper", "reward_xp"):
+        assert (media / f"{n}.tga").exists(), n
+
+
+def test_a_reward_name_stops_short_of_its_number_chip(dlg):
+    dlg.execute('CHOICES = { { "Hunter\'s Simple Cloak", 1, 1, 2 }, { "Highlands Defender\'s Shield", 2, 1, 2 } }; MockFire("QUEST_COMPLETE")')
+    for i in (1, 2):
+        r = f"HogTronUIDialogRow{i}"
+        assert dlg.eval(f"{r}.key.text:IsShown()") is True
+        text_right = dlg.eval(f"{r}.text._points[1][4]") + dlg.eval(f"{r}.text:GetWidth()")
+        chip_left = dlg.eval(f"{r}.key.bg.box.x")
+        assert chip_left - text_right >= 8, (text_right, chip_left)
+
+
+def test_the_button_row_clears_the_torn_bottom_edge(dlg):
+    dlg.execute('MockFire("QUEST_DETAIL")')
+    W, H = dlg.eval("HogTronUIDialog:GetWidth()"), dlg.eval("HogTronUIDialog:GetHeight()")
+    s = W / 512
+    top = -dlg.eval("HogTronUIDialogPrimary._points[1][5]")                  # TOPLEFT y below the frame's top
+    gap = H - (top + dlg.eval("HogTronUIDialogPrimary:GetHeight()"))           # paper under the buttons, px
+    assert gap >= (46 + 10) * s, (gap, s)                                     # the art's worst tear is 46 px (x 56)
