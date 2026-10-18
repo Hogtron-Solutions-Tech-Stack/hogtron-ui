@@ -596,3 +596,179 @@ def test_secret_state_is_left_alone_and_the_diag_counts(bars):
     assert "CAST_STOP=1" in lines[0]
     assert any("bar1 #1 action 7" in l for l in lines)
     assert bars.eval("#HogHeals.errors") == 0
+
+
+# ---------------------------------------------------------------- Blizzard's main bar art (2026-10-17)
+# Sean, a brand-new character: gryphons, the slot frame with its dividers and the page arrows all drawn under our
+# bars. WoW: Forever names the bar MainActionBar (every MainMenuBar.* art path sat in skin.missing on disk) and keeps
+# the art under keys of the bar; Edit Mode's "Hide Bar Art" had been hiding it on the older characters only.
+FOREVER_MAIN = r'''
+MainMenuBar = nil                                   -- renamed on this engine
+MainActionBar = CreateFrame("Frame", "MainActionBar", UIParent)
+local bar = MainActionBar
+bar.EndCaps = CreateFrame("Frame", nil, bar)
+bar.EndCaps.LeftEndCap = bar.EndCaps:CreateTexture(); bar.EndCaps.LeftEndCap:SetAtlas("ui-hud-actionbar-gryphon-left")
+bar.EndCaps.RightEndCap = bar.EndCaps:CreateTexture(); bar.EndCaps.RightEndCap:SetAtlas("ui-hud-actionbar-gryphon-right")
+bar.BorderArt = bar:CreateTexture(); bar.BorderArt:SetAtlas("ui-hud-actionbar-frame")
+bar.Background = bar:CreateTexture()
+bar.ActionBarPageNumber = CreateFrame("Frame", nil, bar)
+bar.ActionBarPageNumber.UpButton = CreateFrame("Button", nil, bar.ActionBarPageNumber)
+HH_divider = CreateFrame("Frame", nil, bar)                    -- from Blizzard's divider pool
+HH_secure = CreateFrame("CheckButton", nil, bar)               -- a secure button is never art
+for i = 1, 12 do _G["ActionButton" .. i]:SetParent(bar) end    -- the buttons live on the bar on this engine
+function bar:UpdateDividers() HH_newDivider = CreateFrame("Frame", nil, self) end
+function bar:UpdateEndCaps(hide) self.EndCaps:SetShown(not hide) end
+'''
+
+
+@pytest.fixture
+def forever(lua):
+    lua.execute(CLIENT + FOREVER_MAIN)
+    lua.load_addon("HogTronUI")
+    lua.load_addon("HogTron_Bars")
+    lua.player_login()
+    return lua
+
+
+def test_forever_main_bar_art_goes_and_the_bar_frame_stays(forever):
+    b = "MainActionBar"
+    for piece in (f"{b}.EndCaps", f"{b}.ActionBarPageNumber", "HH_divider"):
+        assert forever.eval(f"{piece}:IsShown()") is False and forever.eval(f"{piece}._alpha") == 0, piece
+    for tex in (f"{b}.BorderArt", f"{b}.Background"):
+        assert forever.eval(f"{tex}._alpha") == 0, tex
+    # the frame itself is left where it is; the buttons went under the hider; a secure button is never touched
+    assert forever.eval(f"{b}:IsShown()") is True and forever.eval(f"{b}:GetParent() == UIParent") is True
+    assert forever.eval("ActionButton1:GetParent() == HogHealsBarsHider") is True
+    assert forever.eval("HH_secure:IsShown()") is True and forever.eval("HH_secure._alpha") == 1
+    art = forever.eval("HogHealsBars.Bars.mainArt")
+    assert art["kind"] == "modern:MainActionBar" and art["count"] >= 5
+    assert errors(forever) == []
+
+
+def test_forever_main_bar_art_stays_gone_when_blizzard_redraws_it(forever):
+    b = "MainActionBar"
+    forever.execute(f"{b}:UpdateEndCaps(false)")                       # Blizzard's own SetShown(true)
+    assert forever.eval(f"{b}.EndCaps:IsShown()") is False
+    forever.execute(f"{b}.EndCaps:Show(); {b}.BorderArt:SetAlpha(1); {b}.ActionBarPageNumber:SetShown(true)")
+    assert forever.eval(f"{b}.EndCaps:IsShown()") is False and forever.eval(f"{b}.BorderArt._alpha") == 0
+    assert forever.eval(f"{b}.ActionBarPageNumber:IsShown()") is False
+    forever.execute(f"{b}:UpdateDividers()")                           # a layout change draws new dividers
+    assert forever.eval("HH_newDivider:IsShown()") is False and forever.eval("HH_newDivider._alpha") == 0
+    # bars switched off: Blizzard may show its art again (it is back in full after the /reload the switch asks for)
+    forever.execute(f"HogHeals.db.profile.bars.enabled = false; {b}.EndCaps:Show()")
+    assert forever.eval(f"{b}.EndCaps:IsShown()") is True
+    assert errors(forever) == []
+
+
+def test_barsdiag_names_the_main_bar_art_it_hid(forever):
+    forever.execute('MockLog.chat = {}; HogHeals:SlashCommand("barsdiag")')
+    chat = [l for l in forever.eval("MockLog.chat").values()]
+    assert any("main bar art: modern:MainActionBar" in l for l in chat)
+    d = forever.eval("HogHeals.db.global.diag.barsMainArt")
+    assert d["kind"] == "modern:MainActionBar" and d["count"] >= 5 and "MainActionBar.EndCaps" in d["names"]
+
+
+def test_classic_main_bar_art_goes_but_its_xp_bar_and_frame_stay(lua):
+    lua.execute(CLIENT + r'''
+      MainMenuBarLeftEndCap = MainMenuBar:CreateTexture("MainMenuBarLeftEndCap"); MainMenuBarLeftEndCap:SetTexture("gryphon")
+      MainMenuBarTexture0 = MainMenuBar:CreateTexture("MainMenuBarTexture0"); MainMenuBarTexture0:SetTexture("art")
+      MainMenuExpBar = CreateFrame("StatusBar", "MainMenuExpBar", MainMenuBar)
+    ''')
+    lua.load_addon("HogTronUI")
+    lua.load_addon("HogTron_Bars")
+    lua.player_login()
+    assert lua.eval("MainMenuBarLeftEndCap._alpha") == 0 and lua.eval("MainMenuBarTexture0._alpha") == 0
+    assert lua.eval("MainMenuExpBar:IsShown()") is True and lua.eval("MainMenuExpBar._alpha") == 1   # not generic here
+    assert lua.eval("MainMenuBar:IsShown()") is True
+    assert lua.eval("HogHealsBars.Bars.mainArt.kind") == "classic"
+    assert errors(lua) == []
+
+
+def test_bars_off_leaves_blizzards_main_bar_art_to_blizzard(lua):
+    lua.execute(CLIENT + FOREVER_MAIN + 'HogTronUIDB = { profiles = { Default = { bars = { enabled = false } } } }')
+    lua.load_addon("HogTronUI")
+    lua.load_addon("HogTron_Bars")
+    lua.player_login()
+    assert lua.eval("MainActionBar.EndCaps:IsShown()") is True and lua.eval("MainActionBar.EndCaps._alpha") == 1
+    assert errors(lua) == []
+
+
+def test_skin_clears_forevers_gryphons_when_bars_is_off(lua):
+    lua.execute(CLIENT + FOREVER_MAIN)
+    lua.load_addon("HogTronUI")
+    lua.load_addon("HogTron_Skin")
+    lua.player_login()
+    assert lua.eval("MainActionBar.EndCaps.LeftEndCap._alpha") == 0
+    assert lua.eval("MainActionBar.EndCaps.RightEndCap._alpha") == 0
+    assert lua.eval("MainActionBar.BorderArt._alpha") == 0
+    assert [e["msg"] for e in lua.eval('HogHeals.errors').values()] == []
+
+
+
+# ---------------------------------------------------------------- the lower half of bar 1 (2026-10-17, third report)
+def test_our_bars_sit_above_blizzards_bottom_frames(forever):
+    assert forever.eval("HogUIBar1:GetFrameLevel()") == forever.eval("HogHealsBars.Bars.LEVEL")
+    assert forever.eval("HogUIBar1.buttons[1]:GetFrameLevel()") > forever.eval("HogHealsBars.Bars.LEVEL")
+
+
+def test_blizzards_emptied_main_bar_takes_no_mouse(forever):
+    assert forever.eval("MainActionBar._last.EnableMouse[1]") is False
+
+
+def test_whoever_holds_the_mouse_inside_bar_1_is_recorded(forever):
+    forever.execute("""
+      function HogUIBar1:IsMouseOver() return true end
+      HH_focus = MainActionBar
+      function GetMouseFoci() return { HH_focus } end
+    """)
+    B = "HogHealsBars.Bars"
+    assert "MainActionBar < UIParent [" in forever.eval(f"{B}.MouseProbe()")
+    forever.execute(f"{B}.MouseProbe()")
+    assert "MainActionBar < UIParent" in forever.eval("HogHeals.db.global.diag.barsMouse.list") and " x2" in forever.eval("HogHeals.db.global.diag.barsMouse.list")
+    forever.execute("HH_focus = HogUIBar1.buttons[3]")
+    assert forever.eval(f"{B}.MouseProbe()") == "ours"
+    forever.execute("HH_focus = nil")
+    assert forever.eval(f"{B}.MouseProbe()").startswith("nothing")
+    forever.execute('MockLog.chat = {}; HogHeals:SlashCommand("barsdiag")')
+    assert any("who had the mouse inside bar 1" in l and "MainActionBar" in l for l in forever.eval("MockLog.chat").values())
+
+
+
+# ---------------------------------------------------------------- what you see = what you can click (2026-10-17)
+# in game diag.barsMouse: inside bar 1, "nothing (no frame takes the mouse here)" - the template's icon / cooldown hung
+# out past the (smaller) button, so the bottom of the icon had no button under it.
+def test_icon_and_cooldowns_are_pinned_to_the_button_and_the_hit_area_is_its_edges(bars):
+    bars.execute("""
+      HH_b = CreateFrame("CheckButton", "HH_b", UIParent)
+      HH_b.icon = HH_b:CreateTexture(); HH_b.icon:SetPoint("TOPLEFT", HH_b, "TOPLEFT", 0, 0); HH_b.icon:SetSize(45, 45)
+      HH_b.cooldown = CreateFrame("Cooldown", nil, HH_b); HH_b.cooldown:SetPoint("TOPLEFT", HH_b.icon, "TOPLEFT", 2, -2)
+      HogHealsBars.Bars.PinToButton(HH_b)
+    """)
+    for k in ("icon", "cooldown"):
+        assert bars.eval(f"HH_b.{k}._points[1][1]") == "ALL" and bars.eval(f"HH_b.{k}._points[1][2] == HH_b") is True, k
+        assert bars.eval(f"#HH_b.{k}._points") == 1, k                                  # the template's own anchor is gone
+    assert list(bars.eval("HH_b._last.SetHitRectInsets").values()) == [0, 0, 0, 0]
+    assert bars.eval("HogUIBar1.buttons[1]._last.SetHitRectInsets ~= nil") is True                  # every bar button dressed so
+
+
+def test_the_geometry_of_bar_1_saves_itself(bars):
+    bars.execute("HogHealsBars.Bars.SaveGeometry()")
+    lines = bars.eval("HogHeals.db.global.diag.barsGeometry.lines")
+    assert "bar 1:" in lines and "button 1:" in lines and "its icon:" in lines and "hit insets" in lines
+
+
+def test_hidden_frame_positions_still_leave_a_geometry_record(bars):
+    bars.execute("""
+      MockSetSecrets(true)
+      local b = HogUIBar1.buttons[1]
+      function b:GetLeft() return MockSecret(10) end
+      HogHealsBars.Bars.SaveGeometry()
+      MockSetSecrets(false)
+    """)
+    assert "button 1: LS" in bars.eval("HogHeals.db.global.diag.barsGeometry.lines")
+
+
+def test_the_geometry_record_reads_all_four_hit_insets(bars):
+    # Sean's 2026-10-17 save read "hit insets 0 0 nil nil": the helper keeps two values
+    bars.execute("local b = HogUIBar1.buttons[1]; function b:GetHitRectInsets() return 0, 1, 2, 3 end; HogHealsBars.Bars.SaveGeometry()")
+    assert "hit insets 0 1 2 3" in bars.eval("HogHeals.db.global.diag.barsGeometry.lines")
