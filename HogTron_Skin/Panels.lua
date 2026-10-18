@@ -18,6 +18,9 @@ Part.NAMES = {
   "TabardFrame", "GuildRegistrarFrame", "PetitionFrame", "ReadyCheckFrame", "StaticPopup1", "StaticPopup2", "StaticPopup3",
   "InterfaceOptionsFrame", "SettingsPanel", "VideoOptionsFrame", "ChatConfigFrame", "TimeManagerFrame", "CalendarFrame",
   "AchievementFrame", "EncounterJournal", "CollectionsJournal", "GroupFinderFrame", "PVEFrame", "StopwatchFrame",
+  -- WoW: Forever's social window (Friends / Who / Raid tabs down its right side): SocialUIFrame, not FriendsFrame - named
+  -- by /hh under in game 2026-10-17 (Sean: "the Friends list ... I don't know that we ever did that" - it never was)
+  "SocialUIFrame",
 }
 local wanted = {}
 for _, n in ipairs(Part.NAMES) do wanted[n] = true end
@@ -210,6 +213,26 @@ function Part.Tabs(f, name)
   end
 end
 
+-- Named Blizzard pieces a window keeps after the strip (its own /hh skindiag leftovers): cleared by key path. Sean
+-- 2026-10-17, the Friends window (SocialUIFrame) still showed the Battle.net bar's two backgrounds
+-- (friends-frame-infoBG, 632259) and the friends list's two dividers (perks-divider-short). Its scroll bar track stays
+-- (a control, not decoration).
+Part.PIECES = {
+  SocialUIFrame = { "BattleNetBar.Background", "BattleNetBar.ControlsContainer.BattleNetBackground", "FriendsList.TopDivider", "FriendsList.BottomDivider" },
+}
+
+function Part.KillPieces(f, name)
+  local list = Part.PIECES[name]
+  if not list then return 0 end
+  local n = 0
+  for _, path in ipairs(list) do
+    local t = f
+    for key in path:gmatch("[^%.]+") do t = type(t) == "table" and rawget(t, key) or nil end
+    if type(t) == "table" and Skin.Kill(t) then n = n + 1 end
+  end
+  return n
+end
+
 function Part.StyleOnce(f, name)
   local d = Skin.cfg().panels
   f.hhPanel = Skin.Panel(f, f, 0, d and d.alpha or 0.9)
@@ -315,6 +338,7 @@ function Part.Style(f)
   local first = f.hhPanel == nil
   local ok, err = xpcall(function()
     Part.Strip(f, name)
+    Part.KillPieces(f, name)
     if first then Part.StyleOnce(f, name) end
     if Part.PARCHMENT[name] then Part.Parchment(f) end
   end, HH.Trace or debugstack)
