@@ -58,6 +58,7 @@ function Options.Table()
         hideBorders = { type = "toggle", name = "Hide Blizzard's bar border (the yellow line)", order = 7.1,
           get = function() return p().hideBorders ~= false end, set = function(_, v) p().hideBorders = v and true or false; refresh() end },
         friendlyNameOnly = toggle(p, "friendlyNameOnly", "Friendly plates: name only (no health bar)", 7.5),
+        hideDeadBars = toggle(p, "hideDeadBars", "Dead units: name only (no 0% bar on a corpse)", 7.55),
         nameAlign = { type = "select", name = "Name over the bar", order = 7.6, values = { left = "Left, lined up with the bar", center = "Centred" },
           get = function() return p().nameAlign or "left" end, set = function(_, v) p().nameAlign = v refresh() end },
         friendlyNameSize = range(p, "friendlyNameSize", "Friendly name text size", 7.6, 8, 24, 1),
