@@ -80,3 +80,20 @@ def test_the_zip_gate_holds_a_module_zip_to_exactly_its_folder(tmp_path):
     bad = module_zip(tmp_path, "HogTron_Chat", extra_top="HogTron_Training")
     problems = GATE.check(bad, None, ["HogTron_Chat"])
     assert any("HogTron_Training: top-level entry that is not an addon folder" in p for p in problems)
+
+
+def test_every_project_exists_on_curseforge_and_nothing_uploads_until_live():
+    # 2026-10-18: all 14 projects created (ids + slugs filled); uploads stay off until the bundle is converted
+    cfg = json.loads((ROOT / "dev" / "split" / "projects.json").read_text(encoding="utf-8"))
+    for p in [cfg["core"]] + cfg["modules"]:
+        assert p["curse_id"].isdigit() and p["slug"].startswith("hogtron-ui"), p
+    assert cfg["live"] is False
+    assert all(r["curse_id"] == "" for r in json.loads(MK.matrix()))
+    cfg["live"] = True
+    MK_load = MK.load
+    try:
+        MK.load = lambda: cfg
+        rows = json.loads(MK.matrix())
+    finally:
+        MK.load = MK_load
+    assert all(r["curse_id"].isdigit() for r in rows)

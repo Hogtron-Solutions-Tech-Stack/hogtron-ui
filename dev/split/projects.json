@@ -1,5 +1,6 @@
 {
-  "_readme": "One CurseForge project per entry. curse_id empty = built and checked on every PR, never uploaded. Fill curse_id (and slug) once the project exists on CurseForge, then run: python dev/split/make_pkgmeta.py --write. Plan + migration: docs/superpowers/research/curseforge-split.md",
+  "_readme": "One CurseForge project per entry (all created 2026-10-18). live=false: every project is built and zip-gated on every run but NOTHING uploads to the per-module projects - flip live to true in the same PR that turns the all-in-one project (bundle) into the everything-package, or the same folders ship in two projects. Plan + migration: docs/superpowers/research/curseforge-split.md",
+  "live": false,
   "bundle": {
     "title": "HogTron UI",
     "curse_id": "1744106",
@@ -12,87 +13,87 @@
       "HogHeals",
       "HogTronUI"
     ],
-    "slug": "",
-    "curse_id": ""
+    "slug": "hogtron-ui-core",
+    "curse_id": "1753233"
   },
   "modules": [
     {
       "name": "HogTron_Bars",
       "title": "HogTron UI: Action Bars",
-      "slug": "",
-      "curse_id": ""
+      "slug": "hogtron-ui-action-bars",
+      "curse_id": "1753242"
     },
     {
       "name": "HogTron_HUD",
       "title": "HogTron UI: HUD (cast bar, swing, mana)",
-      "slug": "",
-      "curse_id": ""
+      "slug": "hogtron-ui-hud",
+      "curse_id": "1753246"
     },
     {
       "name": "HogTron_Plates",
       "title": "HogTron UI: Nameplates",
-      "slug": "",
-      "curse_id": ""
+      "slug": "hogtron-ui-nameplates",
+      "curse_id": "1753248"
     },
     {
       "name": "HogTron_Units",
       "title": "HogTron UI: Unit Frames",
-      "slug": "",
-      "curse_id": ""
+      "slug": "hogtron-ui-unit-frames",
+      "curse_id": "1753252"
     },
     {
       "name": "HogHeals_Frames",
       "title": "HogTron UI: Healer Frames (HogHeals)",
-      "slug": "",
-      "curse_id": ""
+      "slug": "hogtron-ui-healer-frames",
+      "curse_id": "1753254"
     },
     {
       "name": "HogTron_Quests",
       "title": "HogTron UI: Quests & Map",
-      "slug": "",
-      "curse_id": ""
+      "slug": "hogtron-ui-quests-map",
+      "curse_id": "1753256"
     },
     {
       "name": "HogTron_Skin",
       "title": "HogTron UI: Skin",
-      "slug": "",
-      "curse_id": ""
+      "slug": "hogtron-ui-skin",
+      "curse_id": "1753257"
     },
     {
       "name": "HogTron_Meter",
       "title": "HogTron UI: Meter",
-      "slug": "",
-      "curse_id": ""
+      "slug": "hogtron-ui-meter",
+      "curse_id": "1753259"
     },
     {
       "name": "HogTron_Atlas",
       "title": "HogTron UI: Atlas",
-      "slug": "",
-      "curse_id": ""
+      "slug": "hogtron-ui-atlas",
+      "curse_id": "1753261"
     },
     {
       "name": "HogTron_Awards",
       "title": "HogTron UI: Awards",
-      "slug": "",
-      "curse_id": ""
+      "slug": "hogtron-ui-awards",
+      "curse_id": "1753262"
     },
     {
       "name": "HogTron_Journal",
       "title": "HogTron UI: Journal",
-      "slug": "",
-      "curse_id": ""
+      "slug": "hogtron-ui-journal",
+      "curse_id": "1753263"
     },
     {
       "name": "HogTron_Chat",
       "title": "HogTron UI: Chat",
-      "slug": "",
-      "curse_id": ""
+      "slug": "hogtron-ui-chat",
+      "curse_id": "1753264"
     },
     {
       "name": "HogTron_Training",
       "title": "HogTron UI: Training",
-      "slug": "",
-      "curse_id": ""
+      "slug": "hogtron-ui-training",
+      "curse_id": "1753265"
     }
   ]
 }

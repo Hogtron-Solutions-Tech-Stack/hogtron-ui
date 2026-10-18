@@ -47,13 +47,23 @@ The packager we already use (BigWigsMods/packager) supports exactly this, per it
   nothing, and the all-in-one release is untouched.
 - `tests/test_split_packaging.py` - every addon folder in exactly one project, configs current, gate behaviour.
 
-## What Sean does to go live (in this order)
+## Status (2026-10-18)
 
-1. On CurseForge, create **HogTron UI Core** and the 13 module projects (WoW addon, same category / art as HogTron UI;
-   descriptions can reuse `docs/curseforge/description.md`). ~5 min each.
-2. Send me each project's **id** and **slug** (both on the project page). I fill `dev/split/projects.json`, regenerate,
-   and turn 1744106 into the everything-package (stub folder + required dependencies) in one PR.
-3. Tag the next release. Core + modules upload as their own files; 1744106 uploads the everything-package.
+- **All 14 projects exist** (created through a scripted Chrome window on Sean's account, his approval per project set):
+  HogTron UI Core 1753233 (`hogtron-ui-core`) and the 13 modules 1753242 - 1753265 - ids and slugs in
+  `dev/split/projects.json`. CurseForge holds each new project for moderator review; a project only shows publicly
+  once approved (moderators usually look at the first file).
+- Every module's packager config now requires `hogtron-ui-core`.
+- **`live` is false**: every project is built and zip-gated on every run, nothing uploads to them yet.
+
+## Going live (one PR, then a tag)
+
+1. Turn today's project 1744106 ("HogTron UI") into the everything-package: its .pkgmeta ships a small stub folder and
+   `required-dependencies` on `hogtron-ui-core` + the 13 module slugs.
+2. Flip `live` to true in `dev/split/projects.json` in that same PR (never on its own: the same folders would ship in
+   two projects).
+3. Tag a beta, install it on a second machine through the CurseForge app (both a fresh install and an update of the
+   old all-in-one), then a public tag.
 
 ## Risks / open questions
 

@@ -88,7 +88,10 @@ def build() -> dict[str, str]:
 
 
 def matrix() -> str:
-    rows = [{"name": p["name"], "folders": ",".join(p["folders"]), "curse_id": p["curse_id"]} for p in projects(load())]
+    """curse_id is handed to the upload step only while projects.json says live: true (see its _readme)."""
+    cfg = load()
+    live = cfg.get("live") is True
+    rows = [{"name": p["name"], "folders": ",".join(p["folders"]), "curse_id": p["curse_id"] if live else ""} for p in projects(cfg)]
     return json.dumps(rows, separators=(",", ":"))
 
 
