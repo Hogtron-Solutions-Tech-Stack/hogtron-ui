@@ -286,6 +286,7 @@ step("plates", "Nameplates", "Plates", function()
     quest = toggle("plates.quest.icon", "Quest mobs: ! and progress (2/7)", { module = "Plates", width = "normal" }),
     die = toggle("plates.die.enabled", "Does it die? (skull when your DoT outlasts the mob)", { module = "Plates", width = "normal" }),
     glow = toggle("plates.objectGlow.enabled", "Glow on ore, herbs, chests and quest objects nearby", { module = "Plates", width = "normal" }),
+    glowAround = toggle("plates.objectGlow.anyDirection", "... the nearest one in any direction, not only straight ahead", { module = "Plates", width = "normal" }),
     aggro = toggle("plates.aggro.warn", "Red outline when a mob is on you", { module = "Plates", width = "normal" }),
     friendlyName = toggle("plates.friendlyNameOnly", "Friendly players: name only", { module = "Plates", width = "normal" }),
     pets = toggle("plates.friendlyPets", "Plates for pets and minions", { module = "Plates", width = "normal", reload = true }),
