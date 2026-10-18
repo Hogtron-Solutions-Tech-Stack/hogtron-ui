@@ -766,3 +766,9 @@ def test_hidden_frame_positions_still_leave_a_geometry_record(bars):
       MockSetSecrets(false)
     """)
     assert "button 1: LS" in bars.eval("HogHeals.db.global.diag.barsGeometry.lines")
+
+
+def test_the_geometry_record_reads_all_four_hit_insets(bars):
+    # Sean's 2026-10-17 save read "hit insets 0 0 nil nil": the helper keeps two values
+    bars.execute("local b = HogUIBar1.buttons[1]; function b:GetHitRectInsets() return 0, 1, 2, 3 end; HogHealsBars.Bars.SaveGeometry()")
+    assert "hit insets 0 1 2 3" in bars.eval("HogHeals.db.global.diag.barsGeometry.lines")
