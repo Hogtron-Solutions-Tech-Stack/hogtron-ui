@@ -219,3 +219,19 @@ def test_locking_hides_every_box_and_grip(ed):
     assert ed.eval("HogHeals.EditMode.grips['unit:player']:IsShown()") is False
     assert ed.eval("HogHeals.EditMode.grips['hud:castbar']:IsShown()") is False
     assert errors(ed) == []
+
+
+def test_a_detached_bars_box_drags_that_bar_alone_and_saves_its_spot(ed):
+    ed.execute('local d = HogHeals.db.profile.hud; d.castbar.detached, d.castbar.x, d.castbar.y = true, 0, 0; HogHealsHUD.HUD.Refresh(); HogHeals:SlashCommand("unlock")')
+    t = target(ed, "hud:castbar")
+    assert ed.eval(f"{t}.mover == HogHealsHUD.HUD.rows.castbar") is True
+    assert ed.eval(f"{t}.title") == "Cast bar (on its own)"
+    b = "HogHeals.EditMode.boxes['hud:castbar']"
+    ed.execute(f'''HH_strip, HH_bar = 0, 0
+      HogHealsHUDAnchor.StartMoving = function() HH_strip = HH_strip + 1 end
+      HogHealsHUD.HUD.rows.castbar.StartMoving = function() HH_bar = HH_bar + 1 end
+      HogHealsHUD.HUD.rows.castbar.GetCenter = function() return 1060, 600 end
+      {b}:GetScript("OnDragStart")({b}); {b}:GetScript("OnDragStop")({b})''')
+    assert ed.eval("HH_bar") == 1 and ed.eval("HH_strip") == 0                    # the bar moved, not the strip
+    assert ed.eval("HogHeals.db.profile.hud.castbar.x") == 100 and ed.eval("HogHeals.db.profile.hud.castbar.y") == 60
+    assert errors(ed) == []
