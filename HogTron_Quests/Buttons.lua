@@ -22,7 +22,8 @@ local CREAM = { 0.96, 0.92, 0.86 }
 local GREY = { 0.55, 0.55, 0.60 }
 local CELL = { 0.17, 0.17, 0.21 }   -- the square under each icon: lighter than the drawer so dark icons read
 local PAD = 4          -- gap between cells and to the drawer edge
-local LAUNCHER = 18    -- the H button, px (the minimap header is 20)
+local BOAR = "Interface\\AddOns\\HogTronUI\\Media\\brand_launcher"
+local LAUNCHER = 28    -- the H button, px (Sean 2026-10-17: 18 was "way smaller" than the map; the logo scales with it)
 local AWAY = 1.0       -- seconds the cursor must be off the drawer before it closes itself
 
 local function cfg() return HH.db.profile.quests.buttons end
@@ -118,15 +119,31 @@ local function build()
   -- the logo: an H drawn from three bars (cream uprights, cyan crossbar - the HOG / UI two-tone rule). No font
   -- involved, so it draws the same on every client.
   b.logo = {}
-  for _, x in ipairs({ -3.5, 3.5 }) do
+  -- proportions of the original 18 px drawing (uprights 3x10 at +-3.5, crossbar 8x2), scaled to LAUNCHER
+  local k = LAUNCHER / 18
+  for _, x in ipairs({ -3.5 * k, 3.5 * k }) do
     local bar = solid(b, "ARTWORK", CREAM)
-    bar:SetSize(3, 10)
+    bar:SetSize(math.floor(3 * k + 0.5), math.floor(10 * k + 0.5))
     bar:SetPoint("CENTER", b, "CENTER", x, 0)
     b.logo[#b.logo + 1] = bar
   end
   b.cross = solid(b, "ARTWORK", CYAN)
-  b.cross:SetSize(8, 2)
+  b.cross:SetSize(math.floor(8 * k + 0.5), math.floor(2 * k + 0.5))
   b.cross:SetPoint("CENTER", b, "CENTER", 0, 0)
+  -- the HogTron boar (Sean 2026-10-17: "now that it's a bigger icon, looks bad ... make it into a mini boar that is the
+  -- HogTron logo"): the logo's own head, cut from the brand vector layers (dev/icons/build_launcher_boar.py), with a
+  -- cyan rim for the dark tile. The drawn H stays as the fallback when the client refuses the file.
+  b.boar = b:CreateTexture(nil, "ARTWORK", nil, 2)
+  b.boar:SetPoint("TOPLEFT", b, "TOPLEFT", 1, -1)
+  b.boar:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -1, 1)
+  if b.boar:SetTexture(BOAR) == false then
+    b.boar:Hide()
+    Drawer.logoStyle = "H"
+  else
+    for _, bar in ipairs(b.logo) do bar:Hide() end
+    b.cross:Hide()
+    Drawer.logoStyle = "boar"
+  end
   b:SetScript("OnClick", function(_, button)
     if button == "RightButton" then
       if HH.OpenOptions then HH:OpenOptions() end
@@ -148,7 +165,7 @@ local function build()
     paintEdges(self.edges, CYAN)
     if cfg().hover then Drawer.Toggle(true) end
     if GameTooltip and GameTooltip.SetOwner then
-      GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+      Drawer.Tip(self)
       GameTooltip:AddLine("HogTron UI", CREAM[1], CREAM[2], CREAM[3])
       if cfg().hogui ~= false and HH.Tray then GameTooltip:AddLine(("%d settings, lock, key binds"):format(#HH.Tray.Available()), GREY[1], GREY[2], GREY[3]) end
       local n, shown = Drawer.Count()
@@ -182,6 +199,42 @@ local function build()
   d:Hide()
   Drawer.launcher, Drawer.frame = b, d
   return b
+end
+
+-- ------------------------------------------------------------------------------------------------ tooltips
+-- Sean 2026-10-17: "the tooltip of the name is kind of blocking the other buttons ... it should go underneath the
+-- logo", and the H's own tooltip sat over the drawer once it opened. Every drawer tooltip (the H, our cells, the
+-- collected addon buttons) docks BELOW the H: the drawer grows leftward and upward from it, so below is free. A drawer
+-- that opens downward (side "right") gets them on its left instead.
+function Drawer.TipPoint()
+  local tt, b, f = GameTooltip, Drawer.launcher, Drawer.frame
+  if not tt or not b then return nil end
+  if tt.SetAnchorType then call(tt.SetAnchorType, tt, "ANCHOR_NONE") end
+  call(tt.ClearAllPoints, tt)
+  if Drawer.side == "right" and f then
+    call(tt.SetPoint, tt, "TOPRIGHT", f, "TOPLEFT", -4, 0)
+    Drawer.tipAt = "left"
+  else
+    call(tt.SetPoint, tt, "TOPRIGHT", b, "BOTTOMRIGHT", 0, -4)
+    Drawer.tipAt = "below"
+  end
+  return Drawer.tipAt
+end
+
+--- Own the tooltip for `owner` and dock it (fresh: SetOwner clears the lines).
+function Drawer.Tip(owner)
+  local tt = GameTooltip
+  if not tt or not tt.SetOwner then return nil end
+  call(tt.SetOwner, tt, owner, "ANCHOR_NONE")
+  return Drawer.TipPoint()
+end
+
+--- Is GameTooltip currently showing for `b`?
+function Drawer.Owns(b)
+  local tt = GameTooltip
+  if not tt then return false end
+  if tt.IsOwned then return call(tt.IsOwned, tt, b) and true or false end
+  return tt.GetOwner and call(tt.GetOwner, tt) == b or false
 end
 
 --- Where the launcher sits, against our ink frame when the skin is on, against the bare Minimap otherwise:
@@ -255,6 +308,12 @@ function Drawer.Collect(b)
     if b.SetParent then pcall(hooksecurefunc, b, "SetParent", back) end
     if b.Show then pcall(hooksecurefunc, b, "Show", back) end
     if b.Hide then pcall(hooksecurefunc, b, "Hide", back) end
+    -- after the owner's own OnEnter has filled the tooltip: move it under the H too (lines kept, only the spot changes)
+    if b.HookScript then
+      pcall(b.HookScript, b, "OnEnter", function(self)
+        if saved[self] and Drawer.Owns(self) then Drawer.TipPoint() end
+      end)
+    end
   end
   Drawer.list[#Drawer.list + 1] = b
   table.sort(Drawer.list, function(x, y) return (saved[x] and saved[x].name or "") < (saved[y] and saved[y].name or "") end)
@@ -426,7 +485,7 @@ local function ownCell(i)
   c:SetScript("OnEnter", function(self)
     paintEdges(self.edges, CYAN)
     if not GameTooltip or not GameTooltip.SetOwner or not self.entry then return end
-    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+    Drawer.Tip(self)
     GameTooltip:AddLine(HH.Tray.Title(self.entry), CREAM[1], CREAM[2], CREAM[3])
     GameTooltip:AddLine(self.entry.desc or "", GREY[1], GREY[2], GREY[3], true)
     GameTooltip:Show()
