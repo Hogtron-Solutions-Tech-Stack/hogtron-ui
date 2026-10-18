@@ -264,6 +264,7 @@ function Skin.Under()
         local x, y = cx / s, cy / s
         if l and r and t and b and x >= l and x <= r and y >= b and y <= t then
           local line, level = describe(f)
+          if call(f.IsMouseEnabled, f) then line = "MOUSE " .. line end
           hits[#hits + 1] = { line = line, level = level }
         end
       end
@@ -272,7 +273,13 @@ function Skin.Under()
   end
   table.sort(hits, function(a, b) return a.level > b.level end)
   local out = {}
-  for i = 1, math.min(#hits, 60) do out[i] = hits[i].line end
+  -- the frame the client hands the mouse to (Sean 2026-10-17: half a button took no hover - who has it?)
+  local foci = rawget(_G, "GetMouseFoci")
+  local focus
+  if type(foci) == "function" then local ok, list = pcall(foci) focus = ok and type(list) == "table" and list[1] or nil
+  else local gf = rawget(_G, "GetMouseFocus") if type(gf) == "function" then local ok, v = pcall(gf) focus = ok and v or nil end end
+  out[1] = "mouse focus: " .. (type(focus) == "table" and (describe(focus)) or "none / world")
+  for i = 1, math.min(#hits, 60) do out[#out + 1] = hits[i].line end
   return out
 end
 
