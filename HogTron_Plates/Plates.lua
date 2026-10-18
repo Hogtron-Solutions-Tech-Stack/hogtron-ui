@@ -72,7 +72,10 @@ function Plates.Skin(uf)
   local hb = healthBar(uf)
   hh.bar = hb
   local anchor = hb or uf
-  hh.overlay = CreateFrame("Frame", nil, uf)
+  -- a CHILD of the health bar: when Blizzard hides the bar or its HealthBarsContainer on its own schedule, our edge,
+  -- "100%" and level go with it. Sean 2026-10-17: an "empty HP bar" - diag.plateFill said bar shown=T vis=F (an
+  -- ancestor hidden): the fill and our bg (on the bar) were gone, the overlay (on the UnitFrame) still drew the box.
+  hh.overlay = CreateFrame("Frame", nil, hb or uf)
   hh.overlay:SetAllPoints(anchor)
   hh.overlay:SetFrameLevel(((anchor.GetFrameLevel and anchor:GetFrameLevel()) or 1) + 5)
   hh.edges = {}

@@ -882,3 +882,34 @@ def test_platecvars_asks_by_name_when_there_is_no_list(plates):
     lines, n = list(plates.eval("{ HogHealsPlates.Plates.CVarProbe() }").values())
     assert n == 1 and list(lines.values()) == ["nameplateShowAll=nil"]
     assert errors(plates) == []
+
+
+# ---------------------------------------------------------------- the empty HP bar (Sean 2026-10-17, in game)
+# diag.plateFill: "bar shown=T vis=F" - Blizzard hid an ANCESTOR of the health bar (its HealthBarsContainer); the fill
+# and our bg went with it, but the edge + "100%" lived on the UnitFrame and drew an empty box. They follow the bar now.
+def visible(lua, f):
+    return lua.eval(f'''(function(f) while f do if not f._shown then return false end f = f._parent end return true end)({f})''')
+
+
+def test_our_edge_and_health_text_hide_with_the_bars_container(plates):
+    plates.execute('''
+      local plate = CreateFrame("Frame", nil, WorldFrame)
+      local uf = CreateFrame("Button", nil, plate)
+      uf.HealthBarsContainer = CreateFrame("Frame", nil, uf)
+      uf.HealthBarsContainer.healthBar = CreateFrame("StatusBar", nil, uf.HealthBarsContainer)
+      uf.name = uf:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+      plate.UnitFrame, plate.unitToken = uf, "nameplate3"
+      NP.nameplate3 = plate
+      MockUnits.nameplate3 = { name = "Wind Sprite", health = 100, maxHealth = 100, guid = "C-3" }
+      REACT.nameplate3 = 2
+      MockFire("NAME_PLATE_UNIT_ADDED", "nameplate3")
+    ''')
+    uf = 'NP.nameplate3.UnitFrame'
+    assert plates.eval(f'{uf}.hh.bar == {uf}.HealthBarsContainer.healthBar')
+    assert plates.eval(f'{uf}.hh.overlay:GetParent() == {uf}.HealthBarsContainer.healthBar')
+    assert visible(plates, f'{uf}.hh.health') and plates.eval(f'{uf}.hh.health._text') == "100%"
+    plates.execute(f'{uf}.HealthBarsContainer:Hide()')                     # Blizzard hides the container
+    assert not visible(plates, f'{uf}.hh.health')                            # no "100%" over nothing
+    for i in (1, 2, 3, 4):
+        assert not visible(plates, f'{uf}.hh.edges[{i}]')                   # no empty box
+    assert errors(plates) == []
