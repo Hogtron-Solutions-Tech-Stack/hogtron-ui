@@ -78,7 +78,7 @@ ICON_URLS: dict[str, str] = {}   # data URI -> CDN url, so the committed .html l
 
 
 def icon_data(path: str | None) -> str | None:
-    """'Interface\Icons\spell_holy_flashheal' -> data: URI of the real icon (cached), or None."""
+    r"""'Interface\Icons\spell_holy_flashheal' -> data: URI of the real icon (cached), or None."""
     if not path or not isinstance(path, str):
         return None
     stem = path.replace("/", chr(92)).split(chr(92))[-1].lower()

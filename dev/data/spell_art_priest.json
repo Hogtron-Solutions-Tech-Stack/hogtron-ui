@@ -1,0 +1,162 @@
+{
+ "source": "wowhead.com/classic/spells/abilities/priest (class trainer + class quest; hunter pet spells by name) + nether.wowhead.com tooltip cast times, fetched 2026-10-17",
+ "note": "art planning only: which spells get a strip. Season of Discovery runes / engravings and talents excluded.",
+ "spells": {
+  "Lesser Heal": {
+   "id": 2052,
+   "level": 4,
+   "schools": 2,
+   "kind": "cast 2"
+  },
+  "Smite": {
+   "id": 591,
+   "level": 6,
+   "schools": 2,
+   "kind": "cast 2"
+  },
+  "Mind Blast": {
+   "id": 8092,
+   "level": 10,
+   "schools": 32,
+   "kind": "cast 1.5"
+  },
+  "Resurrection": {
+   "id": 2006,
+   "level": 10,
+   "schools": 2,
+   "kind": "cast 10"
+  },
+  "Starshards": {
+   "id": 10797,
+   "level": 10,
+   "schools": 64,
+   "kind": "cast 6"
+  },
+  "Heal": {
+   "id": 2054,
+   "level": 16,
+   "schools": 2,
+   "kind": "cast 3"
+  },
+  "Flash Heal": {
+   "id": 2061,
+   "level": 20,
+   "schools": 2,
+   "kind": "cast 1.5"
+  },
+  "Holy Fire": {
+   "id": 14914,
+   "level": 20,
+   "schools": 2,
+   "kind": "cast 3.5"
+  },
+  "Shackle Undead": {
+   "id": 9484,
+   "level": 20,
+   "schools": 2,
+   "kind": "cast 1.5"
+  },
+  "Mind Vision": {
+   "id": 2096,
+   "level": 22,
+   "schools": 32,
+   "kind": "channel"
+  },
+  "Mana Burn": {
+   "id": 8129,
+   "level": 24,
+   "schools": 32,
+   "kind": "cast 3"
+  },
+  "Mind Control": {
+   "id": 605,
+   "level": 30,
+   "schools": 32,
+   "kind": "cast 3"
+  },
+  "Prayer of Healing": {
+   "id": 596,
+   "level": 30,
+   "schools": 2,
+   "kind": "cast 3"
+  },
+  "Greater Heal": {
+   "id": 2060,
+   "level": 40,
+   "schools": 2,
+   "kind": "cast 3"
+  }
+ },
+ "strips": [
+  {
+   "pattern": "^Lesser Heal$",
+   "strip": "spell_heal",
+   "theme": "holy"
+  },
+  {
+   "pattern": "^Heal$",
+   "strip": "spell_heal",
+   "theme": "holy"
+  },
+  {
+   "pattern": "^Greater Heal$",
+   "strip": "spell_heal",
+   "theme": "holy"
+  },
+  {
+   "pattern": "^Flash Heal",
+   "strip": "spell_flash_heal",
+   "theme": "holy"
+  },
+  {
+   "pattern": "^Prayer of Healing",
+   "strip": "spell_prayer_of_healing",
+   "theme": "holy"
+  },
+  {
+   "pattern": "^Smite",
+   "strip": "spell_smite",
+   "theme": "holy"
+  },
+  {
+   "pattern": "^Holy Fire",
+   "strip": "spell_holy_fire",
+   "theme": "holy"
+  },
+  {
+   "pattern": "^Mind Blast",
+   "strip": "spell_mind_blast",
+   "theme": "shadow"
+  },
+  {
+   "pattern": "^Mana Burn",
+   "strip": "spell_mana_burn",
+   "theme": "shadow"
+  },
+  {
+   "pattern": "^Mind Control",
+   "strip": "spell_mind_control",
+   "theme": "shadow"
+  },
+  {
+   "pattern": "^Mind Vision",
+   "strip": "spell_mind_vision",
+   "theme": "shadow"
+  },
+  {
+   "pattern": "^Shackle Undead",
+   "strip": "spell_shackle_undead",
+   "theme": "holy"
+  },
+  {
+   "pattern": "^Resurrection",
+   "strip": "spell_resurrection",
+   "theme": "holy"
+  },
+  {
+   "pattern": "^Starshards",
+   "strip": "spell_starshards",
+   "theme": "arcane"
+  }
+ ]
+}

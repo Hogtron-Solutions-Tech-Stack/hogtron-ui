@@ -415,7 +415,14 @@ function Extra.RefreshButton(b)
   if active ~= nil and b.SetChecked then call(b.SetChecked, b, (active or auto) and true or false) end
   if b.icon and b.icon.SetVertexColor and not (b.config and b.config.outOfRangeColoring == "button" and b.outOfRange) then
     local usable, noMana = call(b.IsUsable, b)
-    if not isSecret(usable) and not isSecret(noMana) then
+    local lab = Bars.Lib and Bars.Lib()
+    if isSecret(usable) then
+      -- hidden answer (WoW: Forever, 2026-10-17): the lib's dim layer resolves it; the old grey never stays
+      if lab and type(lab.hhSecretUsable) == "function" then call(lab.hhSecretUsable, b, usable, noMana)
+      else b.icon:SetVertexColor(1, 1, 1) end
+      Extra.secretUsable = (Extra.secretUsable or 0) + 1
+    else
+      if lab and type(lab.hhClearDim) == "function" then call(lab.hhClearDim, b) end
       if flag(usable) then b.icon:SetVertexColor(1, 1, 1)
       elseif flag(noMana) and b.config and b.config.colors and b.config.colors.mana then b.icon:SetVertexColor(unpack(b.config.colors.mana))
       else b.icon:SetVertexColor(0.4, 0.4, 0.4) end
@@ -462,6 +469,108 @@ function Extra.StartRefresh()
     Extra.QueueRefresh()
   end)
   Extra.refreshFrame = f
+  if C_Timer and C_Timer.NewTicker then
+    -- the lib's own counters, saved every 3 s (Sean 2026-10-17: no command to type - the next /reload carries them)
+    Extra.liveTicker = C_Timer.NewTicker(3, function() pcall(Extra.SaveLive) end)
+  end
+end
+
+--- Evidence for "no cooldowns on the bars" (Sean 2026-10-17, fourth report - the lib reports no errors, so the question
+-- is what the client returns and what the swipe widget does). Per bar button with an action: the client's cooldown
+-- answer (C_ActionBar.GetActionCooldown: isActive / startTime / duration; the legacy GetActionCooldown too), whether a
+-- duration object comes back, and the widget: shown / visible / alpha / level against the button / size / its own
+-- duration / swipe on. Hidden values are written "S", never used. Buttons cooling down first; at most `max` lines.
+local function desc(v)
+  if isSecret(v) then return "S" end
+  if v == nil then return "nil" end
+  local t = type(v)
+  if t == "boolean" then return v and "T" or "F" end
+  if t == "number" then return ("%.1f"):format(v) end
+  return t
+end
+
+function Extra.CooldownLines(max)
+  max = max or 6
+  local hot, cold = {}, {}
+  local CAB = rawget(_G, "C_ActionBar")
+  local getInfo = type(CAB) == "table" and type(CAB.GetActionCooldown) == "function" and CAB.GetActionCooldown or nil
+  local getDur = type(CAB) == "table" and type(CAB.GetActionCooldownDuration) == "function" and CAB.GetActionCooldownDuration or nil
+  for n = 1, 3 do
+    local bar = Bars.bars and Bars.bars[n]
+    for i, b in ipairs(bar and bar.buttons or {}) do
+      local slot = num(rawget(b, "_state_action"))
+      if rawget(b, "_state_type") == "action" and slot and flag(call(b.HasAction, b)) then
+        local info = getInfo and call(getInfo, slot) or nil
+        local active = type(info) == "table" and info.isActive or nil
+        local ls, ld = call(rawget(_G, "GetActionCooldown"), slot)
+        local dur = getDur and call(getDur, slot) or nil
+        local cd = rawget(b, "cooldown")
+        local function cdv(m) return type(cd) == "table" and type(cd[m]) == "function" and call(cd[m], cd) or nil end
+        local line = ("b%d#%d slot %d: isActive=%s start=%s dur=%s | legacy %s/%s | durObj=%s | widget shown=%s vis=%s a=%s lvl %s/%s %sx%s ms=%s swipe=%s"):format(
+          n, i, slot, desc(active), desc(type(info) == "table" and info.startTime or nil), desc(type(info) == "table" and info.duration or nil),
+          desc(ls), desc(ld), dur == nil and "nil" or (isSecret(dur) and "S" or type(dur)),
+          desc(cdv("IsShown")), desc(cdv("IsVisible")), desc(cdv("GetAlpha")), desc(cdv("GetFrameLevel")), desc(call(b.GetFrameLevel, b)),
+          desc(cdv("GetWidth")), desc(cdv("GetHeight")), desc(cdv("GetCooldownDuration")), desc(cdv("GetDrawSwipe")))
+        -- "usable" too (Sean 2026-10-17: every icon grey): the lib's own answer, both client calls, the icon's colour now
+        local lu, lm = call(b.IsUsable, b)
+        local gu = call(rawget(_G, "IsUsableAction"), slot)
+        local cu = type(CAB) == "table" and type(CAB.IsUsableAction) == "function" and call(CAB.IsUsableAction, slot) or nil
+        local r, gg, bb = call(rawget(b, "icon") and b.icon.GetVertexColor, b.icon)
+        local dim = rawget(b, "hhUnusableDim")
+        line = line .. (" | usable lib=%s/%s global=%s C_=%s icon=%s,%s,%s dim=%s"):format(desc(lu), desc(lm),
+          rawget(_G, "IsUsableAction") and desc(gu) or "nofn", type(CAB) == "table" and type(CAB.IsUsableAction) == "function" and desc(cu) or "nofn",
+          desc(r), desc(gg), desc(bb), dim and desc(call(dim.IsShown, dim)) or "none")
+        local cooling = isSecret(active) or active == true or ((num(ld) or 0) > 1.6)
+        if cooling then hot[#hot + 1] = line else cold[#cold + 1] = line end
+      end
+    end
+  end
+  local out = {}
+  for _, l in ipairs(hot) do if #out < max then out[#out + 1] = "COOLING " .. l end end
+  for _, l in ipairs(cold) do if #out < max then out[#out + 1] = l end end
+  Extra.cooling = #hot
+  return out
+end
+
+--- The raw "is there an action here" answers for bar 1's first buttons, whatever they are (the recorder above only
+-- lists buttons the lib believes hold an action - it found none on 2026-10-17 while the bars were full).
+function Extra.RawLines(max)
+  local out = {}
+  local bar = Bars.bars and Bars.bars[1]
+  local CAB = rawget(_G, "C_ActionBar")
+  for i, b in ipairs(bar and bar.buttons or {}) do
+    if i > (max or 4) then break end
+    local slot = rawget(b, "_state_action")
+    local g = rawget(_G, "HasAction")
+    local gv = g and call(g, slot)
+    local cv = type(CAB) == "table" and type(CAB.HasAction) == "function" and call(CAB.HasAction, slot) or nil
+    local tex = call(rawget(_G, "GetActionTexture"), slot)
+    out[#out + 1] = ("b1#%d type=%s slot=%s HasAction=%s C_.HasAction=%s tex=%s lib=%s"):format(i, tostring(rawget(b, "_state_type")),
+      desc(slot), g and desc(gv) or "nofn", (type(CAB) == "table" and type(CAB.HasAction) == "function") and desc(cv) or "nofn",
+      desc(tex), desc(call(b.HasAction, b)))
+  end
+  return out
+end
+
+function Extra.SaveLive()
+  local lab = Bars.Lib and Bars.Lib()
+  local g = HH.db and HH.db.global
+  if not lab or not g then return nil end
+  g.diag = g.diag or {}
+  g.diag.barsLive = { at = date and date("%Y-%m-%d %H:%M:%S") or "?", path = lab.cooldownPath,
+    cooldownErrors = lab.hhCooldownErrors or 0, lastCooldownError = lab.hhLastCooldownError,
+    cooldownFallback = lab.hhCooldownFallback or 0, secretUsable = lab.hhSecretUsableCount or 0,
+    updateErrors = lab.hhUpdateErrors or 0, lastUpdateError = lab.hhLastUpdateError, secretUsableRefresh = Extra.secretUsable or 0 }
+  local ok, lines = pcall(Extra.CooldownLines, 6)
+  g.diag.barsLive.cooldowns = ok and table.concat(lines, " || ") or ("probe error: " .. tostring(lines))
+  g.diag.barsLive.cooling = Extra.cooling
+  local okR, raw = pcall(Extra.RawLines, 4)
+  g.diag.barsLive.raw = okR and table.concat(raw, " || ") or ("raw error: " .. tostring(raw))
+  g.diag.barsLive.hasActionHidden = lab.hhHasActionHidden or 0
+  g.diag.barsLive.shadowed = Bars.ShadowedText and Bars.ShadowedText() or "?"
+  g.diag.barsLive.libPatched = type(lab.hhHasAction) == "function"   -- our patched lib copy is the one running
+  g.diag.barsLive.hasActionMissing = lab.hhHasActionMissing and true or false
+  return g.diag.barsLive
 end
 
 function Extra.BtnDiagLines()

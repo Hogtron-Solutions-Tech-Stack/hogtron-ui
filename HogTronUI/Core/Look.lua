@@ -49,6 +49,12 @@ local function isSecret(v) return type(issecretvalue) == "function" and issecret
 
 -- Icons: "art" = the painted set (OpenArt, Sean 2026-10-14 night: one HogTron arcane-tech theme - navy slate, aged
 -- brass, ivory, cyan glow), file HogHeals/Media/<id>_art.tga; "glyph" = the flat cream glyphs that came first.
+--- The file path of one of our icons in the chosen style (painted "_art" or the flat glyph), for places that take a
+-- path instead of a texture (a LibDataBroker launcher's icon). Sean 2026-10-17: the HogHeals and Atlas buttons in the
+-- minimap drawer still wore stock spell icons among the painted set.
+function Look.IconPath(id)
+  return Look.MEDIA .. id .. (Look.IconStyle() == "art" and "_art" or "")
+end
 Look.MEDIA = "Interface\\AddOns\\HogTronUI\\Media\\"
 function Look.IconStyle() return cfg().icons == "glyph" and "glyph" or "art" end
 

@@ -305,7 +305,9 @@ function Skin.Probe()
     names[#names + 1] = pair[1] .. "." .. pair[2] .. "=" .. ((type(parent) == "table" and parent[pair[2]]) and "y" or "n")
   end
   local regions = {}
-  for _, owner in ipairs({ Minimap, rawget(_G, "MinimapBackdrop"), rawget(_G, "MinimapCluster") }) do
+  local owners = { Minimap, rawget(_G, "MinimapBackdrop"), rawget(_G, "MinimapCluster") }
+  for i = 1, 3 do   -- not ipairs: it stops at a missing MinimapBackdrop and never reaches MinimapCluster
+    local owner = owners[i]
     if type(owner) == "table" and owner.GetRegions then
       for _, r in ipairs({ owner:GetRegions() }) do
         if r and r.GetObjectType and r:GetObjectType() == "Texture" and not r.hhOurs then

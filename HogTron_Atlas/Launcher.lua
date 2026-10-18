@@ -48,7 +48,7 @@ function Launcher.Start()
   local LDB = LibStub and LibStub("LibDataBroker-1.1", true)
   if not LDB then Launcher.why = "no LibDataBroker" return false end
   local ok, obj = pcall(LDB.NewDataObject, LDB, Launcher.NAME, {
-    type = "launcher", text = "Atlas", label = "HogTron UI Atlas", icon = "Interface\\Icons\\INV_Misc_Map_01",
+    type = "launcher", text = "Atlas", label = "HogTron UI Atlas", icon = (HH.Look and HH.Look.IconPath) and HH.Look.IconPath("tray_atlas") or "Interface\\Icons\\INV_Misc_Map_01",
     OnClick = function(_, button)
       local good, err = pcall(Launcher.Click, button)
       if not good then HH:LogError("atlas launcher: " .. tostring(err)) end

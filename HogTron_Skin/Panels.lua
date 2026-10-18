@@ -6,7 +6,7 @@ local HHS = HogHealsSkin
 local Skin = HHS.Skin
 local HH = HogHeals
 
-local Part = { name = "panels", styled = {}, hooked = {} }
+local Part = { name = "panels", styled = {}, hooked = {}, shows = {}, subHooked = {}, subs = {}, sideTabPanels = {} }
 HHS.Panels = Part
 
 Part.NAMES = {
@@ -18,6 +18,9 @@ Part.NAMES = {
   "TabardFrame", "GuildRegistrarFrame", "PetitionFrame", "ReadyCheckFrame", "StaticPopup1", "StaticPopup2", "StaticPopup3",
   "InterfaceOptionsFrame", "SettingsPanel", "VideoOptionsFrame", "ChatConfigFrame", "TimeManagerFrame", "CalendarFrame",
   "AchievementFrame", "EncounterJournal", "CollectionsJournal", "GroupFinderFrame", "PVEFrame", "StopwatchFrame",
+  -- WoW: Forever's social window (Friends / Who / Raid tabs down its right side): SocialUIFrame, not FriendsFrame - named
+  -- by /hh under in game 2026-10-17 (Sean: "the Friends list ... I don't know that we ever did that" - it never was)
+  "SocialUIFrame",
 }
 local wanted = {}
 for _, n in ipairs(Part.NAMES) do wanted[n] = true end
@@ -185,14 +188,90 @@ function Part.Strip(f, name)
       end
     end
   end
-  for _, suffix in ipairs({ "Portrait", "PortraitFrame", "TopLeft", "TopRight", "BottomLeft", "BottomRight", "TopBorder", "BottomBorder",
-    "LeftBorder", "RightBorder", "Bg", "TitleBg", "Inset", "InsetBg", "BtnCornerLeft", "BtnCornerRight", "ButtonBottomBorder" }) do
-    local g = rawget(_G, name .. suffix)
-    if type(g) == "table" then
-      if g.GetObjectType and g:GetObjectType() == "Texture" then Skin.Kill(g) else Skin.KillRegions(g) hideWhole(rawget(g, "NineSlice")) end
+  if name ~= "" then   -- an unnamed pane: no global pieces to look up ("" .. "Bg" would be some other global)
+    for _, suffix in ipairs({ "Portrait", "PortraitFrame", "TopLeft", "TopRight", "BottomLeft", "BottomRight", "TopBorder", "BottomBorder",
+      "LeftBorder", "RightBorder", "Bg", "TitleBg", "Inset", "InsetBg", "BtnCornerLeft", "BtnCornerRight", "ButtonBottomBorder" }) do
+      local g = rawget(_G, name .. suffix)
+      if type(g) == "table" then
+        if g.GetObjectType and g:GetObjectType() == "Texture" then Skin.Kill(g) else Skin.KillRegions(g) hideWhole(rawget(g, "NineSlice")) end
+      end
+    end
+    Part.Tabs(f, name)
+  end
+  Part.SubWindows(f, name)
+  Part.SideTabs(f, name)
+end
+
+-- ------------------------------------------------------------------------------------------------ framed panes
+-- Windows whose visible content is a CHILD window with its own frame art. Sean 2026-10-17, /hh under over the Group
+-- Finder: the window under the mouse is LFGListingFrame (a child of the styled LFGParentFrame) with its own metal
+-- NineSlice, Bg, TopTileStreaks, Inset (groupfinder-background, common-insideframe), role background and divider, and
+-- three side tabs (ListingTab / BrowsingTab / WhoListingTab, common-sidetab). The other panes' names are not known
+-- on this client, so any direct child carrying a NineSlice or TopTileStreaks counts as one; each is stripped again
+-- when its tab shows it (its own OnShow - the parent's does not fire on a tab switch).
+Part.FRAMED = { LFGParentFrame = true }
+Part.tinted = setmetatable({}, { __mode = "k" })
+
+--- A Blizzard texture recoloured to ours (desaturated + tint): its shape and its show / hide stay Blizzard's, so a
+-- selection mark or a divider keeps working, only the gold goes.
+function Part.Tint(t, c, a)
+  if type(t) ~= "table" or t.hhOurs or not t.SetVertexColor then return false end
+  if t.SetDesaturated then Skin.call(t.SetDesaturated, t, true) end
+  Skin.call(t.SetVertexColor, t, c[1], c[2], c[3], a or 1)
+  Part.tinted[t] = true
+  return true
+end
+
+--- One pane: stripped like a window; its divider kept as a line in our colour.
+function Part.StripPane(c, cn)
+  Part.Strip(c, cn)
+  local div = rawget(c, "DividerFrame")
+  if type(div) == "table" then
+    for _, r in ipairs(Skin.all(div.GetRegions, div)) do
+      if type(r) == "table" and Skin.call(r.GetObjectType, r) == "Texture" then Part.Tint(r, Skin.LINE) end
     end
   end
-  Part.Tabs(f, name)
+end
+
+function Part.SubWindows(f, name)
+  if not Part.FRAMED[name] then return 0 end
+  local found = {}
+  for _, c in ipairs(Skin.all(f.GetChildren, f)) do
+    if type(c) == "table" and not c.hhOurs and (type(rawget(c, "NineSlice")) == "table" or type(rawget(c, "TopTileStreaks")) == "table") then
+      local cn = Skin.call(c.GetName, c)
+      cn = type(cn) == "string" and cn or ""
+      Part.StripPane(c, cn)
+      found[#found + 1] = cn ~= "" and cn or "?"
+      if not Part.subHooked[c] and c.HookScript then
+        Part.subHooked[c] = true
+        c:HookScript("OnShow", function(self)
+          if Skin.cfg().enabled == false or Skin.cfg().panels.enabled == false or skipped(name) then return end
+          local ok, err = pcall(Part.StripPane, self, cn)
+          if not ok then HH:LogError("skin window " .. name .. " pane " .. cn .. ": " .. tostring(err)) end
+          if C_Timer and C_Timer.After then C_Timer.After(0.3, function() pcall(Part.Report, f, name) end) end
+        end)
+      end
+    end
+  end
+  Part.subs[name] = table.concat(found, ",")
+  return #found
+end
+
+--- Side tabs down a window's edge: Blizzard's tab plate off, an ink cell behind, the selected and hover marks tinted
+-- cyan (still shown / hidden by Blizzard), the icon kept.
+function Part.SideTabs(f, name)
+  if not Part.FRAMED[name] then return 0 end
+  local n = 0
+  for k, tab in pairs(f) do
+    if type(k) == "string" and k:find("Tab$") and type(tab) == "table" and type(rawget(tab, "Background")) == "table" then
+      Skin.Kill(rawget(tab, "Background"))
+      if not Part.sideTabPanels[tab] then Part.sideTabPanels[tab] = Skin.Panel(tab, tab, -2, 0.9) end
+      Part.Tint(rawget(tab, "SelectedTexture"), Skin.CYAN)
+      Part.Tint(rawget(tab, "HighlightTexture"), Skin.CYAN, 0.5)
+      n = n + 1
+    end
+  end
+  return n
 end
 
 --- The tab strip under a window (FriendsFrameTab1.., LFGParentFrameTab1..): Blizzard's tab art off, a flat ink cell
@@ -208,6 +287,26 @@ function Part.Tabs(f, name)
     end
     if not tab.hhTabPanel then tab.hhTabPanel = Skin.Panel(tab, tab, -2, 0.85) end
   end
+end
+
+-- Named Blizzard pieces a window keeps after the strip (its own /hh skindiag leftovers): cleared by key path. Sean
+-- 2026-10-17, the Friends window (SocialUIFrame) still showed the Battle.net bar's two backgrounds
+-- (friends-frame-infoBG, 632259) and the friends list's two dividers (perks-divider-short). Its scroll bar track stays
+-- (a control, not decoration).
+Part.PIECES = {
+  SocialUIFrame = { "BattleNetBar.Background", "BattleNetBar.ControlsContainer.BattleNetBackground", "FriendsList.TopDivider", "FriendsList.BottomDivider" },
+}
+
+function Part.KillPieces(f, name)
+  local list = Part.PIECES[name]
+  if not list then return 0 end
+  local n = 0
+  for _, path in ipairs(list) do
+    local t = f
+    for key in path:gmatch("[^%.]+") do t = type(t) == "table" and rawget(t, key) or nil end
+    if type(t) == "table" and Skin.Kill(t) then n = n + 1 end
+  end
+  return n
 end
 
 function Part.StyleOnce(f, name)
@@ -257,6 +356,12 @@ function Part.Leftovers(f, max)
     for k, v in pairs(parent) do if v == child and type(k) == "string" then return k end end
     return "?"
   end
+  -- unnamed pieces (parentKey only): "Icon", "SelectedTexture", "HighlightTexture" are what they say
+  local function keyFunctional(k)
+    if k:find("Icon", 1, true) then return true end
+    for _, w in ipairs(FUNCTIONAL) do if k:find(w, 1, true) then return true end end
+    return false
+  end
   local function walk(fr, path, depth)
     if #out >= max or depth > 5 or type(fr) ~= "table" or fr.hhOurs then return end
     if not Skin.call(fr.IsShown, fr) then return end
@@ -265,6 +370,7 @@ function Part.Leftovers(f, max)
     for _, r in ipairs(Skin.all(fr.GetRegions, fr)) do
       if #out >= max then return end
       if type(r) == "table" and Skin.call(r.GetObjectType, r) == "Texture" and not r.hhOurs and not isIcon(r) and not isFunctional(r)
+        and not Part.tinted[r] and not keyFunctional(key(fr, r))
         and Skin.call(r.IsShown, r) and (Skin.num(Skin.call(r.GetAlpha, r)) or 1) > 0 then
         local file = Skin.call(r.GetAtlas, r) or Skin.call(r.GetTexture, r)
         if file ~= nil then
@@ -293,9 +399,17 @@ function Part.Report(f, name, err)
   g.diag = g.diag or {}
   g.diag.skin = g.diag.skin or {}
   g.diag.skin.windows = g.diag.skin.windows or {}
-  local left = err and {} or Part.Leftovers(f)
-  g.diag.skin.windows[name] = { at = date and date("%Y-%m-%d %H:%M:%S") or "", styled = f.hhPanel ~= nil, error = err,
-    leftovers = #left, left = table.concat(left, " | ") }
+  -- the style is recorded FIRST: walking what is left can throw on a window with forbidden / secret pieces, and that
+  -- used to lose the whole record silently (Sean 2026-10-17: the Friends window looked stock and left no trace)
+  local rec = { at = date and date("%Y-%m-%d %H:%M:%S") or "", styled = f.hhPanel ~= nil, error = err,
+    shown = Skin.call(f.IsShown, f) and true or false, strata = Skin.call(f.GetFrameStrata, f), level = Skin.call(f.GetFrameLevel, f),
+    panelLevel = f.hhPanel and f.hhPanel.GetFrameLevel and Skin.call(f.hhPanel.GetFrameLevel, f.hhPanel) or nil,
+    panes = Part.subs[name] }
+  g.diag.skin.windows[name] = rec
+  if err then return end
+  local ok, left = pcall(Part.Leftovers, f)
+  if ok then rec.leftovers, rec.left = #left, table.concat(left, " | ")
+  else rec.leftoversError = tostring(left):sub(1, 300) end
 end
 
 --- Style a window: the once-only parts the first time, the art strip every time. Errors are CAUGHT and logged with
@@ -308,6 +422,7 @@ function Part.Style(f)
   local first = f.hhPanel == nil
   local ok, err = xpcall(function()
     Part.Strip(f, name)
+    Part.KillPieces(f, name)
     if first then Part.StyleOnce(f, name) end
     if Part.PARCHMENT[name] then Part.Parchment(f) end
   end, HH.Trace or debugstack)
@@ -324,6 +439,8 @@ local function watch(f)
   if type(f) ~= "table" or Part.hooked[f] or not f.HookScript then return end
   Part.hooked[f] = true
   f:HookScript("OnShow", function(self)
+    local n = self.GetName and self:GetName() or "?"
+    Part.shows[n] = (Part.shows[n] or 0) + 1
     if Skin.cfg().enabled ~= false and Skin.cfg().panels.enabled ~= false then Part.Style(self) end
   end)
   if f.IsShown and f:IsShown() then Part.Style(f) end

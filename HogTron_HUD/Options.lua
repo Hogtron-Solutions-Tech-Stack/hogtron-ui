@@ -108,6 +108,11 @@ local function swingGroup()
     fontSize = { type = "range", name = "Font size (0 = strip font, one step larger)", order = 6.3, min = 0, max = 30, step = 1,
       get = function() return s().fontSize or 0 end, set = function(_, v) s().fontSize = v; refresh() end },
     spark = toggle(s, "spark", "Spark on the head of the fill", 6.4),
+    lookHeader = { type = "header", name = "Animation", order = 7 },
+    art = toggle(s, "art", "Animated look (steel for melee, wind for ranged); off = the plain bar colour", 7.1),
+    glow = toggle(s, "glow", "Glow behind the bar", 7.2),
+    motes = toggle(s, "motes", "Sparks off the head of the fill", 7.3),
+    flash = toggle(s, "flash", "Flash when a swing lands", 7.4),
     outline = toggle(s, "outline", "1 px outline", 6.5),
     diag = { type = "execute", name = "Print swing source to chat", order = 9, func = function() HH:SlashCommand("swingdiag") end },
   } }
