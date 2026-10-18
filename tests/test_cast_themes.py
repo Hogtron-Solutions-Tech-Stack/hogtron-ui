@@ -299,6 +299,19 @@ def test_art_coords_pure(th):
     assert th.eval(f"{T}.ArtCoords(1, 50, 0, 30)") is not None           # a bar with no height never divides by 0
 
 
+# ---------------------------------------------------------------- "TexCoord out of range" (Sean 2026-10-17, x30)
+# The swing art passes GetTime() - the PC's uptime - as t: the scroll ran to -200,000 and the client threw. Only the
+# fraction of a repeat is kept (the strip tiles, so the picture is the same).
+def test_strip_coords_stay_near_zero_at_any_clock_and_scroll_the_same(th):
+    T = "HogHealsHUD.CastThemes"
+    for t in (0, 1.5, 86400, 345678.9):
+        u0, u1 = th.eval(f"{{ {T}.ArtCoords({t}, 200, 12, 70) }}").values()
+        assert -1 < u0 <= 0, (t, u0)
+        assert u1 - u0 == pytest.approx(200 / (512 * 12 / 64))                 # width in repeats unchanged
+    a = th.eval(f"({T}.ArtCoords(345678.9, 200, 12, 70))")
+    b = th.eval(f"({T}.ArtCoords(345678.9 + 96 / 70, 200, 12, 70))")       # one whole repeat later
+    assert a == pytest.approx(b, abs=1e-6)
+
 
 # ================================================================================================ per-spell art (10/17 pilot)
 # Sean: "create open art images for casting of spells, for every spell, for every class ... some of the lower level mage
@@ -324,7 +337,6 @@ def test_spell_art_off_or_missing_falls_back_to_the_school_strip(th):
     assert th.eval(f"{T}.layers.art._texture").endswith("cast_frost") and th.eval(f"{T}.artMissing.spell_frostbolt") is True
 
 
-
 def test_every_class_set_has_strips_and_the_files_exist():
     # mage 12 strips + the other eight classes' 74 (2026-10-17)
     import pathlib
@@ -344,7 +356,6 @@ def test_mage_spells_match_their_strips(th):
         assert th.eval(f'({T}.SpellArt("{name}"))') == art, name
 
 
-
 # ---------------------------------------------------------------- spell strips drawn as painted (Sean 2026-10-17)
 # "is this the new mage cast spells? they look the same" - additive at ~55% over a dimmed fill washed Frostbolt's own
 # art out to the frost school's pale look. A spell strip is BLEND, near opaque; a school strip keeps ADD.
@@ -359,7 +370,6 @@ def test_a_spell_strip_is_drawn_as_painted_and_a_school_strip_stays_additive(th)
     cast(th, "Frost Nova", 122)                                          # no strip of its own: the school's, additive
     assert th.eval("HogHealsHUD.CastThemes.active.art") == "arcane" and th.eval("HogHealsHUD.CastThemes.active.mode") == "ADD"   # mage default school
     assert "art: wanted" in th.eval("HogHealsHUD.CastThemes.Line(HogHealsHUD.Castbar.state)")
-
 
 
 # ---------------------------------------------------------------- the other eight classes (Sean 2026-10-17)
