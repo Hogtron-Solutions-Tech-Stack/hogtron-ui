@@ -256,7 +256,7 @@ def test_preview_never_shows_a_question_mark(th):
 # ================================================================================================ art strips (10/14)
 def test_the_art_strip_fills_the_cast_and_scrolls_toward_the_spark(th):
     th.execute("HH_cb:SetHeight(18)")
-    cast(th, "Scorch", 133)                         # a fire spell without its own strip (Fireball has one since 10/17)
+    cast(th, "Pyroblast", 133)                      # a fire spell without its own strip (Fireball, Scorch have one since 10/17)
     art = f"{T}.layers.art"
     assert th.eval(f"{art}:IsShown()") is True
     assert th.eval(f"{art}._texture").endswith("cast_fire")
@@ -322,3 +322,22 @@ def test_spell_art_off_or_missing_falls_back_to_the_school_strip(th):
       L.art.SetTexture = function(self, path, ...) if tostring(path):find("cast_spell_") then return false end return orig(self, path, ...) end""")
     cast(th, "Frostbolt", 116)
     assert th.eval(f"{T}.layers.art._texture").endswith("cast_frost") and th.eval(f"{T}.artMissing.spell_frostbolt") is True
+
+
+
+def test_the_whole_mage_set_has_strips_and_the_files_exist():
+    import pathlib
+    root = pathlib.Path(__file__).resolve().parents[1]
+    src = (root / "HogTron_HUD" / "CastThemes.lua").read_text(encoding="utf-8")
+    import re
+    arts = set(re.findall(r'\{ "\^[^"]+", "(spell_[a-z_]+)", "[a-z]+" \}', src))
+    assert len(arts) == 12
+    for a in arts:
+        assert (root / "HogTronUI" / "Media" / f"cast_{a}.tga").is_file(), a
+
+
+def test_mage_spells_match_their_strips(th):
+    for name, art in (("Conjure Water", "spell_conjure_water"), ("Conjure Mana Ruby", "spell_conjure_gem"), ("Arcane Missiles", "spell_arcane_missiles"),
+                      ("Flamestrike", "spell_flamestrike"), ("Blizzard", "spell_blizzard"), ("Evocation", "spell_evocation"), ("Scorch", "spell_scorch"),
+                      ("Conjure Food", "spell_conjure_food"), ("Polymorph: Cow", "spell_polymorph")):
+        assert th.eval(f'({T}.SpellArt("{name}"))') == art, name

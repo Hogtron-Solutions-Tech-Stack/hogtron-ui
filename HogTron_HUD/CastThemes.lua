@@ -91,6 +91,16 @@ T.SPELL_ART = {
   { "^Polymorph", "spell_polymorph", "arcane" },
   { "^Teleport", "spell_teleport", "arcane" },
   { "^Portal", "spell_teleport", "arcane" },
+  -- 2026-10-17 the rest of the mage set (trainer-taught spells with a cast bar, from Wowhead Classic's mage list + each
+  -- spell's tooltip cast time, dev/data/spell_art_mage.json; Season of Discovery runes and talents left out)
+  { "^Conjure Water", "spell_conjure_water", "frost" },
+  { "^Conjure Food", "spell_conjure_food", "holy" },
+  { "^Conjure Mana", "spell_conjure_gem", "arcane" },
+  { "^Arcane Missiles", "spell_arcane_missiles", "arcane" },
+  { "^Flamestrike", "spell_flamestrike", "fire" },
+  { "^Blizzard", "spell_blizzard", "frost" },
+  { "^Evocation", "spell_evocation", "arcane" },
+  { "^Scorch", "spell_scorch", "fire" },
 }
 
 --- Pure: the strip and theme for a cast name, or nil.
