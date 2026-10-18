@@ -133,3 +133,43 @@ def test_any_other_element_error_is_still_logged_every_time(btn):
       el.Update = orig
     """)
     assert any("something else broke" in e["msg"] for e in btn.eval("HogHeals.errors").values())
+
+
+# ---------------------------------------------------------------- which aura reader answers instead (probe, 2026-10-18)
+def test_a_refusal_records_what_every_other_aura_reader_gives_back(btn):
+    btn.execute("""
+      MockSetSecrets(true)
+      local refuse = function() error("GetAuraDataByIndex(): Auras cannot be accessed when secret while tainted by 'HogHeals_Frames'") end
+      C_UnitAuras = {
+        GetAuraDataByIndex = refuse,
+        GetUnitAuras = function(u, f) return { { name = MockSecret("Corruption"), dispelName = MockSecret("Magic"), auraInstanceID = 7 } } end,
+        GetAuraSlots = function(u, f) return nil, 3 end,
+        GetAuraDataBySlot = function(u, s) return { name = MockSecret("Corruption"), auraInstanceID = 7 } end,
+        GetDebuffDataByIndex = refuse,
+      }
+      local el = HogHealsFrames.Elements.debuffs
+      HH_orig = el.Update
+      el.Update = refuse
+      HogHealsFrames.UnitButton.UpdateElement(HH_b, "debuffs")
+      HogHealsFrames.UnitButton.UpdateElement(HH_b, "debuffs")      -- rate-limited: still one record
+      el.Update = HH_orig
+    """)
+    recs = btn.eval("HogHeals.db.global.diag.auraReaders")
+    assert len(recs) == 1
+    lines = list(recs[1]["lines"].values())
+    text = " || ".join(lines)
+    assert "GetAuraDataByIndex: ERR" in text and "GetDebuffDataByIndex: ERR" in text
+    assert "GetUnitAuras: ok table(1)" in text
+    assert "GetAuraDataBySlot: ok table(2)" in text and "name=secret" in text
+    assert "GetAuraSlots: ok 2 value(s), first slot number" in text
+    assert recs[1]["unit"] == "party1" and recs[1]["filter"] == "HARMFUL"
+
+
+def test_the_probe_never_runs_more_than_its_session_cap(btn):
+    btn.execute("""
+      C_UnitAuras = { GetAuraDataByIndex = function() return nil end }
+      local C = HogHealsFrames.Compat
+      for i = 1, 12 do MockAdvance(61); C.ProbeAuraReaders("party1", "HARMFUL") end
+    """)
+    assert btn.eval("HogHealsFrames.Compat.probes") == 5
+    assert len(btn.eval("HogHeals.db.global.diag.auraReaders")) == 5

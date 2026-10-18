@@ -34,6 +34,10 @@ function UnitButton.ElementFailed(button, name, err)
     UnitButton.auraRefused[name] = (UnitButton.auraRefused[name] or 0) + 1
     local el = HHF.Elements and HHF.Elements[name]
     if el and el.Hide then pcall(el.Hide, button) end
+    -- which reader would answer instead? recorded for the next look (Compat.ProbeAuraReaders, rate-limited)
+    if HHF.Compat and HHF.Compat.ProbeAuraReaders and button and button.unit then
+      pcall(HHF.Compat.ProbeAuraReaders, button.unit, name == "buffs" and "HELPFUL" or "HARMFUL")
+    end
     if not UnitButton.refusalLogged[name] then
       UnitButton.refusalLogged[name] = true
       HH:LogError(name .. ": the client refused this unit's auras to addons (shown again on the next aura update; counted, logged once): " .. msg:sub(1, 160))
