@@ -8,7 +8,13 @@
 -- not installed is skipped. Things that only fully change after a /reload are marked, and the last page offers one.
 --
 -- Two ways through: "Quick start" (recommended settings, straight to the end) or "Walk me through it" (every page).
--- Opens by itself once on a profile's first login; /hh setup (or /hh wizard) any time after.
+-- Opens by itself once on EVERY character's first login; /hh setup (or /hh wizard) any time after.
+--
+-- Per character, not per profile (Sean 2026-10-17, a brand-new character: no guide). Every character shares one
+-- profile (AceDB "Default"), so the old profile flag (wizardDone) said "done" for characters that never saw the guide.
+-- Done is now db.char.setupDone. wizardDone stays as "the SHARED settings were set up once": a character arriving on
+-- such a profile gets "Keep my settings - done" first, and nothing shared is reset behind its back (quick start no
+-- longer re-applies the frames preset or the hover keys there: a mage alt would overwrite the priest's).
 local ADDON, ns = ...
 local HH = HogHeals
 
@@ -42,6 +48,12 @@ function Setup.Set(path, value)
 end
 
 local function has(module) return HH.modules and HH.modules[module] ~= nil end
+
+local function charDb() return HH.db and HH.db.char end
+--- This character finished (or kept) the setup.
+function Setup.CharDone() local c = charDb() return c ~= nil and c.setupDone == true end
+--- Some character already set up the shared profile (the guide or the old Frames wizard).
+function Setup.SharedDone() local p = root() return p ~= nil and p.wizardDone == true end
 
 --- Repaint after a change: the module's own profile hook (same thing /hh profile switches use).
 function Setup.Refresh(module)
@@ -108,16 +120,26 @@ end
 
 step("welcome", "Welcome", nil, function()
   local name, level, className = classInfo()
-  return {
+  local a = {
     hello = text(("Hi %s%s. HogTron UI replaces most of the default interface: unit frames, healer party and raid frames, action bars, "
       .. "a cast / mana / XP HUD, nameplates, a quest tracker and dialog, a dungeon guide, a damage meter, chat and a skin for "
       .. "Blizzard's windows.\n\nThis guide goes through all of it, one page at a time. Everything you pick here applies at once and "
       .. "can be changed later in /hh."):format(name, level and className and (" (level " .. level .. " " .. className .. ")") or "")),
-    quickHead = header("Two ways through"),
-    quick = button("Quick start - use the recommended setup", function() Setup.QuickStart() end,
-      "Keeps every recommended setting and jumps to the last page."),
-    walk = button("Walk me through it  >", function() Setup.Go(2) end, "Every page, every choice."),
   }
+  if Setup.SharedDone() then
+    -- another character set the shared profile up: keeping it is one click and resets nothing
+    a.sharedHead = header("This character")
+    a.shared = text("Your other characters already set HogTron UI up, and this character shares their settings. Keep them "
+      .. "and you are done. Walk through to change anything: changes apply to every character on this profile.")
+    a.keep = button("Keep my settings - done", function() Setup.KeepShared() end,
+      "Uses what your other characters use. Nothing shared changes.")
+  else
+    a.quickHead = header("Two ways through")
+    a.quick = button("Quick start - use the recommended setup", function() Setup.QuickStart() end,
+      "Keeps every recommended setting and jumps to the last page.")
+  end
+  a.walk = button("Walk me through it  >", function() Setup.Go(2) end, "Every page, every choice.")
+  return a
 end)
 
 step("look", "Look", nil, function()
@@ -396,16 +418,33 @@ end
 --- Recommended settings for the whole suite: the shipped defaults, kept; the Frames preset and the class layouts applied.
 function Setup.QuickStart()
   local W = HogHealsFrames and HogHealsFrames.Wizard
-  if W and W.ApplyPreset then pcall(W.ApplyPreset, "default") end
-  if W and W.ApplyBindings then pcall(W.ApplyBindings, "default") end
+  -- the frames preset and the hover keys live in the SHARED profile: only a profile nobody set up yet gets them
+  if not Setup.SharedDone() then
+    if W and W.ApplyPreset then pcall(W.ApplyPreset, "default") end
+    if W and W.ApplyBindings then pcall(W.ApplyBindings, "default") end
+  end
   if W and W.SetGearRole then pcall(W.SetGearRole, "auto") end
   Setup.quick = true
   Setup.Go(#Setup.Visible())
 end
 
+--- A character on a profile that is already set up keeps it as it is: only its own pieces (gear role) are written.
+function Setup.KeepShared()
+  local W = HogHealsFrames and HogHealsFrames.Wizard
+  local c = charDb()
+  if W and W.SetGearRole and not (c and type(c.atlas) == "table" and c.atlas.role) then pcall(W.SetGearRole, "auto") end
+  Setup.kept = true
+  Setup.Finish()
+end
+
 function Setup.Finish()
   local p = root()
   if p then p.wizardDone = true p.setupVersion = Setup.VERSION end
+  local c = charDb()
+  if c then
+    c.setupDone = true
+    c.setupAt = type(date) == "function" and date("%Y-%m-%d %H:%M") or nil
+  end
   Setup.open = false
   if HH.Panel and HH.Panel.frame then HH.Panel.frame:Hide() end
   HH:Print("Setup saved. /hh for every setting, /hh setup to run this again.")
@@ -416,20 +455,15 @@ Setup.VERSION = 2
 function HH:RunWizard() return Setup.Open() end
 HH:RegisterSlash("setup", function() Setup.Open() end, "the setup guide (every part of HogTron UI, step by step)")
 
--- First login on a profile: open once, a few seconds after the world is up, never in combat. Profiles that finished
--- the OLD wizard get one chat line pointing here instead of the window popping up (they already set things up).
+-- First login of each character: open once, a few seconds after the world is up, never in combat. Until it is
+-- finished (or kept) it opens again on the next login. On a profile another character set up, the welcome page leads
+-- with "Keep my settings - done".
 local boot = CreateFrame("Frame")
 pcall(boot.RegisterEvent, boot, "PLAYER_LOGIN")
 boot:SetScript("OnEvent", function()
-  local p = root()
-  if not p or not C_Timer or not C_Timer.After then return end
+  if not root() or not C_Timer or not C_Timer.After then return end
   C_Timer.After(4, function()
-    p = root()
-    if not p or InCombatLockdown() then return end
-    if not p.wizardDone then Setup.Open()
-    elseif (p.setupVersion or 1) < Setup.VERSION and not p.setupNoticed then
-      p.setupNoticed = true
-      HH:Print("New: a step-by-step setup guide for every part of HogTron UI. Type /hh setup.")
-    end
+    if not root() or InCombatLockdown() then return end
+    if not Setup.CharDone() then Setup.Open() end
   end)
 end)
