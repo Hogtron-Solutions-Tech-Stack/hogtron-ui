@@ -249,6 +249,7 @@ step("hud", "Cast bar and mana", "HUD", function()
     castbar = toggle("hud.showCastbar", "Cast bar", { module = "HUD", width = "normal" }),
     themes = toggle("hud.castbar.themes.enabled", "Cast bar takes on what you cast (fire, frost, holy, mining...)", { module = "HUD", width = "normal" }),
     swing = toggle("hud.showSwing", "Swing timer", { module = "HUD", width = "normal" }),
+    swingArt = toggle("hud.swing.art", "Swing timer animation (steel / wind, a flash on every hit)", { module = "HUD", width = "normal" }),
     mana = toggle("hud.showMana", "Mana bar with the five-second rule", { module = "HUD", width = "normal" }),
     xp = toggle("hud.showXP", "Experience bar (rested, quests ready, time to level)", { module = "HUD", width = "normal" }),
     info = toggle("hud.showInfo", "Info line (time to out-of-mana, best heal rank)", { module = "HUD", width = "normal" }),
