@@ -173,7 +173,26 @@ function Bars.UpdateCell(b)
   if HHB.Extra and HHB.Extra.HideStateArt then HHB.Extra.HideStateArt(b) HHB.Extra.HookChecked(b) end   -- the lib re-pins its art on every update
   -- click-through: an empty slot lets the mouse through to the world; a filled one must keep it (it casts)
   local through = bar and cfg().list[bar.n] and cfg().list[bar.n].clickThrough
-  if b.EnableMouse then b:EnableMouse(not (through and has ~= true)) end
+  Bars.SetMouse(b, not (through and has ~= true))
+end
+
+--- A bar button's mouse on / off. The buttons are SECURE: EnableMouse on one in combat is ADDON_ACTION_BLOCKED and
+-- the game's "blocked from an action" warning. Sean 2026-10-17 ("a ton of errors and the game is warning me"):
+-- UpdateCell runs on every lib update, in combat too, and called EnableMouse every time even when nothing changed.
+-- Now only a CHANGE is applied, and a change in combat waits for the end of combat (one queued redo per button).
+function Bars.SetMouse(b, want)
+  if not b.EnableMouse then return false end
+  if call(b.IsMouseEnabled, b) == want then return false end
+  if type(InCombatLockdown) == "function" and InCombatLockdown() then
+    if not b.hhMouseQueued then
+      b.hhMouseQueued = true
+      Bars.mouseDeferred = (Bars.mouseDeferred or 0) + 1
+      HH:RunOutOfCombat(function() b.hhMouseQueued = nil Bars.UpdateCell(b) end)
+    end
+    return false
+  end
+  b:EnableMouse(want)
+  return true
 end
 
 local function hookLib(lib)
