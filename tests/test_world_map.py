@@ -75,3 +75,14 @@ def test_no_world_map_frame_is_fine(lua):
     assert lua.eval('HogHealsQuests.WorldMap.Apply()') is False
     assert lua.eval('HogHealsQuests.WorldMap.Probe().frame') is False
     assert errors(lua) == []
+
+
+def test_every_border_texture_goes_not_only_the_first_two(lua):
+    # this file's call() keeps two values: { call(fr.GetRegions, fr) } hid only the first two border pieces (2026-10-18 sweep)
+    boot(lua, MODERN + MAP + '''
+      for i = 3, 5 do WMArt[i] = WorldMapFrame.BorderFrame:CreateTexture() end
+      WorldMapFrame.BorderFrame.GetRegions = function() return unpack(WMArt) end''')
+    lua.execute('HogHeals.db.profile.quests.worldMap.skin = true; HogHealsQuests.WorldMap.Refresh(); WorldMapFrame:Show()')
+    for i in range(1, 6):
+        assert lua.eval(f'WMArt[{i}]._alpha') == 0, i
+    assert errors(lua) == []

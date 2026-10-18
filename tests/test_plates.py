@@ -884,6 +884,25 @@ def test_platecvars_asks_by_name_when_there_is_no_list(plates):
     assert errors(plates) == []
 
 
+# ---------------------------------------------------------------- lists that stopped early (2026-10-18 sweep)
+def test_reset_shows_the_container_even_on_a_plate_with_no_bar(plates):
+    # ipairs({ hh.bar, hh.bg, container }) stopped at the nil bar: the container never came back on such a plate
+    plates.execute('''
+      local plate = CreateFrame("Frame", nil, WorldFrame)
+      local uf = CreateFrame("Button", nil, plate)
+      uf.HealthBarsContainer = CreateFrame("Frame", nil, uf)
+      uf.name = uf:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+      plate.UnitFrame, plate.unitToken = uf, "nameplate91"
+      NP.nameplate91 = plate
+      MockUnits.nameplate91 = { name = "Odd Plate", health = 1, maxHealth = 1, guid = "C-91" }
+      MockFire("NAME_PLATE_UNIT_ADDED", "nameplate91")
+      uf.HealthBarsContainer:Hide()
+      HogHealsPlates.Plates.Reset(uf)''')
+    assert plates.eval("NP.nameplate91.UnitFrame.hh.bar") is None
+    assert plates.eval("NP.nameplate91.UnitFrame.HealthBarsContainer:IsShown()") is True
+    assert errors(plates) == []
+
+
 # ---------------------------------------------------------------- call() arity in the plate diag (2026-10-17)
 # Sean's saves read "colour=0.95,0.80,nil" and "font=nil": the helper keeps two values; GetFont was read at index 5.
 def test_plate_diag_reads_all_four_colour_values_and_the_font_size(plates):

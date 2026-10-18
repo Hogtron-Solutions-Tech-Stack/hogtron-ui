@@ -1021,6 +1021,22 @@ def test_info_bar_on_the_brass_plaque_and_flat_on_request(skin):
     assert skin.eval("HogHealsSkin.InfoBar.plateOn") is False and skin.eval("HogUIInfoBar.bg:IsShown()") is True
 
 
+# ---------------------------------------------------------------- lists that stopped early (2026-10-18 sweep)
+def test_a_frame_with_a_fifth_non_menu_button_is_not_taken_for_the_menu_bar(skin):
+    # Skin.call keeps four values: { Skin.call(f.GetChildren, f) } looked at four children only, so a frame whose first
+    # four buttons are menu buttons and fifth is something else was faded as if it were the menu bar
+    skin.execute('''
+      HH_box = CreateFrame("Frame", "SomeActionsBox", UIParent)
+      HH_kids = {}
+      for i, n in ipairs({ "HHTestOneMicroButton", "HHTestTwoMicroButton", "HHTestThreeMicroButton", "HHTestFourMicroButton" }) do
+        HH_kids[i] = CreateFrame("Button", n, HH_box)
+      end
+      HH_kids[5] = CreateFrame("Button", "SomeoneElsesButton", HH_box)
+      HH_out = HogHealsSkin.Micro.SilenceContainers({ HH_kids[1] }, {})''')
+    first = skin.eval("HH_out[1]")
+    assert first.startswith("SomeActionsBox:art"), first
+
+
 # ---------------------------------------------------------------- the menu bar on Forever (Sean 2026-10-17)
 # "the legacy doesn't have an image" (a bare "L"), "make these bigger by default and more, you know, like distinct".
 FOREVER_MICRO = r'''
