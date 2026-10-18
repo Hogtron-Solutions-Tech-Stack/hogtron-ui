@@ -900,3 +900,22 @@ def test_a_name_only_friendly_plate_stays_centred(plates):
     uf = add(plates, "nameplate42", '{ name = "Friend", class = "MAGE", health = 1, maxHealth = 1, isPlayer = true, friendly = true, guid = "P-42" }')
     assert plates.eval(f'{uf}.hh.nameOnly') is True
     assert plates.eval(f'{uf}.hh.nameAt') == "center" and plates.eval(f'{uf}.name._points[1][1]') == "BOTTOM"
+
+
+# ---------------------------------------------------------------- recycled plate -> ore node (Sean 2026-10-17)
+# "above a node, I'm not sure what this black rectangle is that's empty": a plate skinned for a unit was reused for
+# the game object the interact key picks, and kept our dark bar backing.
+def test_a_recycled_plate_given_to_a_game_object_keeps_nothing_of_ours(plates):
+    uf = add(plates, "nameplate51", '{ name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-51" }')
+    assert plates.eval(f'{uf}.hh.bg:IsShown()') is True
+    plates.execute('MockFire("NAME_PLATE_UNIT_REMOVED", "nameplate51")')
+    # the client hands the same frame to an ore vein
+    plates.execute('function UnitIsGameObject(u) return u == "nameplate51" end; MockUnits.nameplate51 = { name = "Copper Vein" }')
+    plates.execute('MockFire("NAME_PLATE_UNIT_ADDED", "nameplate51")')
+    assert plates.eval(f'{uf}.hh.bg:IsShown()') is False and plates.eval(f'{uf}.healthBar:IsShown()') is False
+    assert all(plates.eval(f'{uf}.hh.edges[{i}]:IsShown()') is False for i in range(1, plates.eval(f'#{uf}.hh.edges') + 1))
+    assert plates.eval(f'{uf}.hh.object') is True
+    # and back to a unit: its own look again
+    plates.execute('MockFire("NAME_PLATE_UNIT_REMOVED", "nameplate51"); function UnitIsGameObject() return false end')
+    plates.execute('MockUnits.nameplate51 = { name = "Kobold", class = "WARRIOR", health = 5, maxHealth = 5, guid = "C-52" }; MockFire("NAME_PLATE_UNIT_ADDED", "nameplate51")')
+    assert plates.eval(f'{uf}.healthBar:IsShown()') is True and plates.eval(f'{uf}.hh.object') is None
