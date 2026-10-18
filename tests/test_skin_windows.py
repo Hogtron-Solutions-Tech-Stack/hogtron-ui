@@ -107,3 +107,22 @@ def test_buttons_and_icons_are_not_reported_as_leftovers(win):
       ShowUIPanel(FriendsFrame); MockAdvance(1)
     ''')
     assert win.eval('HogHeals.db.global.diag.skin.windows.FriendsFrame.leftovers') == 0
+
+
+# ---------------------------------------------------------------- reports never vanish (2026-10-17)
+# Sean: the Friends window looked stock and left no trace in diag.skin.windows - the leftovers walk ran inside the
+# report's pcall, so a throw there lost the whole record.
+def test_a_throwing_leftovers_walk_still_leaves_the_record(win):
+    win.execute('HogHealsSkin.Panels.Leftovers = function() error("forbidden child") end; ShowUIPanel(LFGParentFrame); MockAdvance(1)')
+    rep = win.eval('HogHeals.db.global.diag.skin.windows.LFGParentFrame')
+    assert rep is not None and rep["styled"] is True and "forbidden child" in rep["leftoversError"]
+    assert rep["shown"] is True
+
+
+def test_skindiag_keeps_the_window_records_and_counts_shows(win):
+    win.execute('local f = LFGParentFrame; f:GetScript("OnShow")(f); MockAdvance(1)')
+    assert win.eval('HogHealsSkin.Panels.shows.LFGParentFrame') >= 1
+    win.execute('MockLog.chat = {}; HogHeals:SlashCommand("skindiag")')
+    assert win.eval('HogHeals.db.global.diag.skin.windows.LFGParentFrame ~= nil')       # not wiped by the diag itself
+    assert "LFGParentFrame=" in win.eval('HogHeals.db.global.diag.skin.shows')
+    assert any("windows shown this session" in l for l in win.eval('MockLog.chat').values())
