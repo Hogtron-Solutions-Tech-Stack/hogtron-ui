@@ -85,7 +85,7 @@ jobs:
 
   # ---- per-module CurseForge projects (dev/split, docs/superpowers/research/curseforge-split.md) ----
   # Every project is BUILT and zip-gated on every run, so its packaging stays proven; a project is UPLOADED only on a
-  # tag AND once its curse_id is filled in dev/split/projects.json. Until then these jobs ship nothing.
+  # tag AND while dev/split/projects.json says live (2026-10-18: on; every project has its id).
   split-matrix:
     runs-on: ubuntu-latest
     outputs:

@@ -54,14 +54,19 @@ The packager we already use (BigWigsMods/packager) supports exactly this, per it
   `dev/split/projects.json`. CurseForge holds each new project for moderator review; a project only shows publicly
   once approved (moderators usually look at the first file).
 - Every module's packager config now requires `hogtron-ui-core`.
-- **`live` is false**: every project is built and zip-gated on every run, nothing uploads to them yet.
+- **`live` is true** (2026-10-18): the next tag uploads a first file to each of the 14, which is what the moderators
+  review. The bundle 1744106 still ships everything meanwhile. That is safe only because the 14 are not public until
+  approved: no player can install a folder from two projects yet.
+- If a module upload is refused because Core is not approved yet (the relation points at an unapproved project), that
+  one job goes red and the bundle upload is unaffected (separate job, `fail-fast: false`). Re-run it after approval.
 
-## Going live (one PR, then a tag)
+## Going live
 
-1. Turn today's project 1744106 ("HogTron UI") into the everything-package: its .pkgmeta ships a small stub folder and
-   `required-dependencies` on `hogtron-ui-core` + the 13 module slugs.
-2. Flip `live` to true in `dev/split/projects.json` in that same PR (never on its own: the same folders would ship in
-   two projects).
+1. Done: `live` true, so a tag gives every project its first file for moderation (the bundle unchanged).
+2. **Once CurseForge approves the 14** (before that the dependencies can't install for anyone): one PR turning today's
+   project 1744106 ("HogTron UI") into the everything-package: its .pkgmeta ships a small stub folder and
+   `required-dependencies` on `hogtron-ui-core` + the 13 module slugs. Do this soon after approval: until it lands the
+   same folders are public in two projects.
 3. Tag a beta, install it on a second machine through the CurseForge app (both a fresh install and an update of the
    old all-in-one), then a public tag.
 

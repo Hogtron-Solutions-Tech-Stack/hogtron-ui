@@ -1,6 +1,6 @@
 {
-  "_readme": "One CurseForge project per entry (all created 2026-10-18). live=false: every project is built and zip-gated on every run but NOTHING uploads to the per-module projects - flip live to true in the same PR that turns the all-in-one project (bundle) into the everything-package, or the same folders ship in two projects. Plan + migration: docs/superpowers/research/curseforge-split.md",
-  "live": false,
+  "_readme": "One CurseForge project per entry (all created 2026-10-18). live=true (2026-10-18): on a tag every project gets its own upload, so CurseForge moderators have a first file to approve. The bundle (1744106) still ships everything until the projects are approved; the projects are not public before that, so no player sees the same folder in two projects. After approval: the bundle -> everything-package PR. Plan + migration: docs/superpowers/research/curseforge-split.md",
+  "live": true,
   "bundle": {
     "title": "HogTron UI",
     "curse_id": "1744106",
