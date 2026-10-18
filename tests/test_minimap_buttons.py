@@ -316,3 +316,20 @@ def test_a_client_that_refuses_the_boar_keeps_the_h(lua):
       if t:SetTexture("x") == false then t:Hide() for _, bar in ipairs(b.logo) do bar:Show() end b.cross:Show() end
     ''')
     assert lua.eval("HogHealsMinimapButtons.logo[1]:IsShown()") is True
+
+
+# ---------------------------------------------------------------- our own drawer buttons in the painted set (2026-10-17)
+# Sean: "redo the top two icons, which are the Atlas and the HogHeals, to match the others"
+def test_hogheals_and_atlas_launchers_wear_painted_icons(lua):
+    boot(lua, MINIMAP)
+    lua.load_addon("HogTron_Atlas")
+    lua.execute("MockFire('PLAYER_ENTERING_WORLD'); if HogHealsAtlas and HogHealsAtlas.Launcher then HogHealsAtlas.Launcher.Start() end")
+    BS = chr(92)
+    media = "Interface" + BS + "AddOns" + BS + "HogTronUI" + BS + "Media" + BS
+    LDB = 'LibStub("LibDataBroker-1.1")'
+    assert lua.eval(f'{LDB}:GetDataObjectByName("HogHeals").icon') == media + "tray_hover_art"
+    atlas = lua.eval(f'{LDB}:GetDataObjectByName("HogUIAtlas")')
+    if atlas is not None:
+        assert atlas["icon"] == media + "tray_atlas_art"
+    lua.execute('HogHeals.db.profile.look.icons = "glyph"')
+    assert lua.eval('HogHeals.Look.IconPath("tray_atlas")') == media + "tray_atlas"

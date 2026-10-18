@@ -133,7 +133,7 @@ function HH:InitMinimap()
   local icon = LibStub("LibDBIcon-1.0", true)
   if not LDB or not icon then return end
   local obj = LDB:NewDataObject("HogHeals", {
-    type = "launcher", text = "HogHeals", icon = "Interface\\Icons\\Spell_Holy_HolyBolt",
+    type = "launcher", text = "HogHeals", icon = (HH.Look and HH.Look.IconPath) and HH.Look.IconPath("tray_hover") or "Interface\\Icons\\Spell_Holy_HolyBolt",
     OnClick = function(_, button)
       if button == "RightButton" then HH:SetLocked(not HH.db.profile.locked) else HH:OpenOptions() end
     end,
