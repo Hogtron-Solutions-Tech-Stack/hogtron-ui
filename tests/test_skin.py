@@ -1157,3 +1157,19 @@ def test_bigger_by_default_and_each_icon_has_its_own_colour_mark(micro):
         micro.eval(f'{leg}.accent._color[1]') != micro.eval(f'{char}.accent._color[1]')   # different colours
     micro.execute('HogHeals.db.profile.skin.micro.accent = false; HogHealsSkin.Micro.Strip()')
     assert micro.eval(f'{leg}.accent:IsShown()') is False
+
+
+# ---------------------------------------------------------------- lists that stopped early (2026-10-18 sweep)
+def test_a_frame_with_a_fifth_non_menu_button_is_not_taken_for_the_menu_bar(skin):
+    # Skin.call keeps four values: { Skin.call(f.GetChildren, f) } looked at four children only, so a frame whose first
+    # four buttons are menu buttons and fifth is something else was faded as if it were the menu bar
+    skin.execute('''
+      HH_box = CreateFrame("Frame", "SomeActionsBox", UIParent)
+      HH_kids = {}
+      for i, n in ipairs({ "HHTestOneMicroButton", "HHTestTwoMicroButton", "HHTestThreeMicroButton", "HHTestFourMicroButton" }) do
+        HH_kids[i] = CreateFrame("Button", n, HH_box)
+      end
+      HH_kids[5] = CreateFrame("Button", "SomeoneElsesButton", HH_box)
+      HH_out = HogHealsSkin.Micro.SilenceContainers({ HH_kids[1] }, {})''')
+    first = skin.eval("HH_out[1]")
+    assert first.startswith("SomeActionsBox:art"), first
