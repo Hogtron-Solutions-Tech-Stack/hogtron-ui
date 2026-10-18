@@ -254,7 +254,9 @@ end
 --- Pure: tex coords for a strip over [from, to] (fractions) of a bar w x h at t seconds.
 function XP.ArtCoords(t, from, to, w, h)
   local rep = 512 * math.max(1, h or 10) / 64
-  local u0 = (from or 0) * (w or 0) / rep - (t or 0) * XP.ART_SPEED / rep
+  -- the scroll keeps only its fraction of a repeat (t is GetTime(), the PC's uptime: whole repeats look the same, and
+  -- far-out coords are "TexCoord out of range" on this client)
+  local u0 = (from or 0) * (w or 0) / rep - (((t or 0) * XP.ART_SPEED / rep) % 1)
   return u0, u0 + math.max(0, ((to or 0) - (from or 0)) * (w or 0)) / rep
 end
 
