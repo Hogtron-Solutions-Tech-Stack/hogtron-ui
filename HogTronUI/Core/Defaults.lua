@@ -126,7 +126,9 @@ HH.defaults = {
       -- Questie's quality-of-life half without its database (Auto / Announce / Tooltip.lua); each defers to Questie when
       -- it is loaded. auto: pauseKey SHIFT | CTRL | ALT | NONE held = nothing automatic; chooseReward false = a real
       -- choice (2+ items) is always yours. announce: party = PARTY / RAID when grouped, self = your own chat frame.
-      auto = { enabled = true, accept = true, turnIn = true, gossip = true, chooseReward = false, acceptTrivial = true, pauseKey = "SHIFT" },
+      -- turnIn off by default (Sean 2026-10-17, new character: "I just turned in a quest and the dialogue didn't even pop
+      -- up because it was an auto turn-in so fast" - the turn-in page and its rewards show unless you switch it on)
+      auto = { enabled = true, accept = true, turnIn = false, gossip = true, chooseReward = false, acceptTrivial = true, pauseKey = "SHIFT" },
       announce = { enabled = true, party = true, self = false, accepted = false, turnedIn = false },
       -- the quest giver's pages in our window instead of Blizzard's (Dialog.lua): theme ink | parchment; keys = Space /
       -- 1-9 while it is open (never in combat); xpShare = the reward XP as a share of your level; point/x/y once dragged
