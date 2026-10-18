@@ -948,13 +948,16 @@ end
 function Plates.StandDown(uf)
   local hh = uf and uf.hh
   if not hh then return false end
-  for _, p in ipairs({ hh.bar, hh.bg, hh.health, hh.level, hh.questFrame, rawget(uf, "HealthBarsContainer") }) do
+  -- an object FIRST: anything that answers a hide (the health container keeper in #64) must see a plate with no unit
+  hh.unit, hh.object = nil, true
+  local pieces = { hh.bar, hh.bg, hh.health, hh.level, hh.questFrame, rawget(uf, "HealthBarsContainer") }
+  for i = 1, 6 do   -- not ipairs: a plate without a bar (hh.bar / hh.bg nil) skipped every piece after it
+    local p = pieces[i]
     if type(p) == "table" and p.Hide then call(p.Hide, p) end
   end
   for _, e in ipairs(hh.edges or {}) do e:Hide() end
   pcall(Plates.Light, uf, false)
   pcall(Plates.Bracket, uf, false)
-  hh.unit, hh.object = nil, true
   Plates.stoodDown = (Plates.stoodDown or 0) + 1
   return true
 end
