@@ -76,6 +76,10 @@ T.ART = { holy = { "ADD", 30, 0.7 }, fire = { "ADD", 55, 0.95 }, frost = { "ADD"
   leather = { "BLEND", 10, 0.9 }, water = { "ADD", 30, 0.8 }, gold = { "ADD", 25, 0.8 }, craft = { "ADD", 30, 0.85 },
   aim = { "ADD", 90, 0.5 } }
 T.ART_FILL = 0.5
+-- A spell's own strip is drawn as PAINTED (normal blend, near opaque). Sean 2026-10-17 in game, Frostbolt: "is this the
+-- new mage cast spells? they look the same" - drawn like the school strips (additive at ~55% over a darkened fill)
+-- the art's deep blues and black cracks dropped out and only the pale highlights stayed: the frost school look.
+T.SPELL_STRENGTH = 1.0
 local ART_DIR = "Interface\\AddOns\\HogTronUI\\Media\\cast_"
 local STRIP_W, STRIP_H = 512, 64
 T.artMissing = {}
@@ -238,9 +242,13 @@ function T.Apply(b, key, startTime, art)
     if ok == false then
       -- nothing to draw
     else
-      if L.art.SetBlendMode then L.art:SetBlendMode(art[1]) end
-      L.art:SetVertexColor(1, 1, 1, math.min(1, (art[3] or 0.9) * (0.55 + 0.45 * (o.intensity or 0.8))))   -- the label must still read on it
-      if art[1] == "ADD" then b:SetStatusBarColor(th.fill[1] * T.ART_FILL, th.fill[2] * T.ART_FILL, th.fill[3] * T.ART_FILL) end
+      local spellLoaded = spellStrip ~= nil and file == spellStrip
+      local mode = spellLoaded and "BLEND" or art[1]
+      local strength = spellLoaded and T.SPELL_STRENGTH or (art[3] or 0.9)
+      if L.art.SetBlendMode then L.art:SetBlendMode(mode) end
+      L.art:SetVertexColor(1, 1, 1, math.min(1, strength * (0.55 + 0.45 * (o.intensity or 0.8))))   -- the label must still read on it
+      if mode == "ADD" then b:SetStatusBarColor(th.fill[1] * T.ART_FILL, th.fill[2] * T.ART_FILL, th.fill[3] * T.ART_FILL) end
+      T.active.mode = mode
       L.art:ClearAllPoints()
       L.art:SetPoint("TOPLEFT", b, "TOPLEFT", 0, 0)
       L.art:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 0, 0)
@@ -310,6 +318,16 @@ end
 
 function T.Line(state)
   local o = cfg()
-  return ("theme: %s (from %s)%s"):format(tostring(state and state.theme or "none"), tostring(state and state.themeWhy or "-"),
-    o.enabled == false and " - themes are off" or "")
+  local a = T.active or {}
+  return ("theme: %s (from %s)%s   art: wanted %s, drew %s (%s)   missing: %s"):format(tostring(state and state.theme or "none"),
+    tostring(state and state.themeWhy or "-"), o.enabled == false and " - themes are off" or "",
+    tostring(state and state.spellArt or "school"), tostring(a.art or "none"), tostring(a.mode or "-"), T.MissingText())
+end
+
+--- The art files this client refused this session, "none" when every file loaded.
+function T.MissingText()
+  local m = {}
+  for k in pairs(T.artMissing) do m[#m + 1] = k end
+  table.sort(m)
+  return #m > 0 and table.concat(m, ",") or "none"
 end

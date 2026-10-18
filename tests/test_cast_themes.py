@@ -106,7 +106,7 @@ def test_a_secret_spell_id_is_never_used(th):
 def test_fireball_wears_fire(th):
     cast(th, "Fireball", 133)
     assert th.eval("HogHealsHUD.Castbar.state.theme") == "fire"
-    assert bar_colour(th) == pytest.approx([0.50, 0.21, 0.05])   # fire fill dimmed under its light strip (ART_FILL)
+    assert bar_colour(th) == pytest.approx([1, 0.42, 0.1])       # Fireball's own strip is painted on (BLEND): fill not dimmed
     assert glow_shown(th)
     assert motes_shown(th) == 6
     spark = list(th.eval("HH_cb.spark._color").values())[:3]
@@ -166,7 +166,7 @@ def test_glow_and_motes_switches(th):
     th.execute('MockFire("UNIT_SPELLCAST_STOP", "player"); HogHeals.db.profile.hud.castbar.themes.glow = false; HogHeals.db.profile.hud.castbar.themes.motes = true')
     cast(th, "Frostbolt", 116)
     assert not glow_shown(th) and motes_shown(th) == 5
-    assert bar_colour(th) == pytest.approx([0.18, 0.33, 0.43])   # the fill still themed (dimmed: the frost strip is on)
+    assert bar_colour(th) == pytest.approx([0.36, 0.66, 0.86])   # the fill still themed (Frostbolt's own strip: not dimmed)
 
 
 def test_no_class_school_keeps_plain_colours(th):
@@ -341,3 +341,20 @@ def test_mage_spells_match_their_strips(th):
                       ("Flamestrike", "spell_flamestrike"), ("Blizzard", "spell_blizzard"), ("Evocation", "spell_evocation"), ("Scorch", "spell_scorch"),
                       ("Conjure Food", "spell_conjure_food"), ("Polymorph: Cow", "spell_polymorph")):
         assert th.eval(f'({T}.SpellArt("{name}"))') == art, name
+
+
+
+# ---------------------------------------------------------------- spell strips drawn as painted (Sean 2026-10-17)
+# "is this the new mage cast spells? they look the same" - additive at ~55% over a dimmed fill washed Frostbolt's own
+# art out to the frost school's pale look. A spell strip is BLEND, near opaque; a school strip keeps ADD.
+def test_a_spell_strip_is_drawn_as_painted_and_a_school_strip_stays_additive(th):
+    cast(th, "Frostbolt", 116)
+    assert th.eval("HogHealsHUD.CastThemes.active.art") == "spell_frostbolt"
+    assert th.eval("HogHealsHUD.CastThemes.active.mode") == "BLEND"
+    rec = th.eval("HogHeals.db.global.diag.castArt")
+    assert rec["name"] == "Frostbolt" and rec["wanted"] == "spell_frostbolt" and rec["drew"] == "spell_frostbolt" and rec["mode"] == "BLEND"
+    assert rec["missing"] == "none"
+    th.execute('MockFire("UNIT_SPELLCAST_STOP", "player")')
+    cast(th, "Frost Nova", 122)                                          # no strip of its own: the school's, additive
+    assert th.eval("HogHealsHUD.CastThemes.active.art") == "arcane" and th.eval("HogHealsHUD.CastThemes.active.mode") == "ADD"   # mage default school
+    assert "art: wanted" in th.eval("HogHealsHUD.CastThemes.Line(HogHealsHUD.Castbar.state)")
