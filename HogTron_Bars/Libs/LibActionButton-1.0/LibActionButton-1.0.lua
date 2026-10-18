@@ -2863,7 +2863,25 @@ local GetActionCooldownInfo = C_ActionBar and C_ActionBar.GetActionCooldown or G
 local GetActionChargeInfo = C_ActionBar and C_ActionBar.GetActionCharges or GetActionChargeInfoFallback
 local GetActionLoCCooldownInfo = C_ActionBar and C_ActionBar.GetActionLossOfControlCooldownInfo or GetActionLoCCooldownInfoFallback
 
-Action.HasAction                = function(self) return HasAction(self._state_action) end
+-- HogTron UI patch (2026-10-17): on WoW: Forever the client's "is there an action in this slot" can come back HIDDEN
+-- (secret), or the global may be missing. Every Update starts with `if self:HasAction() then` - a hidden answer threw
+-- there, before the usable colour and the cooldown, on every button: all icons grey, no cooldowns, and no error counted
+-- (the guarded steps were never reached; buttons were never registered for cooldown updates). The in-game recorder
+-- found NO button with a plain "has an action" while the bars were full. A hidden answer is replaced by "this slot has
+-- an icon" (a hidden icon = yes: the icon is on screen anyway); a missing global by C_ActionBar.HasAction.
+local function hhHidden(v) return issecretvalue and issecretvalue(v) and true or false end
+function lib.hhHasAction(slot)
+	local f = HasAction or (C_ActionBar and C_ActionBar.HasAction)
+	local v
+	if f then v = f(slot) else lib.hhHasActionMissing = true end
+	if f and not hhHidden(v) then return v end
+	lib.hhHasActionHidden = (lib.hhHasActionHidden or 0) + 1
+	local tf = GetActionTexture or (C_ActionBar and C_ActionBar.GetActionTexture)
+	local tex = tf and tf(slot)
+	if hhHidden(tex) then return true end
+	return tex ~= nil
+end
+Action.HasAction                = function(self) return lib.hhHasAction(self._state_action) end
 Action.GetActionText            = function(self) return GetActionText(self._state_action) end
 Action.GetTexture               = function(self) return GetActionTexture(self._state_action) end
 Action.GetCount                 = function(self) return GetActionCount(self._state_action) end

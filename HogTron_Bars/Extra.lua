@@ -532,6 +532,26 @@ function Extra.CooldownLines(max)
   return out
 end
 
+--- The raw "is there an action here" answers for bar 1's first buttons, whatever they are (the recorder above only
+-- lists buttons the lib believes hold an action - it found none on 2026-10-17 while the bars were full).
+function Extra.RawLines(max)
+  local out = {}
+  local bar = Bars.bars and Bars.bars[1]
+  local CAB = rawget(_G, "C_ActionBar")
+  for i, b in ipairs(bar and bar.buttons or {}) do
+    if i > (max or 4) then break end
+    local slot = rawget(b, "_state_action")
+    local g = rawget(_G, "HasAction")
+    local gv = g and call(g, slot)
+    local cv = type(CAB) == "table" and type(CAB.HasAction) == "function" and call(CAB.HasAction, slot) or nil
+    local tex = call(rawget(_G, "GetActionTexture"), slot)
+    out[#out + 1] = ("b1#%d type=%s slot=%s HasAction=%s C_.HasAction=%s tex=%s lib=%s"):format(i, tostring(rawget(b, "_state_type")),
+      desc(slot), g and desc(gv) or "nofn", (type(CAB) == "table" and type(CAB.HasAction) == "function") and desc(cv) or "nofn",
+      desc(tex), desc(call(b.HasAction, b)))
+  end
+  return out
+end
+
 function Extra.SaveLive()
   local lab = Bars.Lib and Bars.Lib()
   local g = HH.db and HH.db.global
@@ -544,6 +564,10 @@ function Extra.SaveLive()
   local ok, lines = pcall(Extra.CooldownLines, 6)
   g.diag.barsLive.cooldowns = ok and table.concat(lines, " || ") or ("probe error: " .. tostring(lines))
   g.diag.barsLive.cooling = Extra.cooling
+  local okR, raw = pcall(Extra.RawLines, 4)
+  g.diag.barsLive.raw = okR and table.concat(raw, " || ") or ("raw error: " .. tostring(raw))
+  g.diag.barsLive.hasActionHidden = lab.hhHasActionHidden or 0
+  g.diag.barsLive.hasActionMissing = lab.hhHasActionMissing and true or false
   return g.diag.barsLive
 end
 

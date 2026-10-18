@@ -758,3 +758,47 @@ def test_hidden_cooldown_values_are_written_s_never_used(bars):
     """)
     c = bars.eval("HogHeals.db.global.diag.barsLive.cooldowns")
     assert "COOLING b1#1 slot 7: isActive=S start=S dur=S" in c
+
+
+
+# ---------------------------------------------------------------- hidden "has an action" (2026-10-17, the root of grey + no cooldowns)
+def _hasaction_rt():
+    from lupa.lua51 import LuaRuntime
+    src = _lab_src().splitlines()
+    a = next(k for k, l in enumerate(src) if l.startswith("local function hhHidden(v)"))
+    b = next(k for k in range(a, len(src)) if src[k].startswith("Action.HasAction"))
+    rt = LuaRuntime()
+    rt.execute("""
+      lib = {}
+      function issecretvalue(v) return type(v) == "table" and v.secret == true end
+      S = { secret = true }
+      ANS, TEX = S, 12345
+      function HasAction(slot) return ANS end
+      function GetActionTexture(slot) return TEX end
+      Action = {}
+    """)
+    rt.execute(chr(10).join(src[a:b + 1]))
+    return rt
+
+
+def test_a_hidden_has_action_answer_never_reaches_an_if_and_falls_back_to_the_icon():
+    rt = _hasaction_rt()
+    assert rt.eval("Action.HasAction({ _state_action = 1 })") is True and rt.eval("lib.hhHasActionHidden") == 1
+    rt.execute("TEX = nil")
+    assert rt.eval("Action.HasAction({ _state_action = 2 })") is False            # hidden answer, no icon: empty slot
+    rt.execute("TEX = S")
+    assert rt.eval("Action.HasAction({ _state_action = 3 })") is True             # hidden icon too: the icon is on screen
+    rt.execute("ANS = false; TEX = 1")
+    assert rt.eval("Action.HasAction({ _state_action = 4 })") is False            # a plain answer is used as it is
+
+
+def test_a_missing_has_action_global_uses_the_icon():
+    rt = _hasaction_rt()
+    rt.execute("HasAction = nil; TEX = 99")
+    assert rt.eval("Action.HasAction({ _state_action = 1 })") is True and rt.eval("lib.hhHasActionMissing") is True
+
+
+def test_the_live_save_records_the_raw_answers(bars):
+    bars.execute(STATE + "HogHealsBars.Extra.SaveLive()")
+    raw = bars.eval("HogHeals.db.global.diag.barsLive.raw")
+    assert raw.startswith("b1#1 type=action slot=7.0 HasAction=")
