@@ -273,6 +273,7 @@ step("quests", "Questing", "Quests", function()
     go = toggle("quests.go.enabled", "GO row: the quest to do next, with distance and time to level", { module = "Quests" }),
     rule = choose("quests.go.rule", "GO picks by", { fastest = "Fastest XP", balanced = "Balanced (recommended)", travel = "Least walking" }, { module = "Quests" }),
     waypoint = toggle("quests.waypoint.enabled", "Marker in the world over your tracked quest", { module = "Quests" }),
+    waypointStyle = choose("quests.waypoint.style", "The marker", { beam = "A beam of light (recommended)", diamond = "A small diamond" }, { module = "Quests", default = "beam" }),
     dialogHead = header("Talking to quest givers"),
     dialog = toggle("quests.dialog.enabled", "Quest text on a page in our own window (Space accepts, 1-9 picks)", { module = "Quests" }),
     theme = choose("quests.dialog.theme", "Page", { light = "Parchment", dark = "Ink" }, { module = "Quests" }),

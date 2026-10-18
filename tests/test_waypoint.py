@@ -82,7 +82,7 @@ def test_anchored_to_the_navigation_frame_with_texts(wp):
     assert wp.eval("HH_w.title:GetText()") == "Report to Goldshire"
     detail = wp.eval("HH_w.detail:GetText()")
     assert "191 yd" in detail and "27s" in detail and "ready to turn in" in detail
-    assert wp.eval("HH_w.marker:IsShown()") is True and wp.eval("HH_w.arrow:IsShown()") is False
+    assert wp.eval("HH_w.beam:IsShown()") is True and wp.eval("HH_w.marker:IsShown()") is False and wp.eval("HH_w.arrow:IsShown()") is False   # the beam by default (2026-10-17)
     assert errors(wp) == []
 
 
@@ -100,10 +100,10 @@ def test_blizzard_art_goes_transparent_and_comes_back(wp):
 
 def test_clamped_shows_the_edge_arrow_turned_toward_the_objective(wp):
     wp.execute(f"CLAMPED = true; {W}.Update()")
-    assert wp.eval("HH_w.arrow:IsShown()") is True and wp.eval("HH_w.marker:IsShown()") is False
+    assert wp.eval("HH_w.arrow:IsShown()") is True and wp.eval("HH_w.marker:IsShown()") is False and wp.eval("HH_w.beam:IsShown()") is False   # off-screen: the arrow only
     assert wp.eval(f"{W}.angle") == pytest.approx(0.9828, abs=0.001)
     wp.execute(f"CLAMPED = false; {W}.Update()")
-    assert wp.eval("HH_w.arrow:IsShown()") is False and wp.eval("HH_w.marker:IsShown()") is True
+    assert wp.eval("HH_w.arrow:IsShown()") is False and wp.eval("HH_w.beam:IsShown()") is True
     wp.execute(f"CLAMPED = true; HogHeals.db.profile.quests.waypoint.arrow = false; {W}.Update()")
     assert wp.eval("HH_w.arrow:IsShown()") is False
 
@@ -188,3 +188,101 @@ def test_options_group_and_diag_lines(wp):
     assert "C_Navigation.GetFrame" in lines and "Report to Goldshire" in lines and "191 yd" in lines
     p = wp.eval(f"{W}.Probe()")
     assert p["hasGetFrame"] is True and p["tracked"] == 9
+
+
+
+# ---------------------------------------------------------------- the beam (Sean 2026-10-17)
+# "put a glow ... or like a beam of light coming down rather than this diamond ... it looks kind of cheap"
+def test_beam_breathes_fades_up_close_and_texts_sit_under_its_foot(wp):
+    wp.execute("HogHealsQuests.Waypoint.Update()")
+    assert wp.eval("HH_w.beam:IsShown()") is True and wp.eval("HH_w.base:IsShown()") is False   # no ring on the NPC
+    assert wp.eval("HH_w.beam._blend") == "ADD"
+    assert wp.eval("HH_w.title._points[1][1]") == "TOP" and wp.eval("HH_w.title._points[1][5]") < 0   # under the foot
+    W = "HogHealsQuests.Waypoint"
+    wp.execute(f"{W}.OnUpdate(nil, 0.1)")
+    a1 = wp.eval(f"{W}.lastBeam")
+    wp.execute(f"{W}.OnUpdate(nil, 0.5)")
+    assert wp.eval(f"{W}.lastBeam") != a1                                         # it breathes
+    assert wp.eval(f"{W}.BeamAlpha(4, {{}})") == 0                              # close: no beam at all
+    assert wp.eval(f"{W}.BeamAlpha(20, {{}})") == 0.5                           # fading in from 15 yd
+    assert wp.eval(f"{W}.BeamAlpha(60, {{}})") == 1
+    assert 0.7 <= wp.eval(f"{W}.Breath(0.55)") <= 1.0
+
+
+def test_the_diamond_is_still_a_choice(wp):
+    wp.execute('HogHeals.db.profile.quests.waypoint.style = "diamond"; HogHealsQuests.Waypoint.Update()')
+    assert wp.eval("HH_w.marker:IsShown()") is True and wp.eval("HH_w.beam:IsShown()") is False
+    assert wp.eval("HH_w.title._points[1][1]") == "BOTTOM"                      # name back above the marker
+
+
+
+# ---------------------------------------------------------------- beam v2 (Sean 2026-10-17, second look)
+# "start from above the question mark, so it doesn't interrupt anything ... really, really tall ... only from a certain
+# distance"
+def test_the_beam_starts_above_the_question_mark_at_any_distance_and_is_tall(wp):
+    W_ = "HogHealsQuests.Waypoint"
+    assert wp.eval(f"{W_}.BeamGap(25)") == 50                                     # measured in game: ~50 px at 25 yd
+    assert wp.eval(f"{W_}.BeamGap(10)") > wp.eval(f"{W_}.BeamGap(40)")            # closer = the head is taller on screen
+    assert wp.eval(f"{W_}.BeamGap(2)") == 240 and wp.eval(f"{W_}.BeamGap(500)") == 40
+    wp.execute(f"{W_}.Update()")                                                   # the GO pick: 566 map-yards away
+    p = wp.eval("HH_w.beam._points[1]")
+    assert p[1] == "BOTTOM" and p[3] == "CENTER" and p[5] >= 40                  # its foot well above the point
+    assert wp.eval("HH_w.beam._height") == 900
+
+
+def test_inside_the_beam_distance_there_is_no_beam(wp):
+    wp.execute("HogHeals.db.profile.quests.waypoint.beamFrom = 1000; HogHealsQuests.Waypoint.Update()")
+    assert wp.eval("HH_w.beam:IsShown()") is False and wp.eval("HH_w.arrow:IsShown()") is False
+
+
+
+# ---------------------------------------------------------------- blocked view (Sean 2026-10-17, v3)
+# "Can we hide the beam behind objects so it only appears above them if they are blocked?" - no depth for addons; the
+# client's own occluded flag (retail C_Navigation.GetTargetState) lifts the beam into the sky instead.
+def test_a_blocked_target_lifts_the_beam_into_the_sky(wp):
+    W_ = "HogHealsQuests.Waypoint"
+    wp.execute(f"{W_}.Update()")
+    base = wp.eval("HH_w.beam._points[1][5]")
+    wp.execute(f"""Enum = Enum or {{}}; Enum.NavigationState = {{ Invalid = 0, Occluded = 1, InRange = 2, Disabled = 3 }}
+      HH_state = 1; C_Navigation.GetTargetState = function() return HH_state end; {W_}.Update()""")
+    assert wp.eval("HH_w.beam._points[1][5]") == base + wp.eval(f"{W_}.OCCLUDED_LIFT")
+    assert wp.eval(f"{W_}.blocked") is True and wp.eval(f"{W_}.beamTarget") < 1
+    assert wp.eval("HogHeals.db.global.diag.waypointOcclusion.api") == "C_Navigation.GetTargetState"
+    wp.execute(f"HH_state = 2; {W_}.Update()")                                   # in view again
+    assert wp.eval("HH_w.beam._points[1][5]") == base and wp.eval(f"{W_}.blocked") is False
+
+
+def test_a_client_that_cannot_say_changes_nothing_and_says_so(wp):
+    W_ = "HogHealsQuests.Waypoint"
+    wp.execute(f"C_Navigation.GetTargetState = nil; {W_}.Update()")
+    assert wp.eval(f"{W_}.blocked") is False and wp.eval(f"{W_}.path.occlusion") == "none"
+    assert any("blocked-view lift: none" in l for l in wp.eval(f"{W_}.Lines()").values())
+
+
+
+# ---------------------------------------------------------------- no usable target (Sean 2026-10-17)
+# "it says it's ready to turn in, but anywhere I turn, the quest stays in the middle of my screen" - no distance, no
+# valid screen spot, the client's frame parked mid-screen: nothing is drawn in the world then.
+def test_no_position_and_no_distance_draws_nothing_in_the_world(wp):
+    W_ = "HogHealsQuests.Waypoint"
+    wp.execute(f"VALIDPOS = false; NAVDIST = nil; C_Navigation.GetDistance = function() return nil end; {W_}.Distance = function() return nil end; {W_}.Update()")
+    assert wp.eval("HH_w:IsShown()") is False
+    assert "no distance" in wp.eval(f"{W_}.noTarget")
+    assert any("nothing drawn in the world" in l for l in wp.eval(f"{W_}.Lines()").values())
+
+
+def test_an_invalid_target_state_draws_nothing(wp):
+    W_ = "HogHealsQuests.Waypoint"
+    wp.execute(f"C_Navigation.GetTargetState = function() return 0 end; {W_}.Update()")
+    assert wp.eval("HH_w:IsShown()") is False and wp.eval(f"{W_}.noTarget") == "client: invalid target"
+    wp.execute(f"C_Navigation.GetTargetState = function() return 2 end; {W_}.Update()")   # in range again
+    assert wp.eval("HH_w:IsShown()") is True and wp.eval(f"{W_}.noTarget") is None
+
+
+def test_off_screen_with_the_frame_parked_mid_screen_draws_nothing(wp):
+    W_ = "HogHealsQuests.Waypoint"
+    wp.execute(f"""VALIDPOS = false
+      local nav = {W_}.NavFrame()
+      function nav:GetCenter() return GetScreenWidth() / 2, GetScreenHeight() / 2 end
+      {W_}.Update()""")
+    assert wp.eval("HH_w:IsShown()") is False and "parked mid-screen" in wp.eval(f"{W_}.noTarget")

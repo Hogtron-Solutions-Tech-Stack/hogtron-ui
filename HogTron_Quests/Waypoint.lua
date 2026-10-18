@@ -21,6 +21,19 @@ HHQ.Waypoint = WP
 
 local CYAN, CREAM, GREY, GREEN, INK, LINE = { 0.13, 0.83, 0.88 }, { 0.96, 0.92, 0.86 }, { 0.70, 0.70, 0.75 },
   { 0.25, 0.80, 0.35 }, { 0.07, 0.07, 0.09 }, { 0.20, 0.20, 0.25 }
+local BEAM = "Interface\\AddOns\\HogTronUI\\Media\\waypoint_beam"
+local GLOW = "Interface\\AddOns\\HogTronUI\\Media\\target_glow"
+WP.BEAM_W, WP.BEAM_H, WP.BREATH = 26, 900, 2.2
+-- Sean 2026-10-17 (v2): "start from above the question mark, so it doesn't interrupt anything ... really, really tall so
+-- I can see it in the distance as I'm running towards it, but only from a certain distance" (retail's waypoint beam).
+-- The objective's point is at the NPC; the "?" floats a head above it, and on screen that head grows as you close in:
+-- the beam's foot sits GAP_K / yards px above the point (measured in game: ~50 px at 25 yd), kept in [GAP_MIN, GAP_MAX].
+WP.GAP_K, WP.GAP_MIN, WP.GAP_MAX = 1250, 40, 240
+-- Sean 2026-10-17 (v3): "Can we hide the beam behind objects so it only appears above them if they are blocked?" A frame
+-- is drawn over the 3D world - an addon gets no depth and no line of sight. What the client CAN say (retail:
+-- C_Navigation.GetTargetState) is whether the tracked target is occluded right now; then the beam lifts OCCLUDED_LIFT px
+-- into the sky and dims, a beacon over whatever is in the way. Without that call nothing changes (diag says so).
+WP.OCCLUDED_LIFT, WP.OCCLUDED_ALPHA = 180, 0.7
 local ARROW = "Interface\\AddOns\\HogTronUI\\Media\\quest_arrow"
 -- Blizzard's own art on the navigation frame, made transparent while ours is on (names differ per client build)
 local BLIZZ_PARTS = { "Icon", "Arrow", "DistanceText", "Time", "NavigationLabel", "Description" }
@@ -178,7 +191,24 @@ function WP.Create()
   f.arrow:SetPoint("CENTER", f, "CENTER", 0, 0)
   if not f.arrow:SetTexture(ARROW) then f.arrow:SetColorTexture(CYAN[1], CYAN[2], CYAN[3], 1) end
   f.arrow:Hide()
-  -- texts: name above, yards / eta / progress below
+  -- the beam (Sean 2026-10-17: "a glow ... or like a beam of light coming down rather than this diamond ... it looks
+  -- kind of cheap"): a soft light shaft rising from the objective with a glow ring at its foot, drawn with ADD, breathing
+  -- slowly; faded right down when you are close so it never washes over the NPC you are talking to. A glow on the
+  -- quest giver's own "?" is not possible: the client draws that one and an addon only knows the objective's point.
+  f.beam = f:CreateTexture(nil, "ARTWORK", nil, -1)
+  f.beam:SetSize(WP.BEAM_W, WP.BEAM_H)
+  f.beam:SetPoint("BOTTOM", f, "CENTER", 0, -2)
+  if f.beam:SetTexture(BEAM) == false then f.beam:SetColorTexture(CYAN[1], CYAN[2], CYAN[3], 0.35) end
+  if f.beam.SetBlendMode then f.beam:SetBlendMode("ADD") end
+  f.beam:SetVertexColor(CYAN[1], CYAN[2], CYAN[3], 1)
+  f.base = f:CreateTexture(nil, "ARTWORK", nil, -2)
+  f.base:SetSize(44, 16)
+  f.base:SetPoint("CENTER", f, "CENTER", 0, 0)
+  if f.base:SetTexture(GLOW) == false then f.base:SetColorTexture(CYAN[1], CYAN[2], CYAN[3], 0.3) end
+  if f.base.SetBlendMode then f.base:SetBlendMode("ADD") end
+  f.base:SetVertexColor(CYAN[1], CYAN[2], CYAN[3], 0.8)
+  f.beam:Hide() f.base:Hide()
+  -- texts: name above, yards / eta / progress below (beam: both under its foot, the shaft stays clear)
   f.title = fs(f, CREAM, 12)
   f.title:SetPoint("BOTTOM", f.marker, "TOP", 0, 6)
   f.detail = fs(f, GREY, 11)
@@ -242,21 +272,50 @@ function WP.Update()
   f.title:SetTextColor(c.color[1], c.color[2], c.color[3])
   f.detail:SetText(c.detail)
   local navApi = rawget(_G, "C_Navigation")
+  local why = WP.NoTarget(navApi, nav, yards)
+  if why then
+    f:Hide()
+    WP.current = { id = id, title = c.title, yards = yards, noTarget = why }
+    WP.noTarget = why
+    count("noTarget")
+    return false
+  end
+  WP.noTarget = nil
   local clamped = o.arrow ~= false and call(fn(navApi, "WasClampedToScreen")) and true or false
   local valid = fn(navApi, "HasValidScreenPosition")
   if valid and not call(valid) then clamped = o.arrow ~= false end
+  local beam = WP.Style(o) == "beam"
   if clamped then
     local sw, sh = (g("GetScreenWidth") and GetScreenWidth() or 1920), (g("GetScreenHeight") and GetScreenHeight() or 1080)
     local nx, ny = nav:GetCenter()
     local angle = (type(nx) == "number" and type(ny) == "number") and WP.Angle(sw / 2, sh / 2, nx, ny) or 0
     if f.arrow.SetRotation then pcall(f.arrow.SetRotation, f.arrow, -angle) end
     f.arrow:Show()
-    f.marker:Hide() f.edge:Hide()
+    f.marker:Hide() f.edge:Hide() f.beam:Hide() f.base:Hide()
     WP.angle = angle
   else
     f.arrow:Hide()
-    f.marker:Show() f.edge:Show()
+    if beam then
+      -- no ring at the foot any more (it sat on the NPC's name); the shaft starts above the "?"
+      f.marker:Hide() f.edge:Hide() f.base:Hide()
+      local hidden = o.liftWhenBlocked ~= false and WP.Occluded()
+      WP.blocked = hidden
+      f.beam:ClearAllPoints()
+      f.beam:SetPoint("BOTTOM", f, "CENTER", 0, WP.BeamGap(yards) + (hidden and WP.OCCLUDED_LIFT or 0))
+      f.beam:SetHeight(o.beamHeight or WP.BEAM_H)
+      if WP.BeamAlpha(yards, o) > 0 then f.beam:Show() else f.beam:Hide() end
+    else f.marker:Show() f.edge:Show() f.beam:Hide() f.base:Hide() end
     WP.angle = nil
+  end
+  WP.PlaceTexts(f, beam and not clamped)
+  WP.beamTarget = WP.BeamAlpha(yards, o) * (WP.blocked and WP.OCCLUDED_ALPHA or 1)
+  local gl = HH.db and HH.db.global
+  local stateText = WP.lastStateText or "none"
+  if gl and WP.path.occlusion and (WP.savedState ~= stateText or WP.savedPath ~= WP.path.occlusion) then
+    WP.savedState, WP.savedPath = stateText, WP.path.occlusion
+    gl.diag = gl.diag or {}
+    gl.diag.waypointOcclusion = { api = WP.path.occlusion, lastState = stateText, blocked = WP.blocked and true or false,
+      at = date and date("%Y-%m-%d %H:%M:%S") or "?" }
   end
   f:SetAlpha(WP.Alpha(yards, o))
   f:Show()
@@ -264,8 +323,97 @@ function WP.Update()
   return true
 end
 
+--- The marker style: "beam" (default) or "diamond" (the flat marker from before).
+function WP.Style(o) return ((o or cfg()).style == "diamond") and "diamond" or "beam" end
+
+--- Pure: the beam's strength for a distance. Gone inside beamFrom yards (you are there - the NPC needs no beam),
+-- fading in over the next beamFade yards, full beyond; no distance known = full.
+function WP.BeamAlpha(yards, o)
+  o = o or {}
+  if type(yards) ~= "number" then return 1 end
+  local from, fade = o.beamFrom or 15, math.max(1, o.beamFade or 10)
+  if yards <= from then return 0 end
+  if yards < from + fade then return (yards - from) / fade end
+  return 1
+end
+
+--- Why there is NO usable target in the world right now, or nil. Sean 2026-10-17 (Camping 101: Herbalism, ready to turn
+-- in): the title, "ready to turn in" and an arrow sat in the MIDDLE of the screen with no distance, wherever he turned.
+-- The client had no position for the turn-in: no distance, no valid screen spot, its navigation frame parked at the
+-- screen's centre - an arrow there points nowhere. Then nothing is drawn in the world (the tracker's GO row still has
+-- the quest).
+function WP.NoTarget(navApi, nav, yards)
+  local st = call(fn(navApi, "GetTargetState"))
+  if type(st) == "number" and not isSecret(st) then
+    local E = rawget(_G, "Enum")
+    local NS = type(E) == "table" and type(E.NavigationState) == "table" and E.NavigationState or {}
+    if st == (NS.Invalid or 0) then return "client: invalid target" end
+    if st == (NS.Disabled or 3) then return "client: navigation disabled" end
+  end
+  local validFn = fn(navApi, "HasValidScreenPosition")
+  if not validFn or call(validFn) then return nil end
+  if type(yards) ~= "number" then return "no screen position and no distance" end
+  local sw, sh = (g("GetScreenWidth") and GetScreenWidth() or 1920), (g("GetScreenHeight") and GetScreenHeight() or 1080)
+  local nx, ny = call(nav.GetCenter, nav)
+  nx, ny = num(nx), num(ny)
+  if nx and ny and math.abs(nx - sw / 2) < sw * 0.05 and math.abs(ny - sh / 2) < sh * 0.05 then
+    return "off screen with the frame parked mid-screen (no edge to point from)"
+  end
+  return nil
+end
+
+--- Is the tracked target hidden behind something, per the client? false when the client cannot say.
+function WP.Occluded()
+  local navApi = rawget(_G, "C_Navigation")
+  local f = fn(navApi, "GetTargetState")
+  if not f then WP.path.occlusion = "none" return false end
+  WP.path.occlusion = "C_Navigation.GetTargetState"
+  local st = call(f)
+  if isSecret(st) then WP.lastState, WP.lastStateText = "secret", "secret" return false end
+  WP.lastState = st
+  WP.lastStateText = type(st) == "number" and ("%d"):format(st) or "none"   -- plain, never a secret (checked above)
+  local E = rawget(_G, "Enum")
+  local occluded = (type(E) == "table" and type(E.NavigationState) == "table" and E.NavigationState.Occluded) or 1
+  return st ~= nil and st == occluded
+end
+
+--- Pure: px from the objective's point up to the beam's foot - above the quest giver's "?" at any distance.
+function WP.BeamGap(yards)
+  if type(yards) ~= "number" or yards <= 0 then return 70 end
+  return math.max(WP.GAP_MIN, math.min(WP.GAP_MAX, WP.GAP_K / yards))
+end
+
+--- Pure: the breathing - between 0.7 and 1.0 of the beam's strength, one breath every BREATH seconds.
+function WP.Breath(t) return 0.85 + 0.15 * math.sin((t or 0) * 2 * math.pi / WP.BREATH) end
+
+--- Texts around the marker (diamond) or both under the beam's foot.
+function WP.PlaceTexts(f, underFoot)
+  if WP.textsUnder == underFoot then return end
+  WP.textsUnder = underFoot
+  f.title:ClearAllPoints() f.detail:ClearAllPoints()
+  if underFoot then
+    f.title:SetPoint("TOP", f, "CENTER", 0, -12)
+    f.detail:SetPoint("TOP", f.title, "BOTTOM", 0, -2)
+  else
+    f.title:SetPoint("BOTTOM", f.marker, "TOP", 0, 6)
+    f.detail:SetPoint("TOP", f.marker, "BOTTOM", 0, -6)
+  end
+end
+
+--- Every frame while shown: the beam breathes (cheap: two alphas). Content repaints stay on THROTTLE.
+function WP.Pulse(elapsed)
+  local f = WP.frame
+  if not f or not f.beam or not f.beam:IsShown() then return end
+  WP.t = (WP.t or 0) + (elapsed or 0)
+  local a = (WP.beamTarget or 1) * WP.Breath(WP.t)
+  f.beam:SetVertexColor(CYAN[1], CYAN[2], CYAN[3], a)
+  f.base:SetVertexColor(CYAN[1], CYAN[2], CYAN[3], 0.8 * a)
+  WP.lastBeam = a
+end
+
 --- Distance and eta age while you walk: repaint every THROTTLE seconds while shown.
 function WP.OnUpdate(_, elapsed)
+  WP.Pulse(elapsed)
   WP.elapsed = WP.elapsed + (elapsed or 0)
   if WP.elapsed < WP.THROTTLE then return end
   WP.elapsed = 0
@@ -327,6 +475,9 @@ function WP.Lines()
   if c then out[#out + 1] = ("  tracking %s (%s) %s%s"):format(tostring(c.title), tostring(c.id), c.yards and (WP.FormatDistance(c.yards) or "") or "distance unknown", c.clamped and ", off-screen arrow" or "")
   else out[#out + 1] = "  nothing tracked (click a quest in the tracker, or let the GO row pick)." end
   if p.unknownEvents ~= "" then out[#out + 1] = "  events this client lacks: " .. p.unknownEvents end
+  if WP.noTarget then out[#out + 1] = "  nothing drawn in the world: " .. WP.noTarget end
+  out[#out + 1] = ("  blocked-view lift: %s (last state %s, now %s)"):format(tostring(WP.path.occlusion or "not asked yet"),
+    tostring(WP.lastState), WP.blocked and "LIFTED" or "normal")
   return out
 end
 
