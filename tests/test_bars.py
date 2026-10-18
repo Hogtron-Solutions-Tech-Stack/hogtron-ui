@@ -728,3 +728,32 @@ def test_the_live_counters_save_themselves(bars):
     bars.execute("local lab = HogHealsBars.Bars.Lib(); lab.hhCooldownErrors = 3; lab.hhLastCooldownError = 'x'; HogHealsBars.Extra.SaveLive()")
     live = bars.eval("HogHeals.db.global.diag.barsLive")
     assert live["cooldownErrors"] == 3 and live["lastCooldownError"] == "x"
+
+
+
+# ---------------------------------------------------------------- cooldown evidence (2026-10-17, fourth report)
+def test_the_live_save_records_what_the_client_and_the_swipe_do(bars):
+    bars.execute(STATE + """
+      C_ActionBar = C_ActionBar or {}
+      C_ActionBar.GetActionCooldown = function(slot) if slot == 7 then return { isActive = true, startTime = 100, duration = 25 } end return { isActive = false } end
+      C_ActionBar.GetActionCooldownDuration = function(slot) return { dur = true } end
+      B.cooldown = CreateFrame("Cooldown", nil, B)
+      HogHealsBars.Extra.SaveLive()
+    """)
+    live = bars.eval("HogHeals.db.global.diag.barsLive")
+    assert live["cooling"] == 1
+    c = live["cooldowns"]
+    assert c.startswith("COOLING b1#1 slot 7: isActive=T start=100.0 dur=25.0") and "durObj=table" in c and "widget shown=" in c
+
+
+def test_hidden_cooldown_values_are_written_s_never_used(bars):
+    bars.execute(STATE + """
+      MockSetSecrets(true)
+      C_ActionBar = C_ActionBar or {}
+      C_ActionBar.GetActionCooldown = function() return { isActive = MockSecret(true), startTime = MockSecret(5), duration = MockSecret(9) } end
+      B.cooldown = CreateFrame("Cooldown", nil, B)
+      HogHealsBars.Extra.SaveLive()
+      MockSetSecrets(false)
+    """)
+    c = bars.eval("HogHeals.db.global.diag.barsLive.cooldowns")
+    assert "COOLING b1#1 slot 7: isActive=S start=S dur=S" in c

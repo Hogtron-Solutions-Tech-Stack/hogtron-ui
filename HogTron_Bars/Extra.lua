@@ -475,6 +475,54 @@ function Extra.StartRefresh()
   end
 end
 
+--- Evidence for "no cooldowns on the bars" (Sean 2026-10-17, fourth report - the lib reports no errors, so the question
+-- is what the client returns and what the swipe widget does). Per bar button with an action: the client's cooldown
+-- answer (C_ActionBar.GetActionCooldown: isActive / startTime / duration; the legacy GetActionCooldown too), whether a
+-- duration object comes back, and the widget: shown / visible / alpha / level against the button / size / its own
+-- duration / swipe on. Hidden values are written "S", never used. Buttons cooling down first; at most `max` lines.
+local function desc(v)
+  if isSecret(v) then return "S" end
+  if v == nil then return "nil" end
+  local t = type(v)
+  if t == "boolean" then return v and "T" or "F" end
+  if t == "number" then return ("%.1f"):format(v) end
+  return t
+end
+
+function Extra.CooldownLines(max)
+  max = max or 6
+  local hot, cold = {}, {}
+  local CAB = rawget(_G, "C_ActionBar")
+  local getInfo = type(CAB) == "table" and type(CAB.GetActionCooldown) == "function" and CAB.GetActionCooldown or nil
+  local getDur = type(CAB) == "table" and type(CAB.GetActionCooldownDuration) == "function" and CAB.GetActionCooldownDuration or nil
+  for n = 1, 3 do
+    local bar = Bars.bars and Bars.bars[n]
+    for i, b in ipairs(bar and bar.buttons or {}) do
+      local slot = num(rawget(b, "_state_action"))
+      if rawget(b, "_state_type") == "action" and slot and flag(call(b.HasAction, b)) then
+        local info = getInfo and call(getInfo, slot) or nil
+        local active = type(info) == "table" and info.isActive or nil
+        local ls, ld = call(rawget(_G, "GetActionCooldown"), slot)
+        local dur = getDur and call(getDur, slot) or nil
+        local cd = rawget(b, "cooldown")
+        local function cdv(m) return type(cd) == "table" and type(cd[m]) == "function" and call(cd[m], cd) or nil end
+        local line = ("b%d#%d slot %d: isActive=%s start=%s dur=%s | legacy %s/%s | durObj=%s | widget shown=%s vis=%s a=%s lvl %s/%s %sx%s ms=%s swipe=%s"):format(
+          n, i, slot, desc(active), desc(type(info) == "table" and info.startTime or nil), desc(type(info) == "table" and info.duration or nil),
+          desc(ls), desc(ld), dur == nil and "nil" or (isSecret(dur) and "S" or type(dur)),
+          desc(cdv("IsShown")), desc(cdv("IsVisible")), desc(cdv("GetAlpha")), desc(cdv("GetFrameLevel")), desc(call(b.GetFrameLevel, b)),
+          desc(cdv("GetWidth")), desc(cdv("GetHeight")), desc(cdv("GetCooldownDuration")), desc(cdv("GetDrawSwipe")))
+        local cooling = isSecret(active) or active == true or ((num(ld) or 0) > 1.6)
+        if cooling then hot[#hot + 1] = line else cold[#cold + 1] = line end
+      end
+    end
+  end
+  local out = {}
+  for _, l in ipairs(hot) do if #out < max then out[#out + 1] = "COOLING " .. l end end
+  for _, l in ipairs(cold) do if #out < max then out[#out + 1] = l end end
+  Extra.cooling = #hot
+  return out
+end
+
 function Extra.SaveLive()
   local lab = Bars.Lib and Bars.Lib()
   local g = HH.db and HH.db.global
@@ -484,6 +532,9 @@ function Extra.SaveLive()
     cooldownErrors = lab.hhCooldownErrors or 0, lastCooldownError = lab.hhLastCooldownError,
     cooldownFallback = lab.hhCooldownFallback or 0, secretUsable = lab.hhSecretUsableCount or 0,
     updateErrors = lab.hhUpdateErrors or 0, lastUpdateError = lab.hhLastUpdateError, secretUsableRefresh = Extra.secretUsable or 0 }
+  local ok, lines = pcall(Extra.CooldownLines, 6)
+  g.diag.barsLive.cooldowns = ok and table.concat(lines, " || ") or ("probe error: " .. tostring(lines))
+  g.diag.barsLive.cooling = Extra.cooling
   return g.diag.barsLive
 end
 
