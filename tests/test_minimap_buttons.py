@@ -240,6 +240,23 @@ def test_probe_and_options(lua):
     assert errors(lua) == []
 
 
+# ---------------------------------------------------------------- our own drawer buttons in the painted set (2026-10-17)
+# Sean: "redo the top two icons, which are the Atlas and the HogHeals, to match the others"
+def test_hogheals_and_atlas_launchers_wear_painted_icons(lua):
+    boot(lua, MINIMAP)
+    lua.load_addon("HogTron_Atlas")
+    lua.execute("MockFire('PLAYER_ENTERING_WORLD'); if HogHealsAtlas and HogHealsAtlas.Launcher then HogHealsAtlas.Launcher.Start() end")
+    BS = chr(92)
+    media = "Interface" + BS + "AddOns" + BS + "HogTronUI" + BS + "Media" + BS
+    LDB = 'LibStub("LibDataBroker-1.1")'
+    assert lua.eval(f'{LDB}:GetDataObjectByName("HogHeals").icon') == media + "tray_hover_art"
+    atlas = lua.eval(f'{LDB}:GetDataObjectByName("HogUIAtlas")')
+    if atlas is not None:
+        assert atlas["icon"] == media + "tray_atlas_art"
+    lua.execute('HogHeals.db.profile.look.icons = "glyph"')
+    assert lua.eval('HogHeals.Look.IconPath("tray_atlas")') == media + "tray_atlas"
+
+
 # ---------------------------------------------------------------- tooltips under the H (Sean 2026-10-17)
 # "the tooltip of the name is kind of blocking the other buttons ... it should go underneath the logo"; the H's own
 # tooltip also sat over the drawer once it opened. And the H was "way smaller" than the map.
