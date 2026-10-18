@@ -58,6 +58,155 @@ function Swing.ReadSpeeds()
 end
 
 --- 0..1 fill at `now`: a swing bar fills up toward the next swing.
+-- ---------------------------------------------------------------- the look
+-- Sean 2026-10-17: "use open art and create a swing timer animation, kind of like we have with all the other cast
+-- bars". The cast bar's recipe (CastThemes): an OpenArt strip scrolled along the FILLED part toward the spark, a glow
+-- behind the bar that breathes, motes off the fill's head - plus a flash each time a swing lands (the bar restarting).
+-- Melee = a steel slash (silver, cyan glints), ranged / wand = wind (silver-green). Own layers: CastThemes holds one
+-- active cast on the cast bar. Art: OpenArt 2026-10-17 (40 cr each), cut by dev/icons/process_cast_art.py --out.
+local MEDIA = "Interface\\AddOns\\HogTronUI\\Media\\"
+local GLOW = MEDIA .. "target_glow"
+local MAX_MOTES = 6
+Swing.ART_FILL = 0.5      -- under an ADD strip the flat fill is dimmed so the strip carries the light (as the cast bar)
+Swing.FLASH = 0.35        -- seconds a landed swing's flash takes to fade
+Swing.LOOK = {
+  melee  = { art = "swing_melee",  blend = "ADD", speed = 70, strength = 0.85, fill = { 0.62, 0.70, 0.74 }, glow = { 0.70, 0.95, 1.00 },
+             motes = { n = 4, rise = 6, drift = 6, size = 4 } },
+  ranged = { art = "swing_ranged", blend = "ADD", speed = 90, strength = 0.80, fill = { 0.56, 0.68, 0.60 }, glow = { 0.80, 1.00, 0.86 },
+             motes = { n = 3, rise = 2, drift = 3, size = 3 } },
+}
+Swing.artMissing = {}
+
+local function glowTex(b, layer, sub)
+  local t = b:CreateTexture(nil, layer, nil, sub)
+  if t:SetTexture(GLOW) == false then t:SetColorTexture(1, 1, 1, 0.3) end
+  if t.SetBlendMode then t:SetBlendMode("ADD") end
+  t:Hide()
+  return t
+end
+
+--- The layers on the swing bar (built once per bar).
+function Swing.BuildLook(b)
+  if Swing.look and Swing.look.bar == b then return Swing.look end
+  local L = { bar = b, motes = {} }
+  L.glow = glowTex(b, "BACKGROUND", -2)
+  L.glow:SetPoint("TOPLEFT", b, "TOPLEFT", -10, 7)
+  L.glow:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 10, -7)
+  L.flash = glowTex(b, "OVERLAY", 2)
+  L.flash:SetPoint("TOPLEFT", b, "TOPLEFT", -6, 5)
+  L.flash:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 6, -5)
+  for i = 1, MAX_MOTES do L.motes[i] = glowTex(b, "OVERLAY", 3) end
+  L.art = b:CreateTexture(nil, "ARTWORK", nil, 3)      -- above the fill, under the text and the spark
+  L.art:Hide()
+  Swing.look = L
+  return L
+end
+
+--- Pure: the look for a swing kind, or nil when the art is off.
+function Swing.LookFor(kind)
+  if cfg().art == false then return nil end
+  return Swing.LOOK[kind] or Swing.LOOK.melee
+end
+
+--- A swing starts: fill colour, glow, spark tint, strip, motes for its kind. false = plain bar (art off).
+function Swing.ApplyLook(b, kind)
+  local L = Swing.BuildLook(b)
+  local th = Swing.LookFor(kind)
+  if not th then Swing.HideLook() return false end
+  local c = cfg()
+  L.on, L.kind = true, kind
+  b:SetStatusBarColor(th.fill[1], th.fill[2], th.fill[3])
+  if c.glow ~= false then L.glow:SetVertexColor(th.glow[1], th.glow[2], th.glow[3], 0.3) L.glow:Show() else L.glow:Hide() end
+  if b.spark and b.spark.SetVertexColor then
+    b.spark:SetVertexColor(math.min(1, th.glow[1] + 0.2), math.min(1, th.glow[2] + 0.2), math.min(1, th.glow[3] + 0.2), 1)
+  end
+  L.artOn = false
+  L.art:Hide()
+  if not Swing.artMissing[th.art] then
+    if L.art:SetTexture(MEDIA .. th.art, "REPEAT", "CLAMP") == false then
+      Swing.artMissing[th.art] = true
+    else
+      if L.art.SetBlendMode then L.art:SetBlendMode(th.blend) end
+      L.art:SetVertexColor(1, 1, 1, th.strength)
+      if th.blend == "ADD" then b:SetStatusBarColor(th.fill[1] * Swing.ART_FILL, th.fill[2] * Swing.ART_FILL, th.fill[3] * Swing.ART_FILL) end
+      L.art:ClearAllPoints()
+      L.art:SetPoint("TOPLEFT", b, "TOPLEFT", 0, 0)
+      L.art:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 0, 0)
+      L.art:SetWidth(0.01)
+      L.art:Show()
+      L.artOn = true
+    end
+  end
+  for i, mt in ipairs(L.motes) do
+    mt:SetSize(th.motes.size or 4, th.motes.size or 4)
+    mt:SetVertexColor(th.glow[1], th.glow[2], th.glow[3], 0)
+    if c.motes ~= false and i <= (th.motes.n or 0) then mt:Show() else mt:Hide() end
+  end
+  return true
+end
+
+function Swing.HideLook()
+  local L = Swing.look
+  if not L then return end
+  L.on = false
+  L.glow:Hide() L.flash:Hide() L.art:Hide()
+  for _, mt in ipairs(L.motes) do mt:Hide() end
+  L.artOn = false
+  L.flashAt = nil
+  if L.bar and L.bar.spark and L.bar.spark.SetVertexColor then L.bar.spark:SetVertexColor(1, 1, 1, 1) end
+end
+
+--- A swing landed: the flash starts now (fades over Swing.FLASH seconds).
+function Swing.Flash(now)
+  local L = Swing.look
+  if not L or not L.on or cfg().flash == false then return end
+  local th = Swing.LOOK[L.kind] or Swing.LOOK.melee
+  L.flashAt = now
+  L.flash:SetVertexColor(th.glow[1], th.glow[2], th.glow[3], 0.9)
+  L.flash:Show()
+  Swing.flashes = (Swing.flashes or 0) + 1
+end
+
+--- Every frame: the strip scrolls with the fill, the glow breathes, the motes ride the head, the flash fades.
+function Swing.TickLook(b, p, now)
+  local L = Swing.look
+  if not L or not L.on or L.bar ~= b then return end
+  local th = Swing.LOOK[L.kind] or Swing.LOOK.melee
+  local T = HHD.CastThemes
+  local w = b:GetWidth()
+  local h = b:GetHeight()
+  w = (type(w) == "number" and not HH.IsSecret(w)) and w or 0
+  h = (type(h) == "number" and not HH.IsSecret(h) and h > 0) and h or 12
+  local head = w * math.max(0, math.min(1, p or 0))
+  if L.artOn then
+    local u0, u1 = 0, 1
+    if T and T.ArtCoords then u0, u1 = T.ArtCoords(now, head, h, th.speed) end
+    L.art:SetWidth(math.max(0.01, head))
+    L.art:SetTexCoord(u0, u1, 0, 1)
+  end
+  if L.glow:IsShown() then
+    local breath = 0.5 + 0.5 * math.sin(now * 2 * math.pi / 1.6)
+    L.glow:SetVertexColor(th.glow[1], th.glow[2], th.glow[3], 0.22 + 0.2 * breath + 0.25 * (p or 0))   -- brighter as the swing nears
+  end
+  if L.flashAt then
+    local a = 1 - (now - L.flashAt) / Swing.FLASH
+    if a <= 0 then L.flash:Hide() L.flashAt = nil else L.flash:SetVertexColor(th.glow[1], th.glow[2], th.glow[3], 0.9 * a) end
+  end
+  if cfg().motes ~= false and T and T.Mote then
+    local n = th.motes.n or 0
+    for i = 1, n do
+      local mt = L.motes[i]
+      if mt then
+        local x, y, alpha = T.Mote(now, i, n, th.motes, head, h)
+        mt:ClearAllPoints()
+        mt:SetPoint("CENTER", b, "LEFT", x, y)
+        mt:SetVertexColor(th.glow[1], th.glow[2], th.glow[3], alpha * 0.9)
+      end
+    end
+  end
+  Swing.lastLook = { head = head, p = p }
+end
+
 function Swing.Progress(state, now)
   if not state.active or (state.period or 0) <= 0 then return 0 end
   local p = (now - state.start) / state.period
@@ -75,6 +224,7 @@ local function paint(label)
   b:SetMinMaxValues(0, 1)
   b:SetValue(0)
   if b.spark then b.spark:SetShown(c.spark ~= false) end
+  Swing.ApplyLook(b, Swing.state.kind)
   if b.enabled ~= false then b:Show() end
   b:SetScript("OnUpdate", function(self) Swing.OnUpdate(self) end)
   Swing.OnUpdate(b)
@@ -87,12 +237,14 @@ function Swing.Start(kind, source, now, label)
   now = now or GetTime()
   local s = Swing.state
   local sp = Swing.ReadSpeeds()
+  local landed = s.active and source ~= "toggle"
   s.active, s.kind, s.start, s.source = true, kind, now, source
   s.period = (kind == "ranged" and sp.ranged or sp.mh) or 2.0
   s.label = label or (kind == "ranged" and "Ranged" or "Swing")
   s.attacking = true
   s.lastEvent = now
   paint(s.label)
+  if landed then Swing.Flash(now) end
   -- a per-swing source arriving means the free-running estimate is no longer needed
   if source == "cleu" or source == "cast" then Swing.exact = true end
 end
@@ -104,6 +256,7 @@ function Swing.Stop()
   if not b then return end
   b:SetScript("OnUpdate", nil)
   if b.spark then b.spark:Hide() end
+  Swing.HideLook()
   if cfg().hideWhenIdle ~= false then b:Hide() else b:SetValue(0) b.time:SetText("") end
 end
 
@@ -113,6 +266,7 @@ function Swing.OnUpdate(b)
   local now = GetTime()
   local p = Swing.Progress(s, now)
   b:SetValue(p)
+  Swing.TickLook(b, p, now)
   if b.spark and b.spark:IsShown() then
     local w = b:GetWidth()
     if type(w) == "number" and not HH.IsSecret(w) then b.spark:SetPoint("CENTER", b, "LEFT", p * w, 0) end
@@ -130,6 +284,7 @@ function Swing.OnUpdate(b)
       local period = (s.kind == "ranged" and sp.ranged or sp.mh) or s.period
       s.start, s.period, s.source = s.start + s.period, period, "roll"
       if now - s.start > period then s.start = now end   -- fell far behind (loading screen): resync
+      Swing.Flash(now)                                     -- the estimate says a swing landed
     else
       Swing.Stop()
     end
