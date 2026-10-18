@@ -48,6 +48,15 @@ local MEDIA = "Interface\\AddOns\\HogTronUI\\Media\\"
 local ART = { page = { light = MEDIA .. "dialog_page_light", dark = MEDIA .. "dialog_page_dark" }, ring = MEDIA .. "dialog_ring",
   rule = MEDIA .. "dialog_rule", round = MEDIA .. "dialog_round", line = MEDIA .. "dialog_round_line" }
 Dialog.ART = ART
+-- Inline reward icons (dev/icons/build_reward_icons.py, ours). Sean 2026-10-17: "We need images for the currency
+-- received instead of S or C ... a small image for XP that is slightly different" - this client has no
+-- GetCoinTextureString, so the page printed "6s 0c".
+Dialog.COINS = { gold = MEDIA .. "coin_gold", silver = MEDIA .. "coin_silver", copper = MEDIA .. "coin_copper" }
+Dialog.XP_ICON = MEDIA .. "reward_xp"
+-- The page art's torn bottom edge rises up to 46 px (of 1024) under the button row - worst at x 56, the bottom-left
+-- corner. Sean 2026-10-17: the left button sat on the tear (the old 42 px bottom margin was ~40 px of art). The row
+-- now clears the tear by BUTTON_CLEAR px of paper.
+Dialog.TEAR, Dialog.BUTTON_CLEAR = 46, 14
 local QUEST_OPEN = MEDIA .. "quest_open"
 local QUEST_DONE = MEDIA .. "quest_done"
 local FLAT = "Interface\\Buttons\\WHITE8X8"
@@ -112,16 +121,22 @@ function Dialog.EstimateHeight(text, width, size)
   return lines * math.floor(size * 1.3 + 0.5)
 end
 
-local function money(copper)
+--- An inline texture escape at `size` px (the font's height), nudged 2 px off the number before it.
+function Dialog.Icon(path, size)
+  size = math.floor((size or 14) + 0.5)
+  return ("|T%s:%d:%d:2:0|t"):format(path, size, size)
+end
+
+--- Money as coin icons: "6[silver]", "1[gold] 20[silver] 5[copper]". Zero coins are left out ("6s 0c" -> "6[silver]").
+local function money(copper, size)
   copper = num(copper)
   if not copper or copper <= 0 then return nil end
-  local coins = g("GetCoinTextureString")
-  local s = coins and str(call(coins, copper))
-  if s then return s end
-  local gold, silver = math.floor(copper / 10000), math.floor(copper / 100) % 100
-  if gold > 0 then return ("%dg %ds %dc"):format(gold, silver, copper % 100) end
-  if silver > 0 then return ("%ds %dc"):format(silver, copper % 100) end
-  return ("%dc"):format(copper)
+  local gold, silver, cop = math.floor(copper / 10000), math.floor(copper / 100) % 100, copper % 100
+  local parts = {}
+  if gold > 0 then parts[#parts + 1] = Dialog.Thousands(gold) .. Dialog.Icon(Dialog.COINS.gold, size) end
+  if silver > 0 then parts[#parts + 1] = silver .. Dialog.Icon(Dialog.COINS.silver, size) end
+  if cop > 0 then parts[#parts + 1] = cop .. Dialog.Icon(Dialog.COINS.copper, size) end
+  return table.concat(parts, "  ")
 end
 Dialog.Money = money
 
@@ -665,7 +680,8 @@ function Dialog.Render()
   local W = o.width or 540
   local s = W / PAGE_W
   local size = o.fontSize or 14
-  local PADX, TOP, BOTTOM = math.floor(46 * s + 0.5), math.floor(44 * s + 0.5), math.floor(42 * s + 0.5)
+  local PADX, TOP = math.floor(46 * s + 0.5), math.floor(44 * s + 0.5)
+  local BOTTOM = math.floor((Dialog.TEAR + Dialog.BUTTON_CLEAR) * s + 0.5)
   local inner = W - 2 * PADX
   f:SetWidth(W)
   if f.SetScale then f:SetScale(o.scale or 1) end
@@ -734,12 +750,14 @@ function Dialog.Render()
       setFont(r.text, size - 1)
       r.text:ClearAllPoints()
       r.text:SetPoint("TOPLEFT", r, "TOPLEFT", 46, -4)
-      r.text:SetSize(tw - (r.pick and 70 or 50), thh - 8)
+      -- the name stops 8 px short of the number chip (Sean 2026-10-17: "Highlands Defender's" ran into its "2")
+      local keyX = tw - 24
+      r.text:SetSize((r.pick and (keyX - 8) or (tw - 8)) - 46, thh - 8)
       r.text:SetText(it.name or d.text or "")
       local c = qc or th.text
       r.text:SetTextColor(c[1], c[2], c[3])
       r.text:Show()
-      r.key:Set(r.pick and r.pick <= 9 and tostring(r.pick) or nil, tw - 24, -4, 10)
+      r.key:Set(r.pick and r.pick <= 9 and tostring(r.pick) or nil, keyX, -4, 10)
       Dialog.PaintRow(r)
       r:Show()
     end
@@ -752,7 +770,8 @@ function Dialog.Render()
     y = tiles(req, y, false) - 8
   else hideTag(f.reqTag) end
   local xpLine = Dialog.XPLine(m.xp, m.xpShare)
-  local cash = money(m.money)
+  if xpLine then xpLine = Dialog.Icon(Dialog.XP_ICON, size) .. " " .. xpLine end
+  local cash = money(m.money, size)
   local choosing = #m.choices > 1
   if xpLine or cash or #m.rewards > 0 or #m.choices > 0 then
     y = placeTag(f.rewTag, "Rewards", size - 1, PADX - 8, y) - 8

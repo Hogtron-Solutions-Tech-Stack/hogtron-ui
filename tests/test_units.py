@@ -375,3 +375,52 @@ def test_the_legacy_aura_reader_keeps_the_source(units):
     units.execute('MockUnits.target = { name = "K", class = "WARRIOR", health = 1, maxHealth = 1, guid = "C-77", auras = { { name = "Corruption", type = "Magic", duration = 18, expires = 95, source = "player" } } }')
     a = units.eval('HogHealsUnits.Auras.Get("target", 1, "HARMFUL")')
     assert a["name"] == "Corruption" and a["source"] == "player"
+
+
+# ---------------------------------------------------------------- first + last name (Sean 2026-10-17)
+# /hh namediag in game: UnitName("player") = "Crispin", "Hogfire" on WoW: Forever; elsewhere that slot is a realm.
+FOREVER = 'function GetBuildInfo() return "1.60.1", "69893", "Oct 1 2026", 16001 end\n'
+
+
+NAMES = 'function UnitName(u) if u == "player" then return "Crispin", HH_second end return "Mob", nil end\n'
+
+
+def shown(lua):
+    lua.execute('HogHealsUnits.Units.UpdateInfo(HogUIPlayer)')
+    return lua.eval('HogUIPlayer.name._text')
+
+
+def test_forever_shows_first_and_last_name_by_default(units):
+    units.execute(FOREVER + NAMES + 'HH_second = "Hogfire"')
+    assert units.eval('HogHeals.db.profile.units.nameFormat') == "full"
+    assert shown(units) == "Crispin Hogfire"
+    units.execute('HogHeals.db.profile.units.nameFormat = "first"')
+    assert shown(units) == "Crispin"
+    units.execute('HogHeals.db.profile.units.nameFormat = "full"; HH_second = nil')
+    assert shown(units) == "Crispin"                                   # nobody's last name: just the first
+
+
+def test_other_clients_never_show_the_realm_in_that_slot(units):
+    units.execute(NAMES + 'HH_second = "Nightslayer"')                 # mock client is TBC Anniversary (toc 20505)
+    assert shown(units) == "Crispin"
+
+
+def test_a_secret_last_name_falls_back_to_the_first(units):
+    units.execute(FOREVER + NAMES + 'MockSetSecrets(true); HH_second = MockSecret("Hogfire")')
+    assert shown(units) == "Crispin"
+    units.execute('MockSetSecrets(false)')
+    assert [e["msg"] for e in units.eval('HogHeals.errors').values()] == []
+
+
+def test_names_choice_is_in_the_options_and_the_setup_guide(units):
+    found = units.eval('''(function()
+      local function walk(t)
+        if type(t) ~= "table" then return nil end
+        if t.args and t.args.nameFormat then return t.args.nameFormat end
+        for _, v in pairs(t.args or {}) do local r = walk(v) if r then return r end end
+      end
+      return walk(HogHeals.OptionsTable().args.Units)
+    end)()''')
+    assert found is not None and found["values"]["full"] == "First and last name"
+    found["set"](None, "first")
+    assert units.eval('HogHeals.db.profile.units.nameFormat') == "first"
