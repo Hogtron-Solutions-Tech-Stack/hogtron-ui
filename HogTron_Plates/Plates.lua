@@ -139,7 +139,29 @@ function Plates.Skin(uf)
       hh.hooked = ok
     end
   end
+  -- Blizzard hides the bar's CONTAINER on its own schedule (Sean 2026-10-17: empty bars, diag.plateFill "bar shown=T
+  -- vis=F" on a mob at 100%): a plate that should show a bar gets it straight back (Plates.KeepContainer)
+  local hc = rawget(uf, "HealthBarsContainer")
+  if type(hc) == "table" and type(hooksecurefunc) == "function" then
+    pcall(hooksecurefunc, hc, "Hide", function() Plates.KeepContainer(uf) end)
+    if hc.SetShown then pcall(hooksecurefunc, hc, "SetShown", function(_, shown) if not shown then Plates.KeepContainer(uf) end end) end
+  end
   return hh
+end
+
+--- Someone hid the health bar's container. Name-only / dead / disabled plates hide it on purpose (us) and keep it
+-- hidden; a plate showing a unit's bar gets it back, counted (Plates.containerKept, hh.keptAt) for the fill diag.
+function Plates.KeepContainer(uf)
+  local hh = uf and uf.hh
+  local hc = rawget(uf, "HealthBarsContainer")
+  if not hh or not hh.unit or hh.nameOnly or hh.object or hh.keeping or cfg().enabled == false or type(hc) ~= "table" then return false end
+  hh.keeping = true
+  call(hc.Show, hc)
+  hh.keeping = false
+  Plates.containerKept = (Plates.containerKept or 0) + 1
+  hh.kept = (hh.kept or 0) + 1
+  hh.keptAt = date and date("%H:%M:%S") or "?"
+  return true
 end
 
 -- ------------------------------------------------------------------------------------------------ pieces
@@ -611,9 +633,12 @@ function Plates.FillLine(uf)
   local r, g, b = call(bar.GetStatusBarColor, bar)
   local mn, mx = call(bar.GetMinMaxValues, bar)
   local zeroedByUs = type(fill) == "table" and hh.artAlpha and hh.artAlpha[fill] ~= nil
+  local hc = rawget(uf, "HealthBarsContainer")
+  local cont = type(hc) == "table" and ("container shown=%s vis=%s kept=%d (last %s, all plates %d)"):format(d(call(hc.IsShown, hc)), d(call(hc.IsVisible, hc)),
+    hh.kept or 0, tostring(hh.keptAt or "-"), Plates.containerKept or 0) or "no container"
   return ("fill %s a=%s shown=%s w=%s tex=%s zeroedByUs=%s | bar a=%s shown=%s vis=%s w=%s colour=%s,%s,%s value=%s of %s..%s | dead=%s nameOnly=%s"):format(
     type(fill) == "table" and "yes" or "NONE", d(fa), d(fs), d(fw), d(ft), d(zeroedByUs), d(call(bar.GetAlpha, bar)), d(call(bar.IsShown, bar)),
-    d(call(bar.IsVisible, bar)), d(call(bar.GetWidth, bar)), d(r), d(g), d(b), d(call(bar.GetValue, bar)), d(mn), d(mx), d(hh.dead), d(hh.nameOnly))
+    d(call(bar.IsVisible, bar)), d(call(bar.GetWidth, bar)), d(r), d(g), d(b), d(call(bar.GetValue, bar)), d(mn), d(mx), d(hh.dead), d(hh.nameOnly)) .. " | " .. cont
 end
 
 function Plates.NoteFill(uf)
@@ -772,7 +797,10 @@ function Plates.FriendlyLook(uf)
   local nameOnly = (friendly and d.friendlyNameOnly ~= false) or dead
   hh.nameOnly = nameOnly
   local pieces = { hh.bar, hh.bg, hh.health, hh.castBar, rawget(uf, "LevelFrame"), rawget(uf, "ClassificationFrame"), rawget(uf, "HealthBarsContainer") }
-  for _, p in ipairs(pieces) do
+  -- every slot, holes included: ipairs stopped at the first missing piece (no LevelFrame on this client), so the
+  -- container at the end was never reached (found 2026-10-17 while chasing the empty bars)
+  for i = 1, 7 do
+    local p = pieces[i]
     if type(p) == "table" and p.SetShown then
       if nameOnly then call(p.Hide, p) elseif p == hh.bar or p == rawget(uf, "HealthBarsContainer") then call(p.Show, p) end
     end

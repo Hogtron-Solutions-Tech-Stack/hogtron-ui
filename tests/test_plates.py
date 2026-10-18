@@ -911,3 +911,45 @@ def test_the_target_plates_fill_is_recorded(plates):
     plates.execute('TARGET = "nameplate63"; MockFire("PLAYER_TARGET_CHANGED")')
     rec = plates.eval("HogHeals.db.global.diag.plateFill[1]")
     assert "Scrawny Ursera: fill" in rec and "zeroedByUs=" in rec and "colour=" in rec
+
+
+# ---------------------------------------------------------------- the container Blizzard hides (Sean 2026-10-17)
+# diag.plateFill on a mob at 100%: "bar shown=T vis=F" - the bar's HealthBarsContainer was hidden after our setup ran,
+# so the fill and our bg were gone under our edge + "100%". A plate showing a unit's bar takes the container back;
+# a name-only plate (friendly, dead) keeps it hidden.
+def container_plate(lua, unit, spec):
+    lua.execute(f'''
+      local plate = CreateFrame("Frame", nil, WorldFrame)
+      local uf = CreateFrame("Button", nil, plate)
+      uf.HealthBarsContainer = CreateFrame("Frame", nil, uf)
+      uf.HealthBarsContainer.healthBar = CreateFrame("StatusBar", nil, uf.HealthBarsContainer)
+      uf.name = uf:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+      plate.UnitFrame, plate.unitToken = uf, "{unit}"
+      NP["{unit}"] = plate
+      MockUnits["{unit}"] = {spec}
+      MockFire("NAME_PLATE_UNIT_ADDED", "{unit}")
+    ''')
+    return f'NP["{unit}"].UnitFrame'
+
+
+def test_a_hidden_container_comes_back_on_a_plate_that_shows_a_bar(plates):
+    plates.execute("REACT.nameplate71 = 4")
+    uf = container_plate(plates, "nameplate71", '{ name = "Wind Sprite", health = 100, maxHealth = 100, guid = "C-71" }')
+    assert plates.eval(f"{uf}.HealthBarsContainer:IsShown()") is True
+    plates.execute(f"{uf}.HealthBarsContainer:Hide()")                         # Blizzard, on its own schedule
+    assert plates.eval(f"{uf}.HealthBarsContainer:IsShown()") is True
+    plates.execute(f"{uf}.HealthBarsContainer:SetShown(false)")
+    assert plates.eval(f"{uf}.HealthBarsContainer:IsShown()") is True
+    assert plates.eval(f"{uf}.hh.kept") == 2
+    line = plates.eval(f"HogHealsPlates.Plates.FillLine({uf})")
+    assert "container shown=T" in line and "kept=2" in line
+    assert errors(plates) == []
+
+
+def test_a_name_only_plate_keeps_its_container_hidden(plates):
+    uf = container_plate(plates, "nameplate72", '{ name = "Zephras Citizen", health = 100, maxHealth = 100, guid = "C-72", friendly = true }')
+    assert plates.eval(f"{uf}.hh.nameOnly") is True
+    assert plates.eval(f"{uf}.HealthBarsContainer:IsShown()") is False           # hidden by us, on purpose
+    plates.execute(f"{uf}.HealthBarsContainer:Hide()")
+    assert plates.eval(f"{uf}.HealthBarsContainer:IsShown()") is False and (plates.eval(f"{uf}.hh.kept") or 0) == 0
+    assert errors(plates) == []
