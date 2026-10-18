@@ -325,13 +325,14 @@ def test_spell_art_off_or_missing_falls_back_to_the_school_strip(th):
 
 
 
-def test_the_whole_mage_set_has_strips_and_the_files_exist():
+def test_every_class_set_has_strips_and_the_files_exist():
+    # mage 12 strips + the other eight classes' 74 (2026-10-17)
     import pathlib
     root = pathlib.Path(__file__).resolve().parents[1]
     src = (root / "HogTron_HUD" / "CastThemes.lua").read_text(encoding="utf-8")
     import re
-    arts = set(re.findall(r'\{ "\^[^"]+", "(spell_[a-z_]+)", "[a-z]+" \}', src))
-    assert len(arts) == 12
+    arts = set(re.findall(r'\{ "[^"]+", "(spell_[a-z_]+)", "[a-z]+" \}', src))
+    assert len(arts) == 86
     for a in arts:
         assert (root / "HogTronUI" / "Media" / f"cast_{a}.tga").is_file(), a
 
@@ -358,3 +359,28 @@ def test_a_spell_strip_is_drawn_as_painted_and_a_school_strip_stays_additive(th)
     cast(th, "Frost Nova", 122)                                          # no strip of its own: the school's, additive
     assert th.eval("HogHealsHUD.CastThemes.active.art") == "arcane" and th.eval("HogHealsHUD.CastThemes.active.mode") == "ADD"   # mage default school
     assert "art: wanted" in th.eval("HogHealsHUD.CastThemes.Line(HogHealsHUD.Castbar.state)")
+
+
+
+# ---------------------------------------------------------------- the other eight classes (Sean 2026-10-17)
+def test_each_classes_spells_match_their_strips(th):
+    for name, art in (
+        ("Slam", "spell_slam"), ("Holy Light", "spell_holy_light"), ("Summon Warhorse", "spell_warhorse"), ("Hammer of Wrath", "spell_hammer_of_wrath"),
+        ("Tame Beast", "spell_tame_beast"), ("Eyes of the Beast", "spell_beast_vision"), ("Eagle Eye", "spell_beast_vision"), ("Volley", "spell_volley"),
+        ("Instant Poison II", "spell_poison"), ("Mind-numbing Poison III", "spell_poison"), ("Blinding Powder", "spell_poison"), ("Pick Lock", "spell_lockpick"),
+        ("Lesser Heal", "spell_heal"), ("Heal", "spell_heal"), ("Greater Heal", "spell_heal"), ("Flash Heal", "spell_flash_heal"), ("Mind Blast", "spell_mind_blast"),
+        ("Lesser Healing Wave", "spell_healing_wave"), ("Chain Lightning", "spell_chain_lightning"), ("Astral Recall", "spell_astral_recall"),
+        ("Shadow Bolt", "spell_shadow_bolt"), ("Fear", "spell_fear"), ("Summon Incubus", "spell_summon_succubus"), ("Create Healthstone (Major)", "spell_healthstone"),
+        ("Ritual of Doom", "spell_ritual"), ("Summon Felsteed", "spell_dreadsteed"),
+        ("Wrath", "spell_wrath"), ("Healing Touch", "spell_healing_touch"), ("Hurricane", "spell_hurricane")):
+        assert th.eval(f'({T}.SpellArt("{name}"))') == art, name
+
+
+def test_look_alike_names_do_not_borrow_each_others_strip(th):
+    # "^Heal$" must not catch the other heals, "^Wrath$" not Holy Wrath, "^Fear$" not Fear Ward
+    for name, art in (("Healing Touch", "spell_healing_touch"), ("Healing Wave", "spell_healing_wave"), ("Health Funnel", "spell_health_funnel"),
+                      ("Holy Wrath", "spell_holy_wrath"), ("Hammer of Wrath", "spell_hammer_of_wrath")):
+        assert th.eval(f'({T}.SpellArt("{name}"))') == art, name
+    for name in ("Fear Ward", "Heal Pet", "Cure Poison Totem"):
+        got = th.eval(f'({T}.SpellArt("{name}"))')
+        assert got not in ("spell_fear", "spell_heal"), (name, got)
