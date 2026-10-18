@@ -628,3 +628,405 @@ def test_a_click_through_change_in_combat_waits_for_the_end_of_combat(bars):
     bars.execute('MockState.inCombat = false; MockFire("PLAYER_REGEN_ENABLED")')
     assert bars.eval('HH_b._mouse') is False and bars.eval('HH_b._mouseCalls') == 1  # applied after combat
     assert errors(bars) == []
+
+
+# ---------------------------------------------------------------- hidden "usable" answers (Sean 2026-10-17)
+# "These abilities are available, but they're grayed out" + "the bars are not showing cool downs": on Forever
+# IsUsableAction can answer with a hidden boolean; the lib's `if isUsable` threw on it, out of Update() before
+# UpdateCooldown. The client has SetAlphaFromBoolean but no SetVertexColorFromBoolean (diag.client).
+def _lab_chunk(start, end_line="end"):
+    src = _lab_src().splitlines()
+    a = next(k for k, l in enumerate(src) if l.startswith(start))
+    b = next(k for k in range(a + 1, len(src)) if src[k] == end_line)
+    return chr(10).join(src[a:b + 1])
+
+
+USABLE_RT = """
+lib = {}
+function issecretvalue(v) return type(v) == "table" and v.secret == true end
+SECRET_TRUE = { secret = true }
+local function tex()
+  local t = { shown = true }
+  function t:SetVertexColor(r, g, b) self.color = { r, g, b } end
+  function t:SetAllPoints() end
+  function t:SetColorTexture() end
+  function t:Show() self.shown = true end
+  function t:Hide() self.shown = false end
+  function t:SetAlphaFromBoolean(v, a, b) self.fromBool = { v, a, b } end
+  return t
+end
+function unpack2(t) return t[1], t[2], t[3] end
+B = { icon = tex(), config = { colors = { mana = { 0.5, 0.5, 1 }, range = { 0.8, 0.1, 0.1 } } } }
+function B:CreateTexture() return tex() end
+"""
+
+
+def test_a_hidden_usable_answer_dims_through_the_client_and_never_greys():
+    from lupa.lua51 import LuaRuntime
+    rt = LuaRuntime()
+    rt.execute(USABLE_RT)
+    rt.execute(_lab_chunk("function lib.hhSecretUsable(self, isUsable, notEnoughMana)"))
+    rt.execute(_lab_chunk("function lib.hhClearDim(self)"))
+    rt.execute(_lab_chunk("function UpdateUsable(self)"))
+    rt.execute("function B:IsUsable() return SECRET_TRUE, false end; UpdateUsable(B)")
+    assert list(rt.eval("B.icon.color").values()) == [1, 1, 1]                        # never the 0.4 grey
+    assert rt.eval("B.hhUnusableDim.shown") is True
+    fb = rt.eval("B.hhUnusableDim.fromBool")
+    assert rt.eval("B.hhUnusableDim.fromBool[1] == SECRET_TRUE") is True and fb[2] == 0 and fb[3] == 0.6   # the client resolves it
+    assert rt.eval("lib.hhSecretUsableCount") == 1
+    # a plain answer later: the dim layer goes, normal colours again
+    rt.execute("function B:IsUsable() return false, false end; UpdateUsable(B)")
+    assert rt.eval("B.hhUnusableDim.shown") is False and list(rt.eval("B.icon.color").values()) == [0.4, 0.4, 0.4]
+    rt.execute("function B:IsUsable() return true, false end; UpdateUsable(B)")
+    assert list(rt.eval("B.icon.color").values()) == [1, 1, 1]
+
+
+def test_a_failing_usable_step_never_takes_the_cooldown_down_with_it():
+    body = _lab_chunk("function Update(self)")
+    assert "pcall(UpdateUsable, self)" in body
+    assert body.index("pcall(UpdateUsable, self)") < body.index("UpdateCooldown(self)")
+    assert "\t\tUpdateUsable(self)\n" not in body                                       # no bare call left in Update
+
+
+def test_our_refresh_sends_a_hidden_answer_to_the_dim_layer(bars):
+    bars.execute(STATE + """
+      MockSetSecrets(true); USE = MockSecret(true)
+      HH_dimmed = 0
+      HogHealsBars.Bars.Lib().hhSecretUsable = function(b) HH_dimmed = HH_dimmed + 1 b.icon:SetVertexColor(1, 1, 1) return true end
+      B.icon:SetVertexColor(0.4, 0.4, 0.4)
+    """)
+    bars.execute('MockFire("SPELL_UPDATE_USABLE"); MockAdvance(0.1)')
+    bars.execute("MockSetSecrets(false)")
+    assert bars.eval("HH_dimmed") >= 1 and list(bars.eval("B.icon._color").values())[:3] == [1, 1, 1]
+    assert bars.eval("#HogHeals.errors") == 0
+
+
+# ---------------------------------------------------------------- cooldowns, secret-safe (2026-10-17, "still not showing")
+def _cooldown_rt():
+    from lupa.lua51 import LuaRuntime
+    src = _lab_src().splitlines()
+    a = next(k for k, l in enumerate(src) if l.startswith("\tlocal function hidden(v)"))
+    b = next(k for k in range(a, len(src)) if src[k].startswith("\tfunction UpdateCooldown(self)"))
+    c = next(k for k in range(b + 1, len(src)) if src[k] == "\tend")
+    rt = LuaRuntime()
+    rt.execute("""
+      lib = {}
+      function issecretvalue(v) return type(v) == "table" and v.secret == true end
+      S = { secret = true }
+      defaultCooldownInfo, defaultChargeInfo, defaultLossOfControlInfo = {}, {}, {}
+      local function cd() local c = { calls = {} }
+        function c:Clear() self.calls[#self.calls + 1] = "clear" end
+        function c:SetCooldownFromDurationObject(d) self.calls[#self.calls + 1] = d end
+        function c:SetCooldown(s, d) self.calls[#self.calls + 1] = "numbers" end
+        return c end
+      DUR = { dur = true }
+      B = { cooldown = cd(), chargeCooldown = cd(), lossOfControlCooldown = cd() }
+      function B:GetCooldownInfo() return CD end
+      function B:GetChargeInfo() return nil end
+      function B:GetLoCCooldownInfo() return LOC end
+      function B:GetCooldownDuration() return CDDUR end
+      function B:GetChargeDuration() return nil end
+      function B:GetLoCCooldownDuration() return nil end
+    """)
+    rt.execute(chr(10).join(src[a:c + 1]))
+    return rt
+
+
+def test_hidden_cooldown_flags_are_never_tested_and_the_swipe_still_draws():
+    rt = _cooldown_rt()
+    rt.execute("CD = { isActive = S }; LOC = { isActive = S, shouldReplaceNormalCooldown = S }; CDDUR = DUR; UpdateCooldown(B)")
+    assert rt.eval("B.cooldown.calls[1] == DUR") is True                          # hidden active: drawn, hidden replace: not replaced
+    rt.execute("B.cooldown.calls = {}; CD = { isActive = false }; LOC = {}; UpdateCooldown(B)")
+    assert rt.eval("B.cooldown.calls[1]") == "clear"                              # a plain "not active" still clears
+    rt.execute("B.cooldown.calls = {}; CD = { isActive = true, startTime = S, duration = S }; CDDUR = nil; UpdateCooldown(B)")
+    assert rt.eval("B.cooldown.calls[1]") == "numbers" and rt.eval("lib.hhCooldownFallback") == 1   # no object: the numbers
+    body = _lab_chunk("\tfunction UpdateCooldown(self)", "\tend")
+    assert "not locInfo.shouldReplaceNormalCooldown" not in body and "== nil" not in body
+
+
+def test_one_failing_cooldown_never_stops_the_others():
+    src = _lab_src()
+    assert "local ok, err = pcall(inner, self)" in src and "lib.hhCooldownErrors" in src
+    from lupa.lua51 import LuaRuntime
+    rt = LuaRuntime()
+    rt.execute("lib = {}; function UpdateCooldown(self) if self.bad then error('hidden flag tested') end self.done = true end")
+    rt.execute(_lab_chunk("-- HogTron UI patch (2026-10-17): every cooldown update is guarded", "end"))
+    rt.execute("A, B2 = { bad = true }, {}; for _, b in ipairs({ A, B2 }) do UpdateCooldown(b) end")
+    assert rt.eval("B2.done") is True and rt.eval("lib.hhCooldownErrors") == 1 and "hidden flag tested" in rt.eval("lib.hhLastCooldownError")
+
+
+def test_the_live_counters_save_themselves(bars):
+    bars.execute("local lab = HogHealsBars.Bars.Lib(); lab.hhCooldownErrors = 3; lab.hhLastCooldownError = 'x'; HogHealsBars.Extra.SaveLive()")
+    live = bars.eval("HogHeals.db.global.diag.barsLive")
+    assert live["cooldownErrors"] == 3 and live["lastCooldownError"] == "x"
+
+
+# ---------------------------------------------------------------- cooldown evidence (2026-10-17, fourth report)
+def test_the_live_save_records_what_the_client_and_the_swipe_do(bars):
+    bars.execute(STATE + """
+      C_ActionBar = C_ActionBar or {}
+      C_ActionBar.GetActionCooldown = function(slot) if slot == 7 then return { isActive = true, startTime = 100, duration = 25 } end return { isActive = false } end
+      C_ActionBar.GetActionCooldownDuration = function(slot) return { dur = true } end
+      B.cooldown = CreateFrame("Cooldown", nil, B)
+      HogHealsBars.Extra.SaveLive()
+    """)
+    live = bars.eval("HogHeals.db.global.diag.barsLive")
+    assert live["cooling"] == 1
+    c = live["cooldowns"]
+    assert c.startswith("COOLING b1#1 slot 7: isActive=T start=100.0 dur=25.0") and "durObj=table" in c and "widget shown=" in c
+    assert "| usable lib=T/F" in c and "icon=" in c
+
+
+def test_hidden_cooldown_values_are_written_s_never_used(bars):
+    bars.execute(STATE + """
+      MockSetSecrets(true)
+      C_ActionBar = C_ActionBar or {}
+      C_ActionBar.GetActionCooldown = function() return { isActive = MockSecret(true), startTime = MockSecret(5), duration = MockSecret(9) } end
+      B.cooldown = CreateFrame("Cooldown", nil, B)
+      HogHealsBars.Extra.SaveLive()
+      MockSetSecrets(false)
+    """)
+    c = bars.eval("HogHeals.db.global.diag.barsLive.cooldowns")
+    assert "COOLING b1#1 slot 7: isActive=S start=S dur=S" in c
+
+
+# ---------------------------------------------------------------- hidden "has an action" (2026-10-17, the root of grey + no cooldowns)
+def _hasaction_rt():
+    from lupa.lua51 import LuaRuntime
+    src = _lab_src().splitlines()
+    a = next(k for k, l in enumerate(src) if l.startswith("local function hhHidden(v)"))
+    b = next(k for k in range(a, len(src)) if src[k].startswith("Action.HasAction"))
+    rt = LuaRuntime()
+    rt.execute("""
+      lib = {}
+      function issecretvalue(v) return type(v) == "table" and v.secret == true end
+      S = { secret = true }
+      ANS, TEX = S, 12345
+      function HasAction(slot) return ANS end
+      function GetActionTexture(slot) return TEX end
+      Action = {}
+    """)
+    rt.execute(chr(10).join(src[a:b + 1]))
+    return rt
+
+
+def test_a_hidden_has_action_answer_never_reaches_an_if_and_falls_back_to_the_icon():
+    rt = _hasaction_rt()
+    assert rt.eval("Action.HasAction({ _state_action = 1 })") is True and rt.eval("lib.hhHasActionHidden") == 1
+    rt.execute("TEX = nil")
+    assert rt.eval("Action.HasAction({ _state_action = 2 })") is False            # hidden answer, no icon: empty slot
+    rt.execute("TEX = S")
+    assert rt.eval("Action.HasAction({ _state_action = 3 })") is True             # hidden icon too: the icon is on screen
+    rt.execute("ANS = false; TEX = 1")
+    assert rt.eval("Action.HasAction({ _state_action = 4 })") is False            # a plain answer is used as it is
+
+
+def test_a_missing_has_action_global_uses_the_icon():
+    rt = _hasaction_rt()
+    rt.execute("HasAction = nil; TEX = 99")
+    assert rt.eval("Action.HasAction({ _state_action = 1 })") is True and rt.eval("lib.hhHasActionMissing") is True
+
+
+def test_the_live_save_records_the_raw_answers(bars):
+    bars.execute(STATE + "HogHealsBars.Extra.SaveLive()")
+    raw = bars.eval("HogHeals.db.global.diag.barsLive.raw")
+    assert raw.startswith("b1#1 type=action slot=7.0 HasAction=")
+
+
+# ---------------------------------------------------------------- template functions hiding the lib's (2026-10-17)
+# in game: HasAction(slot) = true (plain) for the client, button:HasAction() = false for the lib - the template's own
+# function, mixed onto the button, answered instead of the lib's.
+def test_a_template_function_that_hides_a_lib_method_is_removed(bars):
+    bars.execute("""
+      HH_G = { HasAction = function() return nil end, UpdateAction = function() end, Shared = function() return "lib" end }
+      HH_A = setmetatable({ HasAction = function() return true end }, { __index = HH_G })
+      HH_b = setmetatable({}, { __index = HH_A })
+      HH_b.HasAction = function() return false end          -- the template's, raw on the button
+      HH_b.Shared = HH_G.Shared                             -- the lib's own, set raw: kept
+      HH_b.OnlyTemplate = function() return "t" end          -- no lib method of that name: kept
+      HH_n = HogHealsBars.Bars.Unshadow(HH_b)
+    """)
+    assert bars.eval("HH_n") == 1
+    assert bars.eval("HH_b:HasAction()") is True                                 # the lib's answers now
+    assert bars.eval("rawget(HH_b, 'Shared') ~= nil") is True and bars.eval("rawget(HH_b, 'OnlyTemplate') ~= nil") is True
+    assert "HasAction x1" in bars.eval("HogHealsBars.Bars.ShadowedText()")
+
+
+def test_barsdiag_and_the_live_save_name_what_was_removed(bars):
+    bars.execute("HogHealsBars.Bars.shadowed.HasAction = 12; HogHealsBars.Extra.SaveLive(); MockLog.chat = {}; HogHeals:SlashCommand('barsdiag')")
+    assert "HasAction x12" in bars.eval("HogHeals.db.global.diag.barsLive.shadowed")
+    assert any("template functions that hid the lib's" in l and "HasAction x12" in l for l in bars.eval("MockLog.chat").values())
+
+
+# ---------------------------------------------------------------- Blizzard's main bar art (2026-10-17)
+# Sean, a brand-new character: gryphons, the slot frame with its dividers and the page arrows all drawn under our
+# bars. WoW: Forever names the bar MainActionBar (every MainMenuBar.* art path sat in skin.missing on disk) and keeps
+# the art under keys of the bar; Edit Mode's "Hide Bar Art" had been hiding it on the older characters only.
+FOREVER_MAIN = r'''
+MainMenuBar = nil                                   -- renamed on this engine
+MainActionBar = CreateFrame("Frame", "MainActionBar", UIParent)
+local bar = MainActionBar
+bar.EndCaps = CreateFrame("Frame", nil, bar)
+bar.EndCaps.LeftEndCap = bar.EndCaps:CreateTexture(); bar.EndCaps.LeftEndCap:SetAtlas("ui-hud-actionbar-gryphon-left")
+bar.EndCaps.RightEndCap = bar.EndCaps:CreateTexture(); bar.EndCaps.RightEndCap:SetAtlas("ui-hud-actionbar-gryphon-right")
+bar.BorderArt = bar:CreateTexture(); bar.BorderArt:SetAtlas("ui-hud-actionbar-frame")
+bar.Background = bar:CreateTexture()
+bar.ActionBarPageNumber = CreateFrame("Frame", nil, bar)
+bar.ActionBarPageNumber.UpButton = CreateFrame("Button", nil, bar.ActionBarPageNumber)
+HH_divider = CreateFrame("Frame", nil, bar)                    -- from Blizzard's divider pool
+HH_secure = CreateFrame("CheckButton", nil, bar)               -- a secure button is never art
+for i = 1, 12 do _G["ActionButton" .. i]:SetParent(bar) end    -- the buttons live on the bar on this engine
+function bar:UpdateDividers() HH_newDivider = CreateFrame("Frame", nil, self) end
+function bar:UpdateEndCaps(hide) self.EndCaps:SetShown(not hide) end
+'''
+
+
+@pytest.fixture
+def forever(lua):
+    lua.execute(CLIENT + FOREVER_MAIN)
+    lua.load_addon("HogTronUI")
+    lua.load_addon("HogTron_Bars")
+    lua.player_login()
+    return lua
+
+
+def test_forever_main_bar_art_goes_and_the_bar_frame_stays(forever):
+    b = "MainActionBar"
+    for piece in (f"{b}.EndCaps", f"{b}.ActionBarPageNumber", "HH_divider"):
+        assert forever.eval(f"{piece}:IsShown()") is False and forever.eval(f"{piece}._alpha") == 0, piece
+    for tex in (f"{b}.BorderArt", f"{b}.Background"):
+        assert forever.eval(f"{tex}._alpha") == 0, tex
+    # the frame itself is left where it is; the buttons went under the hider; a secure button is never touched
+    assert forever.eval(f"{b}:IsShown()") is True and forever.eval(f"{b}:GetParent() == UIParent") is True
+    assert forever.eval("ActionButton1:GetParent() == HogHealsBarsHider") is True
+    assert forever.eval("HH_secure:IsShown()") is True and forever.eval("HH_secure._alpha") == 1
+    art = forever.eval("HogHealsBars.Bars.mainArt")
+    assert art["kind"] == "modern:MainActionBar" and art["count"] >= 5
+    assert errors(forever) == []
+
+
+def test_forever_main_bar_art_stays_gone_when_blizzard_redraws_it(forever):
+    b = "MainActionBar"
+    forever.execute(f"{b}:UpdateEndCaps(false)")                       # Blizzard's own SetShown(true)
+    assert forever.eval(f"{b}.EndCaps:IsShown()") is False
+    forever.execute(f"{b}.EndCaps:Show(); {b}.BorderArt:SetAlpha(1); {b}.ActionBarPageNumber:SetShown(true)")
+    assert forever.eval(f"{b}.EndCaps:IsShown()") is False and forever.eval(f"{b}.BorderArt._alpha") == 0
+    assert forever.eval(f"{b}.ActionBarPageNumber:IsShown()") is False
+    forever.execute(f"{b}:UpdateDividers()")                           # a layout change draws new dividers
+    assert forever.eval("HH_newDivider:IsShown()") is False and forever.eval("HH_newDivider._alpha") == 0
+    # bars switched off: Blizzard may show its art again (it is back in full after the /reload the switch asks for)
+    forever.execute(f"HogHeals.db.profile.bars.enabled = false; {b}.EndCaps:Show()")
+    assert forever.eval(f"{b}.EndCaps:IsShown()") is True
+    assert errors(forever) == []
+
+
+def test_barsdiag_names_the_main_bar_art_it_hid(forever):
+    forever.execute('MockLog.chat = {}; HogHeals:SlashCommand("barsdiag")')
+    chat = [l for l in forever.eval("MockLog.chat").values()]
+    assert any("main bar art: modern:MainActionBar" in l for l in chat)
+    d = forever.eval("HogHeals.db.global.diag.barsMainArt")
+    assert d["kind"] == "modern:MainActionBar" and d["count"] >= 5 and "MainActionBar.EndCaps" in d["names"]
+
+
+def test_classic_main_bar_art_goes_but_its_xp_bar_and_frame_stay(lua):
+    lua.execute(CLIENT + r'''
+      MainMenuBarLeftEndCap = MainMenuBar:CreateTexture("MainMenuBarLeftEndCap"); MainMenuBarLeftEndCap:SetTexture("gryphon")
+      MainMenuBarTexture0 = MainMenuBar:CreateTexture("MainMenuBarTexture0"); MainMenuBarTexture0:SetTexture("art")
+      MainMenuExpBar = CreateFrame("StatusBar", "MainMenuExpBar", MainMenuBar)
+    ''')
+    lua.load_addon("HogTronUI")
+    lua.load_addon("HogTron_Bars")
+    lua.player_login()
+    assert lua.eval("MainMenuBarLeftEndCap._alpha") == 0 and lua.eval("MainMenuBarTexture0._alpha") == 0
+    assert lua.eval("MainMenuExpBar:IsShown()") is True and lua.eval("MainMenuExpBar._alpha") == 1   # not generic here
+    assert lua.eval("MainMenuBar:IsShown()") is True
+    assert lua.eval("HogHealsBars.Bars.mainArt.kind") == "classic"
+    assert errors(lua) == []
+
+
+def test_bars_off_leaves_blizzards_main_bar_art_to_blizzard(lua):
+    lua.execute(CLIENT + FOREVER_MAIN + 'HogTronUIDB = { profiles = { Default = { bars = { enabled = false } } } }')
+    lua.load_addon("HogTronUI")
+    lua.load_addon("HogTron_Bars")
+    lua.player_login()
+    assert lua.eval("MainActionBar.EndCaps:IsShown()") is True and lua.eval("MainActionBar.EndCaps._alpha") == 1
+    assert errors(lua) == []
+
+
+def test_skin_clears_forevers_gryphons_when_bars_is_off(lua):
+    lua.execute(CLIENT + FOREVER_MAIN)
+    lua.load_addon("HogTronUI")
+    lua.load_addon("HogTron_Skin")
+    lua.player_login()
+    assert lua.eval("MainActionBar.EndCaps.LeftEndCap._alpha") == 0
+    assert lua.eval("MainActionBar.EndCaps.RightEndCap._alpha") == 0
+    assert lua.eval("MainActionBar.BorderArt._alpha") == 0
+    assert [e["msg"] for e in lua.eval('HogHeals.errors').values()] == []
+
+
+# ---------------------------------------------------------------- the lower half of bar 1 (2026-10-17, third report)
+def test_our_bars_sit_above_blizzards_bottom_frames(forever):
+    assert forever.eval("HogUIBar1:GetFrameLevel()") == forever.eval("HogHealsBars.Bars.LEVEL")
+    assert forever.eval("HogUIBar1.buttons[1]:GetFrameLevel()") > forever.eval("HogHealsBars.Bars.LEVEL")
+
+
+def test_blizzards_emptied_main_bar_takes_no_mouse(forever):
+    assert forever.eval("MainActionBar._last.EnableMouse[1]") is False
+
+
+def test_whoever_holds_the_mouse_inside_bar_1_is_recorded(forever):
+    forever.execute("""
+      function HogUIBar1:IsMouseOver() return true end
+      HH_focus = MainActionBar
+      function GetMouseFoci() return { HH_focus } end
+    """)
+    B = "HogHealsBars.Bars"
+    assert "MainActionBar < UIParent [" in forever.eval(f"{B}.MouseProbe()")
+    forever.execute(f"{B}.MouseProbe()")
+    assert "MainActionBar < UIParent" in forever.eval("HogHeals.db.global.diag.barsMouse.list") and " x2" in forever.eval("HogHeals.db.global.diag.barsMouse.list")
+    forever.execute("HH_focus = HogUIBar1.buttons[3]")
+    assert forever.eval(f"{B}.MouseProbe()") == "ours"
+    forever.execute("HH_focus = nil")
+    assert forever.eval(f"{B}.MouseProbe()").startswith("nothing")
+    forever.execute('MockLog.chat = {}; HogHeals:SlashCommand("barsdiag")')
+    assert any("who had the mouse inside bar 1" in l and "MainActionBar" in l for l in forever.eval("MockLog.chat").values())
+
+
+# ---------------------------------------------------------------- what you see = what you can click (2026-10-17)
+# in game diag.barsMouse: inside bar 1, "nothing (no frame takes the mouse here)" - the template's icon / cooldown hung
+# out past the (smaller) button, so the bottom of the icon had no button under it.
+def test_icon_and_cooldowns_are_pinned_to_the_button_and_the_hit_area_is_its_edges(bars):
+    bars.execute("""
+      HH_b = CreateFrame("CheckButton", "HH_b", UIParent)
+      HH_b.icon = HH_b:CreateTexture(); HH_b.icon:SetPoint("TOPLEFT", HH_b, "TOPLEFT", 0, 0); HH_b.icon:SetSize(45, 45)
+      HH_b.cooldown = CreateFrame("Cooldown", nil, HH_b); HH_b.cooldown:SetPoint("TOPLEFT", HH_b.icon, "TOPLEFT", 2, -2)
+      HogHealsBars.Bars.PinToButton(HH_b)
+    """)
+    for k in ("icon", "cooldown"):
+        assert bars.eval(f"HH_b.{k}._points[1][1]") == "ALL" and bars.eval(f"HH_b.{k}._points[1][2] == HH_b") is True, k
+        assert bars.eval(f"#HH_b.{k}._points") == 1, k                                  # the template's own anchor is gone
+    assert list(bars.eval("HH_b._last.SetHitRectInsets").values()) == [0, 0, 0, 0]
+    assert bars.eval("HogUIBar1.buttons[1]._last.SetHitRectInsets ~= nil") is True                  # every bar button dressed so
+
+
+def test_the_geometry_of_bar_1_saves_itself(bars):
+    bars.execute("HogHealsBars.Bars.SaveGeometry()")
+    lines = bars.eval("HogHeals.db.global.diag.barsGeometry.lines")
+    assert "bar 1:" in lines and "button 1:" in lines and "its icon:" in lines and "hit insets" in lines
+
+
+def test_hidden_frame_positions_still_leave_a_geometry_record(bars):
+    bars.execute("""
+      MockSetSecrets(true)
+      local b = HogUIBar1.buttons[1]
+      function b:GetLeft() return MockSecret(10) end
+      HogHealsBars.Bars.SaveGeometry()
+      MockSetSecrets(false)
+    """)
+    assert "button 1: LS" in bars.eval("HogHeals.db.global.diag.barsGeometry.lines")
+
+
+def test_the_geometry_record_reads_all_four_hit_insets(bars):
+    # Sean's 2026-10-17 save read "hit insets 0 0 nil nil": the helper keeps two values
+    bars.execute("local b = HogUIBar1.buttons[1]; function b:GetHitRectInsets() return 0, 1, 2, 3 end; HogHealsBars.Bars.SaveGeometry()")
+    assert "hit insets 0 1 2 3" in bars.eval("HogHeals.db.global.diag.barsGeometry.lines")

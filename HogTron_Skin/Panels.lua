@@ -6,7 +6,7 @@ local HHS = HogHealsSkin
 local Skin = HHS.Skin
 local HH = HogHeals
 
-local Part = { name = "panels", styled = {}, hooked = {} }
+local Part = { name = "panels", styled = {}, hooked = {}, shows = {} }
 HHS.Panels = Part
 
 Part.NAMES = {
@@ -18,6 +18,9 @@ Part.NAMES = {
   "TabardFrame", "GuildRegistrarFrame", "PetitionFrame", "ReadyCheckFrame", "StaticPopup1", "StaticPopup2", "StaticPopup3",
   "InterfaceOptionsFrame", "SettingsPanel", "VideoOptionsFrame", "ChatConfigFrame", "TimeManagerFrame", "CalendarFrame",
   "AchievementFrame", "EncounterJournal", "CollectionsJournal", "GroupFinderFrame", "PVEFrame", "StopwatchFrame",
+  -- WoW: Forever's social window (Friends / Who / Raid tabs down its right side): SocialUIFrame, not FriendsFrame - named
+  -- by /hh under in game 2026-10-17 (Sean: "the Friends list ... I don't know that we ever did that" - it never was)
+  "SocialUIFrame",
 }
 local wanted = {}
 for _, n in ipairs(Part.NAMES) do wanted[n] = true end
@@ -210,6 +213,26 @@ function Part.Tabs(f, name)
   end
 end
 
+-- Named Blizzard pieces a window keeps after the strip (its own /hh skindiag leftovers): cleared by key path. Sean
+-- 2026-10-17, the Friends window (SocialUIFrame) still showed the Battle.net bar's two backgrounds
+-- (friends-frame-infoBG, 632259) and the friends list's two dividers (perks-divider-short). Its scroll bar track stays
+-- (a control, not decoration).
+Part.PIECES = {
+  SocialUIFrame = { "BattleNetBar.Background", "BattleNetBar.ControlsContainer.BattleNetBackground", "FriendsList.TopDivider", "FriendsList.BottomDivider" },
+}
+
+function Part.KillPieces(f, name)
+  local list = Part.PIECES[name]
+  if not list then return 0 end
+  local n = 0
+  for _, path in ipairs(list) do
+    local t = f
+    for key in path:gmatch("[^%.]+") do t = type(t) == "table" and rawget(t, key) or nil end
+    if type(t) == "table" and Skin.Kill(t) then n = n + 1 end
+  end
+  return n
+end
+
 function Part.StyleOnce(f, name)
   local d = Skin.cfg().panels
   f.hhPanel = Skin.Panel(f, f, 0, d and d.alpha or 0.9)
@@ -293,9 +316,16 @@ function Part.Report(f, name, err)
   g.diag = g.diag or {}
   g.diag.skin = g.diag.skin or {}
   g.diag.skin.windows = g.diag.skin.windows or {}
-  local left = err and {} or Part.Leftovers(f)
-  g.diag.skin.windows[name] = { at = date and date("%Y-%m-%d %H:%M:%S") or "", styled = f.hhPanel ~= nil, error = err,
-    leftovers = #left, left = table.concat(left, " | ") }
+  -- the style is recorded FIRST: walking what is left can throw on a window with forbidden / secret pieces, and that
+  -- used to lose the whole record silently (Sean 2026-10-17: the Friends window looked stock and left no trace)
+  local rec = { at = date and date("%Y-%m-%d %H:%M:%S") or "", styled = f.hhPanel ~= nil, error = err,
+    shown = Skin.call(f.IsShown, f) and true or false, strata = Skin.call(f.GetFrameStrata, f), level = Skin.call(f.GetFrameLevel, f),
+    panelLevel = f.hhPanel and f.hhPanel.GetFrameLevel and Skin.call(f.hhPanel.GetFrameLevel, f.hhPanel) or nil }
+  g.diag.skin.windows[name] = rec
+  if err then return end
+  local ok, left = pcall(Part.Leftovers, f)
+  if ok then rec.leftovers, rec.left = #left, table.concat(left, " | ")
+  else rec.leftoversError = tostring(left):sub(1, 300) end
 end
 
 --- Style a window: the once-only parts the first time, the art strip every time. Errors are CAUGHT and logged with
@@ -308,6 +338,7 @@ function Part.Style(f)
   local first = f.hhPanel == nil
   local ok, err = xpcall(function()
     Part.Strip(f, name)
+    Part.KillPieces(f, name)
     if first then Part.StyleOnce(f, name) end
     if Part.PARCHMENT[name] then Part.Parchment(f) end
   end, HH.Trace or debugstack)
@@ -324,6 +355,8 @@ local function watch(f)
   if type(f) ~= "table" or Part.hooked[f] or not f.HookScript then return end
   Part.hooked[f] = true
   f:HookScript("OnShow", function(self)
+    local n = self.GetName and self:GetName() or "?"
+    Part.shows[n] = (Part.shows[n] or 0) + 1
     if Skin.cfg().enabled ~= false and Skin.cfg().panels.enabled ~= false then Part.Style(self) end
   end)
   if f.IsShown and f:IsShown() then Part.Style(f) end

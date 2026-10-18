@@ -19,6 +19,7 @@ local CYAN = { 0.13, 0.83, 0.88 }
 local LINE = { 0.20, 0.20, 0.25 }
 local INK = { 0.10, 0.10, 0.12 }
 Bars.SIZE = 36            -- button size before the bar's scale
+Bars.LEVEL = 30           -- frame level of our bars (Blizzard's bottom-of-screen frames sit well under it)
 Bars.PAGES = 14           -- states bar 1 carries (pages 1-6, bonus 7-10, vehicle / shapeshift / override 12-14)
 
 local function cfg() return HH.db.profile.bars end
@@ -68,6 +69,67 @@ end
 -- ------------------------------------------------------------------------------------------------ the look
 --- The HogTron UI cell on a lib button: Blizzard's slot art off, ink backdrop + 1 px outline, trimmed icon. The
 -- backdrop and outline double as the grid: shown for an empty slot only when the grid is on.
+-- What you see = what you can click (Sean 2026-10-17, third report: the lower part of a bar-1 button took no hover; in
+-- game diag.barsMouse said NO frame had the mouse there - not Blizzard's, not ours). The stock button template draws its
+-- icon and cooldowns at its own fixed size from the top-left corner; on a button made smaller than the template they
+-- hang out past the button's clickable area - you see the bottom of the icon, the mouse finds nothing. The same
+-- overhang puts the cooldown swipe off the cell. Pinned to the button here, and the hit area to its very edges.
+Bars.PINNED = { "icon", "cooldown", "chargeCooldown", "lossOfControlCooldown" }
+function Bars.PinToButton(b)
+  local n = 0
+  for _, k in ipairs(Bars.PINNED) do
+    local r = rawget(b, k)
+    if type(r) == "table" and r.ClearAllPoints and r.SetAllPoints then
+      call(r.ClearAllPoints, r)
+      call(r.SetAllPoints, r, b)
+      n = n + 1
+    end
+  end
+  if b.SetHitRectInsets then call(b.SetHitRectInsets, b, 0, 0, 0, 0) end
+  return n
+end
+
+--- Where bar 1's first button really is versus what it draws (for /hh barsdiag and diag.barsGeometry): rects in screen
+-- px (left, right, top, bottom), hit insets, mouse on. Saved once a few seconds after login - no command needed.
+function Bars.GeometryLines()
+  local out = {}
+  local bar = Bars.bars[1]
+  local b = bar and bar.buttons and bar.buttons[1]
+  if type(b) ~= "table" then return out end
+  local function rect(f, label)
+    if type(f) ~= "table" then out[#out + 1] = label .. ": none" return end
+    local s = call(f.GetEffectiveScale, f) or 1
+    local l, r, t, bo = call(f.GetLeft, f), call(f.GetRight, f), call(f.GetTop, f), call(f.GetBottom, f)
+    -- frame positions can come back hidden on this client: written "S", never used (the first version did arithmetic on
+    -- them, threw inside its pcall and saved nothing - 2026-10-17)
+    local hiddenV = type(issecretvalue) == "function" and issecretvalue
+    if hiddenV and hiddenV(s) then s = 1 end
+    local function px(v)
+      if hiddenV and hiddenV(v) then return "S" end
+      return type(v) == "number" and ("%d"):format(math.floor(v * s + 0.5)) or "?"
+    end
+    out[#out + 1] = ("%s: L%s R%s T%s B%s"):format(label, px(l), px(r), px(t), px(bo))
+  end
+  rect(bar, "bar 1")
+  rect(b, "button 1")
+  rect(rawget(b, "icon"), "  its icon")
+  rect(rawget(b, "cooldown"), "  its cooldown")
+  -- all four (call() keeps two: Sean's save read "hit insets 0 0 nil nil")
+  local okI, il, ir, it, ib = pcall(b.GetHitRectInsets or error, b)
+  if not okI then il, ir, it, ib = nil, nil, nil, nil end
+  out[#out + 1] = ("  hit insets %s %s %s %s, mouse %s"):format(tostring(il), tostring(ir), tostring(it), tostring(ib),
+    tostring(call(b.IsMouseEnabled, b)))
+  return out
+end
+
+function Bars.SaveGeometry()
+  local g = HH.db and HH.db.global
+  if not g then return nil end
+  g.diag = g.diag or {}
+  g.diag.barsGeometry = { at = date and date("%Y-%m-%d %H:%M:%S") or "?", lines = table.concat(Bars.GeometryLines(), " | ") }
+  return g.diag.barsGeometry
+end
+
 function Bars.Dress(b)
   if b.hh then return b.hh end
   local hh = {}
@@ -79,6 +141,7 @@ function Bars.Dress(b)
   local nt = call(b.GetNormalTexture, b)
   if type(nt) == "table" then call(nt.SetTexture, nt, nil) call(nt.SetAlpha, nt, 0) end
   if type(b.icon) == "table" and b.icon.SetTexCoord then call(b.icon.SetTexCoord, b.icon, 0.08, 0.92, 0.08, 0.92) end
+  Bars.PinToButton(b)
   hh.backdrop = b:CreateTexture(nil, "BACKGROUND", nil, -8)
   hh.backdrop:SetColorTexture(INK[1], INK[2], INK[3], 0.9)
   hh.backdrop:SetAllPoints(b)
@@ -256,6 +319,10 @@ function Bars.Create(n)
   bar:SetMovable(true)
   bar:SetClampedToScreen(true)
   bar:SetFrameStrata("MEDIUM")
+  -- above anything Blizzard leaves on the same strata at the bottom of the screen (its emptied main bar frame, the XP
+  -- bar containers): with equal strata the higher level gets the mouse (Sean 2026-10-17: the lower half of bar 1 took
+  -- no hover). Set before the buttons exist, so they are created above it.
+  if bar.SetFrameLevel then bar:SetFrameLevel(Bars.LEVEL) end
   bar.hhOurs = true
   for i = 1, 12 do
     local b = lib:CreateButton(i, ("HogUIBar%dButton%d"):format(n, i), bar, Bars.ButtonConfig(n, i))
@@ -358,6 +425,234 @@ function Bars.HideBlizzard()
   return n
 end
 
+-- ------------------------------------------------------------------------------------------------ the main bar's art
+-- Blizzard's main bar FRAME stays (classic clients hang the XP bar, bags and menu buttons on it), but with our bars up
+-- none of its own art may show: the gryphons, the slot frame and its dividers, the page arrows.
+-- Sean 2026-10-17, a brand-new character: all of that drawn under our bars. Two causes. Skin's art pass yields as soon
+-- as Bars is on, so nobody cleared it; and Skin only knew it as MainMenuBar.*, which WoW: Forever does not have (every
+-- MainMenuBar.* path sat in skin.missing on disk; the client's Edit Mode names the bar MainActionBar). Older characters
+-- looked clean only because their Edit Mode layout had "Hide Bar Art" ticked; a new character starts on Blizzard's
+-- preset layout, art on.
+Bars.MAIN_BARS = { "MainActionBar", "MainMenuBar" }
+-- classic-era clients: named globals (the frame's other children - XP bar, bags, menu buttons - are left alone)
+Bars.CLASSIC_ART = {
+  "MainMenuBarTexture0", "MainMenuBarTexture1", "MainMenuBarTexture2", "MainMenuBarTexture3",
+  "MainMenuBarLeftEndCap", "MainMenuBarRightEndCap", "MainMenuBarPageNumber", "MainMenuBarArtFrameBackground",
+  "MainMenuMaxLevelBar0", "MainMenuMaxLevelBar1", "MainMenuMaxLevelBar2", "MainMenuMaxLevelBar3",
+}
+-- the newer engine keeps its art under keys of the bar; any of these marks the bar as that kind
+Bars.MODERN_KEYS = { "EndCaps", "BorderArt", "ActionBarPageNumber" }
+-- Blizzard methods that rebuild the art (dividers come from a pool on every layout change): our pass runs after them
+Bars.MAIN_ART_HOOKS = { "UpdateDividers", "UpdateEndCaps", "UpdateSystemSettingHideBarArt", "UpdateGridLayout" }
+
+local quieted = setmetatable({}, { __mode = "k" })   -- side tables: no fields written on Blizzard's objects
+local busy = setmetatable({}, { __mode = "k" })
+local hookedBars = setmetatable({}, { __mode = "k" })
+
+local function barsOn() local d = HH.db and HH.db.profile.bars return d ~= nil and d.enabled ~= false end
+
+--- Every return value of a method that returns a list (GetRegions / GetChildren); {} when it errors.
+local function all(f, obj)
+  if type(f) ~= "function" then return {} end
+  local r = { pcall(f, obj) }
+  if not r[1] then return {} end
+  table.remove(r, 1)
+  return r
+end
+
+--- One Blizzard art piece off and kept off: hidden + alpha 0; Blizzard's next Show / SetShown / SetAlpha is undone.
+-- Never a secure button (an action button is never art) and never a protected frame.
+local function quiet(o)
+  if type(o) ~= "table" or rawget(o, "hhOurs") then return false end
+  local kind = call(o.GetObjectType, o)
+  if kind == "CheckButton" or call(o.IsProtected, o) then return false end
+  call(o.SetAlpha, o, 0)
+  call(o.Hide, o)
+  if not quieted[o] and type(hooksecurefunc) == "function" then
+    quieted[o] = true
+    local function again(self)
+      if busy[self] or not barsOn() then return end
+      busy[self] = true
+      call(self.SetAlpha, self, 0)
+      call(self.Hide, self)
+      busy[self] = nil
+    end
+    for _, m in ipairs({ "Show", "SetShown", "SetAlpha" }) do
+      if type(o[m]) == "function" then pcall(hooksecurefunc, o, m, again) end
+    end
+  end
+  return true
+end
+Bars.Quiet = quiet
+
+--- Blizzard's main bar FRAME stays (classic clients keep the XP bar and menu buttons on it), but with its buttons gone
+-- it is an empty rectangle at the bottom centre - exactly where bar 1 sits - and it must not take the mouse there.
+-- Out of combat only (it may be protected); what it had is kept for the day Bars is switched off.
+local mouseWas = setmetatable({}, { __mode = "k" })
+function Bars.Unmouse(f)
+  if type(f) ~= "table" or not f.EnableMouse then return false end
+  if InCombatLockdown and InCombatLockdown() then HH:RunOutOfCombat(Bars.Unmouse, f) return false end
+  if mouseWas[f] == nil then mouseWas[f] = call(f.IsMouseEnabled, f) and true or false end
+  call(f.EnableMouse, f, false)
+  if f.EnableMouseWheel then call(f.EnableMouseWheel, f, false) end
+  Bars.unmoused = (Bars.unmoused or 0) + 1
+  return true
+end
+
+--- The main bar's own art off, the frame itself left in place. Returns how many pieces it quieted.
+function Bars.HideMainArt()
+  local n, names, kind = 0, {}, "none"
+  local function one(o, label)
+    if quiet(o) then n = n + 1 if #names < 24 then names[#names + 1] = label end end
+  end
+  for _, name in ipairs(Bars.CLASSIC_ART) do
+    local t = rawget(_G, name)
+    if t ~= nil then Bars.found[name] = true kind = "classic" one(t, name) end
+  end
+  for _, name in ipairs(Bars.MAIN_BARS) do
+    local bar = rawget(_G, name)
+    if type(bar) == "table" then
+      Bars.found[name] = true
+      local modern = false
+      for _, k in ipairs(Bars.MODERN_KEYS) do if rawget(bar, k) ~= nil then modern = true end end
+      if modern then
+        kind = "modern:" .. name
+        -- the newer engine: what is still on the bar once its buttons went under the hider is art
+        for _, k in ipairs(Bars.MODERN_KEYS) do one(rawget(bar, k), name .. "." .. k) end
+        one(rawget(bar, "Background"), name .. ".Background")
+        for _, r in ipairs(all(bar.GetRegions, bar)) do one(r, name .. ":" .. tostring(call(r.GetObjectType, r))) end
+        for _, c in ipairs(all(bar.GetChildren, bar)) do
+          one(c, name .. ">" .. tostring(call(c.GetName, c) or call(c.GetObjectType, c)))
+        end
+        Bars.Unmouse(bar)
+        if not hookedBars[bar] and type(hooksecurefunc) == "function" then
+          hookedBars[bar] = true
+          for _, m in ipairs(Bars.MAIN_ART_HOOKS) do
+            if type(bar[m]) == "function" then
+              pcall(hooksecurefunc, bar, m, function() if barsOn() then Bars.HideMainArt() end end)
+            end
+          end
+        end
+      end
+    else
+      Bars.missing[name] = true
+    end
+  end
+  Bars.mainArt = { kind = kind, count = n, names = table.concat(names, ",") }
+  return n
+end
+
+-- ------------------------------------------------------------------------------------------------ who has the mouse
+-- Sean 2026-10-17, for the third time: hovering the middle / lower part of a bar-1 button does nothing. Whatever holds
+-- the mouse there is recorded on its own - no command to type: while the cursor is inside bar 1 and the frame the
+-- client hands the mouse to is not one of our buttons, its name, parent, strata and level are counted into
+-- diag.barsMouse (saved on the next /reload or logout). "nothing" = no frame takes the mouse there at all.
+Bars.thieves = {}
+Bars.MAX_THIEVES = 8
+
+local function focusFrame()
+  local foci = rawget(_G, "GetMouseFoci")
+  if type(foci) == "function" then
+    local ok, list = pcall(foci)
+    return ok and type(list) == "table" and list[1] or nil
+  end
+  local gf = rawget(_G, "GetMouseFocus")
+  if type(gf) == "function" then local ok, v = pcall(gf) return ok and v or nil end
+  return nil
+end
+
+function Bars.MouseProbe()
+  local bar = Bars.bars[1]
+  if type(bar) ~= "table" or not call(bar.IsShown, bar) or not call(bar.IsMouseOver, bar) then return nil end
+  local f = focusFrame()
+  local key
+  if type(f) ~= "table" then
+    key = "nothing (no frame takes the mouse here)"
+  elseif rawget(f, "hhBar") or f == bar then
+    return "ours"
+  else
+    local name = call(f.GetName, f)
+    local p = call(f.GetParent, f)
+    local pn = type(p) == "table" and call(p.GetName, p) or nil
+    key = ("%s < %s [%s L%s]%s"):format(tostring(name or ("<" .. tostring(call(f.GetObjectType, f)) .. ">")), tostring(pn or "?"),
+      tostring(call(f.GetFrameStrata, f)), tostring(call(f.GetFrameLevel, f)), call(f.IsProtected, f) and " protected" or "")
+  end
+  if Bars.thieves[key] == nil then
+    local n = 0
+    for _ in pairs(Bars.thieves) do n = n + 1 end
+    if n >= Bars.MAX_THIEVES then return key end
+  end
+  Bars.thieves[key] = (Bars.thieves[key] or 0) + 1
+  local list = {}
+  for k, c in pairs(Bars.thieves) do list[#list + 1] = k .. " x" .. c end
+  table.sort(list)
+  local g = HH.db and HH.db.global
+  if g then g.diag = g.diag or {} g.diag.barsMouse = { at = date and date("%Y-%m-%d %H:%M:%S") or "?", list = table.concat(list, " | ") } end
+  return key
+end
+
+function Bars.StartMouseProbe()
+  if C_Timer and C_Timer.After then
+    C_Timer.After(4, function()
+      local ok, err = pcall(Bars.SaveGeometry)
+      local g = HH.db and HH.db.global
+      if not ok and g then g.diag = g.diag or {} g.diag.barsGeometry = { error = tostring(err):sub(1, 300) } end
+    end)
+  end
+  if Bars.mouseTicker or not (C_Timer and C_Timer.NewTicker) then return end
+  Bars.mouseTicker = C_Timer.NewTicker(0.25, function() pcall(Bars.MouseProbe) end)
+end
+
+-- ------------------------------------------------------------------------------------------------ template shadowing
+-- Sean 2026-10-17: icons were grey and NO cooldown ever showed on our bars. The recorder then showed the client saying
+-- every slot HAS an action (HasAction = true, plain) while the lib's own button:HasAction() said false - and not one of
+-- the lib patches ever showed in the counters. The client's ActionButtonTemplate mixes its own functions straight onto
+-- the button table; where one shares a name with a LibActionButton method (HasAction, cooldown / usable readers ...),
+-- the template's raw field wins over the lib's metatable and the lib's code never runs. Every function the template
+-- put on the button under a name the LIB defines (its Action / Generic tables, never the frame's own widget methods) is
+-- removed, so the lib's method answers. What was removed is recorded (Bars.shadowed, /hh barsdiag, diag.barsLive).
+Bars.shadowed = {}
+
+function Bars.Unshadow(b)
+  local mt = getmetatable(b)
+  local A = type(mt) == "table" and type(mt.__index) == "table" and mt.__index or nil
+  if not A then return 0 end
+  local amt = getmetatable(A)
+  local G = type(amt) == "table" and type(amt.__index) == "table" and amt.__index or nil
+  local drop = {}
+  for k, v in pairs(b) do
+    if type(k) == "string" and type(v) == "function" then
+      local libf = rawget(A, k) or (G and rawget(G, k))
+      if type(libf) == "function" and libf ~= v then drop[#drop + 1] = k end
+    end
+  end
+  for _, k in ipairs(drop) do
+    rawset(b, k, nil)
+    Bars.shadowed[k] = (Bars.shadowed[k] or 0) + 1
+  end
+  return #drop
+end
+
+--- Every bar button's state again after an unshadow (the lib's Update now runs its own HasAction).
+function Bars.UnshadowAll()
+  local n = 0
+  for _, bar in pairs(Bars.bars) do
+    for _, b in ipairs(bar.buttons or {}) do
+      local k = Bars.Unshadow(b)
+      n = n + k
+      if k > 0 and type(b.UpdateAction) == "function" then pcall(b.UpdateAction, b, true) end
+    end
+  end
+  return n
+end
+
+function Bars.ShadowedText()
+  local list = {}
+  for k, c in pairs(Bars.shadowed) do list[#list + 1] = k .. " x" .. c end
+  table.sort(list)
+  return #list > 0 and table.concat(list, ", ") or "none"
+end
+
 -- ------------------------------------------------------------------------------------------------ build / refresh
 function Bars.Build(reason)
   local lib = Bars.Lib()
@@ -366,6 +661,7 @@ function Bars.Build(reason)
   local built = 0
   HH:RunOutOfCombat(function()
     Bars.HideBlizzard()
+    Bars.HideMainArt()
     for n = 1, 8 do
       local bd = cfg().list[n]
       local bar = Bars.bars[n]
@@ -376,6 +672,9 @@ function Bars.Build(reason)
         bar:Hide()
       end
     end
+    -- after the layout, when every button has its lib type (UpdateAction ran): the template's look-alikes off
+    local okU, errU = pcall(Bars.UnshadowAll)
+    if not okU then HH:LogError("bars unshadow: " .. tostring(errU)) end
     if HHB.Extra and HHB.Extra.Build then
       local ok, err = pcall(HHB.Extra.Build)
       if not ok then HH:LogError("bars pet/stance: " .. tostring(err)) end
@@ -492,6 +791,7 @@ function Module:OnEnable()
   end
   Bars.Apply("enable")
   HH:SafeCall(HHB.Extra, "StartRefresh")   -- our own checked / usable refresh (Forever drops some of the lib's events)
+  Bars.StartMouseProbe()
   local ev = CreateFrame("Frame")
   pcall(ev.RegisterEvent, ev, "PLAYER_ENTERING_WORLD")
   pcall(ev.RegisterEvent, ev, "UPDATE_BINDINGS")
@@ -547,8 +847,12 @@ HH:RegisterSlash("barsdiag", function()
     for e in pairs(lab and lab.unknownEvents or {}) do miss[#miss + 1] = e end
     table.sort(miss)
     HH:Print(("bars: cooldowns via %s; events this client refused: %s"):format(tostring(lab and lab.cooldownPath or "?"), #miss > 0 and table.concat(miss, ", ") or "none"))
+    HH:Print("bars: template functions that hid the lib's (removed): " .. Bars.ShadowedText())
+    HH:Print(("bars: usable answers hidden by the client %d; button update errors %d%s"):format(lab and lab.hhSecretUsableCount or 0,
+      lab and lab.hhUpdateErrors or 0, (lab and lab.hhLastUpdateError) and (" (last: " .. lab.hhLastUpdateError:sub(1, 120) .. ")") or ""))
     local g = HH.db and HH.db.global
-    if g then g.diag = g.diag or {} g.diag.barsCooldown = { path = lab and lab.cooldownPath, refused = table.concat(miss, ",") } end
+    if g then g.diag = g.diag or {} g.diag.barsCooldown = { path = lab and lab.cooldownPath, refused = table.concat(miss, ","),
+      secretUsable = lab and lab.hhSecretUsableCount, updateErrors = lab and lab.hhUpdateErrors, lastUpdateError = lab and lab.hhLastUpdateError } end
   end
   local f, m = {}, {}
   for k in pairs(Bars.found) do f[#f + 1] = k end
@@ -556,6 +860,18 @@ HH:RegisterSlash("barsdiag", function()
   table.sort(f) table.sort(m)
   HH:Print(("bars: lib %s; %d bars built, %d Blizzard pieces hidden; found %d, missing %d"):format(Bars.Lib() and "loaded" or "MISSING", Bars.built or 0, Bars.hidden or 0, #f, #m))
   if #m > 0 then HH:Print("  missing: " .. table.concat(m, ", ")) end
+  do
+    local list = {}
+    for k, c in pairs(Bars.thieves or {}) do list[#list + 1] = k .. " x" .. c end
+    HH:Print("bars: who had the mouse inside bar 1 (not ours): " .. (#list > 0 and table.concat(list, " | ") or "nobody so far"))
+    for _, l in ipairs(Bars.GeometryLines()) do HH:Print("  " .. l) end
+    pcall(Bars.SaveGeometry)
+    local a = Bars.mainArt or {}
+    HH:Print(("bars: Blizzard's main bar art: %s, %d pieces hidden%s"):format(tostring(a.kind or "not run"), a.count or 0,
+      (a.names and a.names ~= "") and (" (" .. a.names .. ")") or ""))
+    local g = HH.db and HH.db.global
+    if g then g.diag = g.diag or {} g.diag.barsMainArt = { kind = a.kind, count = a.count, names = a.names } end
+  end
   for n = 1, 8 do local b = Bars.bars[n] if b and b.describe then HH:Print("  " .. b.describe()) end end
   local g = HH.db and HH.db.global
   if g then g.diag = g.diag or {} g.diag.bars = { found = table.concat(f, ","), missing = table.concat(m, ","), built = Bars.built, hidden = Bars.hidden, driver = Bars.bars[1] and Bars.bars[1].driver } end
