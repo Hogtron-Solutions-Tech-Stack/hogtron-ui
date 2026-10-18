@@ -1030,3 +1030,9 @@ def test_a_click_through_change_in_combat_waits_for_the_end_of_combat(bars):
     bars.execute('MockState.inCombat = false; MockFire("PLAYER_REGEN_ENABLED")')
     assert bars.eval('HH_b._mouse') is False and bars.eval('HH_b._mouseCalls') == 1  # applied after combat
     assert errors(bars) == []
+
+
+def test_the_geometry_record_reads_all_four_hit_insets(bars):
+    # Sean's 2026-10-17 save read "hit insets 0 0 nil nil": the helper keeps two values
+    bars.execute("local b = HogUIBar1.buttons[1]; function b:GetHitRectInsets() return 0, 1, 2, 3 end; HogHealsBars.Bars.SaveGeometry()")
+    assert "hit insets 0 1 2 3" in bars.eval("HogHeals.db.global.diag.barsGeometry.lines")

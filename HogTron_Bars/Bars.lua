@@ -114,7 +114,9 @@ function Bars.GeometryLines()
   rect(b, "button 1")
   rect(rawget(b, "icon"), "  its icon")
   rect(rawget(b, "cooldown"), "  its cooldown")
-  local il, ir, it, ib = call(b.GetHitRectInsets, b)
+  -- all four (call() keeps two: Sean's save read "hit insets 0 0 nil nil")
+  local okI, il, ir, it, ib = pcall(b.GetHitRectInsets or error, b)
+  if not okI then il, ir, it, ib = nil, nil, nil, nil end
   out[#out + 1] = ("  hit insets %s %s %s %s, mouse %s"):format(tostring(il), tostring(ir), tostring(it), tostring(ib),
     tostring(call(b.IsMouseEnabled, b)))
   return out
