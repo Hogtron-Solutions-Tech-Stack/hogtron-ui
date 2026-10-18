@@ -100,7 +100,14 @@ function Bars.GeometryLines()
     if type(f) ~= "table" then out[#out + 1] = label .. ": none" return end
     local s = call(f.GetEffectiveScale, f) or 1
     local l, r, t, bo = call(f.GetLeft, f), call(f.GetRight, f), call(f.GetTop, f), call(f.GetBottom, f)
-    local function px(v) return type(v) == "number" and ("%d"):format(math.floor(v * s + 0.5)) or "?" end
+    -- frame positions can come back hidden on this client: written "S", never used (the first version did arithmetic on
+    -- them, threw inside its pcall and saved nothing - 2026-10-17)
+    local hiddenV = type(issecretvalue) == "function" and issecretvalue
+    if hiddenV and hiddenV(s) then s = 1 end
+    local function px(v)
+      if hiddenV and hiddenV(v) then return "S" end
+      return type(v) == "number" and ("%d"):format(math.floor(v * s + 0.5)) or "?"
+    end
     out[#out + 1] = ("%s: L%s R%s T%s B%s"):format(label, px(l), px(r), px(t), px(bo))
   end
   rect(bar, "bar 1")
@@ -564,7 +571,13 @@ function Bars.MouseProbe()
 end
 
 function Bars.StartMouseProbe()
-  if C_Timer and C_Timer.After then C_Timer.After(4, function() pcall(Bars.SaveGeometry) end) end
+  if C_Timer and C_Timer.After then
+    C_Timer.After(4, function()
+      local ok, err = pcall(Bars.SaveGeometry)
+      local g = HH.db and HH.db.global
+      if not ok and g then g.diag = g.diag or {} g.diag.barsGeometry = { error = tostring(err):sub(1, 300) } end
+    end)
+  end
   if Bars.mouseTicker or not (C_Timer and C_Timer.NewTicker) then return end
   Bars.mouseTicker = C_Timer.NewTicker(0.25, function() pcall(Bars.MouseProbe) end)
 end

@@ -755,3 +755,14 @@ def test_the_geometry_of_bar_1_saves_itself(bars):
     bars.execute("HogHealsBars.Bars.SaveGeometry()")
     lines = bars.eval("HogHeals.db.global.diag.barsGeometry.lines")
     assert "bar 1:" in lines and "button 1:" in lines and "its icon:" in lines and "hit insets" in lines
+
+
+def test_hidden_frame_positions_still_leave_a_geometry_record(bars):
+    bars.execute("""
+      MockSetSecrets(true)
+      local b = HogUIBar1.buttons[1]
+      function b:GetLeft() return MockSecret(10) end
+      HogHealsBars.Bars.SaveGeometry()
+      MockSetSecrets(false)
+    """)
+    assert "button 1: LS" in bars.eval("HogHeals.db.global.diag.barsGeometry.lines")
