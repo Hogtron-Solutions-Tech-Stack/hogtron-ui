@@ -301,10 +301,11 @@ function WP.Update()
   WP.PlaceTexts(f, beam and not clamped)
   WP.beamTarget = WP.BeamAlpha(yards, o) * (WP.blocked and WP.OCCLUDED_ALPHA or 1)
   local gl = HH.db and HH.db.global
-  if gl and WP.path.occlusion and (WP.savedState ~= tostring(WP.lastState) or WP.savedPath ~= WP.path.occlusion) then
-    WP.savedState, WP.savedPath = tostring(WP.lastState), WP.path.occlusion
+  local stateText = WP.lastStateText or "none"
+  if gl and WP.path.occlusion and (WP.savedState ~= stateText or WP.savedPath ~= WP.path.occlusion) then
+    WP.savedState, WP.savedPath = stateText, WP.path.occlusion
     gl.diag = gl.diag or {}
-    gl.diag.waypointOcclusion = { api = WP.path.occlusion, lastState = tostring(WP.lastState), blocked = WP.blocked and true or false,
+    gl.diag.waypointOcclusion = { api = WP.path.occlusion, lastState = stateText, blocked = WP.blocked and true or false,
       at = date and date("%Y-%m-%d %H:%M:%S") or "?" }
   end
   f:SetAlpha(WP.Alpha(yards, o))
@@ -334,8 +335,9 @@ function WP.Occluded()
   if not f then WP.path.occlusion = "none" return false end
   WP.path.occlusion = "C_Navigation.GetTargetState"
   local st = call(f)
-  if isSecret(st) then WP.lastState = "secret" return false end
+  if isSecret(st) then WP.lastState, WP.lastStateText = "secret", "secret" return false end
   WP.lastState = st
+  WP.lastStateText = type(st) == "number" and ("%d"):format(st) or "none"   -- plain, never a secret (checked above)
   local E = rawget(_G, "Enum")
   local occluded = (type(E) == "table" and type(E.NavigationState) == "table" and E.NavigationState.Occluded) or 1
   return st ~= nil and st == occluded
