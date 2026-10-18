@@ -33,6 +33,7 @@ function MakeWindow(name)
 end
 FriendsFrame = MakeWindow("FriendsFrame")
 LFGParentFrame = MakeWindow("LFGParentFrame")
+SocialUIFrame = MakeWindow("SocialUIFrame")     -- WoW: Forever's Friends window (/hh under, 2026-10-17)
 function ShowUIPanel(f) f:Show() local s = f:GetScript("OnShow") if s then s(f) end end
 '''
 
@@ -51,7 +52,7 @@ def errors(lua):
     return [e["msg"] for e in lua.eval('HogHeals.errors').values()]
 
 
-@pytest.mark.parametrize("name", ["FriendsFrame", "LFGParentFrame"])
+@pytest.mark.parametrize("name", ["FriendsFrame", "LFGParentFrame", "SocialUIFrame"])
 def test_border_portrait_inset_close_and_tabs_are_all_handled(win, name):
     win.execute(f'ShowUIPanel({name})')
     f = name
@@ -175,3 +176,44 @@ def test_a_pane_shown_by_its_tab_is_stripped_again(win):
     ''')
     assert win.eval('LFGBrowseFrame.Fresh._alpha') == 0
     assert errors(win) == []
+
+
+# ---------------------------------------------------------------- the Friends window's last Blizzard pieces (Sean 2026-10-17)
+# diag.skin.windows.SocialUIFrame listed the Battle.net bar's backgrounds and the list's dividers after the strip.
+def test_the_friends_windows_named_leftovers_are_cleared_and_its_scroll_track_stays(win):
+    win.execute('''
+      local f = SocialUIFrame
+      f.BattleNetBar = CreateFrame("Frame", nil, f)
+      f.BattleNetBar.Background = f.BattleNetBar:CreateTexture(); f.BattleNetBar.Background:SetAtlas("friends-frame-infoBG")
+      f.BattleNetBar.ControlsContainer = CreateFrame("Frame", nil, f.BattleNetBar)
+      f.BattleNetBar.ControlsContainer.BattleNetBackground = f.BattleNetBar.ControlsContainer:CreateTexture(); f.BattleNetBar.ControlsContainer.BattleNetBackground:SetTexture(632259)
+      f.FriendsList = CreateFrame("Frame", nil, f)
+      f.FriendsList.TopDivider = f.FriendsList:CreateTexture(); f.FriendsList.TopDivider:SetAtlas("perks-divider-short")
+      f.FriendsList.BottomDivider = f.FriendsList:CreateTexture(); f.FriendsList.BottomDivider:SetAtlas("perks-divider-short")
+      f.FriendsList.ScrollBar = CreateFrame("Frame", nil, f.FriendsList)
+      f.FriendsList.ScrollBar.Track = f.FriendsList.ScrollBar:CreateTexture(); f.FriendsList.ScrollBar.Track:SetAtlas("minimal-scrollbar-track-middle")
+      ShowUIPanel(SocialUIFrame)
+    ''')
+    for path in ("BattleNetBar.Background", "BattleNetBar.ControlsContainer.BattleNetBackground", "FriendsList.TopDivider", "FriendsList.BottomDivider"):
+        assert win.eval(f"SocialUIFrame.{path}._alpha") == 0, path
+    assert win.eval("SocialUIFrame.FriendsList.ScrollBar.Track._alpha") == 1
+    assert errors(win) == []
+
+
+# ---------------------------------------------------------------- reports never vanish (2026-10-17)
+# Sean: the Friends window looked stock and left no trace in diag.skin.windows - the leftovers walk ran inside the
+# report's pcall, so a throw there lost the whole record.
+def test_a_throwing_leftovers_walk_still_leaves_the_record(win):
+    win.execute('HogHealsSkin.Panels.Leftovers = function() error("forbidden child") end; ShowUIPanel(LFGParentFrame); MockAdvance(1)')
+    rep = win.eval('HogHeals.db.global.diag.skin.windows.LFGParentFrame')
+    assert rep is not None and rep["styled"] is True and "forbidden child" in rep["leftoversError"]
+    assert rep["shown"] is True
+
+
+def test_skindiag_keeps_the_window_records_and_counts_shows(win):
+    win.execute('local f = LFGParentFrame; f:GetScript("OnShow")(f); MockAdvance(1)')
+    assert win.eval('HogHealsSkin.Panels.shows.LFGParentFrame') >= 1
+    win.execute('MockLog.chat = {}; HogHeals:SlashCommand("skindiag")')
+    assert win.eval('HogHeals.db.global.diag.skin.windows.LFGParentFrame ~= nil')       # not wiped by the diag itself
+    assert "LFGParentFrame=" in win.eval('HogHeals.db.global.diag.skin.shows')
+    assert any("windows shown this session" in l for l in win.eval('MockLog.chat').values())

@@ -8,14 +8,34 @@ local Part = { name = "actionbars", buttons = {} }
 HHS.ActionBars = Part
 
 --- Hide a frame and keep it hidden (Blizzard's layout code may Show it again).
+-- A PROTECTED frame cannot be hidden in combat: the call is blocked (Sean 2026-10-17: "HogTron_Skin called UNKNOWN()
+-- (in combat)" x28 once the XP containers were hidden - Blizzard shows them again mid-fight, our re-hide was refused,
+-- and the container then stayed up after the fight). In combat a protected frame's hide waits for the fight to end.
+local pendingHide = setmetatable({}, { __mode = "k" })
+local function hideNowOrLater(f)
+  if InCombatLockdown and InCombatLockdown() and Skin.call(f.IsProtected, f) then
+    if pendingHide[f] then return "queued" end
+    pendingHide[f] = true
+    HH:RunOutOfCombat(function()
+      pendingHide[f] = nil
+      if Skin.cfg().enabled ~= false and not f.hhUnhidden then Skin.call(f.Hide, f) end
+    end)
+    Skin.deferredHides = (Skin.deferredHides or 0) + 1
+    return "queued"
+  end
+  Skin.call(f.Hide, f)
+  return "now"
+end
+Skin.HideNowOrLater = hideNowOrLater
+
 function Skin.HideFrame(f)
   if type(f) ~= "table" or not f.Hide then return false end
-  Skin.call(f.Hide, f)
+  hideNowOrLater(f)
   if not f.hhHideHooked and type(hooksecurefunc) == "function" then
     f.hhHideHooked = true
     pcall(hooksecurefunc, f, "Show", function(self)
       if Skin.cfg().enabled == false or self.hhUnhidden then return end
-      Skin.call(self.Hide, self)
+      hideNowOrLater(self)
     end)
   end
   return true
@@ -35,6 +55,9 @@ Part.ART_PATHS = {
   "MainMenuBar.EndCaps.LeftEndCap", "MainMenuBar.EndCaps.RightEndCap", "MainMenuBar.BorderArt", "MainMenuBar.Background",
   "MainMenuBar.ArtFrame.Background", "MainMenuBarArtFrame.Background", "StanceBar.BarArt", "PetActionBar.BarArt",
   "MultiBarBottomLeft.BarArt", "MultiBarBottomRight.BarArt",
+  -- WoW: Forever's engine renamed the bar: MainActionBar (every MainMenuBar.* path above is missing there)
+  "MainActionBar.EndCaps.LeftEndCap", "MainActionBar.EndCaps.RightEndCap", "MainActionBar.BorderArt",
+  "MainActionBar.Background",
 }
 Part.HIDE = { "ActionBarUpButton", "ActionBarDownButton", "MainMenuBarPerformanceBarFrame", "MainMenuBarVehicleLeaveButton" }
 

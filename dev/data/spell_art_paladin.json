@@ -1,0 +1,90 @@
+{
+ "source": "wowhead.com/classic/spells/abilities/paladin (class trainer + class quest; hunter pet spells by name) + nether.wowhead.com tooltip cast times, fetched 2026-10-17",
+ "note": "art planning only: which spells get a strip. Season of Discovery runes / engravings and talents excluded.",
+ "spells": {
+  "Holy Light": {
+   "id": 639,
+   "level": 6,
+   "schools": 2,
+   "kind": "cast 2.5"
+  },
+  "Redemption": {
+   "id": 7328,
+   "level": 12,
+   "schools": 2,
+   "kind": "cast 10"
+  },
+  "Flash of Light": {
+   "id": 19750,
+   "level": 20,
+   "schools": 2,
+   "kind": "cast 1.5"
+  },
+  "Turn Undead": {
+   "id": 2878,
+   "level": 24,
+   "schools": 8,
+   "kind": "cast 1.5"
+  },
+  "Summon Warhorse": {
+   "id": 13819,
+   "level": 40,
+   "schools": 2,
+   "kind": "cast 3"
+  },
+  "Hammer of Wrath": {
+   "id": 24275,
+   "level": 44,
+   "schools": 2,
+   "kind": "cast 1"
+  },
+  "Holy Wrath": {
+   "id": 2812,
+   "level": 50,
+   "schools": 2,
+   "kind": "cast 2"
+  }
+ },
+ "strips": [
+  {
+   "pattern": "^Holy Light",
+   "strip": "spell_holy_light",
+   "theme": "holy"
+  },
+  {
+   "pattern": "^Flash of Light",
+   "strip": "spell_flash_of_light",
+   "theme": "holy"
+  },
+  {
+   "pattern": "^Redemption",
+   "strip": "spell_redemption",
+   "theme": "holy"
+  },
+  {
+   "pattern": "^Turn Undead",
+   "strip": "spell_turn_undead",
+   "theme": "holy"
+  },
+  {
+   "pattern": "^Hammer of Wrath",
+   "strip": "spell_hammer_of_wrath",
+   "theme": "holy"
+  },
+  {
+   "pattern": "^Holy Wrath",
+   "strip": "spell_holy_wrath",
+   "theme": "holy"
+  },
+  {
+   "pattern": "^Summon Warhorse",
+   "strip": "spell_warhorse",
+   "theme": "holy"
+  },
+  {
+   "pattern": "^Summon Charger",
+   "strip": "spell_warhorse",
+   "theme": "holy"
+  }
+ ]
+}

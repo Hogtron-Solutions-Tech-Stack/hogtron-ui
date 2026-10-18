@@ -69,7 +69,12 @@ function Menu.Open(q) HHQ.Data.Open(q) count("open") return true end
 
 function Menu.Point(q)
   local st = rawget(_G, "C_SuperTrack")
-  if q.id and fn(st, "SetSuperTrackedQuestID") then call(st.SetSuperTrackedQuestID, q.id) count("point") return true end
+  if q.id and fn(st, "SetSuperTrackedQuestID") then
+    -- through GO's guard: never in combat (Blizzard's quest POI rebuild on our call is blocked there)
+    if HHQ.Go and HHQ.Go.SuperTrack then HHQ.Go.SuperTrack(q.id) else call(st.SetSuperTrackedQuestID, q.id) end
+    count("point")
+    return true
+  end
   return false
 end
 
