@@ -36,6 +36,15 @@ local function call(f, ...)
   if ok then return a, b end
 end
 
+--- All four colour components of a region. call() keeps two values only: the plate diag lines read "colour=0.95,0.80,
+-- nil" (Sean's 2026-10-17 saves) - blue and alpha were never read, not missing.
+local function rgba(o, method)
+  local f = type(o) == "table" and o[method] or nil
+  if type(f) ~= "function" then return nil end
+  local ok, r, g, bl, al = pcall(f, o)
+  if ok then return r, g, bl, al end
+end
+
 -- ------------------------------------------------------------------------------------------------ frames
 --- Blizzard's UnitFrame for a nameplate unit (nil for forbidden / missing plates).
 function Plates.FrameFor(unit)
@@ -526,7 +535,7 @@ function Plates.DescribeBar(uf)
     for k, v in pairs(owner) do if type(k) == "string" and type(v) == "table" then named[v] = k end end
     local function line(kind, r)
       if type(r) ~= "table" or #out >= 40 then return end
-      local cr, cg, cb, ca = call(r.GetVertexColor, r)
+      local cr, cg, cb, ca = rgba(r, "GetVertexColor")
       out[#out + 1] = ("%s %s key=%s type=%s shown=%s alpha=%s atlas=%s tex=%s colour=%s,%s,%s,%s"):format(label, kind,
         tostring(named[r]), tostring(call(r.GetObjectType, r)), tostring(call(r.IsShown, r)), tostring(call(r.GetAlpha, r)),
         tostring(call(r.GetAtlas, r)), tostring(call(r.GetTexture, r)), tostring(cr), tostring(cg), tostring(cb), tostring(ca))
@@ -605,7 +614,7 @@ function Plates.BlizzPieces(uf)
     local shown = call(r.IsShown, r)
     local vis = call(r.IsVisible, r)
     local a = call(r.GetAlpha, r)
-    local cr, cg, cb, ca = call(r.GetVertexColor, r)
+    local cr, cg, cb, ca = rgba(r, "GetVertexColor")
     out[#out + 1] = ("%s shown=%s visible=%s alpha=%s colour=%s,%s,%s,%s"):format(label, tostring(shown), tostring(vis),
       tostring(a), tostring(cr), tostring(cg), tostring(cb), tostring(ca))
   end
@@ -1172,7 +1181,7 @@ function Plates.Diagnose()
     local nm = uf and rawget(uf, "name")
     local nameInfo = ""
     if type(nm) == "table" then
-      local _, _, _, _, size = call(nm.GetFont, nm)
+      local _, size = call(nm.GetFont, nm)   -- GetFont: path, size, flags (it read a 5th value: always nil)
       nameInfo = (" name w=%s pts=%s font=%s"):format(tostring(call(nm.GetWidth, nm)), tostring(call(nm.GetNumPoints, nm)), tostring(size))
     end
     out[#out + 1] = ("  #%d unit=%s name=%s -> %s%s"):format(i, tostring(unit), tostring(unit and call(UnitName, unit)), uf and ("ok, skinned=" .. tostring(uf.hh ~= nil) .. " nameOnly=" .. tostring(uf.hh and uf.hh.nameOnly)) or tostring(why), nameInfo)
