@@ -50,7 +50,7 @@ Load order (`HogTronUI.toc`): `Core.lua` -> `Core/Look.lua`, `GroupSize`, `Queue
 | `HH:Print(...)` | Chat line with the HogTron UI prefix. |
 | `HH.Panel` | The options window (`Core/Panel.lua`): renders AceConfig-style tables with our own widgets. `Panel.Open(source)` can render any table (the setup guide does). Painted vs flat look = `profile.look.menus` (flat is the default). |
 | `HH.Look` | Fonts and bar textures; `HogTronFont*` font objects. Text must use `GameFont*` or `HogTronFont*` templates (a test checks). |
-| `HH.Setup` | The setup guide (`/hh setup`): 13 pages that write real settings. Add a page with `step(key, title, module, build)`. |
+| `HH.Setup` | The setup guide (`/hh setup`): 13 pages that write real settings; opens once on every character's first login (`db.char.setupDone`). Add a page with `step(key, title, module, build)`. |
 | `HH.IsSecret(v)` | True when a value is a WoW: Forever secret (see 4). |
 
 Settings are saved as `HogTronUIDB` (+ `HogTronUIDBBackup`, a defaults-free copy refreshed at init and logout). The core
