@@ -1,0 +1,19 @@
+{
+ "source": "wowhead.com/classic/spells/abilities/warrior (class trainer + class quest; hunter pet spells by name) + nether.wowhead.com tooltip cast times, fetched 2026-10-17",
+ "note": "art planning only: which spells get a strip. Season of Discovery runes / engravings and talents excluded.",
+ "spells": {
+  "Slam": {
+   "id": 1464,
+   "level": 30,
+   "schools": 1,
+   "kind": "cast 1.5"
+  }
+ },
+ "strips": [
+  {
+   "pattern": "^Slam",
+   "strip": "spell_slam",
+   "theme": "earth"
+  }
+ ]
+}
