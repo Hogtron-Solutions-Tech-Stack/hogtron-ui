@@ -134,6 +134,10 @@ class Painter:
         if w <= 0.5 or h <= 0.5:
             return
         col = (vals(r["_color"]) + [1, 1, 1, 1])[:4]
+        if r["_alpha"] is not None:      # SetAlpha on the texture itself (an overlay kept at 0 is not drawn)
+            col[3] = col[3] * r["_alpha"]
+            if col[3] <= 0:
+                return
         tex = r["_texture"]
         W, H = max(1, int(round(w * self.s))), max(1, int(round(h * self.s)))
         if tex is None:
@@ -235,6 +239,20 @@ class Painter:
         d.text((x * self.s + 1, cy * self.s + 1), line, fill=(0, 0, 0), font=font, anchor=anc)
         d.text((x * self.s, cy * self.s), line, fill=col, font=font, anchor=anc)
 
+    def fill(self, img, bar):
+        """A StatusBar's own fill: its colour over (value - min) / (max - min) of its width, left to right."""
+        lo, hi, v = bar["_min"], bar["_max"], bar["_value"]
+        if not all(isinstance(x, (int, float)) for x in (lo, hi, v)) or hi <= lo:
+            return
+        l, t, w, h = self.rect(bar)
+        frac = max(0.0, min(1.0, (v - lo) / (hi - lo)))
+        if w <= 0.5 or h <= 0.5 or frac <= 0:
+            return
+        col = (vals(bar["_color"]) + [1, 1, 1, 1])[:4]
+        piece = Image.new("RGBA", (max(1, int(round(w * frac * self.s))), max(1, int(round(h * self.s)))),
+                          tuple(int(max(0, min(1, c)) * 255) for c in col))
+        img.alpha_composite(piece, (int(l * self.s), int(t * self.s)))
+
     def walk(self, img, frame):
         if not frame["_shown"]:
             return
@@ -254,8 +272,14 @@ class Painter:
         kids = vals(frame["_children"])
         regions = [c for c in kids if c["_kind"] in ("Texture", "FontString") and c["_shown"]]
         regions.sort(key=lambda c: LAYERS.get(c["_layer"], 2) if c["_kind"] == "Texture" else 4)
-        for c in regions:
-            if c["_kind"] == "Texture":
+        textures = [c for c in regions if c["_kind"] == "Texture"]
+        for c in textures:
+            if c["_layer"] == "BACKGROUND":
+                self.texture(img, c)
+        if frame["_kind"] == "StatusBar":
+            self.fill(img, frame)
+        for c in textures:
+            if c["_layer"] != "BACKGROUND":
                 self.texture(img, c)
         for c in regions:
             if c["_kind"] == "FontString":

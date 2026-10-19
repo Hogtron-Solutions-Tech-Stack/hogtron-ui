@@ -32,12 +32,14 @@ HH.defaults = {
       -- flanking the bottom centre (ElvUI's arrangement): player left, target right, small frames beside them
       player = { enabled = true, width = 240, height = 42, powerHeight = 8, showPower = true, showName = true, showLevel = true, point = "BOTTOM", x = -280, y = 230 },
       target = { enabled = true, width = 240, height = 42, powerHeight = 8, showPower = true, showName = true, showLevel = true, point = "BOTTOM", x = 280, y = 230,
-        castbar = true, castbarHeight = 16, debuffs = true, buffs = false, auraSize = 22, aurasPerRow = 8, maxDebuffs = 16, maxBuffs = 16,
+        castbar = true, castbarHeight = 16, targetLine = true, castTarget = true,   -- who it targets, on the frame + its cast bar (2026-10-18)
+        debuffs = true, buffs = false, auraSize = 22, aurasPerRow = 8, maxDebuffs = 16, maxBuffs = 16,
         debuffFilter = "mine-first", myDebuffSize = 28, auraTimers = true },   -- debuffFilter: mine-first | mine | all
       targettarget = { enabled = true, width = 170, height = 28, powerHeight = 4, showPower = true, showName = true, showLevel = false, point = "BOTTOM", x = 500, y = 275 },
       pet = { enabled = true, width = 170, height = 28, powerHeight = 4, showPower = true, showName = true, showLevel = false, point = "BOTTOM", x = -500, y = 275 },
       focus = { enabled = false, width = 200, height = 36, powerHeight = 6, showPower = true, showName = true, showLevel = true, point = "BOTTOM", x = 280, y = 330,
-        castbar = true, castbarHeight = 14, debuffs = true, buffs = false, auraSize = 20, aurasPerRow = 8, maxDebuffs = 8, maxBuffs = 8,
+        castbar = true, castbarHeight = 14, targetLine = true, castTarget = true,
+        debuffs = true, buffs = false, auraSize = 20, aurasPerRow = 8, maxDebuffs = 8, maxBuffs = 8,
         debuffFilter = "mine-first", myDebuffSize = 26, auraTimers = true },
     },
     -- how it looks (Core/Look.lua): style hogtron | classic (reload), font Inter | Manrope | Barlow Condensed,
@@ -195,7 +197,9 @@ HH.defaults = {
       castbar = {
         width = 0,   -- 0 = as wide as the strip, else its own width centred on it (Sean 2026-10-18: sizes in /hh unlock)
         attach = "none",   -- "below" | "above" = on the player unit frame, its width (HUD.AttachFrame, 2026-10-18)
-        icon = true, showTarget = true, latency = true, gcd = false, hideBlizzard = true, precision = 1,
+        -- showTarget: "Fireball » Zugzug". Off by default since 2026-10-18 (Sean: "The cast bar should only show the spell
+        -- being cast by default, but they can add the target"); the target / focus frames say who they target instead.
+        icon = true, showTarget = false, latency = true, gcd = false, hideBlizzard = true, precision = 1,
         refresh = true,   -- eating / drinking shown as a cast filling over the buff (Castbar.CheckRefresh, 2026-10-18)
         castColor = { 0.13, 0.83, 0.88 }, channelColor = { 0.25, 0.80, 0.35 }, uninterruptibleColor = { 0.6, 0.6, 0.6 },
         failColor = { 0.85, 0.2, 0.2 },
