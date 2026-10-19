@@ -326,3 +326,75 @@ def test_the_nearest_object_in_any_direction_is_picked(lua):
 
 def test_a_client_without_the_arc_cvar_just_records_it(og):
     assert "SoftTargetInteractArc" in list(og.eval("HogHealsPlates.ObjectGlow.missing").values())
+
+
+# ================================================================================================ the object's icon
+# Sean 2026-10-18 (screenshot: "Ripe Stormapple" over a cyan ring, the game's gear icon under the name): "I don't like
+# that the gear is blocked by the text. Can we put the gear inside of the circle". Ours sits in the ring; the game's
+# copy is faded (alpha only) while the glow is on its plate, and given back after.
+GAME_ICON = '''
+function GameIcon(where)   -- the game's icon on the soft-target plate: "frame" (SoftTargetFrame.Icon) | "loose" | nil
+  local uf = NP.softinteract.UnitFrame
+  if where == "frame" then
+    uf.SoftTargetFrame = CreateFrame("Frame", nil, uf)
+    uf.SoftTargetFrame.Icon = uf.SoftTargetFrame:CreateTexture(nil, "ARTWORK")
+    HH_GI = uf.SoftTargetFrame.Icon
+  else
+    local holder = CreateFrame("Frame", nil, uf)
+    holder:CreateTexture(nil, "BACKGROUND"):SetTexture("Interface/Something/Else")
+    HH_GI = holder:CreateTexture(nil, "ARTWORK")
+  end
+  SetUnitCursorTexture(HH_GI, "softinteract")
+  MockFire("PLAYER_SOFT_INTERACT_CHANGED")
+end
+'''
+
+
+def label_y(lua):
+    return lua.eval("HogTronUIObjectGlow.label._points[1][5]")
+
+
+def test_the_games_icon_moves_into_the_ring_and_comes_back_after(og):
+    og.execute(GAME_ICON + 'Soft("Ripe Stormapple", "Interface/Cursor/Interact"); HogHeals.db.profile.plates.objectGlow.kinds.other = true; GameIcon("frame")')
+    assert shown(og)
+    assert og.eval("HogTronUIObjectGlow.icon:IsShown()") is True
+    assert og.eval("HogTronUIObjectGlow.icon:GetTexture()") == "Interface/Cursor/Interact"     # the same art as the game's
+    p = list(og.eval("HogTronUIObjectGlow.icon._points[1]").values())
+    assert p[0] == "CENTER" and p[2] == "CENTER" and p[3] == 0 and p[4] == 0                  # dead centre of the ring
+    assert og.eval("HogTronUIObjectGlow.icon:GetWidth()") == pytest.approx(og.eval("HogTronUIObjectGlow.ring:GetWidth()") * 0.42)
+    assert og.eval("HH_GI:GetAlpha()") == 0 and og.eval(f"{G}.last.icon") == "SoftTargetFrame.Icon"
+    assert label_y(og) == 2                                                                   # the name sits on the ring
+    og.execute("HH_GI:SetAlpha(1); HogHealsPlates.ObjectGlow.Tick(0.1)")                     # the game puts it back up
+    assert og.eval("HH_GI:GetAlpha()") == 0
+    og.execute('OBJ.softinteract = nil; MockFire("PLAYER_SOFT_INTERACT_CHANGED")')            # walked away
+    assert not shown(og) and og.eval("HH_GI:GetAlpha()") == 1
+    assert "game's icon: SoftTargetFrame.Icon" in "".join(og.eval(f"{G}.Lines()").values())
+    assert og.eval("HogHeals.errors[1]") is None
+
+
+def test_a_loose_icon_is_found_by_its_art_and_none_lifts_the_name(og):
+    og.execute(GAME_ICON + 'Soft("Peacebloom", "Interface/Cursor/GatherHerbs"); GameIcon("loose")')
+    assert og.eval(f"{G}.last.icon") == "search" and og.eval("HH_GI:GetAlpha()") == 0 and label_y(og) == 2
+    og.execute('Soft("Silverleaf", "Interface/Cursor/GatherHerbs")')                          # a plate with no game icon
+    assert og.eval(f"{G}.last.icon") == "not found"
+    assert og.eval("HogTronUIObjectGlow.icon:IsShown()") is True and label_y(og) == 2 + 22   # the name clears the gear
+
+
+def test_switched_off_leaves_the_games_icon_alone(og):
+    og.execute(GAME_ICON + 'HogHeals.db.profile.plates.objectGlow.icon = false; Soft("Peacebloom", "Interface/Cursor/GatherHerbs"); GameIcon("frame")')
+    assert shown(og) and og.eval("HogTronUIObjectGlow.icon:IsShown()") is False
+    assert og.eval("HH_GI:GetAlpha()") == 1 and og.eval(f"{G}.last.icon") == "off" and label_y(og) == 2 + 22
+    og.execute('HogHeals.OptionsTable().args.Plates.args.objectGlow.args.icon.set({}, true)')
+    assert og.eval("HogTronUIObjectGlow.icon:IsShown()") is True and og.eval("HH_GI:GetAlpha()") == 0
+
+
+def test_moving_to_another_object_gives_the_first_plate_its_icon_back(og):
+    og.execute(GAME_ICON + 'Soft("Peacebloom", "Interface/Cursor/GatherHerbs"); GameIcon("frame"); HH_FIRST = HH_GI')
+    og.execute('Soft("Copper Vein", "Interface/Cursor/Mine"); GameIcon("frame")')
+    assert og.eval("HH_FIRST:GetAlpha()") == 1 and og.eval("HH_GI:GetAlpha()") == 0
+
+
+def test_the_preview_shows_a_sample_icon_per_kind(og):
+    og.execute(f"{G}.Preview()")
+    assert og.eval("HogTronUIObjectGlow.icon:GetTexture()") == r"Interface\Cursor\GatherHerbs"
+    assert og.eval("HogTronUIObjectGlow.icon:IsShown()") is True and label_y(og) == 2
