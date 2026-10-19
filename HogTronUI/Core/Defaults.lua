@@ -194,6 +194,7 @@ HH.defaults = {
       font = "HogTron", fontSize = 11, texture = "Solid",
       castbar = {
         width = 0,   -- 0 = as wide as the strip, else its own width centred on it (Sean 2026-10-18: sizes in /hh unlock)
+        attach = "none",   -- "below" | "above" = on the player unit frame, its width (HUD.AttachFrame, 2026-10-18)
         icon = true, showTarget = true, latency = true, gcd = false, hideBlizzard = true, precision = 1,
         refresh = true,   -- eating / drinking shown as a cast filling over the buff (Castbar.CheckRefresh, 2026-10-18)
         castColor = { 0.13, 0.83, 0.88 }, channelColor = { 0.25, 0.80, 0.35 }, uninterruptibleColor = { 0.6, 0.6, 0.6 },
