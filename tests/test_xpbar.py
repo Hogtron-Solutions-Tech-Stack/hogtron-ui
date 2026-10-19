@@ -298,3 +298,47 @@ def test_xp_strip_coords_stay_in_range_at_a_long_uptime(xp):
     # GetTime() is the PC's uptime: at 4 days the scroll used to run thousands of repeats out (Sean 2026-10-17)
     u0, u1 = xp.eval("{ HogHealsHUD.XPBar.ArtCoords(345678.9, 0, 0.5, 400, 10) }").values()
     assert -1 < u0 <= 0 and u1 - u0 == pytest.approx(0.5 * 400 / 80)
+
+
+# ================================================================================================ dividers
+# Sean 2026-10-18: "I like the animation for the XP, but I want the bars back in or some kind of dividers ... I'm so
+# many bars away from this level". Blizzard's 20 bubbles: 19 carved lines over the fill and the art, under the texts.
+def shown_lines(lua, b="HH_x"):
+    return [round(lua.eval(f"{b}.ticks[{i}].ink._points[1][4]")) for i in range(1, 40)
+            if lua.eval(f"{b}.ticks ~= nil and {b}.ticks[{i}] ~= nil and {b}.ticks[{i}].ink:IsShown()")]
+
+
+def test_divider_positions_are_whole_pixels_in_equal_parts(xp):
+    xs = list(xp.eval(f"{X}.DividerX(20, 400)").values())
+    assert len(xs) == 19 and xs[0] == 20 and xs[9] == 200 and xs[-1] == 380
+    assert list(xp.eval(f"{X}.DividerX(10, 333)").values()) == [33, 67, 100, 133, 167, 200, 233, 266, 300]
+    for n, w in ((1, 400), (0, 400), (20, 0), ("nil", 400)):
+        assert xp.eval(f"#{X}.DividerX({n}, {w})") == 0
+
+
+def test_twenty_bubbles_by_default_over_the_fill_and_under_the_text(xp):
+    assert shown_lines(xp) == list(range(20, 400, 20))
+    ink, light = "HH_x.ticks[1].ink", "HH_x.ticks[1].light"
+    assert xp.eval(f"{ink}._layer") == "OVERLAY" and xp.eval(f"{ink}:GetWidth()") == 1
+    assert xp.eval(f"{light}._points[1][4]") == 21 and xp.eval(f"{light}:IsShown()") is True   # the carved edge beside it
+    assert list(xp.eval(f"{ink}._color").values())[3] > 0.5 and list(xp.eval(f"{light}._color").values())[3] < 0.2
+    # drawn as an OVERLAY sublevel under the texts (font strings sit at 0)
+    assert xp.eval("(function() local _, sub = HH_x.ticks[1].ink:GetDrawLayer() return sub end)()") in (-2, None)
+
+
+def test_ten_or_none_and_a_wider_bar_moves_them(xp):
+    xp.execute('HogHeals.db.profile.hud.xp.width = 400')                # the option re-places the bar at its set width
+    xp.execute('HogHeals.OptionsTable().args.HUD.args.xp.args.dividers.set({}, "10")')
+    assert xp.eval("HogHeals.db.profile.hud.xp.dividers") == 10
+    assert shown_lines(xp) == list(range(40, 400, 40))
+    assert xp.eval("HogHeals.OptionsTable().args.HUD.args.xp.args.dividers.get({})") == "10"
+    xp.execute(f"HogHeals.db.profile.hud.xp.width = 600; {X}.Refresh()")
+    assert shown_lines(xp) == list(range(60, 600, 60))
+    xp.execute('HogHeals.OptionsTable().args.HUD.args.xp.args.dividers.set({}, "0")')
+    assert shown_lines(xp) == []
+
+
+def test_the_hud_row_gets_them_too(xp):
+    xp.execute(f'HogHeals.db.profile.hud.xp.mode = "row"; HogHealsHUD.HUD.Refresh(); {X}.Refresh()')
+    xp.execute(f"HogHealsHUD.HUD.rows.xp:SetWidth(300); {X}.Update()")
+    assert shown_lines(xp, "HogHealsHUD.HUD.rows.xp") == list(range(15, 300, 15))
