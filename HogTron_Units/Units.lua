@@ -291,6 +291,7 @@ function Units.Build(unit)
   if unit ~= "player" and type(RegisterUnitWatch) == "function" then call(RegisterUnitWatch, f) end
   Units.frames[unit] = f
   Units.BuildCastbar(f)
+  Units.BuildPortrait(f)
   Units.ApplyLook(f)
   return f
 end
@@ -329,6 +330,7 @@ function Units.ApplyLook(f)
   Units.LayoutText(f)
   if HHU.Auras and HHU.Auras.Layout then HHU.Auras.Layout(f) end
   if Units.PlaceCastbar then Units.PlaceCastbar(f) end
+  if Units.PlacePortrait then Units.PlacePortrait(f) Units.UpdatePortrait(f) end
 end
 
 --- Text placement. Full frames: name top-left, level top-right, health text bottom-right, power text on the
@@ -525,6 +527,76 @@ function Units.UpdateTargetOf(f)
   line:Show()
 end
 
+-- ------------------------------------------------------------------------------------------------ portraits
+-- Sean 2026-10-18: "If somebody wants pictures next to the unit frames of their character and the mob of their
+-- fighting, we can add that." units.<unit>.portrait (off by default) puts a square portrait on the frame's outer side -
+-- player left, target / focus right - as tall as the frame. units.portraitStyle: "2D" = the client's portrait picture
+-- (SetPortraitTexture), "3D" = a live model (PlayerModel:SetUnit, portrait zoom). The square is a plain child frame like
+-- the cast bar (shown / hidden in combat without trouble); it takes no clicks. No portrait call on this client -> the
+-- square stays empty and /hh unitdiag says so.
+Units.PORTRAIT_SIDE = { player = "LEFT", target = "RIGHT", focus = "RIGHT" }
+Units.PORTRAIT_GAP = 2
+
+function Units.BuildPortrait(f)
+  if f.portrait or not Units.PORTRAIT_SIDE[f.unit] then return f.portrait end
+  local p = CreateFrame("Frame", nil, f)
+  p:SetFrameLevel(f:GetFrameLevel() + 1)
+  p.bg = solid(p, "BACKGROUND", INK, 0.85)
+  p.bg:SetAllPoints(p)
+  p.edges = outline(p, p)
+  p.tex = p:CreateTexture(nil, "ARTWORK")
+  p.tex:SetPoint("TOPLEFT", p, "TOPLEFT", 1, -1)
+  p.tex:SetPoint("BOTTOMRIGHT", p, "BOTTOMRIGHT", -1, 1)
+  if p.tex.SetTexCoord then p.tex:SetTexCoord(0.1, 0.9, 0.1, 0.9) end   -- the face, not the picture's round rim
+  local ok, m = pcall(CreateFrame, "PlayerModel", nil, p)
+  if ok and type(m) == "table" then
+    m:SetPoint("TOPLEFT", p, "TOPLEFT", 1, -1)
+    m:SetPoint("BOTTOMRIGHT", p, "BOTTOMRIGHT", -1, 1)
+    m:Hide()
+    p.model = m
+  end
+  p:Hide()
+  f.portrait = p
+  return p
+end
+
+function Units.PlacePortrait(f)
+  local p = f.portrait
+  if not p then return end
+  local d = ucfg(f.unit)
+  if d.portrait ~= true or d.enabled == false then p:Hide() return end
+  local h = d.height or 42
+  p:ClearAllPoints()
+  p:SetSize(h, h)
+  if Units.PORTRAIT_SIDE[f.unit] == "LEFT" then p:SetPoint("TOPRIGHT", f, "TOPLEFT", -Units.PORTRAIT_GAP, 0)
+  else p:SetPoint("TOPLEFT", f, "TOPRIGHT", Units.PORTRAIT_GAP, 0) end
+  p:Show()
+end
+
+--- Draw the unit into its square: the live model (3D, when this client has model frames) or the picture (2D).
+function Units.UpdatePortrait(f)
+  local p = f.portrait
+  if not p or ucfg(f.unit).portrait ~= true then return end
+  local exists = call(UnitExists, f.unit)
+  if not isSecret(exists) and not exists then return end
+  local m = p.model
+  if cfg().portraitStyle == "3D" and m and type(m.SetUnit) == "function" then
+    p.tex:Hide()
+    call(m.SetUnit, m, f.unit)
+    if type(m.SetPortraitZoom) == "function" then call(m.SetPortraitZoom, m, 1) end
+    if type(m.SetCamDistanceScale) == "function" then call(m.SetCamDistanceScale, m, 1) end
+    m:Show()
+    Units.portraitHow = "3D"
+    return
+  end
+  if m then m:Hide() end
+  local set = rawget(_G, "SetPortraitTexture")
+  if type(set) ~= "function" then p.tex:Hide() Units.portraitHow = "no SetPortraitTexture on this client" return end
+  call(set, p.tex, f.unit)
+  p.tex:Show()
+  Units.portraitHow = "2D"
+end
+
 function Units.UpdateStatus(f)
   if f.unit ~= "player" then f.status:SetText("") return end
   if bool(call(UnitAffectingCombat, "player")) or (InCombatLockdown and InCombatLockdown()) then
@@ -560,6 +632,7 @@ function Units.UpdateAll(f)
   piece("name/level", Units.UpdateInfo, f)
   piece("status", Units.UpdateStatus, f)
   if f.targetOf then piece("target of", Units.UpdateTargetOf, f) end
+  if f.portrait then piece("portrait", Units.UpdatePortrait, f) end
   if HHU.Auras and HHU.Auras.Update then piece("auras", HHU.Auras.Update, f) end
   if f.castbar then piece("castbar", Units.UpdateCastbar, f) end
 end
@@ -790,7 +863,7 @@ local UNIT_EVENTS = {
   UNIT_HEALTH = "health", UNIT_MAXHEALTH = "health", UNIT_HEAL_PREDICTION = "health",
   UNIT_POWER_UPDATE = "power", UNIT_MAXPOWER = "power", UNIT_DISPLAYPOWER = "power", UNIT_POWER_FREQUENT = "power",
   UNIT_NAME_UPDATE = "info", UNIT_LEVEL = "info", UNIT_FACTION = "info", UNIT_CLASSIFICATION_CHANGED = "info", UNIT_FLAGS = "health",
-  UNIT_CONNECTION = "health", UNIT_AURA = "auras",
+  UNIT_CONNECTION = "health", UNIT_AURA = "auras", UNIT_PORTRAIT_UPDATE = "portrait", UNIT_MODEL_CHANGED = "portrait",
 }
 local OTHER_EVENTS = { "PLAYER_TARGET_CHANGED", "UNIT_TARGET", "UNIT_PET", "PLAYER_FOCUS_CHANGED", "PLAYER_ENTERING_WORLD",
   "RAID_TARGET_UPDATE", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "PLAYER_UPDATE_RESTING", "GROUP_ROSTER_UPDATE" }
@@ -813,7 +886,8 @@ function Units.OnEvent(_, e, arg1)
     if kind == "health" then Units.UpdateHealth(f)
     elseif kind == "power" then Units.UpdatePower(f)
     elseif kind == "info" then Units.UpdateInfo(f) Units.UpdateHealth(f)
-    elseif kind == "auras" and HHU.Auras then HHU.Auras.Update(f) end
+    elseif kind == "auras" and HHU.Auras then HHU.Auras.Update(f)
+    elseif kind == "portrait" then Units.UpdatePortrait(f) end
     return
   end
   if e == "PLAYER_TARGET_CHANGED" then refresh("target") refresh("targettarget")
@@ -935,6 +1009,7 @@ function Units.Diagnose()
       tostring(np[1]), f.dragHint and "yes" or "no", f.dragHint and (f.dragHint:IsShown() and "(shown)" or "(hidden)") or "",
       math.floor(f:GetWidth() or 0), math.floor(f:GetHeight() or 0))
   end)
+  out[#out + 1] = "portraits: " .. (Units.portraitHow or "none drawn yet") .. " (style " .. tostring(cfg().portraitStyle or "2D") .. ")"
   return out
 end
 

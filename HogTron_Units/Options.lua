@@ -53,6 +53,9 @@ local function unitTab(unit, order)
     x = range(u(unit), "x", "X offset", 9, -1400, 1400, 1),
     y = range(u(unit), "y", "Y offset", 10, -900, 900, 1),
   } }
+  if HHU.Units.PORTRAIT_SIDE[unit] then
+    t.args.portrait = toggle(u(unit), "portrait", "Portrait beside the frame (" .. (HHU.Units.PORTRAIT_SIDE[unit] == "LEFT" and "left" or "right") .. ")", 6.5)
+  end
   if unit == "target" or unit == "focus" then
     t.args.targetLine = toggle(u(unit), "targetLine", "Who it is targeting (\"» Crispin\", red \"» You\")", 10.5)
     t.args.castbar = toggle(u(unit), "castbar", "Cast bar above the frame", 11)
@@ -89,6 +92,7 @@ function Options.Build()
         healthText = select_(g, "healthText", "Health text", 7, { percent = "Percent", current = "Current", ["current-max"] = "Current / max", ["current-percent"] = "Current + percent", none = "None" }),
         powerText = select_(g, "powerText", "Power text", 8, { ["current-max"] = "Current / max", current = "Current", none = "None" }),
         nameFormat = select_(g, "nameFormat", "Names", 8.5, { full = "First and last name", first = "First name only" }),
+        portraitStyle = select_(g, "portraitStyle", "Portraits (turn them on per frame)", 8.6, { ["2D"] = "Picture (2D)", ["3D"] = "Live model (3D)" }),
         texture = select_(g, "texture", "Bar texture", 9, mediaList("statusbar")),
         font = select_(g, "font", "Font", 10, mediaList("font")),
         fontSize = range(g, "fontSize", "Text size (default for every frame)", 11, 7, 28, 1),
