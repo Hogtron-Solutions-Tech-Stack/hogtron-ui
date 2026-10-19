@@ -298,3 +298,16 @@ def test_xp_strip_coords_stay_in_range_at_a_long_uptime(xp):
     # GetTime() is the PC's uptime: at 4 days the scroll used to run thousands of repeats out (Sean 2026-10-17)
     u0, u1 = xp.eval("{ HogHealsHUD.XPBar.ArtCoords(345678.9, 0, 0.5, 400, 10) }").values()
     assert -1 < u0 <= 0 and u1 - u0 == pytest.approx(0.5 * 400 / 80)
+
+
+# diag.errors 2026-10-18 (sessions 176-178): "Texture:SetTextCoord(): Usage (minX, maxX, minY, maxY)" at PaintArt -
+# ArtCoords' two values went straight into SetTexCoord. The mock now refuses anything but 4 / 8 numbers, like the client.
+def test_the_painted_fill_scrolls_with_four_tex_coords(xp):
+    xp.execute(f"RESTED = 3000; {X}.Update()")
+    fill = list(xp.eval("HH_x.art.fill._texCoord").values())
+    rested = list(xp.eval("HH_x.art.rested._texCoord").values())
+    assert len(fill) == 4 and fill[2:] == [0, 1] and len(rested) == 4 and rested[2:] == [0, 1]
+    xp.execute(f"MockState.time = MockState.time + 1; {X}.PaintArt(HH_x, {X}.lastArt)")
+    later = list(xp.eval("HH_x.art.fill._texCoord").values())
+    assert later[0] != fill[0] and later[1] - later[0] == fill[1] - fill[0]     # it moves, same stretch of the strip
+    assert xp.eval("HogHeals.errors[1]") is None
