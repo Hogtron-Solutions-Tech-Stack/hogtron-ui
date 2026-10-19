@@ -54,7 +54,9 @@ local function unitTab(unit, order)
     y = range(u(unit), "y", "Y offset", 10, -900, 900, 1),
   } }
   if unit == "target" or unit == "focus" then
+    t.args.targetLine = toggle(u(unit), "targetLine", "Who it is targeting (\"» Crispin\", red \"» You\")", 10.5)
     t.args.castbar = toggle(u(unit), "castbar", "Cast bar above the frame", 11)
+    t.args.castTarget = toggle(u(unit), "castTarget", "Cast bar: who the cast is aimed at", 11.5)
     t.args.castbarHeight = range(u(unit), "castbarHeight", "Cast bar height", 12, 8, 30, 1)
     t.args.debuffs = toggle(u(unit), "debuffs", "Debuffs under the frame", 13)
     t.args.debuffFilter = { type = "select", name = "Which debuffs", order = 13.1,

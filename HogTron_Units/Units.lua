@@ -266,6 +266,7 @@ function Units.Build(unit)
   f.powerText = text(f.overlay, CREAM, "RIGHT")
   f.powerText:SetPoint("RIGHT", f.power, "RIGHT", -4, 0)
   f.status = text(f.overlay, CYAN, "LEFT")          -- player: "zz" resting (cyan) / "+" combat (red)
+  if Units.TARGET_OF[unit] then f.targetOf = text(f.overlay, CREAM, "LEFT") end   -- "» Crispin": who it targets
   f.status:SetPoint("BOTTOMLEFT", f.health, "BOTTOMLEFT", 5, 3)
   f.raidIcon = f.overlay:CreateTexture(nil, "OVERLAY")
   f.raidIcon:SetSize(16, 16)
@@ -324,6 +325,7 @@ function Units.ApplyLook(f)
   setFont(f.healthText, size)
   setFont(f.powerText, math.max(7, size - 3))
   setFont(f.status, size)
+  if f.targetOf then setFont(f.targetOf, math.max(7, size - 1)) end
   Units.LayoutText(f)
   if HHU.Auras and HHU.Auras.Layout then HHU.Auras.Layout(f) end
   if Units.PlaceCastbar then Units.PlaceCastbar(f) end
@@ -351,6 +353,7 @@ function Units.LayoutText(f)
     f.level:Hide()
     f.powerText:Hide()
     f.status:Hide()
+    if f.targetOf then f.targetOf:Hide() end
   else
     f.level:SetPoint("TOPRIGHT", f.health, "TOPRIGHT", -5, -3)
     f.name:SetPoint("TOPLEFT", f.health, "TOPLEFT", 5, -3)
@@ -359,6 +362,11 @@ function Units.LayoutText(f)
     if d.showLevel ~= false then f.level:Show() else f.level:Hide() end
     f.powerText:Show()
     f.status:Show()
+    if f.targetOf then
+      f.targetOf:ClearAllPoints()
+      f.targetOf:SetPoint("BOTTOMLEFT", f.health, "BOTTOMLEFT", 5, 3)
+      f.targetOf:SetWidth(math.max(20, w * 0.5))
+    end
   end
   f.name:Show()
   Units.FitName(f)
@@ -470,6 +478,53 @@ function Units.UpdateInfo(f)
   end
 end
 
+-- ------------------------------------------------------------------------------------------------ who it targets
+-- Sean 2026-10-18: "add targets to unit frame as a default" (both: a line on the frame and on its cast bar). The target
+-- and focus frames show who THEY are targeting - "» Crispin" bottom-left, class colour, "» You" in red when it is you -
+-- and their cast bars read "Fireball » Crispin". units.<unit>.targetLine / castTarget, on by default (the HUD's own cast
+-- bar dropped its "» target" by default instead). A name may be hidden (secret) in combat: it is still shown - widgets
+-- take secrets, and joining text onto one worked in game (combatProbe "op.concat name") - else the bare name. Never
+-- compared or branched on.
+Units.TARGET_OF = { target = "targettarget", focus = "focustarget" }
+Units.YOU = { 1.00, 0.36, 0.25 }
+
+local function joined(prefix, v)
+  local ok, s = pcall(function() return prefix .. v end)
+  if ok then return s end
+  return v
+end
+
+--- What a frame's unit is targeting: text ("» Crispin" | "» You"), r, g, b - or nil when it targets nobody.
+function Units.TargetOfText(unit, prefix)
+  local tu = Units.TARGET_OF[unit]
+  if not tu then return nil end
+  prefix = prefix or "» "
+  local exists = call(UnitExists, tu)
+  if not isSecret(exists) and not exists then return nil end
+  if bool(call(UnitIsUnit, tu, "player")) then return prefix .. "You", Units.YOU[1], Units.YOU[2], Units.YOU[3] end
+  local name = Units.NameOf(tu)
+  if not name then
+    local raw = call(UnitName, tu)
+    if type(raw) == "nil" then return nil end
+    return joined(prefix, raw), CREAM[1], CREAM[2], CREAM[3]
+  end
+  local class = bool(call(UnitIsPlayer, tu)) and Units.ClassOf(tu)
+  local c = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+  if c then return prefix .. name, c.r, c.g, c.b end
+  return prefix .. name, CREAM[1], CREAM[2], CREAM[3]
+end
+
+function Units.UpdateTargetOf(f)
+  local line = f.targetOf
+  if not line then return end
+  if ucfg(f.unit).targetLine == false or f.compact then line:SetText("") line:Hide() return end
+  local t, r, g, b = Units.TargetOfText(f.unit)
+  if not t then line:SetText("") line:Hide() return end
+  line:SetText(t)
+  line:SetTextColor(r, g, b)
+  line:Show()
+end
+
 function Units.UpdateStatus(f)
   if f.unit ~= "player" then f.status:SetText("") return end
   if bool(call(UnitAffectingCombat, "player")) or (InCombatLockdown and InCombatLockdown()) then
@@ -504,6 +559,7 @@ function Units.UpdateAll(f)
   piece("power", Units.UpdatePower, f)
   piece("name/level", Units.UpdateInfo, f)
   piece("status", Units.UpdateStatus, f)
+  if f.targetOf then piece("target of", Units.UpdateTargetOf, f) end
   if HHU.Auras and HHU.Auras.Update then piece("auras", HHU.Auras.Update, f) end
   if f.castbar then piece("castbar", Units.UpdateCastbar, f) end
 end
@@ -691,7 +747,9 @@ function Units.UpdateCastbar(f)
   bar.plainStart, bar.plainEnd = num(startMS), num(endMS)
   bar:SetMinMaxValues(startMS, endMS)
   bar:SetValue(castbarValue(bar))
-  bar.text:SetText(name)
+  -- who the cast is aimed at: the caster's own target (first name: the bar is narrow)
+  local who = d.castTarget ~= false and Units.TargetOfText(f.unit, " » ")
+  bar.text:SetText(who and joined(name, who) or name)
   call(bar.icon.SetTexture, bar.icon, texture)
   castbarLock(bar, notInt)
   castDiag(bar, name, startMS, notInt)
@@ -759,7 +817,10 @@ function Units.OnEvent(_, e, arg1)
     return
   end
   if e == "PLAYER_TARGET_CHANGED" then refresh("target") refresh("targettarget")
-  elseif e == "UNIT_TARGET" then if arg1 == "target" then refresh("targettarget") end
+  elseif e == "UNIT_TARGET" then
+    if arg1 == "target" then refresh("targettarget") end
+    local f = type(arg1) == "string" and Units.frames[arg1]
+    if f and f.targetOf then Units.UpdateTargetOf(f) end
   elseif e == "UNIT_PET" then if arg1 == "player" then refresh("pet") end
   elseif e == "PLAYER_FOCUS_CHANGED" then refresh("focus")
   elseif e == "RAID_TARGET_UPDATE" then Units.ForEach(Units.UpdateInfo)
@@ -801,6 +862,13 @@ function Module:OnEnable()
       if f and f:IsShown() and ucfg("targettarget").enabled ~= false then
         local ok, err = xpcall(Units.UpdateAll, HH.Trace, f)
         if not ok and err ~= Units.lastError then Units.lastError = err HH:LogError("units tot: " .. tostring(err)) end
+      end
+      for unit in pairs(Units.TARGET_OF) do
+        local o = Units.frames[unit]
+        if o and o.targetOf and o:IsShown() then
+          local ok, err = xpcall(Units.UpdateTargetOf, HH.Trace, o)
+          if not ok and err ~= Units.lastError then Units.lastError = err HH:LogError("units target of: " .. tostring(err)) end
+        end
       end
     end)
   end

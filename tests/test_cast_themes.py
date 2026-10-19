@@ -227,7 +227,7 @@ def test_a_real_cast_ends_the_preview(th):
     cast(th, "Frostbolt", 116)
     th.execute("MockAdvance(2); MockAdvance(2); MockAdvance(2)")
     assert th.eval("HogHealsHUD.Castbar.state.preview") is None
-    assert th.eval("HH_cb.text:GetText()") == "Frostbolt » Zugzug"     # the real cast, never a preview sample
+    assert th.eval("HH_cb.text:GetText()") == "Frostbolt"              # the real cast, never a preview sample
     assert th.eval("HogHealsHUD.Castbar.state.themeWhy") == "description"
 
 

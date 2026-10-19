@@ -21,9 +21,13 @@ def start_cast(f, name="Greater Heal", dur=2.5, interruptible=True):
     ''')
 
 
-def test_start_shows_bar_with_target_and_latency(cb):
+def test_start_shows_bar_with_the_spell_and_latency_and_the_target_only_when_asked(cb):
+    # Sean 2026-10-18: "The cast bar should only show the spell being cast by default, but they can add the target"
     start_cast(cb)
     assert cb.eval('HH_cb:IsShown()') is True
+    assert cb.eval('HH_cb.text:GetText()') == "Greater Heal"
+    cb.execute('HogHeals.db.profile.hud.castbar.showTarget = true')
+    start_cast(cb)
     assert cb.eval('HH_cb.text:GetText()') == "Greater Heal » Zugzug"    # Latin-1 chevron: "→" is not in the fonts
     assert cb.eval('HH_cb.latency:IsShown()') is True
     assert cb.eval('HH_cb.latency:GetWidth()') == 20.0  # 250ms / 2500ms * 200px
