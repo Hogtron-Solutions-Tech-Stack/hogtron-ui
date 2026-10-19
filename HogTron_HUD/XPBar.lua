@@ -313,11 +313,18 @@ function XP.PaintArt(b, c)
   local w, h = width(b), b:GetHeight() or 10
   if not on then A.fill:Hide() A.rested:Hide() return false end
   local t = (type(GetTime) == "function" and GetTime()) or 0
+  -- SetTexCoord takes 4 (or 8) numbers: ArtCoords gives the two that scroll, the strip's full height is 0..1. Passing
+  -- ArtCoords' two straight in was a "Usage" error on every paint (diag.errors 2026-10-18, sessions 176-178): the
+  -- art never scrolled, and the 30-a-second repaint threw unseen.
   overlay(b, A.fill, 0, c.fill, true)
-  A.fill:SetTexCoord(XP.ArtCoords(t, 0, c.fill, w, h))
+  local u0, u1 = XP.ArtCoords(t, 0, c.fill, w, h)
+  A.fill:SetTexCoord(u0, u1, 0, 1)
   local showRested = cfg().showRested ~= false and c.restedTo > c.fill
   overlay(b, A.rested, c.fill, c.restedTo, showRested)
-  if showRested then A.rested:SetTexCoord(XP.ArtCoords(t, c.fill, c.restedTo, w, h)) end
+  if showRested then
+    local r0, r1 = XP.ArtCoords(t, c.fill, c.restedTo, w, h)
+    A.rested:SetTexCoord(r0, r1, 0, 1)
+  end
   XP.lastArt = c
   return true
 end

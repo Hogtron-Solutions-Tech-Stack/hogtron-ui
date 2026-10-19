@@ -369,7 +369,14 @@ function Region:SetColorTexture(r, g, b, a) self._color = { r, g, b, a } end
 function Region:GetVertexColor() return unpack(self._color) end
 function Region:SetTexture(t) self._texture = t end
 -- recorded like every fabricated method (_calls/_last) plus a plain field for readability
-function Region:SetTexCoord(...) self._texCoord = { ... }; self._calls.SetTexCoord = (self._calls.SetTexCoord or 0) + 1; self._last.SetTexCoord = { ... } end
+-- like the client (measured 2026-10-18, diag.errors): 4 or 8 numbers, anything else is "Usage (minX, maxX, minY, maxY)"
+function Region:SetTexCoord(...)
+  local n = select("#", ...)
+  local ok = n == 4 or n == 8
+  for i = 1, n do local v = select(i, ...) if type(v) ~= "number" or v ~= v then ok = false end end
+  if not ok then error("Texture:SetTexCoord(): Usage (minX, maxX, minY, maxY) or (ULx, ULy, LLx, LLy, URx, URy, LRx, LRy)", 2) end
+  self._texCoord = { ... }; self._calls.SetTexCoord = (self._calls.SetTexCoord or 0) + 1; self._last.SetTexCoord = { ... }
+end
 function Region:SetBlendMode(m) self._blend = m; self._calls.SetBlendMode = (self._calls.SetBlendMode or 0) + 1; self._last.SetBlendMode = { m } end
 function Region:GetTexture() return self._texture end
 function Region:SetStatusBarTexture(t) self._texture = t end

@@ -300,6 +300,19 @@ def test_xp_strip_coords_stay_in_range_at_a_long_uptime(xp):
     assert -1 < u0 <= 0 and u1 - u0 == pytest.approx(0.5 * 400 / 80)
 
 
+# diag.errors 2026-10-18 (sessions 176-178): "Texture:SetTextCoord(): Usage (minX, maxX, minY, maxY)" at PaintArt -
+# ArtCoords' two values went straight into SetTexCoord. The mock now refuses anything but 4 / 8 numbers, like the client.
+def test_the_painted_fill_scrolls_with_four_tex_coords(xp):
+    xp.execute(f"RESTED = 3000; {X}.Update()")
+    fill = list(xp.eval("HH_x.art.fill._texCoord").values())
+    rested = list(xp.eval("HH_x.art.rested._texCoord").values())
+    assert len(fill) == 4 and fill[2:] == [0, 1] and len(rested) == 4 and rested[2:] == [0, 1]
+    xp.execute(f"MockState.time = MockState.time + 1; {X}.PaintArt(HH_x, {X}.lastArt)")
+    later = list(xp.eval("HH_x.art.fill._texCoord").values())
+    assert later[0] != fill[0] and later[1] - later[0] == fill[1] - fill[0]     # it moves, same stretch of the strip
+    assert xp.eval("HogHeals.errors[1]") is None
+
+
 # ================================================================================================ dividers
 # Sean 2026-10-18: "I like the animation for the XP, but I want the bars back in or some kind of dividers ... I'm so
 # many bars away from this level". Blizzard's 20 bubbles: 19 carved lines over the fill and the art, under the texts.
