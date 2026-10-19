@@ -130,6 +130,9 @@ class Painter:
             col = [1, 1, 1, 1]
         if src is None:
             return
+        if r["_desat"]:   # SetDesaturated(true): grey, alpha kept (a low-level quest's seal)
+            a = src.getchannel("A")
+            src = Image.merge("RGBA", (*src.convert("L").convert("RGB").split(), a))
         tc = vals(r["_texCoord"])
         if len(tc) == 4:
             W, H = src.size
@@ -246,7 +249,8 @@ def main():
         ("detail-light", 'HogHeals.db.profile.quests.dialog.theme = "light"; CHOICES = { { "Sample Brawler Gloves", 1, 1, 2 }, { "Sample Woodland Tunic", 2, 1, 2 }, { "Sample Light Pants", 3, 1, 1 } }; REWARDS = { { "Sample Wolfhide Cloak", 4, 1, 3 } }; MockFire("QUEST_DETAIL")', None),
         ("complete-choice-light", 'MockFire("QUEST_COMPLETE")', 2),
         ("progress-light", 'COMPLETABLE = false; REQUIRED = { { "Tough Wolf Meat", 5, 3 } }; MockFire("QUEST_PROGRESS")', None),
-        ("gossip-light", 'GAC = { { title = "Wolves Across the Border", questID = 55, isComplete = true } }; GAV = { { title = "Kobold Camp Cleanup", questID = 101 } }; GOPT = { { name = "I would like to buy something.", gossipOptionID = 3, orderIndex = 0 }, { name = "Make this inn your home.", gossipOptionID = 4, orderIndex = 1 } }; MockFire("GOSSIP_SHOW")', None),
+        # every quest mark (2026-10-18 wax seals): ready to hand in, offered, offered but low level, still in progress
+        ("gossip-light", 'GAC = { { title = "Wolves Across the Border", questID = 55, isComplete = true }, { title = "Deliver the Signet", questID = 57, isComplete = false } }; GAV = { { title = "Kobold Camp Cleanup", questID = 101 }, { title = "A Letter Undelivered", questID = 102, isTrivial = true } }; GOPT = { { name = "I would like to buy something.", gossipOptionID = 3, orderIndex = 0 }, { name = "Make this inn your home.", gossipOptionID = 4, orderIndex = 1 } }; MockFire("GOSSIP_SHOW")', None),
         ("detail-dark", 'HogHeals.db.profile.quests.dialog.theme = "dark"; MockFire("QUEST_DETAIL")', None),
         # Sean 2026-10-17's turn-in page: two long names next to their number chips, XP + coins as icons
         ("complete-rewards-light", '''HogHeals.db.profile.quests.dialog.theme = "light"; COMPLETABLE = true; REQUIRED = {}; REWARDS = {}; CHOICES = { { "Hunter's Simple Cloak", 1, 1, 2 }, { "Highlands Defender's Shield", 2, 1, 2 } }; XP = 775; MONEY = 600; MockFire("QUEST_COMPLETE")''', None),

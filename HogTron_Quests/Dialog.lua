@@ -57,8 +57,14 @@ Dialog.XP_ICON = MEDIA .. "reward_xp"
 -- corner. Sean 2026-10-17: the left button sat on the tear (the old 42 px bottom margin was ~40 px of art). The row
 -- now clears the tear by BUTTON_CLEAR px of paper.
 Dialog.TEAR, Dialog.BUTTON_CLEAR = 46, 14
-local QUEST_OPEN = MEDIA .. "quest_open"
-local QUEST_DONE = MEDIA .. "quest_done"
+-- Quest marks on the page: crimson wax seals (Sean 2026-10-18 on the parchment page: "I also dont like this '!' and
+-- want one that fits more" -> "I like these"). OpenArt sheet dialog_marks, cut by dev/icons/process_ui_art.py --only
+-- marks. Offered = gold "!" (greyed for a low-level quest), ready to hand in = gold "?", still in progress = the faded
+-- grey seal. Nameplates and the minimap keep quest_open / quest_done.
+local QUEST_OPEN = MEDIA .. "dialog_quest_open"
+local QUEST_DONE = MEDIA .. "dialog_quest_done"
+local QUEST_WAIT = MEDIA .. "dialog_quest_wait"
+Dialog.MARKS = { open = QUEST_OPEN, done = QUEST_DONE, wait = QUEST_WAIT }
 local FLAT = "Interface\\Buttons\\WHITE8X8"
 local PAGE_W, PAGE_H, SLICE = 512, 1024, 160    -- the page texture, and the height of its torn top / bottom slices
 local EDGE_PERIOD = 176                         -- the art's side edges repeat every 176 px (build_dialog_art.py PERIOD)
@@ -283,10 +289,11 @@ function Dialog.Read(kind)
       if q.isComplete then row({ text = str(q.title) or "?", icon = QUEST_DONE, glyph = "?", tone = "quest", act = { "active", q.questID } }) end
     end
     for _, q in ipairs(call(GI.GetAvailableQuests) or {}) do
-      row({ text = str(q.title) or "?", icon = QUEST_OPEN, glyph = "!", tone = q.isTrivial and "muted" or "quest", act = { "available", q.questID } })
+      row({ text = str(q.title) or "?", icon = QUEST_OPEN, glyph = "!", tone = q.isTrivial and "muted" or "quest", dim = q.isTrivial == true,
+        act = { "available", q.questID } })
     end
     for _, q in ipairs(active) do
-      if not q.isComplete then row({ text = str(q.title) or "?", glyph = "?", tone = "muted", act = { "active", q.questID } }) end
+      if not q.isComplete then row({ text = str(q.title) or "?", icon = QUEST_WAIT, glyph = "?", tone = "muted", act = { "active", q.questID } }) end
     end
     local opts = call(GI.GetOptions) or {}
     table.sort(opts, function(a, b) return (num(a.orderIndex) or 0) < (num(b.orderIndex) or 0) end)
@@ -301,7 +308,7 @@ function Dialog.Read(kind)
     for i = 1, nAc do
       local title, done = call(g("GetActiveTitle"), i)
       done = done == true or done == 1
-      row({ text = str(title) or "?", icon = done and QUEST_DONE or nil, glyph = "?", tone = done and "quest" or "muted", act = { "activeIndex", i } })
+      row({ text = str(title) or "?", icon = done and QUEST_DONE or QUEST_WAIT, glyph = "?", tone = done and "quest" or "muted", act = { "activeIndex", i } })
     end
     for i = 1, nAv do
       local title = call(g("GetAvailableTitle"), i)
@@ -742,6 +749,7 @@ function Dialog.Render()
       r.iconEdge:SetVertexColor(edgeC[1], edgeC[2], edgeC[3], 0.9) r.iconEdge:Show()
       r.icon:ClearAllPoints() r.icon:SetPoint("TOPLEFT", r, "TOPLEFT", 5, -5) r.icon:SetSize(34, 34)
       r.icon:SetTexture(it.icon or "Interface\\Icons\\INV_Misc_QuestionMark") r.icon:Show()
+      if r.icon.SetDesaturated then r.icon:SetDesaturated(false) end   -- the row may have shown a greyed quest seal
       if r.icon.SetTexCoord then r.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92) end
       r.glyph:Hide()
       setFont(r.count, 11)
@@ -812,6 +820,7 @@ function Dialog.Render()
       r.icon:ClearAllPoints() r.icon:SetPoint("LEFT", r, "LEFT", 32, 0) r.icon:SetSize(20, 20)
       if r.icon.SetTexCoord then r.icon:SetTexCoord(0, 1, 0, 1) end
       local shown = d.icon ~= nil and call(r.icon.SetTexture, r.icon, d.icon) ~= false
+      if r.icon.SetDesaturated then r.icon:SetDesaturated(d.dim == true) end   -- a low-level quest's seal goes grey
       if shown then r.icon:Show() r.glyph:Hide()
       else
         r.icon:Hide()
