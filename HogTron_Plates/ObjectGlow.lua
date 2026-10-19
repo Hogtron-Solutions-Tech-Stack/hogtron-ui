@@ -162,6 +162,66 @@ function G.PlateFor()
   end
 end
 
+-- ------------------------------------------------------------------------------------------------ the object's icon
+-- The game draws the cursor it would show (a gear, a pick, a herb) over the object's plate (SoftTargetIconGameObject,
+-- which the plate needs). Sean 2026-10-18: "I like the glowing icon, but I don't like that the gear is blocked by the
+-- text. Can we put the gear inside of the circle". Ours now sits in the ring's centre; the game's copy is faded (alpha
+-- only - never hidden, re-parented or written to) while our glow is on that plate, and given back when the glow
+-- leaves it. Where the game keeps it: UnitFrame.SoftTargetFrame.Icon on modern plates, else the plate is searched for a
+-- texture showing that same cursor. Not found -> the name moves up out of its way. G.last.icon (glowdiag) says which.
+G.ICON_FRAC = 0.42      -- our icon, as a share of the ring
+G.LABEL_LIFT = 22       -- the name's extra height while the game's icon still shows over the object
+
+local function textures(fr, out, depth)
+  if type(fr) ~= "table" or depth > 3 then return out end
+  local regions = { pcall(fr.GetRegions or error, fr) }        -- (not call(): it keeps 4 values, a plate has more)
+  if regions[1] then for i = 2, #regions do out[#out + 1] = regions[i] end end
+  local kids = { pcall(fr.GetChildren or error, fr) }
+  if kids[1] then for i = 2, #kids do if kids[i] ~= G.frame then textures(kids[i], out, depth + 1) end end end
+  return out
+end
+
+--- The game's icon on this plate: texture, where it was found ("SoftTargetFrame.Icon" | "search") - or nil, "not found".
+function G.BlizzIcon(plate, cursor)
+  local uf = type(plate) == "table" and plate.UnitFrame
+  local st = type(uf) == "table" and uf.SoftTargetFrame
+  local ic = type(st) == "table" and st.Icon
+  if type(ic) == "table" and type(ic.SetAlpha) == "function" then return ic, "SoftTargetFrame.Icon" end
+  if cursor ~= nil and not isSecret(cursor) then
+    for _, r in ipairs(textures(plate, {}, 0)) do
+      local isTex = type(r) == "table" and type(r.GetTexture) == "function" and call(r.GetObjectType, r) == "Texture"
+      if isTex then
+        local tex = call(r.GetTexture, r)
+        local atlas = r.GetAtlas and call(r.GetAtlas, r) or nil
+        if (tex ~= nil and not isSecret(tex) and tex == cursor) or (atlas ~= nil and not isSecret(atlas) and atlas == cursor) then
+          return r, "search"
+        end
+      end
+    end
+  end
+  return nil, "not found"
+end
+
+function G.RestoreBlizzIcon()
+  local ic = G.fadedIcon
+  G.fadedIcon = nil
+  if ic then pcall(ic.SetAlpha, ic, 1) end
+end
+
+--- Our icon in the ring + the game's faded. Returns true when the game's icon is out of the way.
+function G.PlaceIcon(plate, cursor)
+  local f, o = G.frame, cfg()
+  G.RestoreBlizzIcon()
+  if o.icon == false then f.icon:Hide() G.last.icon = "off" return false end
+  local ok, res = pcall(g("SetUnitCursorTexture") or error, f.icon, SOFT, nil, true)
+  if not ok or res == false then f.icon:Hide() G.last.icon = "no cursor" return false end
+  f.icon:Show()
+  local ic, where = G.BlizzIcon(plate, cursor)
+  G.last.icon = where
+  if ic and pcall(ic.SetAlpha, ic, 0) then G.fadedIcon = ic return true end
+  return false
+end
+
 -- ------------------------------------------------------------------------------------------------ the glow
 local function layer(f, file, level)
   local t = f:CreateTexture(nil, level)
@@ -180,6 +240,10 @@ function G.Build()
   f.halo = layer(f, HALO, "BACKGROUND")
   f.ring = layer(f, RING, "ARTWORK")
   f.spark = layer(f, SPARK, "OVERLAY")
+  -- what the object is, in the ring's centre (the game's own cursor art; see "the object's icon")
+  f.icon = f:CreateTexture(nil, "OVERLAY", nil, 2)
+  f.icon:SetPoint("CENTER", f, "CENTER", 0, 0)
+  f.icon:Hide()
   f.label = f:CreateFontString(nil, "OVERLAY", "HogTronFontNormal")
   f.label:SetPoint("BOTTOM", f, "TOP", 0, 2)
   f:SetScript("OnUpdate", function(self, elapsed) G.Tick(elapsed) end)
@@ -216,6 +280,11 @@ function G.Paint()
   f.halo:SetSize(sz * 1.7, sz * 1.7)
   f.ring:SetSize(sz, sz)
   f.spark:SetSize(sz * 0.42, sz * 0.42)
+  f.icon:SetSize(sz * G.ICON_FRAC, sz * G.ICON_FRAC)
+  f.icon:SetAlpha(s.blocked and 0.6 or 1)
+  -- the game puts its icon back up when it refreshes the plate: keep it faded while we show ours
+  local ic = G.fadedIcon
+  if ic and (call(ic.GetAlpha, ic) or 0) > 0 then pcall(ic.SetAlpha, ic, 0) end
   f.halo:SetVertexColor(c[1], c[2], c[3], fr.halo)
   f.ring:SetVertexColor(c[1], c[2], c[3], fr.ring)
   f.spark:SetVertexColor(math.min(1, c[1] + 0.35), math.min(1, c[2] + 0.35), math.min(1, c[3] + 0.35), fr.spark)
@@ -232,13 +301,16 @@ function G.Tick(elapsed)
   G.Paint()
 end
 
-function G.ShowGlow(plate, kind, blocked, name)
+function G.ShowGlow(plate, kind, blocked, name, cursor)
   local f, o = G.Build(), cfg()
   local same = G.shown and G.shown.plate == plate and G.shown.kind == kind
   if f:GetParent() ~= plate then f:SetParent(plate) end
   f:ClearAllPoints()
   f:SetPoint("CENTER", plate, "CENTER", 0, o.offset or 0)
   G.shown = { plate = plate, kind = kind, blocked = blocked, name = name, t = same and G.shown.t or 0 }
+  local clear = G.PlaceIcon(plate, cursor)
+  f.label:ClearAllPoints()
+  f.label:SetPoint("BOTTOM", f, "TOP", 0, clear and 2 or (2 + G.LABEL_LIFT))
   if o.label ~= false and name then
     local c = blocked and G.BLOCKED or G.COLORS[kind] or G.COLORS.other
     f.label:SetText(name)
@@ -252,6 +324,7 @@ end
 
 function G.HideGlow()
   G.shown = nil
+  G.RestoreBlizzIcon()
   local f = G.frame
   if not f then return end
   f:Hide()
@@ -290,7 +363,7 @@ function G.Evaluate()
     return
   end
   G.last.why = nil
-  G.ShowGlow(plate, kind, blocked, name)
+  G.ShowGlow(plate, kind, blocked, name, cursor)
 end
 
 -- ------------------------------------------------------------------------------------------------ cvars
@@ -403,6 +476,8 @@ function G.OnEvent(_, e, unit)
   end
 end
 
+G.PREVIEW_CURSOR = { herb = "GatherHerbs", ore = "Mine", chest = "PickLock", quest = "QuestInteract", bobber = "Fishing" }
+
 --- Each kind on screen for 1.5 s, centred, no object needed (options button, /hh glow preview).
 function G.Preview()
   local f = G.Build()
@@ -416,6 +491,8 @@ function G.Preview()
     f:ClearAllPoints()
     f:SetPoint("CENTER", UIParent, "CENTER", 0, 80)
     G.shown = { plate = UIParent, kind = order[i], blocked = false, name = names[order[i]] .. " (preview)", t = 0 }
+    if cfg().icon ~= false then f.icon:SetTexture("Interface\\Cursor\\" .. G.PREVIEW_CURSOR[order[i]]) f.icon:Show() else f.icon:Hide() end
+    f.label:ClearAllPoints() f.label:SetPoint("BOTTOM", f, "TOP", 0, 2)
     if cfg().label ~= false then f.label:SetText(G.shown.name) local c = G.COLORS[order[i]] f.label:SetTextColor(c[1], c[2], c[3]) f.label:Show() else f.label:Hide() end
     G.Paint()
     f:Show()
@@ -437,8 +514,8 @@ function G.Lines()
   for _, n in ipairs({ "UnitIsGameObject", "SetUnitCursorTexture", "GetFileIDFromPath" }) do if not g(n) then apis[#apis + 1] = n end end
   if #apis > 0 then out[#out + 1] = "  missing calls: " .. table.concat(apis, ", ") end
   local l = G.last or {}
-  out[#out + 1] = ("  last: %s -> %s%s (cursor %s, id %s, plate via %s)%s"):format(tostring(l.name), tostring(l.kind),
-    l.blocked and " [cannot use yet]" or "", tostring(l.cursor), tostring(l.id), tostring(l.via), l.why and (" - " .. l.why) or "")
+  out[#out + 1] = ("  last: %s -> %s%s (cursor %s, id %s, plate via %s, game's icon: %s)%s"):format(tostring(l.name), tostring(l.kind),
+    l.blocked and " [cannot use yet]" or "", tostring(l.cursor), tostring(l.id), tostring(l.via), tostring(l.icon), l.why and (" - " .. l.why) or "")
   local c = {}
   for k, v in pairs(G.seen) do c[#c + 1] = k .. "=" .. v end
   table.sort(c)

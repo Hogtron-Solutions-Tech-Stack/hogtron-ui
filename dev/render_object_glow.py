@@ -3,7 +3,8 @@
 Not a screenshot of WoW. The real ObjectGlow.lua runs in the test harness and picks each kind of object in turn; this
 script reads back what the code set on its three layers (size, colour, alpha, the spark's offset, the label) at a
 few moments of the animation and composites the addon's own TGA art (halo = target_glow, ring = object_ring, spark =
-object_spark) with additive light over a dark ground. Ring rotation is not drawn.
+object_spark) with additive light over a dark ground. Ring rotation is not drawn. The icon in the ring is the game's
+own cursor art (inside its archives, not on disk): drawn here as a plain gear glyph stand-in, at the code's size.
 
     python dev/render_object_glow.py [--scale 2]
 """
@@ -18,11 +19,12 @@ from PIL import Image, ImageChops, ImageDraw, ImageFont
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tests"))
 from loader import AddonLoader  # noqa: E402
-from test_object_glow import boot  # noqa: E402
+from test_object_glow import GAME_ICON, boot  # noqa: E402
 
 OUT = ROOT / "docs" / "mockups" / "object-glow.png"
 MEDIA = ROOT / "HogTronUI" / "Media"
 FONT = ROOT / "HogTronUI" / "Media" / "Fonts" / "Inter-SemiBold.ttf"
+SYMBOLS = pathlib.Path(r"C:/Windows/Fonts/seguisym.ttf")   # the gear stand-in; skipped when the font is not there
 ART = {"halo": "target_glow.tga", "ring": "object_ring.tga", "spark": "object_spark.tga"}
 CASES = [  # (label, Soft(...) call)
     ("herb", 'Soft("Peacebloom", "Interface/Cursor/GatherHerbs", "GameObject-0-1-2-3-1617-1")'),
@@ -54,12 +56,14 @@ def main():
     ap.add_argument("--scale", type=int, default=2)
     s = ap.parse_args().scale
     lua = boot(AddonLoader().bootstrap())
+    lua.execute(GAME_ICON)
     font = ImageFont.truetype(str(FONT), 11 * s)
     img = Image.new("RGB", (CELL * len(MOMENTS) * s + 120 * s, CELL * len(CASES) * s), (22, 26, 24))
     d = ImageDraw.Draw(img)
     for row, (kind, prep) in enumerate(CASES):
         lua.execute("HogHealsPlates.ObjectGlow.HideGlow()")
         lua.execute(prep)
+        lua.execute('GameIcon("frame")')   # the game's icon on the plate: ours in the ring, the name on the ring
         f = lua.eval("HogTronUIObjectGlow")
         d.text((8 * s, (row * CELL + CELL / 2) * s), kind, fill=(200, 200, 205), font=font, anchor="lm")
         for col, t in enumerate(MOMENTS):
@@ -77,10 +81,17 @@ def main():
                 x0, y0 = int(cx + ox - im.width / 2), int(cy + oy - im.height / 2)
                 region = img.crop((x0, y0, x0 + im.width, y0 + im.height))
                 img.paste(ImageChops.add(region, im), (x0, y0))
+            icon = f["icon"]
+            if icon["_shown"] and SYMBOLS.exists():
+                isz = icon["_width"] * s
+                a = icon["_alpha"] if icon["_alpha"] is not None else 1
+                v = int(235 * a)
+                d.text((cx, cy), "\u2699", fill=(v, v, v), font=ImageFont.truetype(str(SYMBOLS), max(6, int(isz))), anchor="mm")
             lab = f["label"]
             if lab["_shown"]:
                 c = tuple(int(v * 255) for v in vals(lab["_color"])[:3])
-                d.text((cx, cy - (f["_height"] / 2 + 10) * s), lab["_text"], fill=c, font=font, anchor="mb")
+                lift = vals(lab["_points"][1])[4]   # BOTTOM of the name = top of the ring + this
+                d.text((cx, cy - (f["_height"] / 2 + lift) * s), lab["_text"], fill=c, font=font, anchor="mb")
             if row == 0:
                 d.text((cx, 10 * s), f"t = {t}s", fill=(140, 140, 150), font=font, anchor="mm")
     OUT.parent.mkdir(parents=True, exist_ok=True)
