@@ -246,6 +246,50 @@ local function try(label, f, ...)
   return label .. ": ok " .. (#shown > 0 and table.concat(shown, " | ") or "(nothing)")
 end
 
+-- 2026-10-18, first real data (Sean's party fights, diag.auraReaders x3): in combat EVERY index / slot reader refuses
+-- ("cannot be accessed when secret while tainted"), the player's own debuffs included, and UnitAura is absent. Modern
+-- secret-value clients hand addons auras by INSTANCE ID instead - UNIT_AURA's payload carries the ids - and this client
+-- has C_UnitAuras.IsAuraFilteredOutByInstanceID. So the probe also records the client's whole C_UnitAuras list, what the
+-- last UNIT_AURA for that unit carried, and the instance-id readers tried with an id from it. The listener keeps one
+-- payload per group unit (a reference, nothing read) and stops once the probe has its five records.
+Compat.lastAuraInfo = {}
+
+function Compat.NoteAuraEvent(unit, info)
+  if type(unit) ~= "string" or not (unit == "player" or unit:find("^party") or unit:find("^raid")) then return end
+  Compat.lastAuraInfo[unit] = info
+end
+
+function Compat.StartAuraNotes()
+  if Compat.auraNotes or type(CreateFrame) ~= "function" then return end
+  local f = CreateFrame("Frame")
+  if not pcall(f.RegisterEvent, f, "UNIT_AURA") then return end
+  f:SetScript("OnEvent", function(self, _, unit, info)
+    if Compat.probes >= Compat.PROBE_MAX then self:UnregisterAllEvents() return end
+    pcall(Compat.NoteAuraEvent, unit, info)
+  end)
+  Compat.auraNotes = f
+end
+
+--- A plain aura instance id out of a UNIT_AURA payload (added auras first, then updated ids), or nil.
+function Compat.AuraIDFrom(info)
+  if type(info) ~= "table" or Compat.IsSecret(info) then return nil end
+  local ok, id = pcall(function()
+    for _, key in ipairs({ "addedAuras", "updatedAuraInstanceIDs" }) do
+      local list = info[key]
+      if type(list) == "table" and not Compat.IsSecret(list) then
+        for i = 1, 40 do
+          local x = list[i]
+          if x == nil then break end
+          local v = x
+          if type(x) == "table" and not Compat.IsSecret(x) then v = x.auraInstanceID end
+          if type(v) == "number" and not Compat.IsSecret(v) then return v end
+        end
+      end
+    end
+  end)
+  return ok and id or nil
+end
+
 function Compat.ProbeAuraReaders(unit, filter)
   filter = filter or "HARMFUL"
   local now = type(GetTime) == "function" and GetTime() or 0
@@ -278,6 +322,26 @@ function Compat.ProbeAuraReaders(unit, filter)
     lines[#lines + 1] = "AuraUtil.ForEachAura: absent"
   end
   lines[#lines + 1] = try("UnitAura", rawget(_G, "UnitAura"), unit, 1, filter)
+  -- by instance id (2026-10-18): what the last UNIT_AURA carried, and the readers that take its ids
+  local info = Compat.lastAuraInfo[unit]
+  lines[#lines + 1] = "last UNIT_AURA payload: " .. (info ~= nil and describe(info) or "none seen")
+  local id = Compat.AuraIDFrom(info)
+  lines[#lines + 1] = "instance id from it: " .. (id and tostring(id) or "none plain")
+  if id then
+    lines[#lines + 1] = try("GetAuraDataByAuraInstanceID", C.GetAuraDataByAuraInstanceID, unit, id)
+    lines[#lines + 1] = try("IsAuraFilteredOutByInstanceID", C.IsAuraFilteredOutByInstanceID, unit, id, filter)
+  end
+  lines[#lines + 1] = try("GetUnitAuraInstanceIDs", C.GetUnitAuraInstanceIDs, unit, filter)
+  lines[#lines + 1] = try("canaccesssecrets", rawget(_G, "canaccesssecrets"))
+  local CS = rawget(_G, "C_Secrets")
+  lines[#lines + 1] = try("C_Secrets.ShouldAurasBeSecret", type(CS) == "table" and CS.ShouldAurasBeSecret or nil)
+  if not Compat.auraKeysNoted then                      -- the client's whole aura API, once a session
+    Compat.auraKeysNoted = true
+    local ks = {}
+    for k, v in pairs(C) do if type(v) == "function" then ks[#ks + 1] = tostring(k) end end
+    table.sort(ks)
+    lines[#lines + 1] = "C_UnitAuras: " .. (#ks > 0 and table.concat(ks, ",") or "(none)")
+  end
   local rec = { at = date and date("%Y-%m-%d %H:%M:%S") or "?", unit = tostring(unit), filter = filter,
     combat = (type(InCombatLockdown) == "function" and InCombatLockdown()) and "yes" or "no", lines = lines }
   local g = HogHeals and HogHeals.db and HogHeals.db.global
@@ -290,3 +354,5 @@ function Compat.ProbeAuraReaders(unit, filter)
   end
   return rec
 end
+
+Compat.StartAuraNotes()

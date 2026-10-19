@@ -173,3 +173,52 @@ def test_the_probe_never_runs_more_than_its_session_cap(btn):
     """)
     assert btn.eval("HogHealsFrames.Compat.probes") == 5
     assert len(btn.eval("HogHeals.db.global.diag.auraReaders")) == 5
+
+
+
+# ---------------------------------------------------------------- by instance id (probe, 2026-10-18 second round)
+# First data: every index / slot reader refused in combat. The probe now also tries the instance-id readers with an id
+# taken from the unit's last UNIT_AURA payload, and lists the client's whole C_UnitAuras once.
+def test_the_probe_tries_the_instance_id_readers_with_an_id_from_the_last_aura_event(btn):
+    btn.execute("""
+      MockSetSecrets(true)
+      local refuse = function() error("GetAuraDataByIndex(): Auras cannot be accessed when secret while tainted by 'HogHeals_Frames'") end
+      C_UnitAuras = {
+        GetAuraDataByIndex = refuse, GetUnitAuras = refuse, GetDebuffDataByIndex = refuse,
+        GetAuraDataByAuraInstanceID = function(u, id) if id ~= 42 then return nil end return { icon = MockSecret(136207), auraInstanceID = 42 } end,
+        IsAuraFilteredOutByInstanceID = function(u, id, f) return id == 42 and false end,
+      }
+      C_Secrets = { ShouldAurasBeSecret = function() return true end }
+      canaccesssecrets = function() return false end
+      MockFire("UNIT_AURA", "party1", { addedAuras = { { auraInstanceID = 42, name = MockSecret("Corruption") } } })
+      MockFire("UNIT_AURA", "target", { addedAuras = { { auraInstanceID = 9 } } })          -- not a group unit: ignored
+      HogHealsFrames.Compat.ProbeAuraReaders("party1", "HARMFUL")
+    """)
+    text = " || ".join(btn.eval("HogHeals.db.global.diag.auraReaders[1].lines").values())
+    assert "last UNIT_AURA payload: table(1) addedAuras=table" in text
+    assert "instance id from it: 42" in text
+    assert "GetAuraDataByAuraInstanceID: ok table(2) auraInstanceID=number icon=secret" in text
+    assert "IsAuraFilteredOutByInstanceID: ok boolean" in text
+    assert "GetUnitAuraInstanceIDs: absent" in text
+    assert "canaccesssecrets: ok boolean" in text and "C_Secrets.ShouldAurasBeSecret: ok boolean" in text
+    assert "C_UnitAuras: GetAuraDataByAuraInstanceID,GetAuraDataByIndex,GetDebuffDataByIndex,GetUnitAuras,IsAuraFilteredOutByInstanceID" in text
+    assert btn.eval("HogHealsFrames.Compat.lastAuraInfo.target") is None
+
+
+def test_ids_come_from_updated_ids_too_and_hidden_ones_are_never_used(btn):
+    C = "HogHealsFrames.Compat"
+    assert btn.eval(f"{C}.AuraIDFrom({{ updatedAuraInstanceIDs = {{ 17, 18 }} }})") == 17
+    assert btn.eval(f"{C}.AuraIDFrom({{ addedAuras = {{ {{ auraInstanceID = MockSecret(5) }} }}, updatedAuraInstanceIDs = {{ 6 }} }})") == 6
+    assert btn.eval(f"{C}.AuraIDFrom(MockSecret({{}}))") is None and btn.eval(f"{C}.AuraIDFrom(nil)") is None
+    assert btn.eval(f"{C}.AuraIDFrom({{ addedAuras = MockSecret({{ {{ auraInstanceID = 3 }} }}) }})") is None
+
+
+def test_the_listener_stops_once_the_probe_has_its_records(btn):
+    btn.execute("""
+      C_UnitAuras = { GetAuraDataByIndex = function() return nil end }
+      local C = HogHealsFrames.Compat
+      for i = 1, 6 do MockAdvance(61); C.ProbeAuraReaders("party1", "HARMFUL") end
+      MockFire("UNIT_AURA", "party2", { addedAuras = {} })
+    """)
+    assert btn.eval("HogHealsFrames.Compat.lastAuraInfo.party2") is None
+    assert btn.eval("next(HogHealsFrames.Compat.auraNotes._events or {}) == nil") is True
