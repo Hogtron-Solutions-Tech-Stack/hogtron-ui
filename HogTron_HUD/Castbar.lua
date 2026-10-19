@@ -56,6 +56,7 @@ local function begin(state, name, texture, startMS, endMS, notInterruptible, cha
   local b = bar()
   name, texture = Castbar.Pretty(name, texture)
   state.casting, state.channel = true, channel and true or false
+  state.aura = nil                                          -- a real cast replaces the eating / drinking bar
   if not forceTheme then state.preview = nil end   -- a real cast ends a theme preview (PreviewThemes stops on it)
   state.name = name
   state.startTime, state.endTime = startMS / 1000, endMS / 1000
@@ -113,7 +114,7 @@ end
 
 local function finish(state)
   local b = bar()
-  state.casting, state.channel = false, false
+  state.casting, state.channel, state.aura = false, false, nil
   if HHD.CastThemes then HHD.CastThemes.Clear(b) end
   b:SetScript("OnUpdate", nil)
   b.spark:Hide()
@@ -173,16 +174,17 @@ function handlers.UNIT_SPELLCAST_CHANNEL_UPDATE()
 end
 
 function handlers.UNIT_SPELLCAST_STOP()
-  if Castbar.state.casting and not Castbar.state.channel then finish(Castbar.state) end
+  local state = Castbar.state
+  if state.casting and not state.channel and not state.aura then finish(state) Castbar.CheckRefresh() end
 end
 
 function handlers.UNIT_SPELLCAST_CHANNEL_STOP()
-  if Castbar.state.channel then finish(Castbar.state) end
+  if Castbar.state.channel then finish(Castbar.state) Castbar.CheckRefresh() end
 end
 
 local function failed(label)
   local state = Castbar.state
-  if not state.casting then return end
+  if not state.casting or state.aura then return end        -- a refused cast while eating is not the food failing
   local b = bar()
   state.casting, state.channel = false, false
   b:SetScript("OnUpdate", nil)
@@ -199,6 +201,95 @@ end
 
 function handlers.UNIT_SPELLCAST_INTERRUPTED() failed("Interrupted") end
 function handlers.UNIT_SPELLCAST_FAILED() failed("Failed") end
+
+-- ---------------------------------------------------------------- eating and drinking (Sean 2026-10-18)
+-- "I want to make drinking and eat cast bars": on Classic-rules clients food and drink are no cast at all but a buff
+-- you sit with ("Food", "Drink", "Food & Drink"). While one is on the player the bar shows it as a cast filling up over
+-- the buff's duration, in its own strip (the Food / Drink rows of CastThemes.SPELL_ART). Plain values only: a secret
+-- name or time shows nothing, and diag.refreshBar records what the client handed over. A real cast always wins;
+-- standing up (the buff ends) clears the bar.
+Castbar.REFRESH = { ["Food"] = "food", ["Drink"] = "drink", ["Food & Drink"] = "both" }
+
+local function plainStr(v) if type(v) == "string" and not HH.IsSecret(v) then return v end end
+local function plainNum(v) if type(v) == "number" and not HH.IsSecret(v) then return v end end
+
+--- One helpful aura on the player through whichever reader this client has: name, icon, duration, expires, spell id,
+-- reader name. Nothing past the last aura.
+function Castbar.PlayerBuff(i)
+  local C = rawget(_G, "C_UnitAuras")
+  if type(C) == "table" and type(C.GetAuraDataByIndex) == "function" then
+    local ok, a = pcall(C.GetAuraDataByIndex, "player", i, "HELPFUL")
+    if not ok or type(a) ~= "table" then return nil end
+    return a.name, a.icon, a.duration, a.expirationTime, a.spellId, "C_UnitAuras"
+  end
+  local UA = rawget(_G, "UnitAura")
+  if type(UA) ~= "function" then return nil end
+  local ok, name, icon, _, _, duration, expires, _, _, _, spellID = pcall(UA, "player", i, "HELPFUL")
+  if not ok or type(name) == "nil" then return nil end
+  return name, icon, duration, expires, spellID, "UnitAura"
+end
+
+--- The eating / drinking buff on the player now: { label, name, icon, startTime, endTime, spellID, reader } or nil,
+-- and why. Eating and drinking at once is one bar, "Food & Drink", running to the later of the two.
+function Castbar.ReadRefresh()
+  local found, why, kinds = nil, "none", {}
+  for i = 1, 40 do
+    local name, icon, duration, expires, spellID, reader = Castbar.PlayerBuff(i)
+    if not reader then break end
+    local n = plainStr(name)
+    local kind = n and Castbar.REFRESH[n]
+    if kind then
+      local dur, exp = plainNum(duration), plainNum(expires)
+      if not (dur and exp) then
+        why = "times hidden or missing (" .. reader .. ")"
+      elseif dur > 0 then
+        kinds[kind] = true
+        if not found or exp > found.endTime then
+          found = { name = n, icon = icon, startTime = exp - dur, endTime = exp, spellID = plainNum(spellID), reader = reader }
+        end
+      end
+    end
+  end
+  if not found then return nil, why end
+  found.label = (kinds.both or (kinds.food and kinds.drink)) and "Food & Drink" or found.name
+  return found, "shown"
+end
+
+--- What the last eating / drinking check saw (only when a food or drink buff was there), for /hh castdiag.
+function Castbar.NoteRefresh(r, why)
+  if not r and why == "none" then return end
+  local g = HH.db and HH.db.global
+  if not g then return end
+  g.diag = g.diag or {}
+  g.diag.refreshBar = { at = date and date("%Y-%m-%d %H:%M:%S") or "?", why = why, label = r and r.label or "-",
+    reader = r and r.reader or "-", duration = r and (r.endTime - r.startTime) or 0 }
+end
+
+--- Show, move or clear the eating / drinking bar (UNIT_AURA on the player, and after a real cast ends).
+function Castbar.CheckRefresh()
+  local state = Castbar.state
+  if cfg().refresh == false then
+    if state.aura then finish(state) end
+    return
+  end
+  if state.casting and not state.aura then return end                -- a real cast (or a preview) wins
+  if not state.aura and InCombatLockdown and InCombatLockdown() then return end   -- nobody sits down to eat mid-fight
+  local r, why = Castbar.ReadRefresh()
+  Castbar.NoteRefresh(r, why)
+  if not r then
+    if state.aura then finish(state) end
+    return
+  end
+  local cur = state.aura
+  if cur and cur.endTime == r.endTime and cur.label == r.label then return end   -- the same buff: keep going
+  begin(state, r.label, r.icon, r.startTime * 1000, r.endTime * 1000, false, false, r.spellID, nil)
+  state.aura = r
+  local b = bar()
+  b.text:SetText(r.label)                                            -- no "» target": you are sitting down
+  b.latency:Hide()
+end
+
+handlers.UNIT_AURA = function() Castbar.CheckRefresh() end
 
 function Castbar.OnEvent(_, event, unit)
   if unit and unit ~= "player" then return end
@@ -238,6 +329,7 @@ function Castbar.Init()
     "UNIT_SPELLCAST_DELAYED", "UNIT_SPELLCAST_CHANNEL_START", "UNIT_SPELLCAST_CHANNEL_UPDATE", "UNIT_SPELLCAST_CHANNEL_STOP" }) do
     if f.RegisterUnitEvent then f:RegisterUnitEvent(ev, "player") else f:RegisterEvent(ev) end
   end
+  if f.RegisterUnitEvent then pcall(f.RegisterUnitEvent, f, "UNIT_AURA", "player") else pcall(f.RegisterEvent, f, "UNIT_AURA") end
   f:SetScript("OnEvent", Castbar.OnEvent)
   Castbar.frame = f
   local _, class = UnitClass("player")
@@ -258,6 +350,9 @@ function Castbar.Diagnose()
     ("last cast: %s   texture=%s (%s%s)   casting=%s channel=%s"):format(tostring(s.name), tostring(s.texture), type(s.texture), secret and ", SECRET" or "", tostring(s.casting), tostring(s.channel)),
   }
   if HHD.CastThemes then lines[#lines + 1] = HHD.CastThemes.Line(s) .. ("   spell id=%s"):format(tostring(s.spellID)) end
+  local rb = HH.db and HH.db.global and HH.db.global.diag and HH.db.global.diag.refreshBar
+  lines[#lines + 1] = rb and ("eating / drinking (last seen %s): %s - %s, %ss, reader %s"):format(tostring(rb.at), tostring(rb.label),
+    tostring(rb.why), tostring(rb.duration), tostring(rb.reader)) or "eating / drinking: no food or drink buff seen yet"
   if b and b.icon then
     lines[#lines + 1] = ("icon: shown=%s size=%sx%s texture now=%s"):format(tostring(b.icon:IsShown()), tostring(b.icon:GetWidth()), tostring(b.icon:GetHeight()), tostring(b.icon.GetTexture and b.icon:GetTexture()))
   end

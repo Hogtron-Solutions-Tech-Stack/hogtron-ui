@@ -338,13 +338,13 @@ def test_spell_art_off_or_missing_falls_back_to_the_school_strip(th):
 
 
 def test_every_class_set_has_strips_and_the_files_exist():
-    # mage 12 strips + the other eight classes' 74 (2026-10-17) + Hearthstone, every class (2026-10-18)
+    # mage 12 strips + the other eight classes' 74 (2026-10-17) + Hearthstone, every class (2026-10-18), food + drink (2026-10-18)
     import pathlib
     root = pathlib.Path(__file__).resolve().parents[1]
     src = (root / "HogTron_HUD" / "CastThemes.lua").read_text(encoding="utf-8")
     import re
     arts = set(re.findall(r'\{ "[^"]+", "(spell_[a-z_]+)", "[a-z]+" \}', src))
-    assert len(arts) == 87
+    assert len(arts) == 89
     for a in arts:
         assert (root / "HogTronUI" / "Media" / f"cast_{a}.tga").is_file(), a
 

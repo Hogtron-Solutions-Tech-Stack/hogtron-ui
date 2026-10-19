@@ -85,6 +85,7 @@ local function castbarGroup()
     latency = toggle(c, "latency", "Latency segment", 3, "Red segment at the end of the bar = your world latency; the part of the cast you can't interrupt in time."),
     gcd = toggle(c, "gcd", "GCD sliver under the bar", 4),
     hideBlizzard = toggle(c, "hideBlizzard", "Hide Blizzard's casting bar", 5),
+    refresh = toggle(c, "refresh", "Show eating and drinking", 5.5, "While you eat or drink the bar fills over the food / drink buff, with its own look."),
     precision = range(c, "precision", "Time decimals", 6, 0, 2, 1),
     castColor = colour(c, "castColor", "Cast colour", 10),
     channelColor = colour(c, "channelColor", "Channel colour", 11),
