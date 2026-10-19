@@ -53,8 +53,28 @@ local function unitTab(unit, order)
     x = range(u(unit), "x", "X offset", 9, -1400, 1400, 1),
     y = range(u(unit), "y", "Y offset", 10, -900, 900, 1),
   } }
+  -- Sean 2026-10-18 (looking in Player for the 3D switch, which sat in General): "if I can't find it and you're giving
+  -- me instructions to find it, nobody's going to be able to find it naturally." A setting lives next to the switch it
+  -- belongs to: the portrait's look right under the portrait (shown once it is on), and the HUD cast bar's place on
+  -- this frame in the Player tab too (the same setting as HUD > Castbar).
   if HHU.Units.PORTRAIT_SIDE[unit] then
-    t.args.portrait = toggle(u(unit), "portrait", "Portrait beside the frame (" .. (HHU.Units.PORTRAIT_SIDE[unit] == "LEFT" and "left" or "right") .. ")", 6.5)
+    t.args.portrait = toggle(u(unit), "portrait", "Portrait beside the frame (" .. (HHU.Units.PORTRAIT_SIDE[unit] == "LEFT" and "left" or "right") .. ")", 7.5)
+    t.args.portraitStyle = { type = "select", name = "Portrait look (every frame)", order = 7.6,
+      values = { ["2D"] = "Picture (2D)", ["3D"] = "Live model (3D)" },
+      hidden = function() return HH.db.profile.units[unit].portrait ~= true end,
+      get = function() return g().portraitStyle or "2D" end, set = function(_, v) g().portraitStyle = v; refresh() end }
+  end
+  if unit == "player" then
+    t.args.castbarAttach = { type = "select", name = "Your cast bar", order = 7.7,
+      desc = "Same setting as HUD > Castbar > Attach to the player frame.",
+      values = { none = "In the HUD (not on this frame)", below = "Under this frame", above = "Over this frame" },
+      hidden = function() local H = rawget(_G, "HogHealsHUD") return not (type(H) == "table" and H.HUD) end,
+      get = function() local a = HH.db.profile.hud.castbar.attach return (a == "below" or a == "above") and a or "none" end,
+      set = function(_, v)
+        HH.db.profile.hud.castbar.attach = v
+        local H = rawget(_G, "HogHealsHUD")
+        if type(H) == "table" and H.HUD then H.HUD.Refresh() end
+      end }
   end
   if unit == "target" or unit == "focus" then
     t.args.targetLine = toggle(u(unit), "targetLine", "Who it is targeting (\"» Crispin\", red \"» You\")", 10.5)
@@ -92,7 +112,6 @@ function Options.Build()
         healthText = select_(g, "healthText", "Health text", 7, { percent = "Percent", current = "Current", ["current-max"] = "Current / max", ["current-percent"] = "Current + percent", none = "None" }),
         powerText = select_(g, "powerText", "Power text", 8, { ["current-max"] = "Current / max", current = "Current", none = "None" }),
         nameFormat = select_(g, "nameFormat", "Names", 8.5, { full = "First and last name", first = "First name only" }),
-        portraitStyle = select_(g, "portraitStyle", "Portraits (turn them on per frame)", 8.6, { ["2D"] = "Picture (2D)", ["3D"] = "Live model (3D)" }),
         texture = select_(g, "texture", "Bar texture", 9, mediaList("statusbar")),
         font = select_(g, "font", "Font", 10, mediaList("font")),
         fontSize = range(g, "fontSize", "Text size (default for every frame)", 11, 7, 28, 1),

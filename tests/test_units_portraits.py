@@ -58,7 +58,7 @@ def test_3d_uses_a_live_model_and_falls_back_to_the_picture(units):
       local m = HogUIPlayer.portrait.model
       function m:SetUnit(u) self._unit = u end
       function m:SetPortraitZoom(z) self._zoom = z end
-      HogHeals.OptionsTable().args.Units.args.general.args.portraitStyle.set({}, "3D")''')
+      HogHeals.OptionsTable().args.Units.args.player.args.portraitStyle.set({}, "3D")''')
     on(units, "player")
     assert units.eval("HogUIPlayer.portrait.model:IsShown()") is True and units.eval("HogUIPlayer.portrait.model._unit") == "player"
     assert units.eval("HogUIPlayer.portrait.model._zoom") == 1 and units.eval("HogUIPlayer.portrait.tex:IsShown()") is False
