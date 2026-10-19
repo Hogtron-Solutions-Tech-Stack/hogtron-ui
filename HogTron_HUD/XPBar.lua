@@ -231,6 +231,52 @@ local function overlay(b, tex, from, to, shown)
 end
 
 
+-- ------------------------------------------------------------------------------------------------ dividers
+-- Sean 2026-10-18: "I like the animation for the XP, but I want the bars back in or some kind of dividers ... the bars
+-- are pretty important of like, oh, I'm so many bars away from this level". Blizzard's bar is 20 bubbles of 5% each.
+-- xp.dividers = 20 (default) | 10 | 0 (off): thin carved lines - a dark line and a faint light one beside it - over the
+-- fill and the moving art, under the texts, on the bar of its own and on the HUD row alike.
+XP.DIVIDER_INK, XP.DIVIDER_LIGHT = { 0.03, 0.04, 0.06, 0.85 }, { 1, 1, 1, 0.10 }
+
+--- Pure: where each line goes on a bar w px wide cut into n equal parts (whole pixels); {} for fewer than 2 parts.
+function XP.DividerX(n, w)
+  local out = {}
+  n = math.floor(tonumber(n) or 0)
+  if n < 2 or type(w) ~= "number" or w <= 0 then return out end
+  for i = 1, n - 1 do out[#out + 1] = math.floor(i * w / n + 0.5) end
+  return out
+end
+
+local function line(b, c)
+  local t = b:CreateTexture(nil, "OVERLAY", nil, -2)
+  t:SetColorTexture(c[1], c[2], c[3], c[4])
+  t:SetWidth(1)
+  return t
+end
+
+local function pin(t, b, x)
+  t:ClearAllPoints()
+  t:SetPoint("TOPLEFT", b, "TOPLEFT", x, 0)
+  t:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", x, 0)
+  t:Show()
+end
+
+function XP.PaintDividers(b)
+  local xs = XP.DividerX(cfg().dividers or 20, width(b))   -- 0 = none (0 is true in Lua: `or` keeps it)
+  b.ticks = b.ticks or {}
+  for i, x in ipairs(xs) do
+    local t = b.ticks[i]
+    if not t then
+      t = { ink = line(b, XP.DIVIDER_INK), light = line(b, XP.DIVIDER_LIGHT) }
+      b.ticks[i] = t
+    end
+    pin(t.ink, b, x)
+    pin(t.light, b, x + 1)
+  end
+  for i = #xs + 1, #b.ticks do b.ticks[i].ink:Hide() b.ticks[i].light:Hide() end
+  return #xs
+end
+
 -- ------------------------------------------------------------------------------------------------ painted fill
 -- The HogTron art set (OpenArt, Sean 2026-10-14 night: "the XP bar"): a cyan energy strip over the filled part and a
 -- violet mist over the rested stretch, both 512x64 strips that loop left to right (HogHeals/Media/xp_fill / xp_rested),
@@ -405,6 +451,7 @@ function XP.Update()
   if o.hideAtMax ~= false and XP.AtCap(lvl) then b:Hide() if XP.Standalone() then claim(false) end return end
   b:Show()
   if XP.Standalone() then claim(true) end
+  XP.PaintDividers(b)
   local rested = o.showRested ~= false and readRested() or 0
   local quest = o.showQuest ~= false and XP.QuestXP() or 0
   local c = XP.Compute(xp, max, rested, quest)
