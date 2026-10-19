@@ -63,9 +63,11 @@ function EM.Targets()
     for _, r in ipairs(EM.HUD_ROWS) do
       local row = rows[r.name]
       if type(row) == "table" and row.enabled then
-        -- a detached bar moves on its own (its box drags the bar, Center centres the bar); else the whole strip
-        add({ key = "hud:" .. r.name, path = r.path, title = row.detached and (r.title .. " (on its own)") or r.title,
-          mover = row.detached and row or hudAnchor, frame = row, how = "box" })
+        -- a detached bar moves on its own (its box drags the bar, Center centres the bar); else the whole strip.
+        -- A bar on the player frame follows that frame: its box sizes it (height), dragging / Center leave it be.
+        local title = row.attached and (r.title .. " (on the player frame)") or row.detached and (r.title .. " (on its own)") or r.title
+        add({ key = "hud:" .. r.name, path = r.path, title = title, mover = (row.detached or row.attached) and row or hudAnchor,
+          frame = row, how = "box", attached = row.attached and true or nil })
       end
     end
   end
@@ -100,6 +102,7 @@ end
 -- frame's own drag-stop handler. Returns true, or false + why.
 function EM.Center(t, axis)
   if InCombatLockdown and InCombatLockdown() then return false, "not in combat" end
+  if t and t.attached then return false, "it follows the player frame: move the player frame" end
   local f = t and t.mover
   if not f then return false, "no frame" end
   local cx, cy = call(f.GetCenter, f)
@@ -179,7 +182,7 @@ function EM.ResizeFor(t)
   if row and type(hud) == "table" then
     local spec = { apply = hudRefresh }
     local sub = hud[row]
-    if row ~= "info" and type(sub) == "table" then
+    if row ~= "info" and type(sub) == "table" and not t.attached then   -- on the player frame: the frame's width
       spec.w = { get = function() local w = num(sub.width, 0) return w > 0 and w or num(hud.width, 300) end,
         set = function(v) sub.width = v end, min = 60, max = 800, step = 2, factor = 2 }
     end

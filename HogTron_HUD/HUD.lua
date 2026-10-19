@@ -45,6 +45,35 @@ function HUD.Detach(name, on)
   return true
 end
 
+-- The cast bar on the player's unit frame (Sean 2026-10-18: "the ability to attach the cast bar to the unit frames";
+-- target and focus already carry their own, HogTron_Units). hud.castbar.attach = "below" | "above" puts the HUD's bar
+-- under / over HogUIPlayer, as wide as the frame (the spell icon in line with its left edge), and it follows the frame
+-- wherever the frame is dragged. Only our bar is anchored: the unit frame is a secure button and is never touched.
+-- No player frame (Units off, the player frame off) -> the bar sits where it would without the setting. The Units
+-- module builds the frame after we lay out at login, so a missing frame is looked for again a few times.
+HUD.ATTACH_GAP = 4
+HUD.ATTACH_FRAME = "HogUIPlayer"
+HUD.ATTACH_TRIES = 10
+
+--- The frame the cast bar attaches to and the side, or nil + why ("off" | "wait" | "hidden").
+function HUD.AttachFrame()
+  local c = db().castbar
+  local where = type(c) == "table" and c.attach
+  if where ~= "below" and where ~= "above" then return nil, "off" end
+  local f = rawget(_G, HUD.ATTACH_FRAME)
+  if type(f) ~= "table" then return nil, "wait" end
+  if f.IsShown and not f:IsShown() then return nil, "hidden" end
+  return f, where
+end
+
+--- The player frame was not built yet: lay out again shortly (bounded).
+function HUD.RetryAttach()
+  if HUD.attachPending or (HUD.attachTries or 0) >= HUD.ATTACH_TRIES then return end
+  HUD.attachTries = (HUD.attachTries or 0) + 1
+  HUD.attachPending = true
+  C_Timer.After(0.5, function() HUD.attachPending = nil HUD.Layout() end)
+end
+
 --- A detached bar drags itself (edit mode's box relays to these) and saves its spot when let go.
 function HUD.MakeMovable(row, name)
   if row.hhMovable then return end
@@ -232,7 +261,28 @@ function HUD.Layout()
     local enabled = d[ROW_SHOW[name]] ~= false
     if name == "xp" and d.xp and (d.xp.mode or "bar") ~= "row" then enabled = false end   -- its own bar instead (XPBar.lua)
     local sub = HUD.DETACHABLE[name] and d[name] or nil
-    if enabled and type(sub) == "table" and sub.detached then
+    local attachTo, side
+    if name == "castbar" and enabled then
+      attachTo, side = HUD.AttachFrame()          -- (two values: never `x and HUD.AttachFrame()`)
+      if attachTo then HUD.attachTries = 0 elseif side == "wait" then HUD.RetryAttach() end
+    end
+    if attachTo then
+      -- on the player frame: its width, our height, the icon hanging off the left in line with the frame's edge
+      HUD.MakeMovable(row, name)
+      local h = d[ROW_HEIGHT[name]] or 12
+      local pad = (type(sub) == "table" and sub.icon == false) and 0 or (h + 2)
+      local g = HUD.ATTACH_GAP
+      row:ClearAllPoints()
+      if side == "above" then
+        row:SetPoint("BOTTOMLEFT", attachTo, "TOPLEFT", pad, g)
+        row:SetPoint("BOTTOMRIGHT", attachTo, "TOPRIGHT", 0, g)
+      else
+        row:SetPoint("TOPLEFT", attachTo, "BOTTOMLEFT", pad, -g)
+        row:SetPoint("TOPRIGHT", attachTo, "BOTTOMRIGHT", 0, -g)
+      end
+      row:SetHeight(h)
+      row.attached, row.detached, row.enabled = side, nil, true
+    elseif enabled and type(sub) == "table" and sub.detached then
       -- out of the strip: its own spot, its own size; the bars under it close the gap
       HUD.MakeMovable(row, name)
       local h = d[ROW_HEIGHT[name]] or 12
@@ -240,11 +290,11 @@ function HUD.Layout()
       row:ClearAllPoints()
       row:SetPoint(sub.point or "CENTER", UIParent, sub.point or "CENTER", sub.x or 0, sub.y or 0)
       row:SetSize(own, h)
-      row.detached, row.enabled = true, true
+      row.detached, row.attached, row.enabled = true, nil, true
       if not SELF_SHOWING[name] then row:Show() end
     elseif enabled then
       if HUD.DETACHABLE[name] then HUD.MakeMovable(row, name) end
-      row.detached = nil
+      row.detached, row.attached = nil, nil
       local h = d[ROW_HEIGHT[name]] or 12
       row:ClearAllPoints()
       -- cast bar, swing and mana bar may have their own width (0 = the strip's), centred on the strip
@@ -262,7 +312,7 @@ function HUD.Layout()
       y = y + h + (d.rowSpacing or 0)
       shown = shown + 1
     else
-      row.enabled = false
+      row.enabled, row.attached = false, nil
       row:Hide()
     end
   end

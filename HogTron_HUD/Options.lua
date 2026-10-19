@@ -75,6 +75,12 @@ end
 local function castbarGroup()
   local c = function() return hud().castbar end
   return { type = "group", name = "Castbar", order = 2, args = {
+    attach = { type = "select", name = "Attach to the player frame", order = 0.04, width = "full",
+      desc = "Under or over your player unit frame, as wide as it, following it wherever you drag it. Needs the player frame (Unit Frames) on.",
+      values = { none = "No (in the HUD)", below = "Under the player frame", above = "Over the player frame" },
+      sorting = { "none", "below", "above" },
+      get = function() local a = c().attach return (a == "below" or a == "above") and a or "none" end,
+      set = function(_, v) c().attach = v; refresh() end },
     detached = detachToggle("castbar"),
     -- its own size (Sean 2026-10-18: "easily change the size of the cast bar, the mana bar ... in HH unlock")
     width = { type = "range", name = "Width (0 = as wide as the strip)", order = 0.1, min = 0, max = 800, step = 2,
