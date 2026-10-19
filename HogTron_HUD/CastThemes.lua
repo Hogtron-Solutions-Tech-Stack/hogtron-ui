@@ -205,6 +205,10 @@ T.SPELL_ART = {
   -- we can do something creative"): a carved hearthstone with glowing recall runes; Conjure Water above got the heavy
   -- surge strip (the other candidates: openart_cast_art.py raw/).
   { "^Hearthstone", "spell_hearthstone", "arcane" },
+  -- 2026-10-18 eating and drinking (Sean: "drinking and eat cast bars"): honey-gold warmth with crumbs, a clear stream
+  -- with bubbles. "Food & Drink" (both at once) takes the food strip.
+  { "^Food", "spell_food", "gold" },
+  { "^Drink", "spell_drink", "water" },
 }
 
 --- Pure: the strip and theme for a cast name, or nil.
@@ -221,7 +225,8 @@ T.CLASS_SCHOOL = { PRIEST = "holy", PALADIN = "holy", MAGE = "arcane", WARLOCK =
 T.CLASS_HEAL = { PRIEST = "holy", PALADIN = "holy", SHAMAN = "nature", DRUID = "nature" }
 -- cast names (English client) for the gathering / utility casts; matched at the start of the name
 T.CAST_NAMES = { { "^Mining", "earth" }, { "^Smelting", "earth" }, { "^Herb Gathering", "herb" }, { "^Skinning", "leather" },
-  { "^Fishing", "water" }, { "^Opening", "gold" }, { "^Disenchant", "arcane" } }
+  { "^Fishing", "water" }, { "^Opening", "gold" }, { "^Disenchant", "arcane" },
+  { "^Food", "gold" }, { "^Drink", "water" } }   -- eating / drinking (Castbar.CheckRefresh: a buff shown as a cast)
 
 --- Pure: a spell description -> theme key, or nil. The earliest "<School> damage" wins; a heal maps through the class.
 function T.FromDescription(text, class)

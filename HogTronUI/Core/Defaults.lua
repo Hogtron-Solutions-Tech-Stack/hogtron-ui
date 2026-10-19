@@ -195,6 +195,7 @@ HH.defaults = {
       castbar = {
         width = 0,   -- 0 = as wide as the strip, else its own width centred on it (Sean 2026-10-18: sizes in /hh unlock)
         icon = true, showTarget = true, latency = true, gcd = false, hideBlizzard = true, precision = 1,
+        refresh = true,   -- eating / drinking shown as a cast filling over the buff (Castbar.CheckRefresh, 2026-10-18)
         castColor = { 0.13, 0.83, 0.88 }, channelColor = { 0.25, 0.80, 0.35 }, uninterruptibleColor = { 0.6, 0.6, 0.6 },
         failColor = { 0.85, 0.2, 0.2 },
         -- CastThemes.lua: the bar takes on the cast (holy / fire / frost / arcane / shadow / nature / mining / herbs /
