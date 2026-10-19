@@ -1,6 +1,7 @@
 # HogTron_Quests/Dialog.lua: the quest giver's pages in our window instead of Blizzard's (Sean 2026-10-14, from the
 # WoW Forever add-on clip #5 "Dialogue UI"). Blizzard's QuestFrame / GossipFrame here are real mock frames that log
 # every event they still receive, so "muted" is tested by what they hear, not by a flag we set ourselves.
+import pathlib
 import pytest
 
 from test_quests import MODERN
@@ -246,6 +247,38 @@ def test_gossip_lists_hand_ins_then_offers_then_open_quests_then_options(dlg):
     assert calls(dlg) == [["C_GossipInfo.SelectOption", 7], ["C_GossipInfo.SelectAvailableQuest", 101], ["C_GossipInfo.SelectActiveQuest", 55]]
     dlg.execute("CALLS = {}; HogTronUIDialogSecondary:Click()")
     assert calls(dlg) == [["C_GossipInfo.CloseGossip"]] and not shown(dlg)
+
+
+# Sean 2026-10-18 on the parchment page: "I also dont like this '!' and want one that fits more" -> the wax seals.
+def test_every_quest_line_wears_its_wax_seal(dlg):
+    dlg.execute('''
+      GAC = { { title = "Done Q", questID = 55, isComplete = true }, { title = "Open Q", questID = 56, isComplete = false } }
+      GAV = { { title = "New Q", questID = 101 }, { title = "Grey Q", questID = 102, isTrivial = true } }
+      GOPT = { { name = "Train me", gossipOptionID = 9, orderIndex = 1 } }
+      MockFire("GOSSIP_SHOW")''')
+
+    def row(i):
+        return f'_G["HogTronUIDialogRow" .. {D}.SlotOfPick({i})].icon'
+    want = [("Done Q", "dialog_quest_done", False), ("New Q", "dialog_quest_open", False), ("Grey Q", "dialog_quest_open", True),
+            ("Open Q", "dialog_quest_wait", False)]
+    for i, (title, art, grey) in enumerate(want, 1):
+        assert dlg.eval(f"{D}.model.picks[{i}].text") == title
+        tex = dlg.eval(f"{row(i)}:GetTexture()")
+        assert "HogTronUI" in tex and tex.endswith(art), title
+        assert dlg.eval(f"{row(i)}:IsShown()") is True and dlg.eval(f"{row(i)}:IsDesaturated()") is grey, title
+    assert dlg.eval(f"{row(5)}:IsShown()") is False                       # a gossip line keeps its ">" (no client icon)
+    for art in ("dialog_quest_open", "dialog_quest_done", "dialog_quest_wait"):
+        assert (pathlib.Path(__file__).resolve().parents[1] / "HogTronUI" / "Media" / f"{art}.tga").is_file(), art
+    # the same row later shows something plain: never left grey
+    dlg.execute('GAC = {}; GAV = { { title = "Fresh Q", questID = 103 } }; GOPT = {}; MockFire("GOSSIP_SHOW")')
+    assert dlg.eval(f"{row(1)}:IsDesaturated()") is False
+    # ... or a reward item: a page of rewards after a grey seal shows them in full colour
+    dlg.execute('GAC = {}; GAV = { { title = "Grey Q", questID = 102, isTrivial = true } }; GOPT = {}; MockFire("GOSSIP_SHOW")')
+    assert dlg.eval(f"{row(1)}:IsDesaturated()") is True
+    dlg.execute('CHOICES = { { "Sample Gloves", 1, 1, 2 }, { "Sample Tunic", 2, 1, 2 } }; MockFire("QUEST_DETAIL")')
+    greyed = dlg.eval("(function() local n = 0 for i = 1, 12 do local r = _G['HogTronUIDialogRow' .. i] "
+                      "if r and r:IsShown() and r.icon:IsShown() and r.icon:IsDesaturated() then n = n + 1 end end return n end)()")
+    assert greyed == 0
 
 
 def test_one_gossip_line_takes_space(dlg):

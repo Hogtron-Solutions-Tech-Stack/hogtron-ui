@@ -363,6 +363,8 @@ end
 function Region:SetTextColor(r, g, b, a) self._color = { r, g, b, a } end
 function Region:GetTextColor() return unpack(self._color) end
 function Region:SetVertexColor(r, g, b, a) self._color = { r, g, b, a } end
+function Region:SetDesaturated(v) self._desat = v and true or false end
+function Region:IsDesaturated() return self._desat == true end
 function Region:SetColorTexture(r, g, b, a) self._color = { r, g, b, a } end
 function Region:GetVertexColor() return unpack(self._color) end
 function Region:SetTexture(t) self._texture = t end
