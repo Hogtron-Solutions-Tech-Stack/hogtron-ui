@@ -56,6 +56,14 @@ def main() -> int:
     path = OUT / "units-player-target.png"
     side_by_side(shots).save(path)
     print("wrote", path.relative_to(ROOT))
+    # portraits on (off by default): player's on the left, target's on the right; the picture is the client's
+    lua.execute('''function SetPortraitTexture(tex, unit) tex:SetTexture("portrait:" .. unit) end
+      HogHeals.db.profile.units.player.portrait = true; HogHeals.db.profile.units.target.portrait = true
+      HogHealsUnits.Units.Refresh()''')
+    shots = [p.paint(lua.eval(name), margin=34 + 46) for name in ("HogUIPlayer", "HogUITarget")]
+    path = OUT / "units-portraits.png"
+    side_by_side(shots).save(path)
+    print("wrote", path.relative_to(ROOT))
     errs = [e["msg"] for e in lua.eval("HogHeals.errors").values()]
     print("addon errors:", errs or "none")
     return 1 if errs else 0
