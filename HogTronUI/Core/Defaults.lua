@@ -216,7 +216,8 @@ HH.defaults = {
       -- "row" = a row in the strip (xpHeight). Blizzard's experience bar is hidden while ours is the bar.
       xp = { mode = "bar", height = 10, width = 0, color = { 0.13, 0.83, 0.88 }, restedColor = { 0.13, 0.83, 0.88 }, restedAlpha = 0.35,
         questColor = { 0.25, 0.80, 0.35 }, questAlpha = 0.55, text = true, showRested = true, showQuest = true, showPace = true,
-        questMode = "complete", hideAtMax = true, fontSize = 0, art = true },   -- art = the painted energy fill (xp_fill / xp_rested)
+        questMode = "complete", hideAtMax = true, fontSize = 0, art = true,   -- art = the painted energy fill (xp_fill / xp_rested)
+        dividers = 20 },   -- lines cutting the bar into 20 (Blizzard's bubbles) | 10 | 0 = none (Sean 2026-10-18)
       pacing = { enabled = true, targetLength = 300, amber = 60, red = 20, showProjection = true },
       advisor = { enabled = true, margin = 0.9, onFrame = false, spells = {} },
     },
