@@ -1,0 +1,12 @@
+## Interface: 20505,20506,11508,11509,16001
+## Title: |cffF5EBDCHog|r|cff21D4E0Tron UI|r (everything)
+## Notes: Installs the whole HogTron UI suite through CurseForge: Core plus every module. Loads nothing itself; turn modules on or off one by one in the addon list.
+## Author: HogTron Solutions (Sean Bilger)
+## Version: @project-version@
+## Dependencies: HogTronUI
+## X-License: MIT
+## X-Website: https://github.com/Hogtron-Solutions-Tech-Stack/hogtron-ui
+
+# Intentionally no files. This folder is what the CurseForge project "HogTron UI" (1744106) ships since it became the
+# everything-package: the project requires HogTron UI Core and the 13 module projects, and the CurseForge app installs
+# them with it. dev/split/projects.json (bundle), docs/superpowers/research/curseforge-split.md.

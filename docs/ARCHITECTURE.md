@@ -4,7 +4,9 @@ A UI suite for **WoW: Forever** (and the Classic Era / TBC Anniversary clients):
 action bars, a cast/mana/XP HUD, nameplates, quest tracker and dialog, a dungeon guide and journal, a damage meter,
 chat, a skin for Blizzard's windows, end-of-run awards. Lua 5.1, no build step; tests run the real Lua in Python.
 
-Repo: `Hogtron-Solutions-Tech-Stack/hogtron-ui` (MIT). CurseForge project 1744106 ("HogTron UI").
+Repo: `Hogtron-Solutions-Tech-Stack/hogtron-ui` (MIT). CurseForge: "HogTron UI" (1744106) is the everything-package
+(a stub folder, `HogTron_Everything`, requiring Core 1753233 + the 13 module projects); ids in `dev/split/projects.json`.
+GitHub releases carry the all-in-one zip.
 
 ## 1. The addon folders
 

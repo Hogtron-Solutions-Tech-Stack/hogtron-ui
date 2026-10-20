@@ -28,6 +28,7 @@ move-folders:
   HogTronUI/HogHeals_Frames: HogHeals_Frames
   HogTronUI/HogTron_Awards: HogTron_Awards
   HogTronUI/HogTron_Journal: HogTron_Journal
+  HogTronUI/HogTron_Everything: HogTron_Everything
   HogTronUI/HogHeals: HogHeals
   HogTronUI/HogTronUI: HogTronUI
 

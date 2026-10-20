@@ -1,11 +1,15 @@
 name: release
 
-# Push a tag  -> tests -> build -> zip gate -> CurseForge (+ Wago if set up) + GitHub Release.
+# Push a tag  -> tests -> build -> zip gate -> uploads:
+#   job package: the all-in-one zip -> GitHub Release (+ Wago if set up). NOT CurseForge (-p 0).
+#   job split:   CurseForge, one upload per project: HogTron UI Core, the 13 modules, and the everything-package
+#                "HogTron UI" (1744106: a stub folder requiring Core + every module; uploads only once every one of
+#                those has a public file, dev/split/check_approved.py).
 #   v0.2.0-alpha.1 -> alpha file, v0.2.0-beta.1 -> beta file, v0.2.0 -> release file (packager reads the tag).
-# Anything else (PR, push to main, manual run) -> same build + gate, uploads NOTHING, zip kept as an artifact.
+# Anything else (PR, push to main, manual run) -> same builds + gates, uploads NOTHING, zips kept as artifacts.
 #
 # Repo secrets: CF_API_TOKEN (required for tags), WAGO_API_TOKEN (optional). HogTronUI/HogTronUI.toc needs
-# ## X-Curse-Project-ID. The packager skips an upload SILENTLY when either is missing, so the preflight
+# ## X-Curse-Project-ID (Core's id). The packager skips an upload SILENTLY when either is missing, so the preflight
 # below fails the tag build instead of letting it go green having shipped nothing.
 
 on:
@@ -82,11 +86,14 @@ jobs:
           WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
           GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          args: -n "HogTronUI-{project-version}"
+          # -p 0: no CurseForge upload from here. On CurseForge every folder lives in exactly one project (job split);
+          # the all-in-one would put Core + every module into a second project and the CurseForge app fights over them.
+          args: -p 0 -n "HogTronUI-{project-version}"
 
   # ---- per-module CurseForge projects (dev/split, docs/superpowers/research/curseforge-split.md) ----
   # Every project is BUILT and zip-gated on every run, so its packaging stays proven; a project is UPLOADED only on a
-  # tag AND while dev/split/projects.json says live (2026-10-18: on; every project has its id).
+  # tag AND while dev/split/projects.json says live (2026-10-18: on; every project has its id). The last row is the
+  # everything-package (bundle 1744106).
   split-matrix:
     runs-on: ubuntu-latest
     outputs:
@@ -128,6 +135,12 @@ jobs:
           else
             python dev/check_release_zip.py "$zip" --only "${{ matrix.project.folders }}"
           fi
+
+      - name: Everything-package - every dependency public?
+        # Its required-dependencies are Core + all 13 modules: upload it before CurseForge approved each of them and the
+        # app gets an install it can't complete. Fails THIS job only (fail-fast off); re-run it once they are public.
+        if: env.IS_TAG == 'true' && matrix.project.bundle && matrix.project.curse_id != ''
+        run: python dev/split/check_approved.py
 
       - name: Upload (tag + project created only)
         if: env.IS_TAG == 'true' && matrix.project.curse_id != ''

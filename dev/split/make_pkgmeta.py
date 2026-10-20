@@ -3,7 +3,8 @@
 Sean 2026-10-18: "have them install the Hogtron UI, but some of the other ones underneath it can be individual
 installs ... you can look them up on Curse Forge as well". Each project packages ONLY its own folder(s); a module
 declares the core project as a required dependency (CurseForge installs it with the module) once the core's slug is
-known. The all-in-one zip keeps using the repo-root .pkgmeta.
+known. The bundle project "HogTron UI" ships only the HogTron_Everything stub and requires Core + every module (the
+everything-package). The all-in-one zip (GitHub / Wago) keeps using the repo-root .pkgmeta.
 
     python dev/split/make_pkgmeta.py --write     # regenerate the configs (tests fail when they are stale)
     python dev/split/make_pkgmeta.py --matrix    # the GitHub Actions matrix (one JSON line)
@@ -51,6 +52,12 @@ def projects(cfg: dict) -> list[dict]:
     for m in cfg["modules"]:
         req = [core["slug"]] if core.get("slug") else []
         out.append({"name": m["name"], "title": m["title"], "folders": [m["name"]], "curse_id": m.get("curse_id", ""), "requires": req})
+    b = cfg.get("bundle") or {}
+    if b.get("folders"):
+        # the everything-package: ships only its stub, requires Core + every module (the CurseForge app installs them)
+        req = [s for s in [core.get("slug")] + [m.get("slug") for m in cfg["modules"]] if s]
+        out.append({"name": b["name"], "title": b["title"], "folders": b["folders"], "curse_id": b.get("curse_id", ""),
+                    "requires": req, "bundle": True})
     return out
 
 
@@ -91,7 +98,8 @@ def matrix() -> str:
     """curse_id is handed to the upload step only while projects.json says live: true (see its _readme)."""
     cfg = load()
     live = cfg.get("live") is True
-    rows = [{"name": p["name"], "folders": ",".join(p["folders"]), "curse_id": p["curse_id"] if live else ""} for p in projects(cfg)]
+    rows = [{"name": p["name"], "folders": ",".join(p["folders"]), "curse_id": p["curse_id"] if live else "",
+             "bundle": bool(p.get("bundle"))} for p in projects(cfg)]
     return json.dumps(rows, separators=(",", ":"))
 
 

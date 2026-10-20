@@ -7,7 +7,7 @@
 ## X-Category: UnitFrame
 ## X-License: MIT
 ## X-Website: https://github.com/Hogtron-Solutions-Tech-Stack/hogtron-ui
-## X-Curse-Project-ID: 1744106
+## X-Curse-Project-ID: 1753233
 
 embeds.xml
 Media\palette.lua
