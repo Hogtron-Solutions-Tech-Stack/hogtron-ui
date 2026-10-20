@@ -1,5 +1,31 @@
 # HogTron UI
 
+## v0.2.0-beta.3
+
+### New
+- **Eating and drinking show on the cast bar**, with their own strips: drink, food, or one "Food & Drink" bar when you
+  do both. Stand up and it goes away.
+- **Wax-seal quest marks** on the quest dialog's parchment: offered, finished and still-in-progress quests each get
+  their own seal; quests far below your level show greyed out.
+- **Attach your cast bar to your unit frame:** HUD > Castbar (or Units > Player) > Attach - under or over the player
+  frame. It takes the frame's width and follows it when you move the frame.
+- **Cast bar icon inside the bar**, spell name centred. Same on the target and focus cast bars.
+- **Who's targeting whom:** the target and focus frames show "» name" for who that unit is targeting ("» You" in red
+  when it's you), and their cast bars read "Shadow Bolt » You". Your own cast bar shows just the spell (the target name
+  is a switch in HUD > Castbar).
+- **Portraits** beside the player, target and focus frames: off by default, switch each on in its Units tab. Picture
+  (2D) or live model (3D) in Units > General.
+- **`/hh unlock` grid and snapping**, like Blizzard's Edit Mode: frames snap to each other, the screen centre and the
+  grid when you let go; a cyan line shows what they will line up with. Hold Shift to place freely. Toolbar at the top
+  (grid on/off, grid size, snap, lock).
+- **XP bar dividers are back:** 20 segments over the animated fill.
+- **Ore, herbs and chests:** the game's icon now sits inside the glow ring, clear of the name.
+
+### Fixed
+- The XP bar's animated fill never moved (and logged errors in the background); it now drifts toward the head.
+- Units: the portrait checkbox looked ticked while portraits were off. Each feature's settings now sit next to its
+  switch, in the tab where you would look for it.
+
 ## v0.2.0-beta.2
 
 ### New
