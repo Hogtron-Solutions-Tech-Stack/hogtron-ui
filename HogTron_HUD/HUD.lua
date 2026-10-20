@@ -127,11 +127,11 @@ function HUD.Create()
   castbar.bg = castbar:CreateTexture(nil, "BACKGROUND")
   castbar.bg:SetAllPoints(castbar)
   castbar.bg:SetColorTexture(0.07, 0.07, 0.09, 0.7)
-  castbar.icon = castbar:CreateTexture(nil, "ARTWORK")
-  castbar.icon:SetPoint("RIGHT", castbar, "LEFT", -2, 0)
+  -- the spell icon: inside the bar at its left end (Sean 2026-10-18: "I want to put the spell icon inside of the cast
+  -- bar ... it's kind of hanging off the left-hand side"), over the fill and the art; HUD.PlaceCastIcon / Castbar.Fill
+  castbar.icon = castbar:CreateTexture(nil, "OVERLAY", nil, 4)
   castbar.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)   -- trim Blizzard's baked icon border, like the unit-frame auras
   castbar.text = castbar:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
-  castbar.text:SetPoint("LEFT", castbar, "LEFT", 4, 0)
   castbar.time = castbar:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
   castbar.time:SetPoint("RIGHT", castbar, "RIGHT", -4, 0)
   castbar.latency = castbar:CreateTexture(nil, "OVERLAY", nil, 1)
@@ -270,7 +270,7 @@ function HUD.Layout()
       -- on the player frame: its width, our height, the icon hanging off the left in line with the frame's edge
       HUD.MakeMovable(row, name)
       local h = d[ROW_HEIGHT[name]] or 12
-      local pad = (type(sub) == "table" and sub.icon == false) and 0 or (h + 2)
+      local pad = (type(sub) == "table" and (sub.icon == false or sub.iconInside ~= false)) and 0 or (h + 2)   -- the icon inside: none
       local g = HUD.ATTACH_GAP
       row:ClearAllPoints()
       if side == "above" then
@@ -344,6 +344,37 @@ function HUD.ApplyAppearance()
   info.left:SetFont(font, size, "OUTLINE"); info.right:SetFont(font, size, "OUTLINE")
   cb.icon:SetSize(d.castbarHeight or 18, d.castbarHeight or 18)
   cb.icon:SetShown(d.castbar.icon ~= false)
+  HUD.PlaceCastIcon()
+end
+
+--- The cast bar's icon and spell name. iconInside (default): the icon fills the bar's left end and the fill starts at
+-- its right edge (Castbar.Fill); off: the old look, hanging off the left. textAlign "CENTER" (default; Sean 2026-10-18:
+-- "center the text for the actual spell name, just like the mana is below") sits the name on the bar's centre, kept
+-- clear of the icon and the seconds on both sides by the same margin; "LEFT" = after the icon.
+HUD.CAST_TIME_ROOM = 30     -- the seconds text ("10.0") on the right
+function HUD.PlaceCastIcon()
+  local cb = HUD.rows.castbar
+  if not cb then return end
+  local d = db()
+  local c = d.castbar or {}
+  local h = d.castbarHeight or 18
+  local inside = c.iconInside ~= false
+  local iconShown = c.icon ~= false
+  cb.icon:ClearAllPoints()
+  if inside then cb.icon:SetPoint("LEFT", cb, "LEFT", 0, 0) else cb.icon:SetPoint("RIGHT", cb, "LEFT", -2, 0) end
+  cb.text:ClearAllPoints()
+  local lead = (inside and iconShown) and (h + 4) or 4
+  if (c.textAlign or "CENTER") == "CENTER" then
+    local m = math.max(lead, HUD.CAST_TIME_ROOM + 4)
+    cb.text:SetPoint("LEFT", cb, "LEFT", m, 0)
+    cb.text:SetPoint("RIGHT", cb, "RIGHT", -m, 0)
+    cb.text:SetJustifyH("CENTER")
+  else
+    cb.text:SetPoint("LEFT", cb, "LEFT", lead, 0)
+    cb.text:SetPoint("RIGHT", cb, "RIGHT", -(HUD.CAST_TIME_ROOM + 4), 0)
+    cb.text:SetJustifyH("LEFT")
+  end
+  if cb.text.SetWordWrap then cb.text:SetWordWrap(false) end
 end
 
 function HUD.Refresh()

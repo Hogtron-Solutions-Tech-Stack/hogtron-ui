@@ -363,6 +363,8 @@ end
 function Region:SetTextColor(r, g, b, a) self._color = { r, g, b, a } end
 function Region:GetTextColor() return unpack(self._color) end
 function Region:SetVertexColor(r, g, b, a) self._color = { r, g, b, a } end
+function Region:SetJustifyH(j) self._justifyH = j; self._last.SetJustifyH = { j } end   -- (_last: dev/render_frame.py reads it)
+function Region:GetJustifyH() return self._justifyH end
 function Region:SetDesaturated(v) self._desat = v and true or false end
 function Region:IsDesaturated() return self._desat == true end
 function Region:SetColorTexture(r, g, b, a) self._color = { r, g, b, a } end

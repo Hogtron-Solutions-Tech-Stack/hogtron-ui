@@ -113,7 +113,7 @@ def test_fireball_wears_fire(th):
     assert spark != pytest.approx([1, 1, 1])
     # every frame: the motes move with the head of the fill, the glow breathes
     th.execute("MockState.time = MockState.time + 1.0; HogHealsHUD.Castbar.OnUpdate(HH_cb)")
-    assert th.eval(f"{T}.lastTick.head") == pytest.approx(100.0)  # 200 px bar, half way
+    assert th.eval(f"{T}.lastTick.head") == pytest.approx(18 + 182 * 0.5)  # 200 px bar, half way: the fill starts after the 18 px icon
     pts = list(th.eval(f"{T}.layers.motes[1]._points[1]").values())
     assert pts[0] == "CENTER" and pts[2] == "LEFT"
     th.execute('MockFire("UNIT_SPELLCAST_STOP", "player")')
@@ -262,9 +262,9 @@ def test_the_art_strip_fills_the_cast_and_scrolls_toward_the_spark(th):
     assert th.eval(f"{art}._texture").endswith("cast_fire")
     assert th.eval(f"{art}._blend") == "ADD"
     th.execute("MockState.time = MockState.time + 1.0; HogHealsHUD.Castbar.OnUpdate(HH_cb)")
-    assert th.eval(f"{art}:GetWidth()") == pytest.approx(100.0)          # half the 200 px bar: only the filled part
+    assert th.eval(f"{art}:GetWidth()") == pytest.approx(18 + 182 * 0.5)  # half way: only the filled part (after the 18 px icon)
     u0, u1, v0, v1 = th.eval(f"{art}._texCoord").values()
-    assert (u1 - u0) == pytest.approx(100 / (512 * 18 / 64))             # the strip keeps its shape at 18 px tall
+    assert (u1 - u0) == pytest.approx((18 + 182 * 0.5) / (512 * 18 / 64))  # the strip keeps its shape at 18 px tall
     assert (v0, v1) == (0, 1)
     th.execute("MockState.time = MockState.time + 0.5; HogHealsHUD.Castbar.OnUpdate(HH_cb)")
     assert list(th.eval(f"{art}._texCoord").values())[0] < u0           # moving toward the spark

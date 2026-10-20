@@ -754,7 +754,7 @@ function Units.BuildCastbar(f)
   bar.icon = bar:CreateTexture(nil, "ARTWORK")
   bar.icon:SetPoint("RIGHT", bar, "LEFT", -3, 0)
   if bar.icon.SetTexCoord then bar.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92) end
-  bar.text = text(bar, CREAM, "LEFT")
+  bar.text = text(bar, CREAM, "CENTER")      -- centred, like the HUD cast bar (2026-10-18)
   bar.text:SetPoint("LEFT", bar, "LEFT", 4, 0)
   bar.text:SetPoint("RIGHT", bar, "RIGHT", -4, 0)
   bar:SetScript("OnUpdate", Units.CastbarTick)
@@ -771,7 +771,8 @@ function Units.PlaceCastbar(f)
   if d.castbar == false then bar.casting = nil bar:Hide() return end
   local h = d.castbarHeight or 16
   bar:ClearAllPoints()
-  bar:SetPoint("BOTTOMLEFT", f, "TOPLEFT", 0, 6)
+  -- the icon stays inside the frame's width (it used to hang off the left): the bar starts after it
+  bar:SetPoint("BOTTOMLEFT", f, "TOPLEFT", h + 2, 6)
   bar:SetPoint("BOTTOMRIGHT", f, "TOPRIGHT", 0, 6)
   bar:SetHeight(h)
   bar.icon:SetSize(h, h)
