@@ -63,10 +63,19 @@ The packager we already use (BigWigsMods/packager) supports exactly this, per it
 ## Going live
 
 1. Done: `live` true, so a tag gives every project its first file for moderation (the bundle unchanged).
-2. **Once CurseForge approves the 14** (before that the dependencies can't install for anyone): one PR turning today's
-   project 1744106 ("HogTron UI") into the everything-package: its .pkgmeta ships a small stub folder and
-   `required-dependencies` on `hogtron-ui-core` + the 13 module slugs. Do this soon after approval: until it lands the
-   same folders are public in two projects.
+   - 2026-10-19: Core approved (its v0.2.0-beta.2 file public). 2026-10-20: the 13 module uploads re-run on the
+     v0.2.0-beta.2 tag, all 13 "Success!" -> in moderation.
+2. **Built (2026-10-20), merge only once CurseForge approved the 13 modules** (before that the dependencies can't
+   install for anyone): project 1744106 ("HogTron UI") becomes the everything-package.
+   - New folder `HogTron_Everything`: a toc only (no code), `## Dependencies: HogTronUI`.
+   - `dev/split/projects.json` bundle row + `make_pkgmeta.py`: `HogTron_Everything.pkgmeta` packs only the stub and
+     lists `required-dependencies` = `hogtron-ui-core` + the 13 module slugs. Every other config ignores the stub.
+   - `release.yml`: the all-in-one upload runs with `-p 0` (packager: unset the CurseForge id = no CurseForge upload),
+     so it goes to GitHub (+ Wago) only. The bundle is the last row of the split matrix; before its upload,
+     `dev/split/check_approved.py` checks every required project has a public file and fails that one job if not.
+   - `HogTronUI/HogTronUI.toc` `X-Curse-Project-ID` is now Core's 1753233 (that folder belongs to Core).
+   - The all-in-one zip carries the stub too (harmless: it loads nothing; the zip gate wants every addon folder).
+   - Where moderation stands, any time: `python dev/split/check_approved.py` (exit 0 = all 14 public).
 3. Tag a beta, install it on a second machine through the CurseForge app (both a fresh install and an update of the
    old all-in-one), then a public tag.
 

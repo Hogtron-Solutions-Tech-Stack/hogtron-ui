@@ -1,10 +1,15 @@
 {
-  "_readme": "One CurseForge project per entry (all created 2026-10-18). live=true (2026-10-18): on a tag every project gets its own upload, so CurseForge moderators have a first file to approve. The bundle (1744106) still ships everything until the projects are approved; the projects are not public before that, so no player sees the same folder in two projects. After approval: the bundle -> everything-package PR. Plan + migration: docs/superpowers/research/curseforge-split.md",
+  "_readme": "One CurseForge project per entry (all created 2026-10-18). live=true: on a tag every project gets its own upload. Core + the 13 modules each ship their own folder(s); the bundle 'HogTron UI' (1744106) is the everything-package: it ships only the HogTron_Everything stub and requires Core + every module, so installing it on CurseForge installs the whole suite. Its upload refuses to run until every one of those projects has a public file (dev/split/check_approved.py). The GitHub / Wago release keeps the all-in-one zip (repo-root .pkgmeta). Plan + migration: docs/superpowers/research/curseforge-split.md",
   "live": true,
   "bundle": {
+    "name": "HogTron_Everything",
     "title": "HogTron UI",
+    "folders": [
+      "HogTron_Everything"
+    ],
+    "slug": "hogtron-ui",
     "curse_id": "1744106",
-    "note": "today's all-in-one project (.pkgmeta at the repo root); unchanged by the split until the migration step"
+    "note": "the everything-package: a stub folder + required dependencies on Core and all 13 modules"
   },
   "core": {
     "name": "HogTronUI",

@@ -25,6 +25,7 @@ ignore:
   - HogTron_Atlas
   - HogTron_Awards
   - HogTron_Bars
+  - HogTron_Everything
   - HogTron_HUD
   - HogTron_Journal
   - HogTron_Meter
