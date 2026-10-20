@@ -204,6 +204,7 @@ HH.defaults = {
         -- showTarget: "Fireball » Zugzug". Off by default since 2026-10-18 (Sean: "The cast bar should only show the spell
         -- being cast by default, but they can add the target"); the target / focus frames say who they target instead.
         icon = true, showTarget = false, latency = true, gcd = false, hideBlizzard = true, precision = 1,
+        iconInside = true, textAlign = "CENTER",   -- icon in the bar's left end, name centred (Sean 2026-10-18)
         refresh = true,   -- eating / drinking shown as a cast filling over the buff (Castbar.CheckRefresh, 2026-10-18)
         castColor = { 0.13, 0.83, 0.88 }, channelColor = { 0.25, 0.80, 0.35 }, uninterruptibleColor = { 0.6, 0.6, 0.6 },
         failColor = { 0.85, 0.2, 0.2 },

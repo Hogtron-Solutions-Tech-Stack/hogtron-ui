@@ -24,8 +24,12 @@ def test_under_the_player_frame_as_wide_as_it_and_the_strip_closes_up(ed):  # no
     attach(ed, "below")
     assert ed.eval(f"{CB}.attached") == "below" and ed.eval(f"{CB}.detached") is None
     assert ed.eval(f"{CB}._points[1][2] == HogUIPlayer") and ed.eval(f"{CB}._points[2][2] == HogUIPlayer")
-    # the icon (18 px + 2) hangs off the left in line with the frame's edge; 4 px under the frame
+    # the icon sits inside the bar (2026-10-18): the bar spans the frame edge to edge, 4 px under it
+    assert sorted(points(ed)) == [("TOPLEFT", "BOTTOMLEFT", 0, -4), ("TOPRIGHT", "BOTTOMRIGHT", 0, -4)]
+    # the icon outside (the old look): it hangs off the left in line with the frame's edge (18 px + 2)
+    ed.execute("HogHeals.db.profile.hud.castbar.iconInside = false; HogHealsHUD.HUD.Refresh()")
     assert sorted(points(ed)) == [("TOPLEFT", "BOTTOMLEFT", 20, -4), ("TOPRIGHT", "BOTTOMRIGHT", 0, -4)]
+    ed.execute("HogHeals.db.profile.hud.castbar.iconInside = true; HogHealsHUD.HUD.Refresh()")
     assert ed.eval(f"{CB}:GetHeight()") == 18
     assert ed.eval("HogHealsHUD.HUD.rows.swing._points[1][5]") == 0        # the swing bar takes the cast bar's row
     assert errors(ed) == []

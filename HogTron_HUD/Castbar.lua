@@ -23,6 +23,19 @@ function Castbar.Progress(state, now)
   return p
 end
 
+--- Where the fill stands for progress p (0..1). With the icon inside the bar the fill starts at the icon's right edge,
+-- so no progress hides under it: p = 0 reaches the icon's edge, p = 1 the bar's end. The theme art and the spark follow
+-- the same number. Without an inside icon: p itself.
+function Castbar.Fill(b, p)
+  local c = cfg()
+  if c.iconInside == false or c.icon == false or not b or not b.icon then return p end
+  local w = b.GetWidth and b:GetWidth()
+  local iw = b.icon.GetWidth and b.icon:GetWidth()
+  if type(w) ~= "number" or type(iw) ~= "number" or w <= 0 or iw <= 0 or iw >= w then return p end
+  local inset = iw / w
+  return inset + (1 - inset) * p
+end
+
 local function round(x, places)
   local m = 10 ^ (places or 0)
   return math.floor(x * m + 0.5) / m
@@ -94,7 +107,7 @@ local function begin(state, name, texture, startMS, endMS, notInterruptible, cha
   end
   b.spark:Show()
   b:SetMinMaxValues(0, 1)
-  b:SetValue(channel and 1 or 0)
+  b:SetValue(Castbar.Fill(b, channel and 1 or 0))
   b:Show()
   b:SetScript("OnUpdate", function(self) Castbar.OnUpdate(self) end)
   Castbar.OnUpdate(b)
@@ -126,7 +139,7 @@ function Castbar.OnUpdate(b)
   local state = Castbar.state
   if not state.casting then return end
   local now = GetTime()
-  local p = Castbar.Progress(state, now)
+  local p = Castbar.Fill(b, Castbar.Progress(state, now))
   b:SetValue(p)
   if HHD.CastThemes then HHD.CastThemes.Tick(b, p, now) end
   local remaining = math.max(0, state.endTime - now)
