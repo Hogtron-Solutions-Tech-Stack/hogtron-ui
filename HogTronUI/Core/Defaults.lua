@@ -191,6 +191,13 @@ HH.defaults = {
         glowSize = 9, animate = true, hideBlizzard = true, bracketSize = 10,
       },   -- style: brackets | glow | scale | outline | none; brackets = hard corners, glow = lock on + breathe
       aggro = { warn = true, color = { 0.85, 0.20, 0.20 } },   -- healer pulled threat: red outline
+      -- threat on the health bar while a mob fights you (Sean 2026-10-20: "yellow, orange, red" as aggro goes up).
+      -- style border (bar keeps red hostile / yellow neutral, the border shows threat) | bar (the bar shows threat);
+      -- mode auto|dps|tank; warnAt / highAt = % of the threat that pulls the mob; colorSafe off = normal colour when safe
+      threat = { enabled = true, style = "border", mode = "auto", warnAt = 50, highAt = 80, colorSafe = true,
+        safeColor = { 0.30, 0.72, 0.38 }, risingColor = { 0.95, 0.82, 0.20 }, highColor = { 1.00, 0.50, 0.10 },
+        aggroColor = { 0.85, 0.20, 0.20 }, secureColor = { 0.30, 0.72, 0.38 }, slippingColor = { 1.00, 0.50, 0.10 },
+        lostColor = { 0.85, 0.20, 0.20 } },
       quest = { icon = true, highlight = false, progress = true, tint = false, iconSize = 16, color = { 0.95, 0.65, 0.15 } },
     },
     hud = {

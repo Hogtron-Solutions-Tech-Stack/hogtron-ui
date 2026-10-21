@@ -429,7 +429,7 @@ def test_target_mark_styles_and_size_cvars(plates):
     # aggro outline sits on top of the target mark
     plates.execute('TARGET = "nameplate21"; THREAT.nameplate21 = 3; MockFire("UNIT_THREAT_SITUATION_UPDATE", "nameplate21")')
     assert plates.eval(f'{uf}.hh.why') == "aggro" and plates.eval(f'{uf}.hh.glow:IsShown()') is True
-    assert plates.eval(f'{uf}.hh.edges[1]._color[1]') == pytest.approx(0.85)
+    assert plates.eval(f'{uf}.hh.tring[1]._color[1]') == pytest.approx(0.85)   # aggro = the threat ring (2026-10-20)
     plates.execute('CV = {}; function SetCVar(k, v) CV[k] = v end; HogHealsPlates.Plates.ApplyCVars()')
     assert plates.eval('CV.nameplateHorizontalScale') == "1.3" and plates.eval('CV.nameplateSelectedScale') == "1.15"
     assert errors(plates) == []
@@ -687,7 +687,7 @@ def test_brackets_follow_colour_options_aggro_and_recycling(plates):
     assert list(plates.eval(f'{uf}.hh.brackets[3]._color').values())[:3] == pytest.approx([1, 0.5, 0])
     plates.execute('THREAT.nameplate63 = 3; MockFire("UNIT_THREAT_SITUATION_UPDATE", "nameplate63")')
     assert plates.eval(f'{uf}.hh.why') == "aggro" and plates.eval(f'{uf}.hh.bracketed') is True   # red edge + brackets
-    assert plates.eval(f'{uf}.hh.edges[1]._color[1]') == pytest.approx(0.85)
+    assert plates.eval(f'{uf}.hh.tring[1]._color[1]') == pytest.approx(0.85)   # aggro = the threat ring (2026-10-20)
     plates.execute('HogHeals.db.profile.plates.target.style = "arrows"; HogHealsPlates.Plates.Refresh()')       # older profiles
     assert plates.eval(f'{uf}.hh.bracketed') is True
     plates.execute('HogHeals.db.profile.plates.target.style = "none"; HogHealsPlates.Plates.Refresh()')
