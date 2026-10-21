@@ -85,6 +85,7 @@ function Plates.Skin(uf)
   hh.overlay:SetAllPoints(anchor)
   hh.overlay:SetFrameLevel(((anchor.GetFrameLevel and anchor:GetFrameLevel()) or 1) + 5)
   hh.edges = {}
+  hh.edgeAnchor = anchor   -- the threat ring (Plates.ThreatRing) sits around the same box
   local spec = { { "TOPLEFT", "TOPRIGHT", -1, 1, 1, 1, nil, 1 }, { "BOTTOMLEFT", "BOTTOMRIGHT", -1, -1, 1, -1, nil, 1 },
     { "TOPLEFT", "BOTTOMLEFT", -1, 1, -1, -1, 1, nil }, { "TOPRIGHT", "BOTTOMRIGHT", 1, 1, 1, -1, 1, nil } }
   for i, s in ipairs(spec) do
@@ -250,9 +251,10 @@ function Plates.Color(uf)
   if not hh or not hh.bar or not hh.unit or d.enabled == false then return end
   local r, g, b = Plates.ColorFor(hh.unit)
   if hh.questInfo and d.quest.tint then r, g, b = d.quest.color[1], d.quest.color[2], d.quest.color[3] end
-  if not r then return end
   hh.lock = true
-  call(hh.bar.SetStatusBarColor, hh.bar, r, g, b)
+  -- a mob fighting you takes its threat colour (Plates.ThreatPaint); otherwise the normal one
+  local ok, painted = pcall(Plates.ThreatPaint, uf)
+  if not (ok and painted) and r then call(hh.bar.SetStatusBarColor, hh.bar, r, g, b) end
   hh.lock = false
 end
 
@@ -699,19 +701,25 @@ function Plates.UpdateHighlight(uf)
   -- magnify only when asked (Sean 2026-09-23: "don't like ... making it slightly bigger")
   local grow = (isTarget and style == "scale") and (d.target.scale or 1.25) or 1
   if uf.SetScale and hh.scale ~= grow then hh.scale = grow call(uf.SetScale, uf, grow) end
-  if hh.nameOnly then for _, e in ipairs(hh.edges) do e:Hide() end marks(nil) Plates.QuietBlizzard(uf, false) uf:SetAlpha(1) return "nameonly" end
+  if hh.nameOnly then for _, e in ipairs(hh.edges) do e:Hide() end Plates.ThreatRing(uf, nil) marks(nil) Plates.QuietBlizzard(uf, false) uf:SetAlpha(1) return "nameonly" end
   local threat = num(call(UnitThreatSituation, "player", unit))
   local tc = d.target.color or TARGET_COLOR
   local glowing = isTarget and style == "glow"
   local color, why, thick
-  if d.aggro.warn and threat and threat >= 2 then color, why, thick = d.aggro.color, "aggro", 2
+  local okT, tcol, tcurve, tsecret, tlevel = pcall(Plates.ThreatBorder, uf)
+  if not okT then tcol, tcurve = nil, nil end
+  -- threat border: the dark 1 px line stays on the bar, the colour goes on a ring just outside it (a red ring straight on a
+  -- red bar melted into the fill in the preview)
+  local ring = tcol or (tcurve and "curve") or nil
+  if ring then color, why, thick = LINE, tlevel == "aggro" and "aggro" or "threat", 1
+  elseif d.aggro.warn and threat and threat >= 2 then color, why, thick = d.aggro.color, "aggro", 2
   elseif isTarget and style == "outline" then color, why, thick = tc, "target", 2
   -- the target's glow owns its edge: an amber line inside cyan light read as clutter (2026-09-24); the ! badge
   -- beside the bar still says "quest mob"
   -- off by default (Sean 2026-09-28: "that yellow outline ... remove for a cleaner look"); the ! badge marks quest mobs
   elseif d.quest.highlight and hh.questInfo and not glowing then color, why, thick = d.quest.color, "quest", 1
   elseif d.enabled ~= false and d.border ~= false then color, why, thick = LINE, "plain", 1 end
-  if isTarget and why ~= "aggro" then why = "target" end
+  if isTarget and why ~= "aggro" and why ~= "threat" then why = "target" end
   for i, e in ipairs(hh.edges) do
     if color then
       e:SetColorTexture(color[1], color[2], color[3], 1)
@@ -721,6 +729,7 @@ function Plates.UpdateHighlight(uf)
       e:Hide()
     end
   end
+  Plates.ThreatRing(uf, ring, tcurve, tsecret)
   marks(isTarget and (style == "glow" or style == "brackets") and style or nil, tc)
   Plates.QuietBlizzard(uf, isTarget and style ~= "none" and d.target.hideBlizzard ~= false)
   local hasTarget = bool(call(UnitExists, "target")) or false
@@ -835,6 +844,7 @@ function Plates.FriendlyLook(uf)
     end
   end
   for _, e in ipairs(hh.edges or {}) do if nameOnly then e:Hide() end end
+  if nameOnly then Plates.ThreatRing(uf, nil) end
   if nameOnly and hh.questFrame then hh.questFrame:Hide() end
   -- name-only plates carry the name in a bigger font (Sean: "match my own font above my head")
   if uf.name then
@@ -956,6 +966,7 @@ function Plates.StandDown(uf)
     if type(p) == "table" and p.Hide then call(p.Hide, p) end
   end
   for _, e in ipairs(hh.edges or {}) do e:Hide() end
+  pcall(Plates.ThreatRing, uf, nil)
   pcall(Plates.Light, uf, false)
   pcall(Plates.Bracket, uf, false)
   Plates.stoodDown = (Plates.stoodDown or 0) + 1
@@ -1074,9 +1085,256 @@ local function questChanged()
   if C_Timer and C_Timer.After then C_Timer.After(0.2, run) else run() end
 end
 
+-- ------------------------------------------------------------------------------------------------ threat colours
+--- The health bar takes the colour of the mob's threat on you while it fights (Sean 2026-10-20: "changing the color of
+-- the plates as aggro goes up ... yellow, orange, red"), the Threat Plates / Plater idea.
+--   Damage / healing: safe (green, plates.threat.colorSafe) -> rising (yellow, >= warnAt % of what pulls it) -> about to
+--   pull (orange, threat status 1 or >= highAt %) -> it is on you (red, status 2 / 3).
+--   Tank: on you and secure (green) -> slipping (orange, status 2) -> someone else has it (red, status 0 / 1).
+-- A mob that has no threat on you (not fighting you or your group) keeps its normal colour.
+-- threat.style "border" (default): the BAR keeps its reaction colour (red hostile, yellow neutral - Sean: "I still want
+-- to be able to differentiate between aggressive mobs and non-aggressive mobs") and the plate's border takes the threat
+-- colour, thick. "bar": the bar itself takes the threat colour while the mob fights you.
+-- Forever has C_Secrets.ShouldUnitThreatStateBeSecret / ...ValuesBeSecret, so the state can come back SECRET: never
+-- compared then; a colour curve (C_CurveUtil.CreateColorCurve) may still turn it into a colour, else the bar keeps its
+-- normal colour. What the client handed over is recorded in diag.threat (/hh threatdiag) either way.
+local THREAT_LEVELS = { "safe", "rising", "high", "aggro", "secure", "slipping", "lost" }
+Plates.THREAT_LEVELS = THREAT_LEVELS
+-- GetShapeshiftFormID: Bear Form 5, Dire Bear Form 8, Defensive Stance 18. Righteous Fury (paladin) is a buff.
+local TANK_FORMS = { [5] = true, [8] = true, [18] = true }
+local RIGHTEOUS_FURY = 25780
+
+local function describe(v)
+  if isSecret(v) then return "secret" end
+  if v == nil then return "nil" end
+  return tostring(v)
+end
+
+--- Every return of f, or false + the error text.
+local function try(f, ...)
+  if type(f) ~= "function" then return false, "absent" end
+  return pcall(f, ...)
+end
+
+--- Am I the tank? threat.mode "tank" / "dps" decides; "auto": the group role, a tank form / stance, Righteous Fury.
+function Plates.IsTank()
+  local d = cfg().threat or {}
+  if d.mode == "tank" then return true, "mode" elseif d.mode == "dps" then return false, "mode" end
+  local role = call(UnitGroupRolesAssigned, "player")
+  if type(role) == "string" and not isSecret(role) and role == "TANK" then return true, "role" end
+  local form = num(call(GetShapeshiftFormID))
+  if form and TANK_FORMS[form] then return true, "form " .. form end
+  local ua = rawget(_G, "C_UnitAuras")
+  if type(ua) == "table" and type(ua.GetPlayerAuraBySpellID) == "function" then
+    local aura = call(ua.GetPlayerAuraBySpellID, RIGHTEOUS_FURY)
+    if type(aura) == "table" then return true, "righteous fury" end
+  end
+  return false, "auto"
+end
+
+--- Note what the client handed over (diag.threat): counts per kind + the last record of each kind.
+function Plates.NoteThreat(kind, rec)
+  local g = HH.db and HH.db.global
+  if not g then return end
+  g.diag = g.diag or {}
+  local t = g.diag.threat or {}
+  t.counts = t.counts or {}
+  t.last = t.last or {}
+  t.counts[kind] = (t.counts[kind] or 0) + 1
+  if rec then
+    rec.at = date and date("%Y-%m-%d %H:%M:%S") or "?"
+    rec.inCombat = describe(call(InCombatLockdown))
+    t.last[kind] = rec
+  end
+  g.diag.threat = t
+end
+
+--- The threat level of a unit: nil (no threat on you: normal colour), a level name (THREAT_LEVELS), or "secret" + the
+-- secret status. Also returns the tank flag.
+function Plates.ThreatLevel(unit)
+  local d = cfg().threat or {}
+  local tank = Plates.IsTank()
+  local status, pct, err
+  if type(UnitDetailedThreatSituation) == "function" then
+    local ok, _, st, scaled = pcall(UnitDetailedThreatSituation, "player", unit)
+    if ok then status, pct = st, scaled else err = tostring(_) end
+  end
+  if not isSecret(status) and status == nil and type(UnitThreatSituation) == "function" then
+    local ok, st = pcall(UnitThreatSituation, "player", unit)
+    if ok then status = st else err = (err and err .. " | " or "") .. tostring(st) end
+  end
+  if err then Plates.NoteThreat("error", { err = err:sub(1, 200) }) end
+  if isSecret(status) then
+    local sec = rawget(_G, "C_Secrets")
+    local okS, s1 = try(type(sec) == "table" and sec.ShouldUnitThreatStateBeSecret, unit)
+    local okV, s2 = try(type(sec) == "table" and sec.ShouldUnitThreatValuesBeSecret, unit)
+    Plates.NoteThreat("secret", { status = "secret", pct = describe(pct), tank = tank and "yes" or "no",
+      stateSecret = okS and describe(s1) or ("ERR " .. tostring(s1)), valuesSecret = okV and describe(s2) or ("ERR " .. tostring(s2)) })
+    return "secret", tank, status
+  end
+  status = num(status)
+  if not status then Plates.NoteThreat("none") return nil, tank end
+  pct = num(pct)
+  local level
+  if tank then
+    level = status >= 3 and "secure" or status == 2 and "slipping" or "lost"
+  elseif status >= 2 then level = "aggro"
+  elseif status == 1 or (pct and pct >= (d.highAt or 80)) then level = "high"
+  elseif pct and pct >= (d.warnAt or 50) then level = "rising"
+  else level = "safe" end
+  Plates.NoteThreat("plain", { status = tostring(status), pct = describe(pct), tank = tank and "yes" or "no", level = level })
+  return level, tank
+end
+
+--- The colour for a plain level, nil = keep the normal colour ("safe" when colorSafe is off).
+function Plates.ThreatColor(level)
+  local d = cfg().threat or {}
+  if not level or ((level == "safe" or level == "secure") and d.colorSafe == false) then return nil end
+  local c = d[level .. "Color"]
+  if type(c) == "table" then return c[1], c[2], c[3] end
+end
+
+--- A step curve status 0..3 -> colour, for a SECRET status (never compared by us). nil when this client has no curves.
+local curves = {}
+function Plates.ThreatCurve(tank, border)
+  local key = (tank and "tank" or "dps") .. (border and "-border" or "")
+  if curves[key] ~= nil then return curves[key] or nil end
+  local cu = rawget(_G, "C_CurveUtil")
+  local okC, curve = try(type(cu) == "table" and cu.CreateColorCurve)
+  if not okC or curve == nil or type(CreateColor) ~= "function" then
+    curves[key] = false
+    Plates.NoteThreat("curve", { result = "no curve: " .. tostring(curve) })
+    return nil
+  end
+  local lt = rawget(_G, "Enum") and Enum.LuaCurveType
+  if lt and lt.Step and curve.SetType then pcall(curve.SetType, curve, lt.Step) end
+  local d = cfg().threat or {}
+  local function col(level)
+    local c = d[level .. "Color"] or { 1, 1, 1 }
+    if border and d.colorSafe == false and (level == "safe" or level == "secure") then c = LINE end
+    return CreateColor(c[1], c[2], c[3], 1)
+  end
+  local points = tank and { "lost", "lost", "slipping", "secure" } or { "safe", "high", "aggro", "aggro" }
+  for i, level in ipairs(points) do
+    local ok, e = pcall(curve.AddPoint, curve, i - 1, col(level))
+    if not ok then curves[key] = false Plates.NoteThreat("curve", { result = "AddPoint: " .. tostring(e) }) return nil end
+  end
+  curves[key] = curve
+  return curve
+end
+
+--- Settings changed: curves are rebuilt with the new colours.
+function Plates.ResetThreatCurves() curves = {} end
+
+--- Paint the bar by threat. True when it painted (the caller then leaves the normal colour off).
+function Plates.ThreatPaint(uf)
+  local hh, d = uf.hh, cfg().threat
+  if not d or d.enabled == false or not hh or not hh.bar or hh.nameOnly then return false end
+  if (d.style or "border") ~= "bar" then return false end
+  if bool(call(UnitIsPlayer, hh.unit)) or bool(call(UnitIsFriend, "player", hh.unit)) then return false end
+  local level, tank, secret = Plates.ThreatLevel(hh.unit)
+  hh.threat = level
+  if level == "secret" then
+    local curve = Plates.ThreatCurve(tank)
+    if not curve then return false end
+    local ok, e = pcall(function()
+      local c = curve:Evaluate(secret)
+      hh.bar:SetStatusBarColor(c:GetRGB())
+    end)
+    Plates.NoteThreat(ok and "curveDrew" or "curveFailed", { result = ok and "painted from a secret status" or tostring(e):sub(1, 200) })
+    return ok
+  end
+  local r, g, b = Plates.ThreatColor(level)
+  if not r then return false end
+  call(hh.bar.SetStatusBarColor, hh.bar, r, g, b)
+  return true
+end
+
+--- Style "border": the threat colour for the plate's edges. Returns colour {r,g,b} + level, or nil, curve, secret status
+-- (a secret status is painted through the curve, never compared). nil = no threat border.
+function Plates.ThreatBorder(uf)
+  local hh, d = uf.hh, cfg().threat
+  if not d or d.enabled == false or (d.style or "border") ~= "border" or not hh or not hh.unit or hh.nameOnly then return nil end
+  if bool(call(UnitIsPlayer, hh.unit)) or bool(call(UnitIsFriend, "player", hh.unit)) then return nil end
+  local level, tank, secret = Plates.ThreatLevel(hh.unit)
+  hh.threat = level
+  if level == "secret" then return nil, Plates.ThreatCurve(tank, true), secret end
+  local r, g, b = Plates.ThreatColor(level)
+  if r then return { r, g, b }, nil, nil, level end
+end
+
+--- The threat ring: 2 px of colour just outside the plate's dark 1 px line. colour {r,g,b}, "curve" (paint from the
+-- curve with the secret status) or nil (hidden).
+local RING = 2
+function Plates.ThreatRing(uf, colour, curve, secret)
+  local hh = uf and uf.hh
+  if not hh then return end
+  if not colour then
+    for _, e in ipairs(hh.tring or {}) do e:Hide() end
+    return
+  end
+  local anchor = hh.edgeAnchor
+  if not anchor or not hh.overlay then return end
+  if not hh.tring then
+    hh.tring = {}
+    local o = 1 + RING
+    local spec = { { "TOPLEFT", -o, o, "TOPRIGHT", o, o, nil, RING }, { "BOTTOMLEFT", -o, -o, "BOTTOMRIGHT", o, -o, nil, RING },
+      { "TOPLEFT", -o, o, "BOTTOMLEFT", -o, -o, RING, nil }, { "TOPRIGHT", o, o, "BOTTOMRIGHT", o, -o, RING, nil } }
+    for i, s in ipairs(spec) do
+      local e = hh.overlay:CreateTexture(nil, "OVERLAY")
+      e:SetPoint(s[1], anchor, s[1], s[2], s[3])
+      e:SetPoint(s[4], anchor, s[4], s[5], s[6])
+      if s[7] then e:SetWidth(s[7]) end
+      if s[8] then e:SetHeight(s[8]) end
+      hh.tring[i] = e
+    end
+  end
+  if colour == "curve" then
+    local ok, err = pcall(function()
+      local c = curve:Evaluate(secret)
+      for _, e in ipairs(hh.tring) do e:SetColorTexture(c:GetRGB()) e:Show() end
+    end)
+    Plates.NoteThreat(ok and "curveDrew" or "curveFailed", { result = ok and "border from a secret status" or tostring(err):sub(1, 200) })
+    if not ok then for _, e in ipairs(hh.tring) do e:Hide() end end
+    return
+  end
+  for _, e in ipairs(hh.tring) do e:SetColorTexture(colour[1], colour[2], colour[3], 1) e:Show() end
+end
+
+--- /hh threatdiag lines.
+function Plates.ThreatDiagnose()
+  local out, d = {}, cfg().threat or {}
+  local tank, why = Plates.IsTank()
+  out[#out + 1] = ("threat colours: %s   mode: %s   I'm the tank: %s (%s)"):format(d.enabled == false and "off" or "on", d.mode or "auto", tank and "yes" or "no", why)
+  out[#out + 1] = ("APIs: UnitDetailedThreatSituation=%s UnitThreatSituation=%s C_CurveUtil.CreateColorCurve=%s"):format(
+    type(UnitDetailedThreatSituation), type(UnitThreatSituation), type(rawget(_G, "C_CurveUtil") and C_CurveUtil.CreateColorCurve))
+  local t = HH.db and HH.db.global and HH.db.global.diag and HH.db.global.diag.threat or {}
+  local parts = {}
+  for k, n in pairs(t.counts or {}) do parts[#parts + 1] = k .. "=" .. n end
+  table.sort(parts)
+  out[#out + 1] = "seen: " .. (#parts > 0 and table.concat(parts, " ") or "nothing yet - fight something")
+  for k, rec in pairs(t.last or {}) do
+    local f = {}
+    for kk, vv in pairs(rec) do f[#f + 1] = kk .. "=" .. tostring(vv) end
+    table.sort(f)
+    out[#out + 1] = "  last " .. k .. ": " .. table.concat(f, " ")
+  end
+  for unit, uf in pairs(Plates.active or {}) do
+    if uf.hh and uf.hh.threat then out[#out + 1] = ("  %s now: %s"):format(unit, tostring(uf.hh.threat)) end
+  end
+  return out
+end
+
+HH:RegisterSlash("threatdiag", function()
+  local ok, lines = pcall(Plates.ThreatDiagnose)
+  if not ok then HH:Print("threatdiag failed: " .. tostring(lines)) return end
+  for _, l in ipairs(lines) do HH:Print(l) end
+end, "what this client tells addons about threat (the nameplate threat colours)")
+
 local EVENTS = { "NAME_PLATE_UNIT_ADDED", "NAME_PLATE_UNIT_REMOVED", "PLAYER_TARGET_CHANGED", "UNIT_THREAT_SITUATION_UPDATE",
   "UNIT_THREAT_LIST_UPDATE", "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_FACTION", "QUEST_LOG_UPDATE", "UNIT_QUEST_LOG_CHANGED",
-  "QUEST_ACCEPTED", "QUEST_REMOVED", "PLAYER_ENTERING_WORLD" }
+  "QUEST_ACCEPTED", "QUEST_REMOVED", "PLAYER_ENTERING_WORLD", "PLAYER_REGEN_ENABLED", "PLAYER_REGEN_DISABLED",
+  "UPDATE_SHAPESHIFT_FORM", "PLAYER_ROLES_ASSIGNED" }
 
 function Plates.OnEvent(_, e, unit)
   if e == "NAME_PLATE_UNIT_ADDED" then Plates.Added(unit)
@@ -1088,7 +1346,10 @@ function Plates.OnEvent(_, e, unit)
     if type(tuf) == "table" and tuf.hh then pcall(Plates.NoteFill, tuf) end
   elseif e == "UNIT_THREAT_SITUATION_UPDATE" or e == "UNIT_THREAT_LIST_UPDATE" then
     local uf = unit and Plates.active[unit]
-    if uf then Plates.UpdateHighlight(uf) elseif unit == "player" or not unit then Plates.ForEach(Plates.UpdateHighlight) end
+    if uf then Plates.Color(uf) Plates.UpdateHighlight(uf)
+    elseif unit == "player" or not unit then Plates.ForEach(Plates.Color) Plates.ForEach(Plates.UpdateHighlight) end
+  elseif e == "PLAYER_REGEN_ENABLED" or e == "PLAYER_REGEN_DISABLED" or e == "UPDATE_SHAPESHIFT_FORM" or e == "PLAYER_ROLES_ASSIGNED" then
+    Plates.ForEach(Plates.Color)
   elseif e == "UNIT_HEALTH" or e == "UNIT_MAXHEALTH" then
     local uf = unit and Plates.active[unit]
     if uf then
