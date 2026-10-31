@@ -10,7 +10,7 @@ Opinionated, small, mouseover-first. Not another ElvUI — the one good thing fr
 ## Install (testers)
 
 1. Download `HogTronUI-<version>.zip` from [Releases](../../releases).
-2. Unzip and drop **every** `HogHeals*` folder into `World of Warcraft\_classic_beta_\Interface\AddOns\` (or `_classic_era_` / `_classic_`).
+2. Unzip and drop **every** `HogHeals*` folder into `World of Warcraft\_forever_\Interface\AddOns\` (WoW: Forever; or `_classic_beta_` / `_classic_era_` / `_classic_`).
 3. Full game start, then `/hh`.
 
 Bugs: open an issue with `/hh version`, `/hh errors` output (or, after a `/reload`, your `SavedVariables\HogHeals.lua`: it carries the error log and client probes), a screenshot and one line on what you did.
