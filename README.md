@@ -5,12 +5,12 @@ Opinionated, small, mouseover-first. Not another ElvUI — the one good thing fr
 
 > Naming: **HogTron UI** is the umbrella; **HogHeals** is the healer-frames module it grew out of. Addon folders keep the `HogHeals_*` names for good: saved variables and every module namespace key off them, and a rename would reset every player's settings. Players see "HogTron UI" in the addon list and on CurseForge.
 
-**Status:** public beta (0.1.0-beta.1). Built and unit-tested; in-game testing is what the beta is for - see [docs/TESTERS.txt](docs/TESTERS.txt).
+**Status:** public beta (v0.2.0-beta.3 on [CurseForge](https://www.curseforge.com/wow/addons/hogtron-ui) and Releases). Built and unit-tested; in-game testing is what the beta is for - see [docs/TESTERS.txt](docs/TESTERS.txt).
 
 ## Install (testers)
 
 1. Download `HogTronUI-<version>.zip` from [Releases](../../releases).
-2. Unzip and drop **every** `HogHeals*` folder into `World of Warcraft\_forever_\Interface\AddOns\` (WoW: Forever; or `_classic_beta_` / `_classic_era_` / `_classic_`).
+2. Unzip and drop **every** folder in it (`HogTronUI`, `HogHeals*`, `HogTron_*` - 15 in all) into `World of Warcraft\_forever_\Interface\AddOns\` (WoW: Forever; or `_anniversary_` / `_classic_era_`). Or install "HogTron UI" from the CurseForge app.
 3. Full game start, then `/hh`.
 
 Bugs: open an issue with `/hh version`, `/hh errors` output (or, after a `/reload`, your `SavedVariables\HogHeals.lua`: it carries the error log and client probes), a screenshot and one line on what you did.
@@ -49,7 +49,7 @@ Mockups (arc vs 2x2 layout, cards, prompt, all 75 icons, settings): `docs/mockup
 ## Install (developers)
 
 ```powershell
-.\dev\link.ps1 -Client anniversary     # junction both addons into _anniversary_\Interface\AddOns
+.\dev\link.ps1 -Client forever         # junction all 15 addon folders into _forever_\Interface\AddOns (anniversary / era / beta too)
 ```
 
 In game: `/reload`, then
