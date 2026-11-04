@@ -1030,3 +1030,33 @@ def test_the_geometry_record_reads_all_four_hit_insets(bars):
     # Sean's 2026-10-17 save read "hit insets 0 0 nil nil": the helper keeps two values
     bars.execute("local b = HogUIBar1.buttons[1]; function b:GetHitRectInsets() return 0, 1, 2, 3 end; HogHealsBars.Bars.SaveGeometry()")
     assert "hit insets 0 1 2 3" in bars.eval("HogHeals.db.global.diag.barsGeometry.lines")
+
+
+def test_hotkey_text_is_short_without_libkeybound():
+    # in game 2026-11-03 (Anniversary, first run): bar hotkeys read "SHIF" / "CTR" / "BUTT" - the lib short-keys only through
+    # LibKeyBound, which we do not ship, so the raw "SHIFT-1" went to the font string and the width cut it. Run the real
+    # lib.hhShortKey: GetBindingText(key, 1) when the client abbreviates, our own map when it is missing, throws or does not shorten.
+    from lupa.lua51 import LuaRuntime
+    src = _lab_src().splitlines()
+    a = next(k for k, l in enumerate(src) if l.startswith("local HH_SHORT = {"))
+    b = next(k for k in range(a + 1, len(src)) if src[k] == "end")
+    chunk = chr(10).join(src[a:b + 1])
+    cases = {"SHIFT-1": "s-1", "CTRL-BUTTON4": "c-m4", "ALT-MOUSEWHEELUP": "a-wU", "NUMPADPLUS": "n+", "CTRL-SHIFT-F7": "c-s-F7", "F7": "F7", "": ""}
+    for client, label in (("", "no GetBindingText"),
+                          ("function GetBindingText(k) error('nope') end", "throwing"),
+                          ("function GetBindingText(k, abbr) return 'KEY_' .. k end", "not shorter (old prefix signature)")):
+        rt = LuaRuntime()
+        rt.execute("lib = {} " + client)
+        rt.execute(chunk)
+        for key, want in cases.items():
+            assert rt.eval(f'lib.hhShortKey("{key}")') == want, (label, key)
+        assert rt.eval("lib.hhShortKey(nil)") is None
+    rt = LuaRuntime()
+    rt.execute("lib = {} function GetBindingText(k, abbr) ABBR = abbr if k == 'SHIFT-1' then return 's-1' end return k end")
+    rt.execute(chunk)
+    assert rt.eval('lib.hhShortKey("SHIFT-1")') == "s-1" and rt.eval("ABBR") == 1     # the client's own abbreviation wins
+    assert rt.eval('lib.hhShortKey("CTRL-1")') == "c-1"                                # unchanged by the client -> our map
+    # and GetHotkey (the hotkey text source for every lib button) takes that path when LibKeyBound is absent
+    a = next(k for k, l in enumerate(src) if l.startswith("function Generic:GetHotkey()"))
+    body = chr(10).join(src[a:a + 12])
+    assert "if KeyBound then return KeyBound:ToShortKey(key) end" in body and "return lib.hhShortKey(key)" in body
