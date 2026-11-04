@@ -23,7 +23,7 @@ HH.defaults = {
     locked = true,
     -- /hh unlock (Core/EditMode.lua): a grid every gridSize px from the screen's centre, frames snap on letting go
     -- (Sean 2026-10-18: "I want a grid and I want snapping elements"); switched on the edit-mode toolbar
-    edit = { grid = true, gridSize = 32, snap = true },
+    edit = { grid = true, gridSize = 32, snap = true, gameMenu = true },   -- gameMenu: the Escape menu's Edit Mode button becomes HogTron Edit Mode (Sean 2026-11-03)
     minimap = { hide = true },
     wizardDone = false,
     units = {

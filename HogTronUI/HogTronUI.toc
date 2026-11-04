@@ -23,6 +23,7 @@ Core\Options.lua
 Core\Panel.lua
 Core\Setup.lua
 Core\EditMode.lua
+Core\GameMenu.lua
 Core\Perf.lua
 Core\AtlasProbe.lua
 Core\Session.lua
