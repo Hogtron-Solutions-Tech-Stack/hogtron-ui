@@ -44,6 +44,30 @@ EM.UNITS = { player = "HogUIPlayer", target = "HogUITarget", targettarget = "Hog
 EM.UNIT_LABEL = { player = "Player frame", target = "Target frame", targettarget = "Target of target", pet = "Pet frame", focus = "Focus frame" }
 
 --- Everything editable right now: { key, path, title, mover, saver, how = "click" | "gear" }. Only frames that exist.
+--- Chat windows that can be moved: the dock (ChatFrame1) and every shown undocked window.
+function EM.ChatTargets()
+  local out = {}
+  local n = tonumber(G("NUM_CHAT_WINDOWS")) or 10
+  for i = 1, n do
+    local cf = G("ChatFrame" .. i)
+    if type(cf) == "table" and type(cf.GetName) == "function" and (i == 1 or not cf.isDocked) and call(cf.IsShown, cf) then
+      local name = call(G("GetChatWindowInfo"), i)
+      if type(name) ~= "string" or name == "" then name = cf.name end
+      local title = i == 1 and "Chat" or ("Chat: " .. (type(name) == "string" and name or tostring(i)))
+      out[#out + 1] = { key = "chat:" .. i, path = "Chat", title = title, mover = cf, frame = cf, how = "box",
+        onDragStart = EM.ChatDragStart, onDragStop = EM.ChatDragStop }
+    end
+  end
+  return out
+end
+
+function EM.ChatDragStart(cf) call(cf.StartMoving, cf) end
+function EM.ChatDragStop(cf)
+  call(cf.StopMovingOrSizing, cf)
+  local save = G("FCF_SavePositionAndDimensions")
+  if type(save) == "function" then pcall(save, cf) else call(cf.SetUserPlaced, cf, true) end
+end
+
 function EM.Targets()
   local out = {}
   local function add(t) if t.mover then out[#out + 1] = t end end
@@ -84,7 +108,14 @@ function EM.Targets()
   end
   add({ key = "infobar", path = "Skin.infobar", title = "Info bar", mover = G("HogUIInfoBar"), how = "gear" })
   add({ key = "tooltip", path = "Skin.tooltips", title = "Tooltips", mover = G("HogHealsTooltipAnchor"), how = "gear" })
-  add({ key = "micro", path = "Skin.micro", title = "Menu bar", mover = G("HogHealsMicroBar"), how = "gear" })
+  -- the menu bar's cells are secure buttons covering it and the bar itself takes no mouse (Sean 2026-11-03: "I can't
+  -- move the icons at the bottom"): a box over it, like the HUD bars; the bar's own drag scripts move and save it
+  local micro = G("HogHealsMicroBar")
+  add({ key = "micro", path = "Skin.micro", title = "Menu bar", mover = micro, frame = micro, how = "box" })
+  -- Blizzard's chat windows (Sean 2026-11-03: "I also can't move the chat windows"): the dock (window 1) and every shown
+  -- undocked window get a box; moving goes through the client's own StartMoving / StopMovingOrSizing and is saved the
+  -- way a tab drag saves it (FCF_SavePositionAndDimensions) - nothing of ours is written on the frame
+  for _, c in ipairs(EM.ChatTargets()) do add(c) end
   table.sort(out, function(a, b) return a.key < b.key end)
   return out
 end
@@ -118,7 +149,7 @@ function EM.Center(t, axis)
   f:ClearAllPoints()
   f:SetPoint("CENTER", UIParent, "CENTER", dx, dy)
   local saver = t.saver or f
-  local stop = saver.GetScript and saver:GetScript("OnDragStop")
+  local stop = t.onDragStop or (saver.GetScript and saver:GetScript("OnDragStop"))
   if type(stop) == "function" then
     local ok, err = pcall(stop, saver)
     if not ok then HH:LogError("edit mode centre " .. t.key .. ": " .. tostring(err)) return false, "could not save" end
@@ -335,7 +366,11 @@ local function box(t)
     b.label = b:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
     b.label:SetPoint("CENTER", b, "CENTER", 0, 0)
     local function relay(self, script)
-      local d = self.target and self.target.mover
+      local t = self.target
+      local d = t and t.mover
+      -- a target may bring its own drag handlers (Blizzard's chat windows have no drag scripts of their own)
+      local own = t and (script == "OnDragStart" and t.onDragStart or script == "OnDragStop" and t.onDragStop)
+      if type(own) == "function" then pcall(own, d) return end
       local f = d and d.GetScript and d:GetScript(script)
       if type(f) == "function" then pcall(f, d) end
     end
@@ -576,7 +611,7 @@ function EM.DropSnap(t)
   f:SetPoint("CENTER", UIParent, "CENTER", cx - ux * r + dx * r, cy - uy * r + dy * r)
   EM.snapping = true
   local saver = t.saver or f
-  local stop = saver.GetScript and saver:GetScript("OnDragStop")
+  local stop = t.onDragStop or (saver.GetScript and saver:GetScript("OnDragStop"))
   if type(stop) == "function" then
     local ok, err = pcall(stop, saver)
     if not ok then HH:LogError("edit mode snap " .. t.key .. ": " .. tostring(err)) end
