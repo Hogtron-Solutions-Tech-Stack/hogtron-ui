@@ -9,3 +9,4 @@
 
 Data\WeaponTrainers.lua
 Training.lua
+LevelUp.lua

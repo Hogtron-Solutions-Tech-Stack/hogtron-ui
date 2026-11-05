@@ -339,6 +339,11 @@ function Module:OnEnable()
       if cfg().nudge ~= false and #plan.now > 0 then
         HH:Print(("Level %s: %d spell%s waiting at the trainer (%s). /hh train"):format(tostring(arg1), #plan.now, #plan.now == 1 and "" or "s", money(plan.cost)))
       end
+      -- the level-up card (LevelUp.lua): what opened with this level
+      if cfg().levelCard ~= false and type(T.ShowLevelUp) == "function" then
+        local ok, err = pcall(T.ShowLevelUp, num(arg1) or T.Level())
+        if not ok then HH:LogError("level-up card: " .. tostring(err)) end
+      end
       T.Refresh()
     end
   end)
