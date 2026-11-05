@@ -244,6 +244,8 @@ function Extra.CreatePet()
       if GameTooltip and GameTooltip.SetPetAction then GameTooltip:SetOwner(self, "ANCHOR_RIGHT") call(GameTooltip.SetPetAction, GameTooltip, self.id) GameTooltip:Show() end
     end)
     b:SetScript("OnLeave", function() if GameTooltip and GameTooltip.Hide then GameTooltip:Hide() end end)
+    -- the tooltip scripts above replaced the quick-keybind hook Dress put on; put it back on top of them
+    if HHB.Bind and HHB.Bind.WatchQuick then b.hhQuickHooked = nil HHB.Bind.WatchQuick(b) end
     bar.buttons[i] = b
   end
   bar.visPrefix = "[nopet]hide;"   -- no pet, no bar - whatever the visibility option says
@@ -298,6 +300,8 @@ function Extra.CreateStance()
       if GameTooltip and GameTooltip.SetShapeshift then GameTooltip:SetOwner(self, "ANCHOR_RIGHT") call(GameTooltip.SetShapeshift, GameTooltip, self.id) GameTooltip:Show() end
     end)
     b:SetScript("OnLeave", function() if GameTooltip and GameTooltip.Hide then GameTooltip:Hide() end end)
+    -- the tooltip scripts above replaced the quick-keybind hook Dress put on; put it back on top of them
+    if HHB.Bind and HHB.Bind.WatchQuick then b.hhQuickHooked = nil HHB.Bind.WatchQuick(b) end
     bar.buttons[i] = b
   end
   bar.handle = Bars.DragHandle(bar, "Stance bar")
