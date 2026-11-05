@@ -1,5 +1,15 @@
 # HogTron UI
 
+## v0.2.0-beta.13
+
+### New
+- **Blizzard's windows wear the parchment page** (Skin > Windows > Look, default): the quest dialog's torn page behind
+  the character sheet, spellbook, escape menu, vendor, mail, bank, friends, Guild & Communities, popups and the rest -
+  light or charred after Quests > Dialog > Look - with the title in Friz Quadrata ink, a bronze rule, a key-cap close
+  and tabs as rounded slabs. On the light page every text is inked to read on paper: white and grey go ink and muted,
+  gold goes amber, class / quality / red / green keep their hue. "Ink panel" keeps the flat look. A look change takes
+  a /reload. Guild & Communities (load-on-demand) is now skinned too.
+
 ## v0.2.0-beta.12
 
 ### Fixed

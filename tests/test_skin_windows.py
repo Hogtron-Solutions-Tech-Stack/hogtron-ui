@@ -160,7 +160,7 @@ def test_group_finder_panes_and_side_tabs_are_skinned(win):
         t = f'LFGParentFrame.{k}'
         assert win.eval(f'{t}.Background._alpha') == 0
         assert win.eval(f'{t}.Icon._alpha') == 1
-        assert [round(v, 2) for v in list(win.eval(f'{t}.SelectedTexture._color').values())[:3]] == [0.13, 0.83, 0.88]
+        assert [round(v, 2) for v in list(win.eval(f'{t}.SelectedTexture._color').values())[:3]] == [0.72, 0.48, 0.12]   # the page's pick colour
         assert win.eval(f'HogHealsSkin.Panels.sideTabPanels[{t}] ~= nil')
     rep = win.eval('HogHeals.db.global.diag.skin.windows.LFGParentFrame')
     assert rep["leftovers"] == 1 and "keep-me" in rep["left"], rep["left"]   # only the piece left alone on purpose

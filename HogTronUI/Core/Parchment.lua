@@ -94,7 +94,7 @@ function Parchment.PlacePage(f, w, h)
   local px = math.min(Parchment.PAGE_H - 2 * Parchment.SLICE, math.ceil((midH / s) / Parchment.EDGE_PERIOD) * Parchment.EDGE_PERIOD)
   local want = px / Parchment.PAGE_H
   f.pageMid:SetTexCoord(0, 1, cut, cut + want)
-  f.pageMid:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -cap) f.pageMid:SetSize(w, midH)
+  f.pageMid:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -cap + 0.5) f.pageMid:SetSize(w, midH + 1)   -- tucked half a pixel under both caps: no hairline seam at a fractional join
   f.pageBot:SetTexCoord(0, 1, 1 - cut, 1)
   f.pageBot:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -(h - cap)) f.pageBot:SetSize(w, cap)
   return 2 * cap
@@ -119,6 +119,16 @@ function Parchment.Slab(parent, layer, file, sub)
     p[2]:SetPoint("TOPLEFT", anchor, "TOPLEFT", x + cap, y) p[2]:SetSize(math.max(0.01, w - 2 * cap), h)
     p[3]:SetPoint("TOPLEFT", anchor, "TOPLEFT", x + w - cap, y) p[3]:SetSize(cap, h)
     s.box = { x = x, y = y, w = w, h = h }
+  end
+  --- The same slab laid by anchors on `anchor` (inset by `inset`, caps `cap` wide): it follows the anchor's size.
+  function s.Fit(_, anchor, inset, cap)
+    inset, cap = inset or 0, cap or 10
+    local p = s.parts
+    for _, t in ipairs(p) do t:ClearAllPoints() end
+    p[1]:SetPoint("TOPLEFT", anchor, "TOPLEFT", inset, -inset) p[1]:SetPoint("BOTTOMLEFT", anchor, "BOTTOMLEFT", inset, inset) p[1]:SetWidth(cap)
+    p[3]:SetPoint("TOPRIGHT", anchor, "TOPRIGHT", -inset, -inset) p[3]:SetPoint("BOTTOMRIGHT", anchor, "BOTTOMRIGHT", -inset, inset) p[3]:SetWidth(cap)
+    p[2]:SetPoint("TOPLEFT", p[1], "TOPRIGHT", 0, 0) p[2]:SetPoint("BOTTOMRIGHT", p[3], "BOTTOMLEFT", 0, 0)
+    s.fit = { inset = inset, cap = cap }
   end
   function s.Color(_, c, a) for _, t in ipairs(s.parts) do Parchment.Tint(t, c, a) end s.color = { c[1], c[2], c[3], a or c[4] or 1 } end
   function s.Show() for _, t in ipairs(s.parts) do t:Show() end s.shown = true end

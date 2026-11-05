@@ -305,7 +305,7 @@ def test_blizzard_window_styled_on_show_and_lod_window_caught_by_showuipanel(lua
     assert lua.eval('CharacterFrame.hhPanel') is None
     lua.execute('CharacterFrame:Show(); CharacterFrame:GetScript("OnShow")(CharacterFrame)')
     assert lua.eval('CharacterFramePortrait._alpha') == 0 and lua.eval('CharacterFrame.NineSlice._alpha') == 0
-    assert lua.eval('CharacterFrame.hhPanel.bg._color[4]') == pytest.approx(0.9)
+    assert lua.eval('CharacterFrame.hhPanel._alpha') == pytest.approx(0.9)            # the page's opacity (parchment look)
     assert lua.eval('CharacterFrame.CloseButton.hhX._text') == "x"
     # a load-on-demand window that did not exist at login, opened through ShowUIPanel
     lua.execute("""
@@ -383,6 +383,8 @@ def test_parchment_windows_recoloured_and_stripped_deep_but_buttons_and_icons_ke
       bar:CreateTexture("GossipGreetingScrollFrameScrollBarThumb"):SetTexture("thumb")
       function ShowUIPanel(f) f:Show() end
     """)
+    lua.execute('HogTronUIDB = { profiles = { Default = { skin = { panels = { look = "ink" } } } } }')   # pins the cream lift: the ink / charred path (the light page inks instead)
+
     lua.load_addon("HogTronUI"); lua.load_addon("HogTron_Skin"); lua.player_login()
     lua.execute('ShowUIPanel(GossipFrame)')
     assert lua.eval('GossipFrame.hhPanel ~= nil')
@@ -521,6 +523,8 @@ def test_dark_gossip_text_lifted_to_cream_on_show_and_on_content_events(lua):
       OPTION = scroll:CreateFontString(nil, "OVERLAY", "GameFontNormal"); OPTION:SetTextColor(1, 0.82, 0)
       function ShowUIPanel(f) f:Show() end
     """)
+    lua.execute('HogTronUIDB = { profiles = { Default = { skin = { panels = { look = "ink" } } } } }')   # pins the cream lift: the ink / charred path (the light page inks instead)
+
     lua.load_addon("HogTronUI"); lua.load_addon("HogTron_Skin"); lua.player_login()
     lua.execute('ShowUIPanel(GossipFrame)')
     assert lua.eval('GREET._color[1]') == pytest.approx(0.96)                      # dark brown -> cream
@@ -547,6 +551,8 @@ def test_late_built_gossip_option_lines_lifted_and_kept_through_hover_repaint(lu
       SCROLL = CreateFrame("ScrollFrame", nil, GossipFrame)
       function ShowUIPanel(f) f:Show() end
     """)
+    lua.execute('HogTronUIDB = { profiles = { Default = { skin = { panels = { look = "ink" } } } } }')   # pins the cream lift: the ink / charred path (the light page inks instead)
+
     lua.load_addon("HogTronUI"); lua.load_addon("HogTron_Skin"); lua.player_login()
     lua.execute('ShowUIPanel(GossipFrame)')
     # option line created after the window is shown, dark grey like the quest lines in game

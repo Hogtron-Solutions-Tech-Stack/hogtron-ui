@@ -93,8 +93,10 @@ function Options.Build()
         mirror = toggle(sub("extras"), "mirror", "Flat breath / fatigue timers", 4),
       } },
       panels = { type = "group", name = "Windows", order = 4.7, args = {
-        about = { type = "description", order = 0, name = "Blizzard's windows (character, spellbook, escape menu, vendor, mail, trade, bank, ...) on the HogTron UI panel: art and portrait off, outline, flat close button. Parchment windows (gossip, quest text, quest log, books, opened mail) get their text recoloured cream / amber and the parchment stripped. Untick a window to leave it alone (needs a /reload to come back)." },
+        about = { type = "description", order = 0, name = "Blizzard's windows (character, spellbook, escape menu, vendor, mail, trade, bank, guild, ...) in the HogTron look: their art and portrait off, a parchment page behind (the quest dialog's, light or charred - Quests > Dialog > Look) with the text inked to read on it, or the flat ink panel with an outline. Untick a window to leave it alone. A look change takes a /reload." },
         enabled = toggle(sub("panels"), "enabled", "Skin Blizzard's windows", 1),
+        look = { type = "select", name = "Look", order = 1.5, values = { parchment = "Parchment page (follows Quests > Dialog > Look)", ink = "Ink panel" },
+          get = function() return root().panels.look == "ink" and "ink" or "parchment" end, set = function(_, v) root().panels.look = v end },
         alpha = range(sub("panels"), "alpha", "Background opacity", 2, 0.3, 1, 0.05),
         titleSize = range(sub("panels"), "titleSize", "Title text size", 3, 9, 20, 1),
         list = { type = "group", inline = true, name = "Windows", order = 4, args = (function()

@@ -258,7 +258,7 @@ HH.defaults = {
       -- World Map and the tabard designer keep their own art
       -- skipped: World Map and the flight map draw their maps as plain textures (in game 2026-09-23 the flight
       -- map went black); the tabard designer needs its art
-      panels = { enabled = true, alpha = 0.9, titleSize = 13, skip = { WorldMapFrame = true, TaxiFrame = true, TabardFrame = true } },
+      panels = { enabled = true, look = "parchment", alpha = 0.9, titleSize = 13, skip = { WorldMapFrame = true, TaxiFrame = true, TabardFrame = true } },
       auto = { sellJunk = true, repair = true, guildRepair = false },
       micro = { enabled = true, scale = 1, strip = true, size = 40, tint = true, tintStrength = 0.6, accent = true, alerts = false, blizzardArt = false },   -- size 30 -> 40 + accent: Sean 2026-10-17 "bigger by default and more distinct"   -- strip: HogTron UI glyph buttons instead of Blizzard's art; point/x/y once dragged; tint = colour per glyph; blizzardArt = Blizzard's own pictures on this bar only (Anthony 2026-11-05)
       bagBar = { enabled = true, mode = "button", scale = 1.2 },   -- mode: button = one Bags cell in the menu bar (slots hidden) | slots = Blizzard's slots flattened; scale for slots
