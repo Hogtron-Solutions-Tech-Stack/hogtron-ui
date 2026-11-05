@@ -1,5 +1,11 @@
 # HogTron UI
 
+## v0.2.0-beta.10
+
+### New
+- **Blizzard's Quick Keybind Mode works on HogTron bars:** hover a slot, press a key. `/hh bind` stays too.
+- **The world map (M) wears the HogTron look** by default (Quests > World map > skin to turn it off).
+
 ## v0.2.0-beta.9
 
 ### New
