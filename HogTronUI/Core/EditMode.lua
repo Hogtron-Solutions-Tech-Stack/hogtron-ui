@@ -66,6 +66,9 @@ function EM.ChatDragStop(cf)
   call(cf.StopMovingOrSizing, cf)
   local save = G("FCF_SavePositionAndDimensions")
   if type(save) == "function" then pcall(save, cf) else call(cf.SetUserPlaced, cf, true) end
+  -- and in our profile too (Sean 2026-11-05: "the chat window keeps moving even after I save it" - Blizzard's layout
+  -- pass puts it back at login / zone-in; EM.ApplyBlizzard restores ours after it)
+  if EM.RememberFrame then EM.RememberFrame(cf, true) end
 end
 
 function EM.Targets()
@@ -519,33 +522,71 @@ function EM.BlizzardDragStart(f)
   call(f.StartMoving, f)
 end
 
-function EM.BlizzardDragStop(f)
-  call(f.StopMovingOrSizing, f)
+--- Remember where a frame sits - and, for one the player sizes (chat), how big: profile.edit.blizzard[name].
+function EM.RememberFrame(f, sized)
   local ok, point, _, _, x, y = pcall(f.GetPoint, f, 1)
   local name = f.GetName and call(f.GetName, f)
-  if ok and type(point) == "string" and type(x) == "number" and type(y) == "number" and type(name) == "string" then
-    local c = ecfg()
-    c.blizzard = c.blizzard or {}
-    c.blizzard[name] = { point = point, x = x, y = y }
+  if not (ok and type(point) == "string" and type(x) == "number" and type(y) == "number" and type(name) == "string") then return false end
+  local c = ecfg()
+  c.blizzard = c.blizzard or {}
+  local rec = { point = point, x = x, y = y }
+  if sized then
+    local w, h = call(f.GetWidth, f), call(f.GetHeight, f)
+    if type(w) == "number" and type(h) == "number" and w > 0 and h > 0 then rec.w, rec.h, rec.sized = w, h, true end
   end
+  c.blizzard[name] = rec
+  return true
 end
 
---- Put every saved place back. Returns how many frames moved.
-function EM.ApplyBlizzard()
+function EM.BlizzardDragStop(f)
+  call(f.StopMovingOrSizing, f)
+  EM.RememberFrame(f)
+end
+
+--- Put every saved place (and size) back. Returns how many frames moved. why = what triggered it (diag).
+function EM.ApplyBlizzard(why)
   local saved = ecfg().blizzard
-  if type(saved) ~= "table" then return 0 end
+  if type(saved) ~= "table" then EM.lastApply = { why = why or "?", n = 0 } return 0 end
   local n = 0
   for name, p in pairs(saved) do
     local f = G(name)
     if type(f) == "table" and type(p) == "table" and type(p.point) == "string" and type(p.x) == "number" and type(p.y) == "number" then
+      if p.sized and type(p.w) == "number" and type(p.h) == "number" then call(f.SetSize, f, p.w, p.h) end
       call(f.ClearAllPoints, f)
       call(f.SetPoint, f, p.point, UIParent, p.point, p.x, p.y)
       n = n + 1
     end
   end
   EM.blizzardApplied = n
+  EM.lastApply = { why = why or "?", n = n, at = (type(GetTime) == "function" and GetTime()) or 0 }
   return n
 end
+
+--- /hh movediag: what we remember for Blizzard's frames and when it was last put back.
+function EM.MoveDiagnose()
+  local out, saved = {}, ecfg().blizzard
+  local la = EM.lastApply
+  local k = 0
+  for _ in pairs(type(saved) == "table" and saved or {}) do k = k + 1 end
+  out[#out + 1] = ("remembered places: %d   last put back: %s (%d frames)"):format(k, la and tostring(la.why) or "never", la and la.n or 0)
+  for name, p in pairs(type(saved) == "table" and saved or {}) do
+    local f = G(name)
+    local here = "frame missing"
+    if type(f) == "table" then
+      local okp, pt, _, _, x, y = pcall(f.GetPoint, f, 1)
+      here = okp and ("%s %s,%s"):format(tostring(pt), tostring(x), tostring(y)) or "no point"
+    end
+    out[#out + 1] = ("  %s: saved %s %s,%s%s   now %s"):format(name, tostring(p.point), tostring(p.x), tostring(p.y),
+      p.sized and (" " .. tostring(p.w) .. "x" .. tostring(p.h)) or "", here)
+  end
+  return out
+end
+
+HH:RegisterSlash("movediag", function()
+  local ok, lines = pcall(EM.MoveDiagnose)
+  if not ok then HH:Print("movediag failed: " .. tostring(lines)) return end
+  for _, l in ipairs(lines) do HH:Print(l) end
+end, "where edit mode put Blizzard's frames (chat, buffs ...) and when it last put them back")
 
 --- A frame's box in UIParent units: { l, r, b, t, cx, cy }, or nil while it has no place yet.
 function EM.Rect(f)
@@ -887,10 +928,19 @@ end
 HH:RegisterModule("EditMode", {
   SetLocked = function(_, isLocked) EM.SetUnlocked(not isLocked) end,
   OnEnable = function()
-    EM.ApplyBlizzard()
+    EM.ApplyBlizzard("login")
     if type(ecfg().blizzard) == "table" and C_Timer and C_Timer.After then
-      for _, secs in ipairs({ 1, 4 }) do C_Timer.After(secs, function() EM.ApplyBlizzard() end) end
+      for _, secs in ipairs({ 1, 4 }) do C_Timer.After(secs, function() EM.ApplyBlizzard("login+" .. secs) end) end
     end
+    -- Blizzard's layout pass also runs on every world entry (loading screens): put ours back after it, twice
+    local ev = CreateFrame("Frame")
+    if pcall(ev.RegisterEvent, ev, "PLAYER_ENTERING_WORLD") then
+      ev:SetScript("OnEvent", function()
+        EM.ApplyBlizzard("world")
+        if type(ecfg().blizzard) == "table" and C_Timer and C_Timer.After then C_Timer.After(1, function() EM.ApplyBlizzard("world+1") end) end
+      end)
+    end
+    EM.events = ev
   end,
-  OnProfileChanged = function() EM.ApplyBlizzard() end,
+  OnProfileChanged = function() EM.ApplyBlizzard("profile") end,
 })
