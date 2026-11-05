@@ -611,7 +611,7 @@ def test_level_text_marks_elites_rares_skulls_and_bosses(plates):
       MockUnits.b = { name = "B", level = -1, classification = "worldboss" }
     """)
     got = [plates.eval(f'({P}.LevelText("{u}"))') for u in ("e", "r", "re", "s", "b")]
-    assert got == ["20+", "9R", "30R+", "??", "Boss"]
+    assert got == ["20 Elite", "9 Rare", "30 Rare Elite", "??", "Boss"]      # words, not letters (Sean 2026-11-05: "9R"?)
     assert list(plates.eval(f'{{ {P}.LevelColor(-1) }}').values()) == pytest.approx([0.85, 0.20, 0.20])   # skull = red
     assert list(plates.eval(f'{{ {P}.LevelColor(nil) }}').values()) == pytest.approx([0.96, 0.92, 0.86])  # unreadable = cream
 

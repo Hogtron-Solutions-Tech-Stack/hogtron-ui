@@ -861,8 +861,9 @@ function Plates.FriendlyLook(uf)
   return nameOnly
 end
 
---- The unit's level as text ("12", "12+" elite, "12R" rare, "??" skull, "Boss"), the plain number when the client
--- lets us read it, and whether the level came back secret (then: drawn, never compared).
+--- The unit's level as text ("12", "12 Elite", "12 Rare", "12 Rare Elite", "??" skull, "Boss"), the plain number
+-- when the client lets us read it, and whether the level came back secret (then: drawn, never compared).
+-- Words, not letters (Sean 2026-11-05 on "9R": "I'm not sure what 9R is").
 function Plates.LevelText(unit)
   local lvl = call(UnitLevel, unit)
   if lvl == nil then return "", nil, false end
@@ -870,9 +871,9 @@ function Plates.LevelText(unit)
   local text = (n and n < 0) and "??" or tostring(lvl)
   local class = call(UnitClassification, unit)
   if isSecret(class) or type(class) ~= "string" then class = nil end
-  if class == "elite" then text = text .. "+"
-  elseif class == "rareelite" then text = text .. "R+"
-  elseif class == "rare" then text = text .. "R"
+  if class == "elite" then text = text .. " Elite"
+  elseif class == "rareelite" then text = text .. " Rare Elite"
+  elseif class == "rare" then text = text .. " Rare"
   elseif class == "worldboss" then text = "Boss" end
   return text, n, isSecret(lvl)
 end
