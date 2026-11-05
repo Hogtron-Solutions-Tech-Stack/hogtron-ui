@@ -131,6 +131,7 @@ function Bars.SaveGeometry()
 end
 
 function Bars.Dress(b)
+  if HHB.Bind and HHB.Bind.WatchQuick then HHB.Bind.WatchQuick(b) end   -- Blizzard's quick keybind mode sees this slot
   if b.hh then return b.hh end
   local hh = {}
   b.hh = hh

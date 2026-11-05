@@ -173,4 +173,46 @@ function Bind.Toggle()
   return Bind.Start()
 end
 
+-- ------------------------------------------------------------------------------------------------ Blizzard's quick keybind mode
+-- Sean 2026-11-05: "I can't quick edit my action bar keybinds." Blizzard's Quick Keybind Mode (Options > Keybindings, or
+-- Edit Mode) binds the key you press to the button under the mouse - but only buttons that tell it so. Ours do now:
+-- while that mode is on, hovering a slot hands QuickKeybindFrame our button and its binding name, the same two things
+-- Blizzard's own buttons hand over (mouseOverButton on the frame, commandName on the button). Leaving clears it.
+-- /hh bind stays as the HogTron way.
+function Bind.InQuickMode()
+  local f = rawget(_G, "KeybindFrames_InQuickKeybindMode")
+  return type(f) == "function" and call(f) == true
+end
+
+function Bind.QuickEnter(b)
+  if not b or not Bind.InQuickMode() then return false end
+  local qk = rawget(_G, "QuickKeybindFrame")
+  if type(qk) ~= "table" then return false end
+  local cmd = (b.GetBindingAction and call(b.GetBindingAction, b)) or b.keyBoundTarget
+  if type(cmd) == "string" and cmd ~= "" then b.commandName = cmd end
+  if type(qk.SetMouseOverButton) == "function" then pcall(qk.SetMouseOverButton, qk, b) end
+  if rawget(qk, "mouseOverButton") ~= b then qk.mouseOverButton = b end   -- the field is what OnKeyDown reads
+  Bind.quickOver = b
+  Bind.quickEntered = (Bind.quickEntered or 0) + 1
+  return true
+end
+
+function Bind.QuickLeave(b)
+  local qk = rawget(_G, "QuickKeybindFrame")
+  if type(qk) == "table" and rawget(qk, "mouseOverButton") == b then
+    if type(qk.ClearMouseOverButton) == "function" then pcall(qk.ClearMouseOverButton, qk, b) end
+    if rawget(qk, "mouseOverButton") == b then qk.mouseOverButton = nil end
+  end
+  if Bind.quickOver == b then Bind.quickOver = nil end
+end
+
+--- Hook one of our buttons (a bar slot, a pet or stance button) into the quick keybind mode.
+function Bind.WatchQuick(b)
+  if not b or b.hhQuickHooked or not b.HookScript then return false end
+  b.hhQuickHooked = true
+  b:HookScript("OnEnter", function(self) Bind.QuickEnter(self) end)
+  b:HookScript("OnLeave", function(self) Bind.QuickLeave(self) end)
+  return true
+end
+
 HH:RegisterSlash("bind", function() Bind.Toggle() end, "key bindings: hover a slot on the HogTron UI bars and press a key (Esc clears)")
