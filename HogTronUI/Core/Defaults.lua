@@ -149,7 +149,7 @@ HH.defaults = {
       worldMap = { enabled = true, coords = false, scale = 1.0, fadeWhileMoving = true, skin = false, alpha = 0.95 },
       buttons = { enabled = true, side = "left", columns = 4, size = 28, alpha = 0.92, hover = false, autoClose = true, hogui = true },   -- hogui = the HogTron UI entries (Core/Tray.lua) first in the drawer   -- addon minimap icons in one drawer; side: left (opens toward the screen) | right (opens down); point/x/y once dragged
     },
-    training = { enabled = true, nudge = true },   -- HogTron_Training: learned at the trainer; nudge = chat line on level-up
+    training = { enabled = true, nudge = true, levelCard = true, cardSeconds = 30 },   -- HogTron_Training: learned at the trainer; nudge = chat line on level-up; levelCard = the level-up card (Sean 2026-11-04), gone after cardSeconds
     journal = { enabled = true, autoOpen = true, partySummary = false, scale = 1 },   -- HogTron_Journal: healer's dungeon journal; autoOpen = first dungeon entry per session; partySummary = one party-chat line (OFF)
     chat = {
       enabled = true, backgroundAlpha = 0.6, fontSize = nil, outline = false,   -- fontSize nil = keep Blizzard's size
