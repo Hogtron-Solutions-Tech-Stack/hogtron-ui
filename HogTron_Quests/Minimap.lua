@@ -19,8 +19,8 @@ HHQ.Pins = Pins
 -- mark the points, and the super-tracked quest gets no rim arrow from us (Blizzard's gold one is already there).
 -- Art = HogHeals/Media/quest_*.tga (dev/icons/build_icons.py); a client that refuses the file (SetTexture -> false)
 -- gets a drawn square + glyph instead, never an invisible pin. Far quests show a rotated arrow on the rim.
-local OPEN = { art = "Interface\\AddOns\\HogTronUI\\Media\\quest_open", glyph = "!", color = { 0.95, 0.65, 0.15 } }
-local DONE = { art = "Interface\\AddOns\\HogTronUI\\Media\\quest_done", glyph = "?", color = { 0.25, 0.80, 0.35 } }
+local OPEN = { art = "Interface\\AddOns\\HogTronUI\\Media\\quest_open", kind = "open", glyph = "!", color = { 0.95, 0.65, 0.15 } }
+local DONE = { art = "Interface\\AddOns\\HogTronUI\\Media\\quest_done", kind = "done", glyph = "?", color = { 0.25, 0.80, 0.35 } }
 local ARROW = "Interface\\AddOns\\HogTronUI\\Media\\quest_arrow"
 
 -- Classic minimap diameters in yards per zoom level (HereBeDragons-Pins table) - only used when the client has no
@@ -178,7 +178,7 @@ function Pins.Paint(p, look, edge, ox, oy, s)
   else
     p.arrow:Hide()
     p.icon:Show()
-    local ok = p.icon:SetTexture(look.art)
+    local ok = p.icon:SetTexture((HH.Look and HH.Look.QuestMark) and HH.Look.QuestMark(look.kind) or look.art)
     drawn = (ok == false)
   end
   p.drawn = drawn

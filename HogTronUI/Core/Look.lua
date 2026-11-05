@@ -56,13 +56,47 @@ function Look.IconPath(id)
   return Look.MEDIA .. id .. (Look.IconStyle() == "art" and "_art" or "")
 end
 Look.MEDIA = "Interface\\AddOns\\HogTronUI\\Media\\"
-function Look.IconStyle() return cfg().icons == "glyph" and "glyph" or "art" end
+function Look.IconStyle()
+  local v = cfg().icons
+  if v == "glyph" or v == "blizzard" then return v end
+  return "art"
+end
+
+-- "blizzard" (Sean 2026-11-05: "default icons for the main menu ... an OG Blizzard style for everything"): the client's
+-- own pictures stand in for ours wherever we painted one. Menu-bar cells copy the art off Blizzard's own micro button
+-- (Skin/Micro.lua); the drawer's entries and the quest marks map to Blizzard files here. A file the client refuses
+-- falls through to the painted / glyph set, so a wrong name costs nothing.
+Look.BLIZZARD_ICONS = {
+  tray_hover = "Interface\\Icons\\Spell_Holy_HolyBolt", tray_atlas = "Interface\\Icons\\INV_Misc_Map_01",
+  tray_bars = "Interface\\Icons\\INV_Misc_Gear_01", tray_menu = "Interface\\Icons\\INV_Misc_Note_01",
+  tray_frames = "Interface\\Icons\\Spell_Holy_PrayerOfHealing02", tray_units = "Interface\\Icons\\INV_Misc_Head_Human_01",
+  tray_hud = "Interface\\Icons\\Spell_Nature_Lightning", tray_chat = "Interface\\Icons\\INV_Letter_15",
+  tray_tips = "Interface\\Icons\\INV_Misc_QuestionMark", tray_meter = "Interface\\Icons\\INV_Misc_PocketWatch_01",
+  tray_plates = "Interface\\Icons\\Ability_Hunter_SniperShot", tray_all = "Interface\\Icons\\INV_Misc_Bag_08",
+  tray_bind = "Interface\\Icons\\INV_Misc_Key_03", tray_gold = "Interface\\Icons\\INV_Misc_Coin_01",
+}
+Look.BLIZZARD_QUEST = { open = "Interface\\GossipFrame\\AvailableQuestIcon", done = "Interface\\GossipFrame\\ActiveQuestIcon", wait = "Interface\\GossipFrame\\IncompleteQuestIcon" }
+
+--- The quest mark file for kind "open" | "done" | "wait": Blizzard's gossip icons in the blizzard look, else ours
+-- (the wax seals for the dialog, the small marks for plates / minimap).
+function Look.QuestMark(kind, variant)
+  if Look.IconStyle() == "blizzard" and Look.BLIZZARD_QUEST[kind] then return Look.BLIZZARD_QUEST[kind] end
+  return Look.MEDIA .. (variant == "dialog" and "dialog_quest_" or "quest_") .. kind
+end
 
 --- Put icon `id` on texture `tex` in the chosen style. Returns took (the client loaded a file), art (it is the
 -- painted one: draw it as it is, no tint). A painted file the client refuses falls back to the glyph.
 function Look.Icon(tex, id)
   if not tex or not id then return false, false end
-  if Look.IconStyle() == "art" and tex:SetTexture(Look.MEDIA .. id .. "_art") ~= false then
+  local style = Look.IconStyle()
+  if style == "blizzard" then
+    local b = Look.BLIZZARD_ICONS[id]
+    if b and tex:SetTexture(b) ~= false then
+      if tex.SetTexCoord then tex:SetTexCoord(0.07, 0.93, 0.07, 0.93) end   -- the icon's own border trimmed
+      return true, true
+    end
+  end
+  if style ~= "glyph" and tex:SetTexture(Look.MEDIA .. id .. "_art") ~= false then
     if tex.SetTexCoord then tex:SetTexCoord(0, 1, 0, 1) end
     return true, true
   end

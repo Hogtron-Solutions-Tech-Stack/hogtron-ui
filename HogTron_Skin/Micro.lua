@@ -345,14 +345,40 @@ function Part.BagsAsButton()
   return (d.bagBar and d.bagBar.enabled ~= false and (d.bagBar.mode or "button") ~= "slots" and d.micro and d.micro.strip ~= false) and true or false
 end
 
+--- Blizzard's own picture for a cell, read off its micro button (the "blizzard" icon look, Sean 2026-11-05: "an OG
+-- Blizzard style"): the normal texture's file or atlas and its coordinates, copied onto our icon. Nothing is written
+-- on Blizzard's button. Returns true when the client gave us one.
+function Part.BlizzardIcon(tex, src)
+  if not tex or type(src) ~= "table" or type(src.GetNormalTexture) ~= "function" then return false end
+  local ok, nt = pcall(src.GetNormalTexture, src)
+  if not ok or type(nt) ~= "table" then return false end
+  local atlas = nt.GetAtlas and Skin.call(nt.GetAtlas, nt)
+  if type(atlas) == "string" and atlas ~= "" and tex.SetAtlas then
+    if Skin.call(tex.SetAtlas, tex, atlas) ~= false then return true end
+  end
+  local file = nt.GetTexture and Skin.call(nt.GetTexture, nt)
+  if (type(file) ~= "string" and type(file) ~= "number") or file == "" then return false end
+  if Skin.call(tex.SetTexture, tex, file) == false then return false end
+  if nt.GetTexCoord and tex.SetTexCoord then
+    local c = { Skin.call(nt.GetTexCoord, nt) }
+    if #c >= 8 then pcall(tex.SetTexCoord, tex, c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8])
+    elseif #c >= 4 then pcall(tex.SetTexCoord, tex, c[1], c[2], c[3], c[4]) end
+  end
+  return true
+end
+
 --- Glyph / letter / size / tint for one cell.
-local function paintCell(c, size, id, letter, label, strength)
+local function paintCell(c, size, id, letter, label, strength, src)
   c.label = label
   c.letter:SetText(letter)
   Skin.SetFont(c.letter, math.max(9, math.floor(size * 0.5)))
   c:SetSize(size, size - 4)
   local took, art = false, false
-  if id then took, art = HH.Look.Icon(c.icon, id) end
+  if src and HH.Look.IconStyle and HH.Look.IconStyle() == "blizzard" then
+    took = Part.BlizzardIcon(c.icon, src)
+    art = took
+  end
+  if not took and id then took, art = HH.Look.Icon(c.icon, id) end
   c.icon:SetSize(size - 4, size - 4)   -- glyphs fill the cell (was size - 6; Sean 2026-10-02: "a little bigger")
   if took then c.icon:Show() c.letter:Hide() else c.icon:Hide() c.letter:Show() end
   c.glyph = took and id or nil
@@ -413,7 +439,7 @@ function Part.Strip()
     local letter, label = Part.LabelFor(src, name)
     -- the glyph when the client takes the file, the letter only when it refuses every file
     local id = Part.IconFor(name)
-    paintCell(c, size, id, letter, label, strength)
+    paintCell(c, size, id, letter, label, strength, src)
     names[#names + 1] = name .. "=" .. (c.glyph and id or ("letter " .. letter))
     c:ClearAllPoints()
     c:SetPoint("LEFT", bar, "LEFT", pad + (i - 1) * (size + pad), 0)
