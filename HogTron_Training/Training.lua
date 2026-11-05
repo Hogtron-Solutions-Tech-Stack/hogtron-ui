@@ -155,52 +155,69 @@ end
 
 -- ------------------------------------------------------------------------------------------------ window
 local ROWS = 34
+local ROW_H, HEAD_H, GAP = 18, 24, 8
+local W = 560
+
+--- The window is the quest dialog's parchment page (Sean 2026-11-05: "design the menu to look like the dialogue
+-- menu for quests"): torn page, the class circle in the bronze ring, a title with its rule, rounded tags for the
+-- sections, ink text, Friz Quadrata. Core/Parchment.lua carries the art and the themes; the page follows
+-- Quests > Dialog > Theme (light parchment / charred dark). The rows keep the same model as before (text, right,
+-- colour by tone) so the chat form and the tests see one list.
+local function pageFont(t, size)
+  local P = HH.Parchment
+  if P then P.Font(t, size) elseif t.SetFont then pcall(t.SetFont, t, STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", size, "") end
+end
+
 local function fs(parent, color, justify, template)
-  local t = parent:CreateFontString(nil, "OVERLAY", template or "HogTronFontSmall")
+  local t = parent:CreateFontString(nil, "OVERLAY", template or "HogTronFontHighlight")
   t:SetTextColor(color[1], color[2], color[3])
   t:SetJustifyH(justify or "LEFT")
+  if t.SetJustifyV then t:SetJustifyV("TOP") end
   if t.SetWordWrap then t:SetWordWrap(false) end
   return t
 end
 
+function T.Theme()
+  local P = HH.Parchment
+  if P then return P.Theme() end
+  return { text = CREAM, title = CREAM, muted = GREY, rule = CYAN, tag = { 1, 1, 1, 0.08 }, key = INK, keyText = CREAM, quest = AMBER, good = GREEN }
+end
+
 function T.Build()
   if T.frame then return T.frame end
+  local P = HH.Parchment
   local f = CreateFrame("Frame", "HogTronUITraining", UIParent)
-  f:SetSize(560, 24 + ROWS * 16 + 16)
+  f:SetSize(W, 400)
   f:SetPoint("CENTER", UIParent, "CENTER", 0, 40)
   f:SetFrameStrata("DIALOG")
+  if f.SetClampedToScreen then f:SetClampedToScreen(true) end
   f:SetMovable(true)
   f:EnableMouse(true)
   f:RegisterForDrag("LeftButton")
   f:SetScript("OnDragStart", function(self) self:StartMoving() end)
   f:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() end)
-  f.bg = f:CreateTexture(nil, "BACKGROUND")
-  f.bg:SetAllPoints(f)
-  f.bg:SetColorTexture(INK[1], INK[2], INK[3], 0.92)
+  if P then P.MakePage(f) else
+    f.bg = f:CreateTexture(nil, "BACKGROUND") f.bg:SetAllPoints(f) f.bg:SetColorTexture(INK[1], INK[2], INK[3], 0.92)
+  end
+  f.portrait = f:CreateTexture(nil, "ARTWORK")
+  f.ring = f:CreateTexture(nil, "OVERLAY")
+  if P then f.ring:SetTexture(P.ART.ring) end
+  f.title = fs(f, CREAM, "LEFT", "HogTronFontNormalLarge")
+  f.sub = fs(f, GREY, "LEFT", "HogTronFontSmall")
   f.rule = f:CreateTexture(nil, "ARTWORK")
-  f.rule:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -24)
-  f.rule:SetPoint("TOPRIGHT", f, "TOPRIGHT", 0, -24)
-  f.rule:SetHeight(1)
-  f.rule:SetColorTexture(CYAN[1], CYAN[2], CYAN[3], 1)
-  f.title = fs(f, CREAM, "LEFT", "HogTronFontNormal")
-  f.title:SetPoint("TOPLEFT", f, "TOPLEFT", 10, -6)
-  f.title:SetText("|cffF5EBDCHOG|r|cff21D4E0TRON UI|r  TRAINING")
-  f.close = CreateFrame("Button", nil, f)
+  if P then f.rule:SetTexture(P.ART.rule) else f.rule:SetColorTexture(CYAN[1], CYAN[2], CYAN[3], 1) end
+  -- close: a key cap at the top-right corner ("x"); Esc closes too (UISpecialFrames)
+  f.close = CreateFrame("Button", "HogTronUITrainingClose", f)
   f.close:SetSize(24, 20)
-  f.close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -4, -2)
-  f.close.label = fs(f.close, CREAM, "CENTER")
+  f.close.cap = P and P.Slab(f.close, "ARTWORK") or nil
+  f.close.label = fs(f.close, CREAM, "CENTER", "HogTronFontSmall")
   f.close.label:SetPoint("CENTER", f.close, "CENTER", 0, 0)
   f.close.label:SetText("x")
   f.close:SetScript("OnClick", function() f:Hide() end)
   f.rows = {}
   for i = 1, ROWS do
-    local r = fs(f, CREAM, "LEFT")
-    r:SetPoint("TOPLEFT", f, "TOPLEFT", 10, -30 - (i - 1) * 16)
-    r:SetPoint("RIGHT", f, "RIGHT", -120, 0)
-    local right = fs(f, GREY, "RIGHT")
-    right:SetPoint("TOPRIGHT", f, "TOPRIGHT", -10, -30 - (i - 1) * 16)
-    right:SetWidth(110)
-    f.rows[i] = { text = r, right = right }
+    local r = { text = fs(f, CREAM, "LEFT"), right = fs(f, GREY, "RIGHT"), tag = P and P.Slab(f, "ARTWORK") or nil }
+    f.rows[i] = r
   end
   local special = G("UISpecialFrames")
   if type(special) == "table" then special[#special + 1] = "HogTronUITraining" end
@@ -249,43 +266,121 @@ end
 
 function T.RowsFrom(plan, db, side, level)
   local rows = {}
-  local function add(text, right, color, icon, skills) rows[#rows + 1] = { text = text, right = right or "", color = color or CREAM, icon = icon, skills = skills } end
+  local function add(text, right, color, icon, skills, tone)
+    rows[#rows + 1] = { text = text, right = right or "", color = color or CREAM, icon = icon, skills = skills, tone = tone or (text == "" and "blank") or "text" }
+  end
   if (db.visits or 0) == 0 then
-    add("Nothing learned yet.", "", GREY)
-    add("Open your class trainer once: every spell, its level and price is remembered from then on.", "", GREY)
+    add("Nothing learned yet.", "", GREY, nil, nil, "muted")
+    add("Open your class trainer once: every spell, its level and price is remembered from then on.", "", GREY, nil, nil, "muted")
   else
-    add(("TRAIN NOW  -  %d spell%s"):format(#plan.now, #plan.now == 1 and "" or "s"), money(plan.cost), CYAN)
-    if #plan.now == 0 then add("  up to date", "", GREY) end
-    for _, s in ipairs(plan.now) do add("  " .. label(s), money(s.cost), GREEN, s.icon) end
+    add(("TRAIN NOW  -  %d spell%s"):format(#plan.now, #plan.now == 1 and "" or "s"), money(plan.cost), CYAN, nil, nil, "head")
+    if #plan.now == 0 then add("  up to date", "", GREY, nil, nil, "muted") end
+    for _, s in ipairs(plan.now) do add("  " .. label(s), money(s.cost), GREEN, s.icon, nil, "now") end
     for _, g in ipairs(plan.soon) do
-      add(("AT LEVEL %d  -  %d spell%s"):format(g.level, #g.spells, #g.spells == 1 and "" or "s"), money(g.cost), CYAN)
-      for _, s in ipairs(g.spells) do add("  " .. label(s), money(s.cost), g.level <= (level or 0) + 2 and CREAM or GREY, s.icon) end
+      add(("AT LEVEL %d  -  %d spell%s"):format(g.level, #g.spells, #g.spells == 1 and "" or "s"), money(g.cost), CYAN, nil, nil, "head")
+      local near = g.level <= (level or 0) + 2
+      for _, s in ipairs(g.spells) do add("  " .. label(s), money(s.cost), near and CREAM or GREY, s.icon, nil, near and "text" or "muted") end
     end
     add(("%d known. Learned at %s (%d visit%s, last %s). Base prices: your city's reputation takes off %s."):format(
       plan.known, db.trainer or "your trainer", db.visits or 0, (db.visits or 0) == 1 and "" or "s", db.lastSeen or "?",
-      "5% friendly, 10% honored, 15% revered, 20% exalted"), "", GREY)
+      "5% friendly, 10% honored, 15% revered, 20% exalted"), "", GREY, nil, nil, "memo")
   end
   add("", "")
-  add("WEAPON TRAINERS  -  old list, not verified on Forever", side and (side == "H" and "Horde" or "Alliance") or "", CYAN)
+  add("WEAPON TRAINERS  -  old list, not verified on Forever", side and (side == "H" and "Horde" or "Alliance") or "", CYAN, nil, nil, "head")
   for _, t in ipairs(T.Data.Trainers(side or "A")) do
-    add(("  %s  -  %s, %s"):format(t.name, t.city, t.where), "", CREAM)
-    add("      " .. table.concat(t.skills, ", "), "old list", GREY, nil, t.skills)
+    add(("  %s  -  %s, %s"):format(t.name, t.city, t.where), "", CREAM, nil, nil, "title")
+    add("      " .. table.concat(t.skills, ", "), "old list", GREY, nil, t.skills, "muted")
   end
   return rows
+end
+
+--- The ink for a row's tone on the current theme.
+function T.ToneColor(tone)
+  local th = T.Theme()
+  if tone == "head" or tone == "title" then return th.title end
+  if tone == "now" then return th.good or th.text end
+  if tone == "muted" or tone == "memo" then return th.muted end
+  return th.text
 end
 
 function T.Refresh()
   local f = T.frame
   if not f or not f:IsShown() then return end
+  local P, th = HH.Parchment, T.Theme()
   local rows = T.RowsFrom(T.Plan(), T.db(), T.Side(), T.Level())
+  local s = W / (P and P.PAGE_W or 512)
+  local PADX, TOP = math.floor(46 * s + 0.5), math.floor(44 * s + 0.5)
+  local inner = W - 2 * PADX
+  -- header: the class circle in its ring, the title, the trainer line, the rule
+  local RING, PIC = 64, 50
+  local _, class = call(UnitClass, "player")
+  if P then P.ClassPortrait(f.portrait, class) end
+  f.portrait:ClearAllPoints() f.portrait:SetPoint("TOPLEFT", f, "TOPLEFT", PADX + (RING - PIC) / 2, -TOP - (RING - PIC) / 2) f.portrait:SetSize(PIC, PIC) f.portrait:Show()
+  f.ring:ClearAllPoints() f.ring:SetPoint("TOPLEFT", f, "TOPLEFT", PADX, -TOP) f.ring:SetSize(RING, RING) f.ring:Show()
+  local tx = PADX + RING + 10
+  pageFont(f.title, 20)
+  f.title:SetText("Training")
+  f.title:SetTextColor(th.title[1], th.title[2], th.title[3])
+  f.title:ClearAllPoints() f.title:SetPoint("TOPLEFT", f, "TOPLEFT", tx, -TOP - 4) f.title:SetWidth(inner - RING - 10) f.title:Show()
+  local db = T.db()
+  pageFont(f.sub, 12)
+  f.sub:SetText((db.visits or 0) > 0 and ("Learned at %s  -  %d visit%s, last %s"):format(db.trainer or "your trainer", db.visits or 0, (db.visits or 0) == 1 and "" or "s", db.lastSeen or "?")
+    or "Your class trainer teaches this page: open one once and it remembers every spell, level and price.")
+  f.sub:SetTextColor(th.muted[1], th.muted[2], th.muted[3])
+  f.sub:ClearAllPoints() f.sub:SetPoint("TOPLEFT", f, "TOPLEFT", tx, -TOP - 30) f.sub:SetWidth(inner - RING - 10) f.sub:Show()
+  f.rule:ClearAllPoints() f.rule:SetPoint("TOPLEFT", f, "TOPLEFT", tx - 2, -TOP - RING + 8) f.rule:SetSize(inner - RING - 8, 6)
+  if P then P.Tint(f.rule, th.rule, 0.9) end
+  f.rule:Show()
+  -- the close cap
+  f.close:ClearAllPoints() f.close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PADX + 8, -TOP + 6)
+  if f.close.cap then f.close.cap:Place(f.close, 0, 0, 24, 20) f.close.cap:Color(th.key) f.close.cap:Show() end
+  pageFont(f.close.label, 11)
+  f.close.label:SetTextColor(th.keyText[1], th.keyText[2], th.keyText[3])
+  -- the rows
+  local y = -TOP - RING - 16
   for i, r in ipairs(f.rows) do
     local d = rows[i]
     if d then
-      r.text:SetText(T.RowDisplay(d)) r.text:SetTextColor(d.color[1], d.color[2], d.color[3]) r.text:Show()
-      r.right:SetText(d.right) r.right:Show()
-    else r.text:Hide() r.right:Hide() end
+      local tone = d.tone or "text"
+      local c = T.ToneColor(tone)
+      if tone == "blank" then
+        r.text:Hide() r.right:Hide() if r.tag then r.tag:Hide() end
+        y = y - GAP
+      else
+        -- the memo and a long weapon-skill list wrap onto more lines (the preview showed them running over the next row)
+        local wrap = tone == "memo" or (d.skills ~= nil and #d.text > 44)
+        local lines = tone == "memo" and 3 or (wrap and 2 or 1)
+        local size = tone == "head" and 13 or (tone == "memo" and 11 or 13)
+        local h = tone == "head" and HEAD_H or (wrap and (lines * (size + 3) + 4) or ROW_H)
+        if r.tag then
+          if tone == "head" then r.tag:Place(f, PADX - 8, y, inner + 16, h) r.tag:Color(th.tag) r.tag:Show() else r.tag:Hide() end
+        end
+        pageFont(r.text, size)
+        if r.text.SetWordWrap then r.text:SetWordWrap(wrap) end
+        r.text:SetText(T.RowDisplay(d))
+        r.text:SetTextColor(c[1], c[2], c[3])
+        r.text:ClearAllPoints()
+        r.text:SetPoint("TOPLEFT", f, "TOPLEFT", PADX, y - (tone == "head" and 5 or 2))
+        r.text:SetSize(inner - 120, wrap and (h - 4) or ROW_H)
+        r.text:Show()
+        pageFont(r.right, size)
+        r.right:SetText(d.right or "")
+        local rc = tone == "head" and th.quest or th.muted
+        r.right:SetTextColor(rc[1], rc[2], rc[3])
+        r.right:ClearAllPoints()
+        r.right:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PADX, y - (tone == "head" and 5 or 2))
+        r.right:SetWidth(110)
+        r.right:Show()
+        y = y - h
+      end
+    else r.text:Hide() r.right:Hide() if r.tag then r.tag:Hide() end end
   end
+  local BOTTOM = math.floor(((P and P.TEAR or 46) + 14) * s + 0.5)
+  local h = -y + BOTTOM
+  f:SetSize(W, h)
+  if P then P.PlacePage(f, W, h) end
   T.rowCount = #rows
+  T.pageHeight = h
 end
 
 function T.Toggle()
