@@ -21,6 +21,8 @@ Part.NAMES = {
   -- WoW: Forever's social window (Friends / Who / Raid tabs down its right side): SocialUIFrame, not FriendsFrame - named
   -- by /hh under in game 2026-10-17 (Sean: "the Friends list ... I don't know that we ever did that" - it never was)
   "SocialUIFrame",
+  -- Guild & Communities (Blizzard_Communities, load-on-demand). Sean 2026-11-05 over it: "We need to reskin all of this, including this."
+  "CommunitiesFrame",
 }
 local wanted = {}
 for _, n in ipairs(Part.NAMES) do wanted[n] = true end
@@ -28,6 +30,145 @@ for _, n in ipairs(Part.NAMES) do wanted[n] = true end
 local function skipped(name)
   local d = Skin.cfg().panels
   return d and type(d.skip) == "table" and d.skip[name] == true
+end
+
+-- ------------------------------------------------------------------------------------------------ the look
+-- Sean 2026-11-05, after the Training page: "re-skin all of the windows to kind of match that same aesthetic" - and over
+-- Guild & Communities: "We need to reskin all of this, including this." skin.panels.look: "parchment" (default) = the
+-- quest dialog's torn page behind the window (HH.Parchment; light or charred after Quests > Dialog > Look), its title
+-- in Friz Quadrata ink, a bronze rule, a key-cap close, tabs as rounded slabs, and on the LIGHT page every text inked
+-- so it reads on paper (Part.Ink); "ink" = the flat panel with an outline, as before.
+function Part.Look()
+  local d = Skin.cfg().panels
+  if d and d.look == "ink" then return "ink" end
+  return HH.Parchment and "parchment" or "ink"
+end
+function Part.Theme() return Part.Look() == "parchment" and HH.Parchment.Theme() or nil end
+--- true on the light page: Blizzard's (white / gold / grey) text must be inked to read.
+function Part.Paper()
+  local th = Part.Theme()
+  return th ~= nil and th.paper == true
+end
+
+--- The page behind a window: the dialog's torn page, larger than the window by the art's torn margins so the window's
+-- box (title, close, content, a tab strip under it) is all on paper; laid again when the window is resized; the
+-- bronze rule under the title row. Our frame, one level under the window; f.hhPanel in both looks.
+-- Margins measured on the 512 x 1024 art (2026-11-05): over the page body the tears stay within 46 px of the top,
+-- 48 of the bottom and 32 of either side (only the outermost columns tear deeper).
+Part.PAGE_SIDE, Part.PAGE_TOP, Part.PAGE_BOTTOM, Part.TAB_ROOM = 32, 46, 48, 34
+function Part.Page(f, alpha, tabRoom)
+  local P = HH.Parchment
+  local p = CreateFrame("Frame", nil, f)
+  p.hhOurs = true
+  p:SetFrameLevel(math.max(0, ((f.GetFrameLevel and f:GetFrameLevel()) or 1) - 1))
+  P.MakePage(p)
+  for _, t in ipairs({ p.pageTop, p.pageMid, p.pageBot }) do t.hhOurs = true end
+  p.rule = p:CreateTexture(nil, "ARTWORK")
+  p.rule.hhOurs = true
+  p.rule:SetTexture(P.ART.rule)
+  p.rule:SetPoint("TOPLEFT", f, "TOPLEFT", 10, -30)
+  p.rule:SetPoint("TOPRIGHT", f, "TOPRIGHT", -10, -30)
+  p.rule:SetHeight(6)
+  p:SetAlpha(alpha or 0.9)
+  p.window, p.tabRoom = f, tabRoom or 0
+  p:SetScript("OnSizeChanged", function(self) Part.Relay(self) end)
+  Part.Relay(p)
+  return p
+end
+
+--- The page frame placed around its window (the margins scale with the window's width) and the art laid over it.
+function Part.Relay(p)
+  if type(p) ~= "table" or not p.pageTop or not HH.Parchment or p.relaying then return false end
+  local f = p.window
+  local w = type(f) == "table" and Skin.num(Skin.call(f.GetWidth, f)) or 0
+  local h = type(f) == "table" and Skin.num(Skin.call(f.GetHeight, f)) or 0
+  if w <= 0 or h <= 0 then return false end
+  local s = w / (HH.Parchment.PAGE_W - 2 * Part.PAGE_SIDE)
+  local px, pt, pb = Part.PAGE_SIDE * s, Part.PAGE_TOP * s, Part.PAGE_BOTTOM * s + (p.tabRoom or 0)
+  p.relaying = true
+  p:ClearAllPoints()
+  p:SetPoint("TOPLEFT", f, "TOPLEFT", -px, pt)
+  p:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", px, -pb)
+  HH.Parchment.PlacePage(p, w + 2 * px, h + pt + pb)
+  p.relaying = false
+  return true
+end
+
+-- ------------------------------------------------------------------------------------------------ ink on paper
+local function near(r, g, b, c) return math.abs(r - c[1]) + math.abs(g - c[2]) + math.abs(b - c[3]) < 0.02 end
+
+--- A Blizzard text colour on the light page. Neutral (low saturation): bright -> the theme's ink, dim grey -> its
+-- muted ink, already dark -> left. A hue (gold, red, green, a class colour): kept, brought down to a luminance that
+-- reads on paper. One of the theme's own inks comes back unchanged (a second pass changes nothing). Pure maths.
+Part.INK_LUM = 0.34
+function Part.InkColor(r, g, b, th)
+  if near(r, g, b, th.text) or near(r, g, b, th.muted) or near(r, g, b, th.title) then return r, g, b end
+  local mx, mn = math.max(r, g, b), math.min(r, g, b)
+  local sat = mx > 0 and (mx - mn) / mx or 0
+  local lum = 0.299 * r + 0.587 * g + 0.114 * b
+  if sat < 0.25 then
+    if lum >= 0.62 then return th.text[1], th.text[2], th.text[3] end
+    if lum >= 0.30 then return th.muted[1], th.muted[2], th.muted[3] end
+    return r, g, b
+  end
+  if lum <= Part.INK_LUM + 0.005 then return r, g, b end
+  local k = Part.INK_LUM / lum
+  return r * k, g * k, b * k
+end
+
+--- One string inked for the light page, and hooked once so a Blizzard repaint (hover, rebuild, tab select) is inked
+-- again. Nothing happens off the light page (the hook checks each time, so a look change needs no unhooking).
+function Part.Ink(fs)
+  local th = Part.Theme()
+  if not (th and th.paper) then return false end
+  local r, g, b = Skin.call(fs.GetTextColor, fs)
+  if not (Skin.num(r) and Skin.num(g) and Skin.num(b)) then return false end
+  local nr, ng, nb = Part.InkColor(r, g, b, th)
+  local changed = false
+  if (math.abs(nr - r) + math.abs(ng - g) + math.abs(nb - b)) > 0.002 and not fs.hhInking then
+    fs.hhInking = true
+    Skin.call(fs.SetTextColor, fs, nr, ng, nb)
+    fs.hhInking = false
+    changed = true
+  end
+  if not fs.hhInkHooked and type(hooksecurefunc) == "function" then
+    fs.hhInkHooked = true
+    pcall(hooksecurefunc, fs, "SetTextColor", function(self)
+      if self.hhInking or Skin.cfg().enabled == false or Skin.cfg().panels.enabled == false or not Part.Paper() then return end
+      Part.Ink(self)
+    end)
+  end
+  return changed
+end
+
+--- Every text in a window inked (depth 7). A Button's label is left: its art is Blizzard's and the label reads on it
+-- (tabs are inked by Part.Tabs). Budgeted at `budget.n` strings a pass; a long list is inked as it shows.
+function Part.InkAll(frame, depth, budget)
+  depth = depth or 0
+  budget = budget or { n = 500 }
+  if type(frame) ~= "table" or depth > 7 or budget.n <= 0 or frame.hhOurs then return 0 end
+  local kind = Skin.call(frame.GetObjectType, frame) or "Frame"
+  if depth > 0 and (kind == "Button" or kind == "CheckButton") then return 0 end
+  local n = 0
+  for _, r in ipairs(Skin.all(frame.GetRegions, frame)) do
+    if type(r) == "table" and Skin.call(r.GetObjectType, r) == "FontString" and not r.hhOurs then
+      budget.n = budget.n - 1
+      if Part.Ink(r) then n = n + 1 end
+      if budget.n <= 0 then return n end
+    end
+  end
+  for _, c in ipairs(Skin.all(frame.GetChildren, frame)) do n = n + Part.InkAll(c, depth + 1, budget) end
+  return n
+end
+
+--- A tab's own label inked (regions only), on the light page.
+function Part.InkLabel(tab)
+  if not Part.Paper() then return 0 end
+  local n = 0
+  for _, r in ipairs(Skin.all(tab.GetRegions, tab)) do
+    if type(r) == "table" and Skin.call(r.GetObjectType, r) == "FontString" and not r.hhOurs and Part.Ink(r) then n = n + 1 end
+  end
+  return n
 end
 
 -- Parchment windows: their text is BLACK on parchment art that sits a layer or two below the window itself.
@@ -45,13 +186,15 @@ function Part.RecolorFonts()
   if Part.fontsDone then return 0 end
   Part.fontsDone = true
   local n = 0
+  local th = Part.Paper() and Part.Theme() or nil                 -- the light page: ink; the dark page / ink panel: cream, amber
+  local body, title = th and th.text or Skin.CREAM, th and th.title or { 0.95, 0.65, 0.15 }
   for _, fn in ipairs(Part.BODY_FONTS) do
     local f = rawget(_G, fn)
-    if type(f) == "table" and f.SetTextColor then Skin.call(f.SetTextColor, f, Skin.CREAM[1], Skin.CREAM[2], Skin.CREAM[3]) n = n + 1 end
+    if type(f) == "table" and f.SetTextColor then Skin.call(f.SetTextColor, f, body[1], body[2], body[3]) n = n + 1 end
   end
   for _, fn in ipairs(Part.TITLE_FONTS) do
     local f = rawget(_G, fn)
-    if type(f) == "table" and f.SetTextColor then Skin.call(f.SetTextColor, f, 0.95, 0.65, 0.15) n = n + 1 end
+    if type(f) == "table" and f.SetTextColor then Skin.call(f.SetTextColor, f, title[1], title[2], title[3]) n = n + 1 end
   end
   return n
 end
@@ -93,7 +236,7 @@ function Part.Lift(fs)
   if not fs.hhLiftHooked and type(hooksecurefunc) == "function" then
     fs.hhLiftHooked = true
     pcall(hooksecurefunc, fs, "SetTextColor", function(self)
-      if self.hhLifting or Skin.cfg().enabled == false or Skin.cfg().panels.enabled == false then return end
+      if self.hhLifting or Skin.cfg().enabled == false or Skin.cfg().panels.enabled == false or Part.Paper() then return end
       Part.Lift(self)
     end)
   end
@@ -105,6 +248,7 @@ end
 -- themselves are walked (light text, e.g. gold option lines, is left alone).
 function Part.DeepRecolor(frame, depth)
   depth = depth or 0
+  if depth == 0 and Part.Paper() then return Part.InkAll(frame) end   -- the light page: ink, not cream
   if type(frame) ~= "table" or depth > 7 then return 0 end
   local n = 0
   if frame.GetRegions then
@@ -209,7 +353,7 @@ end
 -- three side tabs (ListingTab / BrowsingTab / WhoListingTab, common-sidetab). The other panes' names are not known
 -- on this client, so any direct child carrying a NineSlice or TopTileStreaks counts as one; each is stripped again
 -- when its tab shows it (its own OnShow - the parent's does not fire on a tab switch).
-Part.FRAMED = { LFGParentFrame = true }
+Part.FRAMED = { LFGParentFrame = true, CommunitiesFrame = true }
 Part.tinted = setmetatable({}, { __mode = "k" })
 
 --- A Blizzard texture recoloured to ours (desaturated + tint): its shape and its show / hide stay Blizzard's, so a
@@ -257,6 +401,19 @@ function Part.SubWindows(f, name)
   return #found
 end
 
+--- The cell behind a tab: a rounded slab in the page's tag colour (parchment), else the ink panel.
+function Part.Cell(tab, pad, alpha)
+  local th = Part.Theme()
+  if th then
+    local s = HH.Parchment.Slab(tab, "BACKGROUND")
+    for _, part in ipairs(s.parts) do part.hhOurs = true end
+    s:Fit(tab, -(pad or 0), 10)
+    s:Color(th.tag)
+    return s
+  end
+  return Skin.Panel(tab, tab, pad, alpha)
+end
+
 --- Side tabs down a window's edge: Blizzard's tab plate off, an ink cell behind, the selected and hover marks tinted
 -- cyan (still shown / hidden by Blizzard), the icon kept.
 function Part.SideTabs(f, name)
@@ -265,9 +422,10 @@ function Part.SideTabs(f, name)
   for k, tab in pairs(f) do
     if type(k) == "string" and k:find("Tab$") and type(tab) == "table" and type(rawget(tab, "Background")) == "table" then
       Skin.Kill(rawget(tab, "Background"))
-      if not Part.sideTabPanels[tab] then Part.sideTabPanels[tab] = Skin.Panel(tab, tab, -2, 0.9) end
-      Part.Tint(rawget(tab, "SelectedTexture"), Skin.CYAN)
-      Part.Tint(rawget(tab, "HighlightTexture"), Skin.CYAN, 0.5)
+      if not Part.sideTabPanels[tab] then Part.sideTabPanels[tab] = Part.Cell(tab, -2, 0.9) end
+      local pick = Part.Theme() and Part.Theme().pick or Skin.CYAN
+      Part.Tint(rawget(tab, "SelectedTexture"), pick)
+      Part.Tint(rawget(tab, "HighlightTexture"), pick, 0.5)
       n = n + 1
     end
   end
@@ -285,7 +443,8 @@ function Part.Tabs(f, name)
       local t = rawget(tab, k)
       if type(t) == "table" then Skin.Kill(t) end
     end
-    if not tab.hhTabPanel then tab.hhTabPanel = Skin.Panel(tab, tab, -2, 0.85) end
+    if not tab.hhTabPanel then tab.hhTabPanel = Part.Cell(tab, -2, 0.85) end
+    Part.InkLabel(tab)
   end
 end
 
@@ -311,11 +470,14 @@ end
 
 function Part.StyleOnce(f, name)
   local d = Skin.cfg().panels
-  f.hhPanel = Skin.Panel(f, f, 0, d and d.alpha or 0.9)
+  local th = Part.Theme()
+  local tabs = type(rawget(_G, name .. "Tab1")) == "table"                     -- a tab strip hangs under the window: paper under it too
+  f.hhPanel = th and Part.Page(f, d and d.alpha or 0.9, tabs and Part.TAB_ROOM or 0) or Skin.Panel(f, f, 0, d and d.alpha or 0.9)
   local title = rawget(f, "TitleText") or (type(rawget(f, "TitleContainer")) == "table" and rawget(f.TitleContainer, "TitleText")) or rawget(_G, name .. "TitleText")
   if type(title) == "table" then
-    Skin.SetFont(title, d and d.titleSize or 13)
-    if title.SetTextColor then Skin.call(title.SetTextColor, title, Skin.CREAM[1], Skin.CREAM[2], Skin.CREAM[3]) end
+    if th then HH.Parchment.Font(title, d and d.titleSize or 13) else Skin.SetFont(title, d and d.titleSize or 13) end
+    local tc = th and th.title or Skin.CREAM
+    if title.SetTextColor then Skin.call(title.SetTextColor, title, tc[1], tc[2], tc[3]) end
   end
   local close = rawget(f, "CloseButton") or rawget(_G, name .. "CloseButton")
   if type(close) == "table" and close.CreateFontString and not close.hhX then
@@ -332,6 +494,14 @@ function Part.StyleOnce(f, name)
     close.hhX:SetText("x")
     close.hhX:SetTextColor(Skin.CREAM[1], Skin.CREAM[2], Skin.CREAM[3])
     Skin.SetFont(close.hhX, 14)
+  end
+  if th and type(close) == "table" and close.hhX and not close.hhCap then   -- the page's key cap under the x
+    close.hhCap = HH.Parchment.Slab(close, "ARTWORK")
+    for _, part in ipairs(close.hhCap.parts) do part.hhOurs = true end
+    close.hhCap:Fit(close, 5, 8)
+    close.hhCap:Color(th.key)
+    close.hhX:SetTextColor(th.keyText[1], th.keyText[2], th.keyText[3])
+    HH.Parchment.Font(close.hhX, 13)
   end
   if Part.PARCHMENT[name] then
     Part.RecolorFonts()
@@ -425,6 +595,11 @@ function Part.Style(f)
     Part.KillPieces(f, name)
     if first then Part.StyleOnce(f, name) end
     if Part.PARCHMENT[name] then Part.Parchment(f) end
+    if f.hhPanel and f.hhPanel.pageTop then Part.Relay(f.hhPanel) end
+    if Part.Paper() then
+      Part.InkAll(f)
+      if C_Timer and C_Timer.After then C_Timer.After(0.2, function() if Skin.call(f.IsShown, f) then Part.InkAll(f) end end) end
+    end
   end, HH.Trace or debugstack)
   if not ok then
     HH:LogError("skin window " .. name .. ": " .. tostring(err))
