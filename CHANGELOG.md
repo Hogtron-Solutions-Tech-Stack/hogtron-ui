@@ -1,5 +1,12 @@
 # HogTron UI
 
+## v0.2.0-beta.9
+
+### New
+- **Blizzard's own pictures on the menu bar only** (Skin > Menu & bag bar > "Blizzard's own button pictures (this bar
+  only)"). The bottom menu cells show the game's original button art and the Bags cell the backpack; the drawer, info
+  bar and quest marks keep your General > Icons choice. Off by default.
+
 ## v0.2.0-beta.8
 
 ### Fixed
