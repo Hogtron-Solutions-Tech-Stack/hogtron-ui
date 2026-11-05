@@ -80,3 +80,14 @@ The packager we already use (BigWigsMods/packager) supports exactly this, per it
 - **Size.** Core carries all shared art (24 MB, mostly the cast bar strips). A nameplates-only install still downloads
   it. Moving each module's art into its own folder is possible later.
 - Release cost: 15 uploads per tag instead of 1 (automatic; ~2 min of CI more).
+
+## Outcome (2026-11-05): split rejected by CurseForge moderation
+
+All 12 module projects (first files uploaded 2026-10-20 after Core's approval) show the same banner on 2026-11-05:
+"Changes required: Merge Projects - Please merge your projects into a single project, and submit different variations
+in separate files" (policy "Project Variants - Merge projects"). Core (1753233) and Skin (1753257) had been approved
+before that ruling. Sean 2026-11-05: "It looks like they want us to do this." Decision: **one project**. The bundle
+1744106 (public since 2026-11-05, main file v0.2.0-beta.4) is the everything-package by construction, so #100 is not
+needed; `dev/split/projects.json` `live` = false stops the per-module uploads; the module projects stay as they are
+(nothing to delete from here - removing them is a portal action, Sean's call). The research above stays for the
+record; the DBM / BigWigs comparison did not hold for a suite whose modules all depend on one core.

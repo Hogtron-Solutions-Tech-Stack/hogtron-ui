@@ -83,19 +83,21 @@ def test_the_zip_gate_holds_a_module_zip_to_exactly_its_folder(tmp_path):
 
 
 def test_every_project_exists_on_curseforge_and_each_gets_its_upload():
-    # 2026-10-18: all 14 projects created (ids + slugs filled); live, so a tag uploads to each (moderators need a first file)
+    # 2026-10-18: all 14 projects created (ids + slugs filled). 2026-11-05: CurseForge moderation refused the split
+    # ('Merge Projects'); live is OFF, the ids stay for the record and the matrix carries no curse_id (no uploads).
     cfg = json.loads((ROOT / "dev" / "split" / "projects.json").read_text(encoding="utf-8"))
     for p in [cfg["core"]] + cfg["modules"]:
         assert p["curse_id"].isdigit() and p["slug"].startswith("hogtron-ui"), p
-    assert cfg["live"] is True
+    assert cfg["live"] is False
     rows = json.loads(MK.matrix())
-    assert [r["curse_id"] for r in rows] == [cfg["core"]["curse_id"]] + [m["curse_id"] for m in cfg["modules"]]
+    assert [r["name"] for r in rows] == [cfg["core"]["name"]] + [m["name"] for m in cfg["modules"]]   # packaging still builds every zip
+    assert all(r["curse_id"] == "" for r in rows)                                 # ... and uploads none of them
     assert cfg["bundle"]["curse_id"] not in [r["curse_id"] for r in rows]       # the bundle keeps its own (root .pkgmeta) upload
-    cfg["live"] = False
+    cfg["live"] = True                                                          # flipping it back would upload again
     MK_load = MK.load
     try:
         MK.load = lambda: cfg
         rows = json.loads(MK.matrix())
+        assert [r["curse_id"] for r in rows] == [cfg["core"]["curse_id"]] + [m["curse_id"] for m in cfg["modules"]]
     finally:
         MK.load = MK_load
-    assert all(r["curse_id"] == "" for r in rows)                                # the off switch still stops every upload
