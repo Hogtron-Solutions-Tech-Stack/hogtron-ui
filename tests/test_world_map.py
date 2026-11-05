@@ -23,8 +23,8 @@ function SetCVar(k, v) CV[k] = v end
 def test_strip_shows_you_and_cursor_and_the_art_is_hidden(lua):
     boot(lua, MODERN + MAP)
     assert lua.eval('CV.mapFade') == "1"
-    assert lua.eval('WMArt[1]._alpha') != 0                                      # off by default (2026-09-23 in game)
-    lua.execute('HogHeals.db.profile.quests.worldMap.coords = true; HogHeals.db.profile.quests.worldMap.skin = true; HogHealsQuests.WorldMap.Refresh()')
+    assert lua.eval('WMArt[1]._alpha') == 0                                      # skin on by default (Sean 2026-11-05: "reskin the M")
+    lua.execute('HogHeals.db.profile.quests.worldMap.coords = true; HogHealsQuests.WorldMap.Refresh()')
     assert lua.eval('HogHealsQuests.WorldMap.strip ~= nil') is True
     lua.execute('WorldMapFrame:Show()')
     p, c = lua.eval('HogHealsQuests.WorldMap.Tick()')
