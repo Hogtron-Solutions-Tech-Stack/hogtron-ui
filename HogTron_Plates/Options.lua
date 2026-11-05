@@ -8,7 +8,7 @@ HHP.Options = Options
 
 local function p() return HH.db.profile.plates end
 local function sub(key) return function() return HH.db.profile.plates[key] end end
-local function refresh() HHP.Plates.Refresh() end
+local function refresh() if HHP.Plates.ResetThreatCurves then HHP.Plates.ResetThreatCurves() end HHP.Plates.Refresh() end
 
 local function toggle(tbl, key, name, order, desc)
   return { type = "toggle", name = name, desc = desc, order = order,
@@ -148,8 +148,27 @@ function Options.Table()
         scale = range(sub("target"), "scale", "Magnification (style: magnify)", 2.5, 1.0, 2.0, 0.05),
         fade = toggle(sub("target"), "fadeOthers", "Fade plates that are not my target", 3),
         otherAlpha = range(sub("target"), "otherAlpha", "Faded opacity", 4, 0.1, 1, 0.05),
-        aggro = toggle(sub("aggro"), "warn", "Red outline when a mob is attacking me", 5),
+        aggro = toggle(sub("aggro"), "warn", "Red outline when a mob is attacking me (with threat colours off, or on the bar)", 5),
         aggroColor = colour(sub("aggro"), "color", "Aggro colour", 6),
+      } },
+      threat = { type = "group", name = "Threat colours", order = 2.5, args = {
+        about = { type = "description", order = 0, name = "While a mob fights you or your group, its plate shows its threat on you. Damage / healing: green (safe), yellow (your threat is rising), orange (about to pull it), red (it is on you). Tank: green (on you, secure), orange (slipping), red (someone else has it). Border style keeps the bar red for hostile and yellow for neutral mobs and puts the threat colour on a thick border; bar style colours the whole bar. Mobs that are not fighting you keep their normal look." },
+        enabled = toggle(sub("threat"), "enabled", "Show threat on the plate", 1),
+        style = { type = "select", name = "Show it on", order = 1.5, values = { border = "The border (bar stays red / yellow)", bar = "The whole health bar" },
+          get = function() return sub("threat")().style or "border" end, set = function(_, v) sub("threat")().style = v; refresh() end },
+        mode = { type = "select", name = "I am", order = 2, values = { auto = "Automatic (tank stance / form / role)", dps = "Damage or healing", tank = "The tank" },
+          get = function() return sub("threat")().mode or "auto" end, set = function(_, v) sub("threat")().mode = v; refresh() end },
+        warnAt = range(sub("threat"), "warnAt", "Yellow from (% of the threat that pulls it)", 3, 10, 100, 5),
+        highAt = range(sub("threat"), "highAt", "Orange from (%)", 4, 10, 100, 5),
+        colorSafe = toggle(sub("threat"), "colorSafe", "Green while I'm safe (off = the normal look)", 5),
+        safeColor = colour(sub("threat"), "safeColor", "Safe", 6),
+        risingColor = colour(sub("threat"), "risingColor", "Rising", 7),
+        highColor = colour(sub("threat"), "highColor", "About to pull", 8),
+        aggroColor = colour(sub("threat"), "aggroColor", "On me", 9),
+        secureColor = colour(sub("threat"), "secureColor", "Tank: on me, secure", 10),
+        slippingColor = colour(sub("threat"), "slippingColor", "Tank: slipping", 11),
+        lostColor = colour(sub("threat"), "lostColor", "Tank: someone else has it", 12),
+        diag = { type = "execute", name = "Print what this client tells addons about threat", order = 20, func = function() HH:SlashCommand("threatdiag") end },
       } },
       quest = { type = "group", name = "Quest mobs", order = 3, args = {
         about = { type = "description", order = 0, name = "Marks mobs you still need for a quest: a ! icon with your progress beside the plate. Read from the mob's tooltip, or matched by name against your quest log when the tooltip has no quest lines (that needs the HogHeals Quests addon on)." },
