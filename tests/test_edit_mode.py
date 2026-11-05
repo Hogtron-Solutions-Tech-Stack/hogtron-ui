@@ -249,3 +249,64 @@ def test_the_party_frames_grip_resizes_the_cells_of_the_current_layout(ed):
     ed.execute(f'HogHeals.EditMode.BeginResize({t}); HogHeals.EditMode.ResizeStep(-1000, 1000); HogHeals.EditMode.EndResize()')
     assert ed.eval("HogHealsFrames.module:LayoutFor().width") == 40 and ed.eval("HogHealsFrames.module:LayoutFor().height") == 12
     assert errors(ed) == []
+
+
+# Sean 2026-11-03 (Anniversary, in /hh unlock): "I can't move the icons at the bottom ... I also can't move the chat windows"
+CHAT_WINDOWS = '''
+NUM_CHAT_WINDOWS = 3
+SAVED = {}
+function FCF_SavePositionAndDimensions(cf) SAVED[#SAVED + 1] = cf:GetName() end
+function GetChatWindowInfo(i) return ({ "General", "Guild", "Trade" })[i] end
+for i = 1, 3 do
+  local cf = CreateFrame("ScrollingMessageFrame", "ChatFrame" .. i, UIParent)
+  cf:SetSize(400, 200)
+  cf:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+end
+ChatFrame3.isDocked = 1
+'''
+
+
+def test_the_menu_bar_has_a_drag_box_that_moves_and_saves_it(ed):
+    ed.execute('HogHeals.db.profile.edit.snap = false; HogHeals:SlashCommand("unlock")')
+    b = "HogHeals.EditMode.boxes['micro']"
+    assert ed.eval(f"{b}:IsShown()") is True and ed.eval(f"{b}._points[1][2] == HogHealsMicroBar") is True
+    assert ed.eval(f"{b}.label._text") == "Menu bar"
+    ed.execute(f'{b}:GetScript("OnDragStart")({b})')
+    assert ed.eval("HogHealsMicroBar._moving") is True                           # the bar's own drag script ran
+    ed.execute(f'HogHealsMicroBar._points = {{ {{ "BOTTOM", UIParent, "BOTTOM", 12, 34 }} }}; {b}:GetScript("OnDragStop")({b})')
+    assert ed.eval("HogHealsMicroBar._moving") is False
+    assert ed.eval("HogHeals.db.profile.skin.micro.point") == "BOTTOM" and ed.eval("HogHeals.db.profile.skin.micro.x") == 12
+    ed.execute(f'{b}:GetScript("OnMouseUp")({b}, "LeftButton")')
+    assert ed.eval("HogHeals.Panel.frame == nil or not HogHeals.Panel.frame:IsShown()") is True   # a drag is not a click
+    assert errors(ed) == []
+
+
+def test_chat_windows_get_boxes_moved_through_the_clients_own_calls(ed):
+    ed.execute(CHAT_WINDOWS)
+    ed.execute('HogHeals.db.profile.edit.snap = false; HogHeals:SlashCommand("unlock")')
+    assert ed.eval("HogHeals.EditMode.boxes['chat:1'].label._text") == "Chat"
+    assert ed.eval("HogHeals.EditMode.boxes['chat:2'].label._text") == "Chat: Guild"
+    assert ed.eval("HogHeals.EditMode.boxes['chat:3']") is None                  # docked: it moves with the dock
+    b = "HogHeals.EditMode.boxes['chat:2']"
+    assert ed.eval(f"{b}._points[1][2] == ChatFrame2") is True
+    ed.execute(f'{b}:GetScript("OnDragStart")({b})')
+    assert ed.eval("ChatFrame2._moving") is True
+    ed.execute(f'{b}:GetScript("OnDragStop")({b})')
+    assert ed.eval("ChatFrame2._moving") is False and ed.eval("SAVED[1]") == "ChatFrame2"   # saved like a tab drag
+    t = target(ed, "chat:2")
+    assert ed.eval(f'HogHeals.EditMode.Center({t}, "h")') is True
+    assert ed.eval("SAVED[2]") == "ChatFrame2"
+    # the corner grip: the client sizes the window itself (StartSizing from its bottom-right), the drop saves it
+    assert ed.eval("HogHeals.EditMode.grips['chat:2']:IsShown()") is True
+    ed.execute(f"{t}.resize = HogHeals.EditMode.ResizeFor({t})")
+    assert ed.eval(f"HogHeals.EditMode.BeginResize({t})") is True
+    assert ed.eval("ChatFrame2._last.StartSizing[1]") == "BOTTOMRIGHT" and ed.eval("HogHeals.EditMode.resizing.native") is True
+    assert ed.eval("HogHeals.EditMode.ResizeStep(40, -40)") is False             # nothing of ours steps the size
+    ed.execute("ChatFrame2._moving = true; HogHeals.EditMode.EndResize()")
+    assert ed.eval("ChatFrame2._moving") is False and ed.eval("SAVED[3]") == "ChatFrame2"
+    assert ed.eval("HogHeals.EditMode.lastResize") == "chat:2" and ed.eval("HogHeals.EditMode.resizing") is None
+    ed.execute('HogHeals:SlashCommand("lock"); ChatFrame2:Hide(); HogHeals:SlashCommand("unlock")')
+    assert ed.eval("HogHeals.EditMode.boxes['chat:2']:IsShown()") is False       # a window gone meanwhile loses its box
+    assert ed.eval("HogHeals.EditMode.grips['chat:2']:IsShown()") is False
+    assert errors(ed) == []
+
