@@ -88,6 +88,7 @@ def test_a_failing_window_is_logged_by_name_and_reported(win):
 
 def test_leftover_blizzard_art_is_named_in_the_report(win):
     win.execute('''
+      HogHeals.db.profile.skin.panels.look = "ink"  -- the ink panel keeps inner art; the page strips it deep (test_skin_windows_inner.py)
       FriendsFrame.Odd = CreateFrame("Frame", nil, FriendsFrame)
       FriendsFrame.Odd.Gold = FriendsFrame.Odd:CreateTexture(); FriendsFrame.Odd.Gold:SetTexture("Interface/odd-gold"); FriendsFrame.Odd.Gold:SetSize(40, 12)
       ShowUIPanel(FriendsFrame); MockAdvance(1)
@@ -146,6 +147,7 @@ end
 
 
 def test_group_finder_panes_and_side_tabs_are_skinned(win):
+    win.execute('HogHeals.db.profile.skin.panels.look = "ink"')   # pane logic on the ink panel; the page strips deep
     win.execute(LFG + 'ShowUIPanel(LFGParentFrame); MockAdvance(1)')
     l = "LFGListingFrame"
     assert win.eval(f'{l}.NineSlice:IsShown()') is False                          # the metal frame, hidden whole
@@ -160,7 +162,7 @@ def test_group_finder_panes_and_side_tabs_are_skinned(win):
         t = f'LFGParentFrame.{k}'
         assert win.eval(f'{t}.Background._alpha') == 0
         assert win.eval(f'{t}.Icon._alpha') == 1
-        assert [round(v, 2) for v in list(win.eval(f'{t}.SelectedTexture._color').values())[:3]] == [0.72, 0.48, 0.12]   # the page's pick colour
+        assert [round(v, 2) for v in list(win.eval(f'{t}.SelectedTexture._color').values())[:3]] == [0.13, 0.83, 0.88]   # ink look: cyan (the page's pick colour: test_skin_windows_parchment.py)
         assert win.eval(f'HogHealsSkin.Panels.sideTabPanels[{t}] ~= nil')
     rep = win.eval('HogHeals.db.global.diag.skin.windows.LFGParentFrame')
     assert rep["leftovers"] == 1 and "keep-me" in rep["left"], rep["left"]   # only the piece left alone on purpose

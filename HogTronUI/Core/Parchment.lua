@@ -85,8 +85,10 @@ end
 function Parchment.PlacePage(f, w, h)
   local file = Parchment.ART.page[Parchment.ThemeKey()]
   local s = w / Parchment.PAGE_W
-  local cap = Parchment.SLICE * s
-  local cut = Parchment.SLICE / Parchment.PAGE_H
+  -- a page shorter than its two torn slices (a popup): the slices shrink to half the height each, so they meet
+  -- instead of overlapping (an overlap draws the paper twice: a lighter band across the middle)
+  local cap = math.min(Parchment.SLICE * s, h / 2)
+  local cut = (cap / s) / Parchment.PAGE_H
   for _, t in ipairs({ f.pageTop, f.pageMid, f.pageBot }) do t:SetTexture(file) t:ClearAllPoints() t:Show() end
   f.pageTop:SetTexCoord(0, 1, 0, cut)
   f.pageTop:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0) f.pageTop:SetSize(w, cap)
