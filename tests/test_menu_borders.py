@@ -1,9 +1,16 @@
+import pytest
 # Sean 2026-10-15 (in game): the painted options window read heavy - a teal line inside every brass edge, along the
 # sidebar pillar and under the banner - and the version label ("vdev") was unreadable. Teal recoloured out of the
 # four frame textures (dev/icons/tone_down_menu_art.py); version label light.
 from pathlib import Path
 
 MEDIA = Path(__file__).resolve().parents[1] / "HogTronUI" / "Media"
+
+
+@pytest.fixture(autouse=True)
+def modern_look(lua):
+    # the painted slate / brass menus are the Modern look; Parchment puts the window on the torn page (test_panel_page.py)
+    lua.execute('HogTronUIDB = { profiles = { Default = { look = { style = "hogtron" } } } }')
 
 
 def tga_pixels(path):

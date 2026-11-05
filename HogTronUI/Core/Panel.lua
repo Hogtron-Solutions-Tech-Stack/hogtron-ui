@@ -19,6 +19,19 @@ local INK, CREAM, CYAN, GREY = P.ink or { 0.07, 0.07, 0.09 }, P.cream or { 0.96,
 local RAISED = { 0.11, 0.11, 0.14 }
 local LINE = { 0.20, 0.20, 0.25 }
 
+--- The UI's look into this file's colour names (HogTronUI/Core/Parchment.lua Palette). Parchment: the window on the
+--- torn page, ink text, flat paper fills, the page's amber accent, no slate art. Sean 2026-11-05: "everything to match
+--- this paper-like theme". Read when the window is built (a look change needs /reload).
+function Panel.Paint()
+  local PM = HH.Parchment
+  if not (PM and PM.On and PM.On()) then Panel.page = false return false end
+  local pal = PM.Palette()
+  INK, CREAM, CYAN, GREY, LINE = pal.bg, pal.text, pal.accent, pal.muted, pal.line
+  RAISED = { pal.bg[1] * 0.93, pal.bg[2] * 0.92, pal.bg[3] * 0.88 }
+  Panel.page = true
+  return true
+end
+
 local W, H, SIDEBAR, TITLE, PAD = 860, 580, 170, 40, 16
 local COLS, GUTTER = 2, 18
 local CW, CH = 400, 460   -- compact window (edit mode: one frame's settings beside the frame)
@@ -110,6 +123,7 @@ local function text(parent, template, c, justify)
   c = c or CREAM
   fs:SetTextColor(c[1], c[2], c[3])
   if justify then fs:SetJustifyH(justify) end
+  if Panel.page and fs.SetShadowOffset then fs:SetShadowOffset(0, 0) end   -- ink on paper casts no shadow
   return fs
 end
 
@@ -209,7 +223,10 @@ local function artTex(parent, layer, sub, file, wrapH, wrapV)
   return t, ok ~= false
 end
 
-function Panel.MenuArt() return not (HH.db and HH.db.profile and HH.db.profile.look and HH.db.profile.look.menus == "flat") end
+function Panel.MenuArt()
+  if Panel.page then return false end   -- the Parchment look: the torn page, not the painted slate
+  return not (HH.db and HH.db.profile and HH.db.profile.look and HH.db.profile.look.menus == "flat")
+end
 
 function Panel.BuildArt(f)
   if f.art then return f.art end
@@ -334,6 +351,7 @@ end
 
 local function build()
   if Panel.frame then return Panel.frame end
+  Panel.Paint()
   local f = CreateFrame("Frame", "HogHealsPanel", UIParent)
   f:SetSize(W, H)
   f:SetPoint("CENTER", UIParent, "CENTER", 0, 20)
@@ -342,6 +360,11 @@ local function build()
   f:SetClampedToScreen(true)
   f:EnableMouse(true)
   skin(f, INK, LINE, 0.97)
+  if Panel.page then                                  -- the torn page behind the whole window; its own fill steps aside
+    f.page = HH.Parchment.PageBehind(f, 1)
+    f.fill:SetAlpha(0)
+    for _, e in ipairs(f.edges or {}) do e:SetAlpha(0) end
+  end
   f:Hide()
   if type(UISpecialFrames) == "table" then tinsert(UISpecialFrames, "HogHealsPanel") end   -- Esc closes
 
@@ -367,7 +390,7 @@ local function build()
   f.titleHeals:SetPoint("LEFT", f.titleHog, "RIGHT", 0, 0)
   f.titleHeals:SetText("TRON UI")
   -- light warm grey: the old GREY vanished on the painted banner (Sean 2026-10-15, "vdev" unreadable in game)
-  f.version = text(bar, "HogTronFontSmall", { 0.80, 0.76, 0.70 })
+  f.version = text(bar, "HogTronFontSmall", Panel.page and GREY or { 0.80, 0.76, 0.70 })
   f.version:SetPoint("LEFT", f.titleHeals, "RIGHT", 10, -1)
   f.version:SetText("v" .. tostring(HH.version or "dev"))
 

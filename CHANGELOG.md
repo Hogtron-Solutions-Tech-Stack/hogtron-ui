@@ -14,6 +14,8 @@
   value colours darkened to read on paper), the menu bar and bags sit on plain paper in the Parchment look.
 - **The minimap and the world map (M) on paper**: the minimap framed in paper with its zone name in ink; the map window
   on the torn page with its quest log stripped and inked (the map itself untouched).
+- **Our settings window and the setup guide on the torn page** in the Parchment look (ink text, the two-tone wordmark
+  in ink and amber, flat paper controls).
 - **Chat, the damage meter and tooltips on the charred page** in the Parchment look - their text is Blizzard's own, in
   every colour, and reads on the dark sheet as it is.
 - **New icon set for the Parchment look: ink stamps** - every menu and drawer icon as a woodcut on a paper disc inside
