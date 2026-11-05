@@ -14,6 +14,12 @@ local function generalTab()
         get = function() return HH.db.profile.locked end,
         set = function(_, v) HH:SetLocked(v) end,
       },
+      gameMenu = {
+        type = "toggle", order = 2.5, name = "Escape menu: HogTron Edit Mode",
+        desc = "The Escape menu's Edit Mode button opens HogTron Edit Mode (/hh unlock) instead of Blizzard's editor, which arranges frames this UI replaces.",
+        get = function() return (HH.db.profile.edit or {}).gameMenu ~= false end,
+        set = function(_, v) HH.db.profile.edit = HH.db.profile.edit or {}; HH.db.profile.edit.gameMenu = v; if HH.GameMenu then HH.GameMenu.Apply() end end,
+      },
       minimap = {
         type = "toggle", order = 3, name = "Minimap button",
         get = function() return not HH.db.profile.minimap.hide end,
