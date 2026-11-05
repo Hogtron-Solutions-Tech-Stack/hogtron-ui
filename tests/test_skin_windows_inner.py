@@ -104,11 +104,12 @@ def test_late_rows_are_caught_by_the_next_pass(win):
     assert errors(win) == []
 
 
-def test_the_spellbook_keeps_its_own_book_page(win):
+def test_the_spellbook_is_stripped_like_the_rest_and_its_dark_text_stays(win):
+    # Sean 2026-11-05: "The spellbook is still messed up" - its dark top bar and the book's frame sat inside our page
     win.execute(SCENE + "ShowUIPanel(PlayerSpellsFrame); MockAdvance(1)")
     assert win.eval("PlayerSpellsFrame.hhPanel.pageTop ~= nil")                                     # our page behind
-    assert alpha(win, "PlayerSpellsFrame.Book.BookBGHalved") == 1                                    # Blizzard's book stays (Sean: "looks fine")
-    assert rgb(win, "PlayerSpellsFrame.Book.Spell") == [0.18, 0.12, 0.06]                            # its dark text untouched
+    assert alpha(win, "PlayerSpellsFrame.Book.BookBGHalved") == 0                                    # the book's own page goes
+    assert rgb(win, "PlayerSpellsFrame.Book.Spell") == [0.18, 0.12, 0.06]                            # its dark text already reads on paper
     assert errors(win) == []
 
 

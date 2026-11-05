@@ -1,5 +1,18 @@
 # HogTron UI
 
+## v0.2.0-beta.15
+
+### New
+- **Three looks, one switch** (General > Look > Style, and the setup guide): **Parchment** (new default) - the quest
+  dialog's page on every window, the game's Friz Quadrata, ink on paper; **Modern** - HogTron's dark, flat look;
+  **Blizzard** - the game's own look and icons. Every feature works in all three. `/hh look parchment | modern | blizzard`.
+- Skin > Windows > Look now follows the UI's look by default (or force parchment / ink per your taste).
+- `/hh open <window>` opens one of Blizzard's windows by name (character, spellbook, questlog, social, guild, map,
+  bags, lfg, options, ...) - handy for checking the skin window by window.
+
+### Fixed
+- The spellbook loses its dark top bar and book frame on the page like every other window; its dark text already reads.
+
 ## v0.2.0-beta.14
 
 ### Fixed

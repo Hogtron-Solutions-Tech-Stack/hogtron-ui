@@ -95,8 +95,8 @@ function Options.Build()
       panels = { type = "group", name = "Windows", order = 4.7, args = {
         about = { type = "description", order = 0, name = "Blizzard's windows (character, spellbook, escape menu, vendor, mail, trade, bank, guild, ...) in the HogTron look: their art and portrait off, a parchment page behind (the quest dialog's, light or charred - Quests > Dialog > Look) with the text inked to read on it, or the flat ink panel with an outline. Untick a window to leave it alone. A look change takes a /reload." },
         enabled = toggle(sub("panels"), "enabled", "Skin Blizzard's windows", 1),
-        look = { type = "select", name = "Look", order = 1.5, values = { parchment = "Parchment page (follows Quests > Dialog > Look)", ink = "Ink panel" },
-          get = function() return root().panels.look == "ink" and "ink" or "parchment" end, set = function(_, v) root().panels.look = v end },
+        look = { type = "select", name = "Look", order = 1.5, values = { auto = "Follow the UI's look (General > Look)", parchment = "Parchment page", ink = "Ink panel" },
+          get = function() local v = root().panels.look return (v == "ink" or v == "parchment") and v or "auto" end, set = function(_, v) root().panels.look = v end },
         alpha = range(sub("panels"), "alpha", "Background opacity", 2, 0.3, 1, 0.05),
         titleSize = range(sub("panels"), "titleSize", "Title text size", 3, 9, 20, 1),
         list = { type = "group", inline = true, name = "Windows", order = 4, args = (function()

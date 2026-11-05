@@ -1,8 +1,13 @@
 -- Look: the one place that decides how HogTron UI text and bars look. Sean 2026-10-06: "toggle the new UI vs the
 -- classic UI styling" + "the font and sizing from Ellesmere UI - it looks a lot cleaner, higher pixel density".
 --
---   style  "hogtron" (our fonts, flat bars, Blizzard's windows skinned) | "classic" (Blizzard's font, Blizzard's bar
---          texture, Blizzard's windows left alone). Features stay on in both. Changing it needs a /reload.
+--   style  the UI's look, one of three (Sean 2026-11-05: "we can do a modern look or a like wow look and then I also have
+--          the wow defaults. Those are my three things"):
+--          "parchment" (default) - the quest dialog's page everywhere: Blizzard's windows on the torn page, the game's
+--                      Friz Quadrata, ink on paper (HogTronUI/Core/Parchment.lua);
+--          "hogtron"   - Modern: our fonts, flat bars, Blizzard's windows on the ink panel;
+--          "classic"   - Blizzard: the game's font, bar texture, windows and icons left as they are.
+--          Features stay on in all three. Changing it needs a /reload. Look.Theme() names it: modern | parchment | blizzard.
 --   font   "Inter" | "Manrope" | "Barlow Condensed" - shipped in HogHeals/Media/Fonts (SIL Open Font License).
 --   edge   "shadow" (1 px drop shadow, no outline: the cleaner look) | "outline" (WoW's 1 px outline everywhere).
 --          Text drawn ON a bar (cell names, plate text, cast bars) keeps its outline in both: light class colours
@@ -57,6 +62,7 @@ function Look.IconPath(id)
 end
 Look.MEDIA = "Interface\\AddOns\\HogTronUI\\Media\\"
 function Look.IconStyle()
+  if Look.Classic() then return "blizzard" end   -- the Blizzard look: the game's own pictures
   local v = cfg().icons
   if v == "glyph" or v == "blizzard" then return v end
   return "art"
@@ -111,13 +117,18 @@ end
 local function standardFont() return rawget(_G, "STANDARD_TEXT_FONT") or "Fonts\\FRIZQT__.TTF" end
 
 function Look.Classic() return cfg().style == "classic" end
+Look.THEMES = { hogtron = "modern", parchment = "parchment", classic = "blizzard" }
+Look.THEME_NAMES = { parchment = "Parchment (the WoW page)", hogtron = "Modern (HogTron)", classic = "Blizzard (the game's own)" }
+--- "modern" | "parchment" | "blizzard": the UI's look (look.style).
+function Look.Theme() return Look.THEMES[cfg().style or "parchment"] or "parchment" end
+function Look.Parchment() return Look.Theme() == "parchment" end
 
 --- Path of the font to draw with. requested = a module's saved font name: nil / "HogTron" -> the Look font;
 -- "HogTron Manrope" -> that one of ours; any other LibSharedMedia name (a font the player picked) -> that font.
 -- Classic -> Blizzard's font for nil / "HogTron"; a font the player picked is still honoured.
 function Look.Font(requested)
   if requested == nil or requested == Look.FOLLOW then
-    if Look.Classic() then return standardFont() end
+    if Look.Classic() or Look.Parchment() then return standardFont() end   -- the page's font is the game's Friz Quadrata
     return Look.FONTS[cfg().font or "Inter"] or Look.FONTS.Inter
   end
   local ours = requested:match("^HogTron (.+)$")
@@ -178,7 +189,9 @@ function Look.Apply()
       end
     end
   end
-  Look.applied = { style = classic and "classic" or "hogtron", font = classic and "Blizzard" or (c.font or "Inter"), edge = shadow and "shadow" or "outline", size = bump }
+  local style = classic and "classic" or (Look.Parchment() and "parchment" or "hogtron")
+  local fontName = (classic and "Blizzard") or (style == "parchment" and "Friz Quadrata") or (c.font or "Inter")
+  Look.applied = { style = style, font = fontName, edge = shadow and "shadow" or "outline", size = bump }
   return Look.applied
 end
 
@@ -268,15 +281,15 @@ function Look.Init()
   Look.frame = f
 end
 
-local STYLES = { hogtron = true, classic = true }
+local STYLES = { hogtron = "hogtron", modern = "hogtron", parchment = "parchment", classic = "classic", blizzard = "classic" }
 local FONT_ALIAS = { inter = "Inter", manrope = "Manrope", barlow = "Barlow Condensed" }
 
 HH:RegisterSlash("look", function(rest)
   rest = (rest or ""):lower()
   local c = cfg()
   if STYLES[rest] then
-    c.style = rest
-    HH:Print(("look: %s - type /reload to switch (Blizzard's windows and bars change on a reload)."):format(rest == "classic" and "Classic" or "HogTron"))
+    c.style = STYLES[rest]
+    HH:Print(("look: %s - type /reload to switch (Blizzard's windows and bars change on a reload)."):format(Look.THEME_NAMES[c.style] or c.style))
     return
   elseif FONT_ALIAS[rest] then c.font = FONT_ALIAS[rest]
   elseif rest == "shadow" or rest == "outline" then c.edge = rest
@@ -292,7 +305,7 @@ HH:RegisterSlash("look", function(rest)
     HH:Print(ok and ("look: UI scale back to %s."):format(v and ("%.3f"):format(v) or "the game's own") or ("look: cannot - " .. tostring(v)))
     return
   elseif rest ~= "" then
-    HH:Print("look: hogtron | classic | inter | manrope | barlow | shadow | outline | painted | glyphs | pixel | unpixel")
+    HH:Print("look: parchment | modern | blizzard | inter | manrope | barlow | shadow | outline | painted | glyphs | pixel | unpixel")
     return
   end
   Look.Apply()
