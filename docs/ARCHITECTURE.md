@@ -36,7 +36,7 @@ and several static tests find folders by those two globs. A folder named anythin
 `HogHeals` is the core's global addon object (an AceAddon; the name is internal and stays). In code it is `HH`.
 
 Load order (`HogTronUI.toc`): `Core.lua` -> `Core/Look.lua`, `GroupSize`, `Queue`, `ClassData`, `Defaults`, `Migrate`,
-`Legacy`, `Options`, `Panel`, `Setup`, `EditMode`, `GameMenu`, `Perf`, `AtlasProbe`, `Session`, `Camera`, `ChatKey`, `Tray`.
+`Legacy`, `Options`, `Panel`, `Setup`, `Modules`, `EditMode`, `GameMenu`, `Perf`, `AtlasProbe`, `Session`, `Camera`, `ChatKey`, `Tray`.
 
 | API | Use |
 |---|---|
