@@ -199,6 +199,7 @@ function Skin.ApplyBox()
     call(box.ClearAllPoints, box)
     call(box.SetPoint, box, b.point, UIParent, b.point, b.x, b.y)
   end
+  Skin.Refit()
   return true
 end
 
@@ -234,12 +235,30 @@ function Skin.SetBoxSize(w, h)
   d.box.w, d.box.h = w, h
   local box = Skin.Box()
   if box == Minimap then
-    local s = math.min(w, h)
-    d.size = s
-    call(Minimap.SetSize, Minimap, s, s)
+    d.size = math.min(w, h)
   else
     call(box.SetSize, box, w, h)
   end
+  Skin.Refit()
+end
+
+--- Fit the map into its box again: pinned under our header, the edge length for the box, and a zoom nudge so the map
+-- redraws (in game 2026-11-04: the box grew from the grip, the map inside did not - this client redraws the minimap
+-- only after a zoom change, which Apply does and the size hook did not).
+function Skin.Refit()
+  local d = cfg()
+  if d.enabled == false or type(Minimap) ~= "table" then return false end
+  local s = Skin.TargetSize()
+  if d.fill ~= false and type(MinimapCluster) == "table" then
+    call(Minimap.ClearAllPoints, Minimap)
+    call(Minimap.SetPoint, Minimap, "TOP", MinimapCluster, "TOP", 0, -(Skin.TOP_OFFSET + HEADER_H))
+  end
+  call(Minimap.SetSize, Minimap, s, s)
+  local z = tonumber(call(Minimap.GetZoom, Minimap)) or 0
+  call(Minimap.SetZoom, Minimap, z > 0 and z - 1 or z + 1)
+  call(Minimap.SetZoom, Minimap, z)
+  if Skin.frame then build():Show() end
+  return true
 end
 
 function Skin.HideBlobRings()
@@ -270,10 +289,7 @@ function Skin.HookCluster()
   if Skin.clusterHooked or type(MinimapCluster) ~= "table" or not MinimapCluster.HookScript then return end
   Skin.clusterHooked = true
   MinimapCluster:HookScript("OnSizeChanged", function()
-    if cfg().enabled ~= false and cfg().fill ~= false then
-      local s = Skin.TargetSize()
-      call(Minimap.SetSize, Minimap, s, s)
-    end
+    if cfg().enabled ~= false and cfg().fill ~= false then Skin.Refit() end
     -- the quest tracker hangs under this box: its available height just changed
     if HHQ.Tracker and HHQ.Tracker.Schedule then HHQ.Tracker.Schedule() end
   end)
