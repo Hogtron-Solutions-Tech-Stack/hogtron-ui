@@ -267,7 +267,7 @@ HH.defaults = {
       -- gear on it opens these settings); anchorCursor wins over it. point/x/y = the box, saved by dragging.
       tooltips = { enabled = true, alpha = 0.9, fontSize = nil, anchorCursor = false, anchor = true, point = "BOTTOMRIGHT", x = -40, y = 120, width = 220, height = 90 },
       extras = { buffs = true, xpBar = true, mirror = true, durationSize = 10 },   -- mirror = breath / fatigue timers
-      infoBar = { enabled = true, icons = true, width = 640, height = 18, fontSize = 11, backgroundAlpha = 0.8, refresh = 1,
+      infoBar = { enabled = true, icons = true, fit = true, width = 640, height = 18, fontSize = 11, backgroundAlpha = 0.8, refresh = 1,   -- fit: slots as wide as their readings (Sean 2026-11-04); off = width split evenly
         time24 = false, serverTime = false, point = "BOTTOM", x = 0, y = 0,
         slots = { "gold", "durability", "bags", "fps", "latency", "time", "session", "tolevel" } },   -- session / tolevel: Core/Session.lua
     },
