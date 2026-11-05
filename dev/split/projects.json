@@ -1,6 +1,6 @@
 {
-  "_readme": "One CurseForge project per entry (all created 2026-10-18). live=true (2026-10-18): on a tag every project gets its own upload, so CurseForge moderators have a first file to approve. The bundle (1744106) still ships everything until the projects are approved; the projects are not public before that, so no player sees the same folder in two projects. After approval: the bundle -> everything-package PR. Plan + migration: docs/superpowers/research/curseforge-split.md",
-  "live": true,
+  "_readme": "2026-11-05 DECISION (Sean): the per-module split is OFF. CurseForge moderation put 'Changes required: Merge Projects' (policy 'Project Variants - Merge projects') on all 12 module projects on 2026-11-05 - they will not be approved as separate projects. The bundle (1744106, public) ships everything in one zip and stays the only player-facing project; Core (1753233) and Skin (1753257) were approved before the ruling and are left alone. live=false: a tag uploads the bundle only. Ids kept here for the record. History + migration notes: docs/superpowers/research/curseforge-split.md",
+  "live": false,
   "bundle": {
     "title": "HogTron UI",
     "curse_id": "1744106",
