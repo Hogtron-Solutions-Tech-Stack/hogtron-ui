@@ -1,5 +1,16 @@
 # HogTron UI
 
+## v0.2.0-beta.5
+
+### New
+- **Icon look "Blizzard's own (OG)"** (General > Look > Icons): the bottom menu shows the game's original button art,
+  the drawer uses stock icons and the quest marks become Blizzard's gossip icons. Painted stays the default.
+- **Info bar fits its readings:** every reading is shown whole (the bar grows); Skin > Info bar > "Fit each reading".
+
+### Changed
+- CurseForge: one project. The per-module projects were refused by moderation ("Merge Projects"); the HogTron UI
+  bundle is the everything-package and the only project that receives files.
+
 ## v0.2.0-beta.4
 
 ### New
