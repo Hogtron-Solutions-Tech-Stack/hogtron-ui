@@ -36,6 +36,8 @@ function ChatFrame_AddMessageEventFilter(ev, fn) FILTERS[ev] = fn end
 
 @pytest.fixture
 def chat(lua):
+    # these tests are about the Modern chat panel (ink); Parchment (the charred page): test_parchment_own_frames.py
+    lua.execute('HogTronUIDB = { profiles = { Default = { look = { style = "hogtron" } } } }')
     lua.execute(CHAT)
     lua.load_addon("HogTronUI")
     lua.load_addon("HogTron_Chat")

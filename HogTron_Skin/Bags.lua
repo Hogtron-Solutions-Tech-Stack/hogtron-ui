@@ -82,11 +82,15 @@ function Part.Style(frame)
     end
     local pb = rawget(frame, "PortraitButton") or rawget(_G, name .. "PortraitButton")
     if type(pb) == "table" and pb.SetAlpha then Skin.call(pb.SetAlpha, pb, 0) end
-    frame.hh = { panel = Skin.Panel(frame, frame, 0, d.backgroundAlpha or Skin.cfg().backgroundAlpha or 0.85) }
+    local P = HH.Parchment
+    local page = P and P.On and P.On() or false     -- the Parchment look: the bag on paper, its title in ink
+    local ink = page and P.Palette().title or Skin.CREAM
+    frame.hh = { panel = page and P.Backdrop(frame, 1) or Skin.Panel(frame, frame, 0, d.backgroundAlpha or Skin.cfg().backgroundAlpha or 0.85), page = page }
     local title = rawget(frame, "Title") or rawget(frame, "TitleText") or rawget(_G, name .. "Name") or (frame.TitleContainer and frame.TitleContainer.TitleText)
     if type(title) == "table" then
       Skin.SetFont(title, d.fontSize or 12)
-      if title.SetTextColor then Skin.call(title.SetTextColor, title, Skin.CREAM[1], Skin.CREAM[2], Skin.CREAM[3]) end
+      if title.SetTextColor then Skin.call(title.SetTextColor, title, ink[1], ink[2], ink[3]) end
+      if page and title.SetShadowOffset then Skin.call(title.SetShadowOffset, title, 0, 0) end
     end
     local close = rawget(frame, "CloseButton") or rawget(_G, name .. "CloseButton")
     if type(close) == "table" then
@@ -94,7 +98,7 @@ function Part.Style(frame)
       close.hhX = close:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
       close.hhX:SetPoint("CENTER", close, "CENTER", 0, 0)
       close.hhX:SetText("x")
-      close.hhX:SetTextColor(Skin.CREAM[1], Skin.CREAM[2], Skin.CREAM[3])
+      close.hhX:SetTextColor(ink[1], ink[2], ink[3])
       Skin.SetFont(close.hhX, 14)
     end
     for _, b in ipairs(Part.Items(frame)) do Skin.IconButton(b, { hotkeySize = d.fontSize or 12 }) end

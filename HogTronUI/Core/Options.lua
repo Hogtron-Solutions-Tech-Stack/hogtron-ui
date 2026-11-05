@@ -62,7 +62,7 @@ local function generalTab()
             disabled = function() return HH.Look.Classic() end,
             get = function() return HH.db.profile.look.edge or "shadow" end,
             set = function(_, v) HH.db.profile.look.edge = v; HH.Look.Apply() end },
-          icons = { type = "select", order = 3.5, name = "Icons", values = { art = "Painted (HogTron art set)", glyph = "Flat glyphs", blizzard = "Blizzard's own (OG)" },
+          icons = { type = "select", order = 3.5, name = "Icons", values = { page = "Ink stamps (Parchment)", art = "Painted (HogTron art set)", glyph = "Flat glyphs", blizzard = "Blizzard's own (OG)" },
             desc = "The menu bar, the drawer and the quest marks. Blizzard's own = the game's original pictures (the menu buttons' art, its quest icons).",
             get = function() return HH.Look.IconStyle() end,
             set = function(_, v) HH.db.profile.look.icons = v; HH.Look.Apply(); HH.Look.RefreshModules() end },

@@ -152,3 +152,156 @@ function Parchment.ClassPortrait(tex, class)
   if tex.SetTexCoord then tex:SetTexCoord(0.07, 0.93, 0.07, 0.93) end
   return false
 end
+
+-- ------------------------------------------------------------------------------------------------ our own frames
+-- The quest tracker, the info bar, the menu bar, bags, tooltips ... are our own frames. In the Parchment look they wear
+-- plain paper (the page art's middle, inside its torn margins - a strip too thin for the tears) with a 1 px edge in the
+-- rule colour, and take their colours from Parchment.Palette(); Modern keeps ink and cyan. Sean 2026-11-05: "I want
+-- things like the quest menus on the side changed. I want the bars at the bottom that shows how much gold ... changed.
+-- I want everything to match this paper-like theme." The look is read when a frame is built (a change needs /reload).
+Parchment.PAPER = { l = 40, r = 472, t = 300, b = 700 }   -- plain paper inside the 512 x 1024 art's torn margins (px)
+
+--- true in the Parchment look (General > Look > Style).
+function Parchment.On()
+  local L = HH.Look
+  return L ~= nil and type(L.Parchment) == "function" and L.Parchment() == true
+end
+
+Parchment.MODERN = { text = { 0.96, 0.92, 0.86 }, title = { 0.96, 0.92, 0.86 }, muted = { 0.55, 0.55, 0.60 }, accent = { 0.13, 0.83, 0.88 },
+  good = { 0.25, 0.80, 0.35 }, bad = { 0.85, 0.20, 0.20 }, warn = { 0.95, 0.65, 0.15 }, line = { 0.20, 0.20, 0.25 }, bg = { 0.07, 0.07, 0.09 },
+  header = { 0.11, 0.11, 0.14 }, paper = false, page = false }
+
+--- Named colours for our own frames in the UI's look: text, title, muted, accent, good, bad, warn, line, bg, header;
+--- paper = true on the light page (Blizzard's light text must be inked), page = true in the Parchment look at all.
+function Parchment.Palette()
+  if not Parchment.On() then return Parchment.MODERN end
+  local th = Parchment.Theme()
+  if th.paper then
+    return { text = th.text, title = th.title, muted = th.muted, accent = th.pick, good = th.good, bad = { 0.60, 0.10, 0.05 },
+      warn = { 0.62, 0.36, 0.02 }, line = th.rule, bg = { 0.86, 0.78, 0.62 }, header = th.tag, paper = true, page = true }
+  end
+  return { text = th.text, title = th.title, muted = th.muted, accent = th.pick, good = th.good, bad = { 0.92, 0.38, 0.32 },
+    warn = th.quest, line = th.rule, bg = { 0.16, 0.15, 0.14 }, header = th.tag, paper = false, page = true }
+end
+
+local function near(r, g, b, c) return math.abs(r - c[1]) + math.abs(g - c[2]) + math.abs(b - c[3]) < 0.02 end
+Parchment.INK_LUM = 0.34
+--- A Blizzard / bright colour as ink on the light page. Neutral (low saturation): bright -> the theme's ink, dim grey
+--- -> its muted ink, already dark -> left. A hue (gold, red, green, a class or quality colour): kept, brought down to a
+--- luminance that reads on paper. The theme's own inks come back unchanged. Pure maths.
+function Parchment.InkColor(r, g, b, th)
+  th = th or Parchment.THEMES.light
+  if near(r, g, b, th.text) or near(r, g, b, th.muted) or near(r, g, b, th.title) then return r, g, b end
+  local mx, mn = math.max(r, g, b), math.min(r, g, b)
+  local sat = mx > 0 and (mx - mn) / mx or 0
+  local lum = 0.299 * r + 0.587 * g + 0.114 * b
+  if sat < 0.25 then
+    if lum >= 0.62 then return th.text[1], th.text[2], th.text[3] end
+    if lum >= 0.30 then return th.muted[1], th.muted[2], th.muted[3] end
+    return r, g, b
+  end
+  if lum <= Parchment.INK_LUM + 0.005 then return r, g, b end
+  local k = Parchment.INK_LUM / lum
+  return r * k, g * k, b * k
+end
+
+--- A colour as it should read in the UI's look: unchanged in Modern and on the charred page; inked on the light page.
+function Parchment.Hue(r, g, b)
+  if not Parchment.On() then return r, g, b end
+  local th = Parchment.Theme()
+  if not th.paper then return r, g, b end
+  return Parchment.InkColor(r, g, b, th)
+end
+
+--- The same for an "rrggbb" colour code (the info bar's |cff codes).
+function Parchment.HueHex(hex)
+  if type(hex) ~= "string" or #hex ~= 6 or not Parchment.On() then return hex end
+  local r, g, b = tonumber(hex:sub(1, 2), 16), tonumber(hex:sub(3, 4), 16), tonumber(hex:sub(5, 6), 16)
+  if not (r and g and b) then return hex end
+  local nr, ng, nb = Parchment.Hue(r / 255, g / 255, b / 255)
+  return ("%02x%02x%02x"):format(math.floor(nr * 255 + 0.5), math.floor(ng * 255 + 0.5), math.floor(nb * 255 + 0.5))
+end
+
+--- Plain paper over a frame of w x h: a crop of the page art's middle with the frame's own aspect (never stretched).
+function Parchment.PaperCoords(tex, w, h)
+  local P = Parchment.PAPER
+  local aw, ah = P.r - P.l, P.b - P.t
+  if not (type(w) == "number" and type(h) == "number" and w > 0 and h > 0) then w, h = aw, ah end
+  local cw, ch = aw, aw * h / w
+  if ch > ah then ch, cw = ah, ah * w / h end
+  local cx, cy = (P.l + P.r) / 2, (P.t + P.b) / 2
+  tex:SetTexCoord((cx - cw / 2) / Parchment.PAGE_W, (cx + cw / 2) / Parchment.PAGE_W, (cy - ch / 2) / Parchment.PAGE_H, (cy + ch / 2) / Parchment.PAGE_H)
+  return cw, ch
+end
+
+--- The backing of one of our frames, in the UI's look: Modern = an ink fill at `alpha` + 1 px edges in the line colour;
+--- Parchment = plain paper (alpha at least 0.9 - ink needs solid paper under it) + 1 px edges in the rule colour.
+--- Returns { bg, edges, paper = bool }; laid over `anchor` (default f). opts.edges = false: no edges.
+--- opts.charred = true: the dark (charred) page even when the look is light - for frames full of Blizzard's own bright
+--- text (chat, the damage meter, tooltips), which reads on it as it is.
+function Parchment.Backdrop(f, alpha, anchor, opts)
+  anchor, opts = anchor or f, opts or {}
+  local pal = Parchment.Palette()
+  local key = Parchment.ThemeKey()
+  if opts.charred and pal.page then
+    key = "dark"
+    local th = Parchment.THEMES.dark
+    pal = { page = true, line = th.rule, paper = false }
+  end
+  local b = { edges = {}, paper = pal.page }
+  b.bg = f:CreateTexture(nil, "BACKGROUND")
+  b.bg.hhOurs = true
+  b.bg:SetPoint("TOPLEFT", anchor, "TOPLEFT", 0, 0)
+  b.bg:SetPoint("BOTTOMRIGHT", anchor, "BOTTOMRIGHT", 0, 0)
+  if pal.page then
+    b.bg:SetTexture(Parchment.ART.page[key])
+    local function fit() Parchment.PaperCoords(b.bg, anchor:GetWidth(), anchor:GetHeight()) end
+    fit()
+    if anchor.HookScript then anchor:HookScript("OnSizeChanged", fit) end
+    b.bg:SetAlpha(pal.paper and math.max(0.9, alpha or 1) or (alpha or 1))
+  else
+    b.bg:SetColorTexture(pal.bg[1], pal.bg[2], pal.bg[3], alpha or 0.8)
+  end
+  if opts.edges ~= false then
+    local c = pal.line
+    local spec = { { "TOPLEFT", "TOPRIGHT", nil, 1 }, { "BOTTOMLEFT", "BOTTOMRIGHT", nil, 1 }, { "TOPLEFT", "BOTTOMLEFT", 1, nil }, { "TOPRIGHT", "BOTTOMRIGHT", 1, nil } }
+    for i, sp in ipairs(spec) do
+      local e = f:CreateTexture(nil, "BORDER")
+      e.hhOurs = true
+      e:SetColorTexture(c[1], c[2], c[3], pal.page and 0.75 or 1)
+      e:SetPoint(sp[1], anchor, sp[1], 0, 0)
+      e:SetPoint(sp[2], anchor, sp[2], 0, 0)
+      if sp[3] then e:SetWidth(sp[3]) end
+      if sp[4] then e:SetHeight(sp[4]) end
+      b.edges[i] = e
+    end
+  end
+  return b
+end
+
+--- The torn page behind a big frame of ours or of Blizzard's (the world map): larger than the frame by the art's torn
+--- margins (32 / 46 / 48 px of the 512-wide art, scaled), re-laid when the frame is resized, one level under it.
+--- Returns the page frame. The same maths as the window skin's page (HogTron_Skin/Panels.lua Part.Page).
+Parchment.MARGIN = { side = 32, top = 46, bottom = 48 }
+function Parchment.PageBehind(f, alpha)
+  local p = CreateFrame("Frame", nil, f)
+  p.hhOurs = true
+  p:SetFrameLevel(math.max(0, ((f.GetFrameLevel and f:GetFrameLevel()) or 1) - 1))
+  Parchment.MakePage(p)
+  for _, t in ipairs({ p.pageTop, p.pageMid, p.pageBot }) do t.hhOurs = true end
+  p:SetAlpha(alpha or 1)
+  local function lay()
+    local w, h = f:GetWidth(), f:GetHeight()
+    if not (type(w) == "number" and type(h) == "number" and w > 0 and h > 0) then return end
+    local s = w / (Parchment.PAGE_W - 2 * Parchment.MARGIN.side)
+    local px, pt, pb = Parchment.MARGIN.side * s, Parchment.MARGIN.top * s, Parchment.MARGIN.bottom * s
+    p:ClearAllPoints()
+    p:SetPoint("TOPLEFT", f, "TOPLEFT", -px, pt)
+    p:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", px, -pb)
+    Parchment.PlacePage(p, w + 2 * px, h + pt + pb)
+  end
+  p.Lay = lay
+  lay()
+  if f.HookScript then f:HookScript("OnSizeChanged", lay) end
+  return p
+end

@@ -10,7 +10,14 @@ HHS.InfoBar = Bar
 local call, num = Skin.call, Skin.num
 
 local function cfg() return Skin.cfg().infoBar end
-local function color(hex, s) return "|cff" .. hex .. s .. "|r" end
+-- the Parchment look: paper strip, ink text, value colours darkened to read on paper (Sean 2026-11-05: "the bars at
+-- the bottom that shows how much gold and different things ... everything to match this paper-like theme")
+local function page() local P = HH.Parchment return P and P.On and P.On() or false end
+local function color(hex, s)
+  local P = HH.Parchment
+  if P and P.HueHex then hex = P.HueHex(hex) end
+  return "|cff" .. hex .. s .. "|r"
+end
 
 -- ------------------------------------------------------------------------------------------------ providers
 Bar.providers = {}
@@ -222,10 +229,16 @@ local function build()
   f:SetFrameStrata("LOW")
   f:SetMovable(true)
   f:SetClampedToScreen(true)
+  if page() then
+    local back = HH.Parchment.Backdrop(f, d.backgroundAlpha or 0.8)
+    f.bg, f.edges, f.paper = back.bg, back.edges, true
+  else
   f.bg = Skin.Solid(f, "BACKGROUND", Skin.INK, d.backgroundAlpha or 0.8)
   f.bg:SetAllPoints(f)
   f.edges = Skin.Outline(f, f)
-  f.rule = Skin.Solid(f, "ARTWORK", Skin.CYAN)
+  end
+  local accent = page() and HH.Parchment.Palette().line or Skin.CYAN
+  f.rule = Skin.Solid(f, "ARTWORK", accent)
   f.rule:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0)
   f.rule:SetPoint("TOPRIGHT", f, "TOPRIGHT", 0, 0)
   f.rule:SetHeight(1)
@@ -249,6 +262,11 @@ local function slot(i)
   s.text = s:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
   s.text:SetPoint("CENTER", s, "CENTER", 0, 0)
   s.text:SetJustifyH("CENTER")
+  if page() then
+    local c = HH.Parchment.Palette().text
+    s.text:SetTextColor(c[1], c[2], c[3])
+    if s.text.SetShadowOffset then s.text:SetShadowOffset(0, 0) end
+  end
   s.icon = s:CreateTexture(nil, "ARTWORK")
   s.icon:Hide()
   if s.text.SetWordWrap then s.text:SetWordWrap(false) end
@@ -274,7 +292,7 @@ end
 local PLATE_CAP = 0.06
 function Bar.Plate(f)
   local look = HH.db and HH.db.profile and HH.db.profile.look
-  local want = not (look and look.menus == "flat")
+  local want = not (look and look.menus == "flat") and not page()   -- the painted slate plaque is the Modern look
   if want and not f.plate then
     f.plate = {}
     local all = true
@@ -328,7 +346,7 @@ function Bar.Layout()
   f:SetSize(d.width or 640, d.height or 18)
   f:ClearAllPoints()
   f:SetPoint(d.point or "BOTTOM", UIParent, d.point or "BOTTOM", d.x or 0, d.y or 0)
-  f.bg:SetColorTexture(Skin.INK[1], Skin.INK[2], Skin.INK[3], d.backgroundAlpha or 0.8)
+  if f.paper then f.bg:SetAlpha(math.max(0.9, d.backgroundAlpha or 0.8)) else f.bg:SetColorTexture(Skin.INK[1], Skin.INK[2], Skin.INK[3], d.backgroundAlpha or 0.8) end
   Bar.Plate(f)
 end
 

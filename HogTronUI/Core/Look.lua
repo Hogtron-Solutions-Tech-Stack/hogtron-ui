@@ -58,13 +58,17 @@ local function isSecret(v) return type(issecretvalue) == "function" and issecret
 -- path instead of a texture (a LibDataBroker launcher's icon). Sean 2026-10-17: the HogHeals and Atlas buttons in the
 -- minimap drawer still wore stock spell icons among the painted set.
 function Look.IconPath(id)
-  return Look.MEDIA .. id .. (Look.IconStyle() == "art" and "_art" or "")
+  local s = Look.IconStyle()
+  return Look.MEDIA .. id .. ((s == "art" and "_art") or (s == "page" and "_page") or "")
 end
 Look.MEDIA = "Interface\\AddOns\\HogTronUI\\Media\\"
 function Look.IconStyle()
   if Look.Classic() then return "blizzard" end   -- the Blizzard look: the game's own pictures
   local v = cfg().icons
-  if v == "glyph" or v == "blizzard" then return v end
+  if v == "glyph" or v == "blizzard" or v == "page" then return v end
+  -- the Parchment look: ink stamps on paper discs in the dialog's bronze ring (dev/make_page_icons.py). Sean 2026-11-05:
+  -- "We even need to make new icons in the line ... to match those"
+  if Look.Parchment() then return "page" end
   return "art"
 end
 
@@ -101,6 +105,10 @@ function Look.Icon(tex, id)
       if tex.SetTexCoord then tex:SetTexCoord(0.07, 0.93, 0.07, 0.93) end   -- the icon's own border trimmed
       return true, true
     end
+  end
+  if style == "page" and tex:SetTexture(Look.MEDIA .. id .. "_page") ~= false then
+    if tex.SetTexCoord then tex:SetTexCoord(0, 1, 0, 1) end
+    return true, true
   end
   if style ~= "glyph" and tex:SetTexture(Look.MEDIA .. id .. "_art") ~= false then
     if tex.SetTexCoord then tex:SetTexCoord(0, 1, 0, 1) end

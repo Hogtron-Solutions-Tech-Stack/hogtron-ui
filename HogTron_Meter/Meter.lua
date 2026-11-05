@@ -449,11 +449,18 @@ local function build()
   f:SetMovable(true)
   f:SetClampedToScreen(true)
   f:SetFrameStrata("MEDIUM")
+  local PM = HH.Parchment
+  local page = PM and PM.On and PM.On() or false
+  local spec = { { "TOPLEFT", "TOPRIGHT", nil, 1 }, { "BOTTOMLEFT", "BOTTOMRIGHT", nil, 1 }, { "TOPLEFT", "BOTTOMLEFT", 1, nil }, { "TOPRIGHT", "BOTTOMRIGHT", 1, nil } }
+  if page then                                        -- the Parchment look: the charred page (its text and bars stay bright)
+    local back = PM.Backdrop(f, d.backgroundAlpha or 0.85, f, { charred = true })
+    f.bg, f.edges, f.paper, spec = back.bg, back.edges, true, {}
+  else
   f.bg = solid(f, "BACKGROUND", INK, d.backgroundAlpha or 0.85)
   f.bg:SetAllPoints(f)
   -- 1 px outline (Details-style panel). Four edge textures; no BackdropTemplate (differs between client generations).
   f.edges = {}
-  local spec = { { "TOPLEFT", "TOPRIGHT", nil, 1 }, { "BOTTOMLEFT", "BOTTOMRIGHT", nil, 1 }, { "TOPLEFT", "BOTTOMLEFT", 1, nil }, { "TOPRIGHT", "BOTTOMRIGHT", 1, nil } }
+  end
   for i, sp in ipairs(spec) do
     local e = solid(f, "BORDER", LINE)
     e:SetPoint(sp[1], f, sp[1], 0, 0)
@@ -469,7 +476,7 @@ local function build()
   header:SetHeight(20)
   header.bg = solid(header, "BACKGROUND", { 0.11, 0.11, 0.14 })
   header.bg:SetAllPoints(header)
-  header.rule = solid(header, "ARTWORK", CYAN)
+  header.rule = solid(header, "ARTWORK", page and PM.THEMES.dark.pick or CYAN)
   header.rule:SetPoint("BOTTOMLEFT", header, "BOTTOMLEFT", 0, 0)
   header.rule:SetPoint("BOTTOMRIGHT", header, "BOTTOMRIGHT", 0, 0)
   header.rule:SetHeight(1)
@@ -784,7 +791,8 @@ function Meter.Refresh()
   if d.enabled == false then Meter.Hide() return end
   Meter.ApplyBlizzard()
   if Meter.frame then
-    Meter.frame.bg:SetColorTexture(INK[1], INK[2], INK[3], d.backgroundAlpha or 0.85)
+    if Meter.frame.paper then Meter.frame.bg:SetAlpha(d.backgroundAlpha or 0.85)
+    else Meter.frame.bg:SetColorTexture(INK[1], INK[2], INK[3], d.backgroundAlpha or 0.85) end
     Meter.frame:SetWidth(d.width or 240)
   end
   Meter.Show()

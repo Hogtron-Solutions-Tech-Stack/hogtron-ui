@@ -59,6 +59,8 @@ function RemoveQuestWatch(i) LWatch[i] = nil end
 
 
 def boot(lua, api):
+    # these tests are about the Modern tracker (cyan, cream on ink); Parchment: test_parchment_own_frames.py
+    lua.execute('HogTronUIDB = { profiles = { Default = { look = { style = "hogtron" } } } }')
     lua.execute(api)
     for a in ("HogTronUI", "HogTron_Quests"):
         lua.load_addon(a)

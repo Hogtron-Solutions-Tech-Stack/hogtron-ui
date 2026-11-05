@@ -17,6 +17,17 @@ local CREAM = { 0.96, 0.92, 0.86 }
 local CYAN = { 0.13, 0.83, 0.88 }
 local INK = { 0.07, 0.07, 0.09 }
 local LINE = { 0.20, 0.20, 0.25 }
+local HEADER = { 0.11, 0.11, 0.14 }
+local PAGE = false   -- the Parchment look (Skin.Paint): a paper frame, ink zone name
+
+--- The UI's look into this file's colour names (HogTronUI/Core/Parchment.lua Palette). Read when the frame is built.
+local function paint()
+  local P = HH.Parchment
+  local pal = P and P.Palette and P.Palette() or nil
+  if not pal then return false end
+  CREAM, CYAN, LINE, HEADER, PAGE = pal.text, pal.accent, pal.line, pal.header, pal.page == true
+  return PAGE
+end
 local HEADER_H = 20
 
 local function cfg() return HH.db.profile.quests.map end
@@ -57,13 +68,19 @@ local function solid(parent, layer, c, a)
   return t
 end
 
-local function zoneColor()
+local function rawZoneColor()
   local pvp = call(GetZonePVPInfo)
   if pvp == "sanctuary" then return 0.41, 0.8, 0.94
   elseif pvp == "friendly" then return 0.1, 1.0, 0.1
   elseif pvp == "hostile" then return 1.0, 0.1, 0.1
   elseif pvp == "contested" then return 1.0, 0.7, 0.0 end
   return CREAM[1], CREAM[2], CREAM[3]
+end
+local function zoneColor()
+  local r, g, b = rawZoneColor()
+  local P = HH.Parchment
+  if PAGE and P and P.Hue then return P.Hue(r, g, b) end   -- a sanctuary blue / hostile red, dark enough for paper
+  return r, g, b
 end
 
 local function build()
@@ -72,10 +89,16 @@ local function build()
   f:SetFrameLevel(math.max(0, ((Minimap.GetFrameLevel and Minimap:GetFrameLevel()) or 1) - 1))
   f:SetPoint("TOPLEFT", Minimap, "TOPLEFT", -4, 4 + HEADER_H)
   f:SetPoint("BOTTOMRIGHT", Minimap, "BOTTOMRIGHT", 4, -4)
+  paint()
+  local spec = { { "TOPLEFT", "TOPRIGHT", nil, 1 }, { "BOTTOMLEFT", "BOTTOMRIGHT", nil, 1 }, { "TOPLEFT", "BOTTOMLEFT", 1, nil }, { "TOPRIGHT", "BOTTOMRIGHT", 1, nil } }
+  if PAGE then                                        -- the Parchment look: the map framed in paper
+    local back = HH.Parchment.Backdrop(f, 1)
+    f.bg, f.edges, f.paper, spec = back.bg, back.edges, true, {}
+  else
   f.bg = solid(f, "BACKGROUND", INK, 0.92)
   f.bg:SetAllPoints(f)
   f.edges = {}
-  local spec = { { "TOPLEFT", "TOPRIGHT", nil, 1 }, { "BOTTOMLEFT", "BOTTOMRIGHT", nil, 1 }, { "TOPLEFT", "BOTTOMLEFT", 1, nil }, { "TOPRIGHT", "BOTTOMRIGHT", 1, nil } }
+  end
   for i, sp in ipairs(spec) do
     local e = solid(f, "BORDER", LINE)
     e:SetPoint(sp[1], f, sp[1], 0, 0)
@@ -89,7 +112,7 @@ local function build()
   f.header:SetPoint("TOPLEFT", f, "TOPLEFT", 1, -1)
   f.header:SetPoint("TOPRIGHT", f, "TOPRIGHT", -1, -1)
   f.header:SetHeight(HEADER_H - 2)
-  f.header.bg = solid(f.header, "BACKGROUND", { 0.11, 0.11, 0.14 })
+  f.header.bg = solid(f.header, "BACKGROUND", HEADER, HEADER[4] or 1)
   f.header.bg:SetAllPoints(f.header)
   f.rule = solid(f.header, "ARTWORK", CYAN)
   f.rule:SetPoint("BOTTOMLEFT", f.header, "BOTTOMLEFT", 0, 0)
@@ -100,6 +123,7 @@ local function build()
   f.zone:SetPoint("RIGHT", f.header, "RIGHT", -6, 0)
   f.zone:SetJustifyH("CENTER")
   if f.zone.SetWordWrap then f.zone:SetWordWrap(false) end
+  if PAGE and f.zone.SetShadowOffset then f.zone:SetShadowOffset(0, 0) end
   -- the zone name is also the world map button we hid
   f.header:SetScript("OnClick", function()
     if type(ToggleWorldMap) == "function" then call(ToggleWorldMap)

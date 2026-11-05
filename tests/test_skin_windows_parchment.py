@@ -23,7 +23,7 @@ def test_a_window_wears_the_page_by_default(win):
     assert win.eval(f"{f}.hhPanel._points[1][4]") == pytest.approx(-px) and win.eval(f"{f}.hhPanel._points[1][5]") == pytest.approx(46 * 600 / 448)
     assert win.eval(f"{f}.hhPanel._points[2][5]") == pytest.approx(-(48 * 600 / 448 + 34))              # room for the tab strip under it
     assert win.eval(f"{f}.hhPanel.rule._points[1][2] == {f}") is True
-    assert win.eval(f"{f}.hhPanel._alpha") == pytest.approx(0.9)                                         # Windows > Background opacity
+    assert win.eval(f"{f}.hhPanel._alpha") == pytest.approx(1)                                           # solid paper (0.9 let things show through)
     assert win.eval(f"{f}.hhPanel.rule._texture").endswith("dialog_rule")
     assert rgb(win, f"{f}.TitleContainer.TitleText._color") == th["title"]
     assert win.eval(f"{f}.CloseButton.hhX._text") == "x" and rgb(win, f"{f}.CloseButton.hhX._color") == th["keyText"]
