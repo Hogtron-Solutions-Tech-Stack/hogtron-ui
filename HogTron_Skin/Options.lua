@@ -57,6 +57,7 @@ function Options.Build()
         about = { type = "description", order = 0, name = "The bottom menu buttons and the bag slots: Blizzard's art and the panel behind them removed, HogTron UI glyph buttons stand in for the menu (each pressing Blizzard's real button), bag slots flattened and scaled to match. /hh under lists whatever Blizzard still draws under the cursor." },
         microEnabled = toggle(sub("micro"), "enabled", "Skin the menu buttons", 1),
         strip = toggle(sub("micro"), "strip", "HogTron UI glyph buttons instead of Blizzard's art; /hh unlock to drag the bar", 1.5),
+        alerts = toggle(sub("micro"), "alerts", "Blizzard's tips on its menu buttons (\"unopened items in your collection\", talent points)", 1.6, nil, "Off: they are hidden - they point at buttons the glyph strip stands in for and float over the bags."),
         size = range(sub("micro"), "size", "Menu button size", 1.7, 14, 40, 1),
         tint = toggle(sub("micro"), "tint", "Colour the glyphs (one colour per button, full colour under the mouse)", 1.8),
         tintStrength = range(sub("micro"), "tintStrength", "How much colour (0 = cream, 1 = full)", 1.9, 0, 1, 0.05),

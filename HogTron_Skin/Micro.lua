@@ -700,11 +700,72 @@ function Part.KillLooseArt()
   return n
 end
 
+-- ------------------------------------------------------------------------------------------------ Blizzard's alerts
+-- Blizzard's tips on its own menu buttons ("You have unopened items in your collection", a talent point, the store) point
+-- at buttons this strip stands in for, so they float over the bags (Sean 2026-11-04 screenshot: "shouldn't be on top of
+-- there ... just hide that by default"). Hidden while the strip is on and micro.alerts is off (default): HelpTip frames
+-- (Anniversary / Forever) and MicroButtonAlert frames (older clients) go the moment Blizzard shows them, through
+-- post-hooks on Blizzard's own show calls; nothing of ours is written on them. Count in Part.alertsMuted (/hh skindiag).
+Part.ALERT_NAMES = { "CollectionsMicroButtonAlert", "TalentMicroButtonAlert", "CharacterMicroButtonAlert", "EJMicroButtonAlert",
+  "LFDMicroButtonAlert", "StoreMicroButtonAlert", "GuildMicroButtonAlert", "QuestLogMicroButtonAlert", "PVPMicroButtonAlert",
+  "AchievementMicroButtonAlert", "SpellbookMicroButtonAlert", "MainMenuMicroButtonAlert", "SocialsMicroButtonAlert", "HelpMicroButtonAlert" }
+
+local function alertsOff()
+  local m = Skin.cfg().micro
+  return m and m.enabled ~= false and m.strip ~= false and m.alerts ~= true or false
+end
+
+--- A Blizzard menu button or the bar they sit on: the frames those tips attach to.
+function Part.IsMicroParent(f)
+  if type(f) ~= "table" then return false end
+  local n = f.GetName and Skin.call(f.GetName, f)
+  if type(n) ~= "string" then return false end
+  return (n:match("MicroButton$") or n == "MicroMenu" or n == "MicroButtonAndBagsBar" or n == "MicroMenuContainer") and true or false
+end
+
+function Part.MuteAlerts()
+  if not Part.alertsHooked then
+    Part.alertsHooked = {}
+    if type(hooksecurefunc) == "function" then
+      if type(Skin.G("MainMenuMicroButton_ShowAlert")) == "function" then
+        local ok = pcall(hooksecurefunc, "MainMenuMicroButton_ShowAlert", function(arg)
+          if not alertsOff() then return end
+          Part.alertsMuted = (Part.alertsMuted or 0) + 1
+          local hide = Skin.G("MainMenuMicroButton_HideAlert")
+          if type(hide) == "function" then pcall(hide, arg) end
+          -- older shape: the alert frame itself comes first
+          local n = type(arg) == "table" and arg.GetName and Skin.call(arg.GetName, arg)
+          if type(n) == "string" and n:match("Alert$") and arg.Hide then Skin.call(arg.Hide, arg) end
+        end)
+        if ok then Part.alertsHooked[#Part.alertsHooked + 1] = "MainMenuMicroButton_ShowAlert" end
+      end
+      local HT = Skin.G("HelpTip")
+      if type(HT) == "table" and type(HT.Show) == "function" then
+        local ok = pcall(hooksecurefunc, HT, "Show", function(self, parent, info)
+          if not alertsOff() or not Part.IsMicroParent(parent) then return end
+          Part.alertsMuted = (Part.alertsMuted or 0) + 1
+          if type(self.HideAll) == "function" then pcall(self.HideAll, self, parent)
+          elseif type(self.Hide) == "function" then pcall(self.Hide, self, parent, type(info) == "table" and info.text or nil) end
+        end)
+        if ok then Part.alertsHooked[#Part.alertsHooked + 1] = "HelpTip.Show" end
+      end
+    end
+  end
+  -- alerts already up (shown before the hooks, or before the switch): the known frames by name
+  if alertsOff() then
+    for _, n in ipairs(Part.ALERT_NAMES) do
+      local f = Skin.G(n)
+      if type(f) == "table" and f.Hide and Skin.call(f.IsShown, f) then Skin.call(f.Hide, f) Part.alertsMuted = (Part.alertsMuted or 0) + 1 end
+    end
+  end
+end
+
 function Part.Apply()
   local d = Skin.cfg()
   local standingIn = (d.micro and d.micro.enabled ~= false and d.micro.strip ~= false) or (d.bagBar and d.bagBar.enabled ~= false and Part.BagsAsButton())
   if standingIn then
     Part.KillLooseArt()
+    Part.MuteAlerts()
     for _, n in ipairs(Part.ALSO_SILENCE) do local f = Skin.G(n) if type(f) == "table" then silence(f) end end
   else
     for _, n in ipairs(Part.ALSO_SILENCE) do local f = Skin.G(n) if type(f) == "table" then unsilence(f) end end
