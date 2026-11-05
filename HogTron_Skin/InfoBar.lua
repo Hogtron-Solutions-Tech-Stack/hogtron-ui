@@ -332,6 +332,36 @@ function Bar.Layout()
   Bar.Plate(f)
 end
 
+--- Each slot as wide as its reading (icon + text + padding, rounded up to 10 px so the bar does not twitch every tick)
+-- and the bar as wide as all of them. Sean 2026-11-04 (screenshot: "14 / 3...", "lvl 5 in..." cut off): "should auto be
+-- defaulted to see everything". infoBar.fit (default on); off = the Width slider splits evenly, as before. A reading
+-- whose width is secret (combat on Forever) keeps the width it had.
+function Bar.Fit()
+  local f, d = Bar.frame, cfg()
+  if not f or d.fit == false then return false end
+  local x, h = 0, d.height or 18
+  for _, s in ipairs(Bar.slots) do
+    if s:IsShown() then
+      local tw = s.text:GetStringWidth()
+      if type(tw) ~= "number" or (type(issecretvalue) == "function" and issecretvalue(tw)) then tw = nil end
+      local w
+      if tw == nil then w = s.fitWidth or 40
+      else
+        local iw = s.icon:IsShown() and ((s.icon:GetWidth() or 0) + 4) or 0
+        w = math.max(40, math.ceil((tw + iw + 14) / 10) * 10)
+      end
+      s.fitWidth = w
+      s:SetSize(w, h)
+      s:ClearAllPoints()
+      s:SetPoint("LEFT", f, "LEFT", x, 0)
+      x = x + w
+    end
+  end
+  if x > 0 then f:SetWidth(x) end
+  Bar.fitWidth = x
+  return true
+end
+
 function Bar.Update()
   if not Bar.frame or not Bar.frame:IsShown() then return end
   for _, s in ipairs(Bar.slots) do
@@ -339,10 +369,11 @@ function Bar.Update()
       local p = P[s.key]
       local ok, v = pcall(p.value)
       s.text:SetText(ok and v or "?")
-      Bar.Place(s)
       if not ok and v ~= Bar.lastError then Bar.lastError = v HH:LogError("infobar " .. tostring(s.key) .. ": " .. tostring(v)) end
     end
   end
+  Bar.Fit()
+  for _, s in ipairs(Bar.slots) do if s:IsShown() then Bar.Place(s) end end
 end
 
 --- Icon + text centred together in the slot: the pair is measured, so the emblem sits right against its reading.
