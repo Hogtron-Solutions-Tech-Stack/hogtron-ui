@@ -210,19 +210,56 @@ function T.Build()
 end
 
 --- Rows for the window: { text, right, color }. Pure given plan + memory + side: T.RowsFrom(plan, db, side).
+-- ------------------------------------------------------------------------------------------------ icons
+-- Sean 2026-11-04: "I want visuals added to this with normal pictures from in the game." Spell rows show the icon the
+-- trainer window handed over (recorded with the spell); weapon rows show the client's weapon-skill icons. The skill
+-- ids are the old game's: only the ICON is read from them, through the client, so a wrong id shows no icon, never a
+-- wrong fact. Row text stays plain (chat lines, tests); the window composes the picture in front of it.
+T.WEAPON_SKILL_SPELL = { ["Axes"] = 196, ["Two-Handed Axes"] = 197, ["Maces"] = 198, ["Two-Handed Maces"] = 199,
+  ["Polearms"] = 200, ["Swords"] = 201, ["Two-Handed Swords"] = 202, ["Staves"] = 227, ["Bows"] = 264, ["Guns"] = 266,
+  ["Daggers"] = 1180, ["Thrown"] = 2567, ["Crossbows"] = 5011, ["Wands"] = 5009, ["Fist Weapons"] = 15590 }
+
+function T.WeaponIcon(skill)
+  local id = T.WEAPON_SKILL_SPELL[skill]
+  if not id then return nil end
+  local tex = call(G("GetSpellTexture"), id)
+  if type(tex) == "string" or type(tex) == "number" then return tex end
+end
+
+--- "|Ticon:14:14:0:0|t " for a texture path or file id; "" without one.
+function T.IconTag(icon, size)
+  if type(icon) ~= "string" and type(icon) ~= "number" then return "" end
+  size = size or 14
+  return ("|T%s:%d:%d:0:0|t "):format(tostring(icon), size, size)
+end
+
+--- The text a row shows: its icon (or its skills' icons) in front of the plain text.
+function T.RowDisplay(d)
+  if d.skills then
+    local parts = {}
+    for _, sk in ipairs(d.skills) do parts[#parts + 1] = T.IconTag(T.WeaponIcon(sk), 12) .. sk end
+    return "      " .. table.concat(parts, ", ")
+  end
+  if d.icon then
+    local lead = d.text:match("^%s*") or ""
+    return lead .. T.IconTag(d.icon) .. (d.text:gsub("^%s+", ""))
+  end
+  return d.text
+end
+
 function T.RowsFrom(plan, db, side, level)
   local rows = {}
-  local function add(text, right, color) rows[#rows + 1] = { text = text, right = right or "", color = color or CREAM } end
+  local function add(text, right, color, icon, skills) rows[#rows + 1] = { text = text, right = right or "", color = color or CREAM, icon = icon, skills = skills } end
   if (db.visits or 0) == 0 then
     add("Nothing learned yet.", "", GREY)
     add("Open your class trainer once: every spell, its level and price is remembered from then on.", "", GREY)
   else
     add(("TRAIN NOW  -  %d spell%s"):format(#plan.now, #plan.now == 1 and "" or "s"), money(plan.cost), CYAN)
     if #plan.now == 0 then add("  up to date", "", GREY) end
-    for _, s in ipairs(plan.now) do add("  " .. label(s), money(s.cost), GREEN) end
+    for _, s in ipairs(plan.now) do add("  " .. label(s), money(s.cost), GREEN, s.icon) end
     for _, g in ipairs(plan.soon) do
       add(("AT LEVEL %d  -  %d spell%s"):format(g.level, #g.spells, #g.spells == 1 and "" or "s"), money(g.cost), CYAN)
-      for _, s in ipairs(g.spells) do add("  " .. label(s), money(s.cost), g.level <= (level or 0) + 2 and CREAM or GREY) end
+      for _, s in ipairs(g.spells) do add("  " .. label(s), money(s.cost), g.level <= (level or 0) + 2 and CREAM or GREY, s.icon) end
     end
     add(("%d known. Learned at %s (%d visit%s, last %s). Base prices: your city's reputation takes off %s."):format(
       plan.known, db.trainer or "your trainer", db.visits or 0, (db.visits or 0) == 1 and "" or "s", db.lastSeen or "?",
@@ -232,7 +269,7 @@ function T.RowsFrom(plan, db, side, level)
   add("WEAPON TRAINERS  -  old list, not verified on Forever", side and (side == "H" and "Horde" or "Alliance") or "", CYAN)
   for _, t in ipairs(T.Data.Trainers(side or "A")) do
     add(("  %s  -  %s, %s"):format(t.name, t.city, t.where), "", CREAM)
-    add("      " .. table.concat(t.skills, ", "), "old list", GREY)
+    add("      " .. table.concat(t.skills, ", "), "old list", GREY, nil, t.skills)
   end
   return rows
 end
@@ -244,7 +281,7 @@ function T.Refresh()
   for i, r in ipairs(f.rows) do
     local d = rows[i]
     if d then
-      r.text:SetText(d.text) r.text:SetTextColor(d.color[1], d.color[2], d.color[3]) r.text:Show()
+      r.text:SetText(T.RowDisplay(d)) r.text:SetTextColor(d.color[1], d.color[2], d.color[3]) r.text:Show()
       r.right:SetText(d.right) r.right:Show()
     else r.text:Hide() r.right:Hide() end
   end
