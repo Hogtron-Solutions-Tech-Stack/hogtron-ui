@@ -132,6 +132,8 @@ python -m pytest tests -q                # ~1240 tests, ~1 min
 - `dev/package.py --write` builds a tester zip; `dev/check_release_zip.py <zip>` checks every addon folder is top-level.
 - `dev/link.ps1 -Client forever` links the addon folders into a WoW install (directory junctions; `forever` = live `_forever_`,
   `beta` = `_classic_beta_`; from a worktree add `-Repo <main clone>` so the game keeps loading `main`). A NEW addon folder or
+- `dev/check_client_build.py` reads the launcher's `.build.info` and fails when an installed client we target (Forever,
+  Anniversary, Era) has patched past the toc `## Interface` numbers; run it after every client patch, before a release.
   new file in a `.toc` needs a **full WoW restart**; code changes need `/reload`.
 
 CI (`.github/workflows/test.yml`): lint + tests + package check on every push. Release (`release.yml`): pushing a `v*`
