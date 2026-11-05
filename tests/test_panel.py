@@ -249,6 +249,7 @@ def test_flat_menus_by_default_painted_on_request(lua):
     # 2026-10-14 night: the OpenArt slate / brass skin was the default; Sean 2026-10-16 in game: "this looks terrible
     # ... let's go back to a flat look" -> flat is the default, painted stays one switch away (/hh look, setup guide)
     import pathlib
+    lua.execute('HogTronUIDB = { profiles = { Default = { look = { style = "hogtron" } } } }')   # the painted menus are Modern's
     lua.load_addon("HogTronUI")
     lua.player_login()
     lua.execute("HogHeals.Panel.Open()")
