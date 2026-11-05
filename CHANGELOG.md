@@ -1,5 +1,14 @@
 # HogTron UI
 
+## v0.2.0-beta.11
+
+### New
+- **The Training window is a parchment page** in the quest dialog's look: class circle, rounded section tags, ink
+  text, spell icons, Friz Quadrata; it follows Quests > Dialog > Theme (parchment / charred).
+
+### Fixed
+- Nameplate level text spells classification out: "9 Rare", "20 Elite", "30 Rare Elite" (was "9R", "20+").
+
 ## v0.2.0-beta.10
 
 ### New
