@@ -127,6 +127,13 @@ function EM.Targets()
         onDragStart = MS.BoxDragStart, onDragStop = MS.BoxDragStop })
     end
   end
+  for _, bz in ipairs(EM.BLIZZARD) do
+    local f = G(bz.name)
+    if type(f) == "table" and call(f.IsShown, f) then
+      add({ key = "blizzard:" .. bz.name, path = "general", title = bz.title, mover = f, frame = f, how = "box",
+        onDragStart = EM.BlizzardDragStart, onDragStop = EM.BlizzardDragStop })
+    end
+  end
   table.sort(out, function(a, b) return a.key < b.key end)
   return out
 end
@@ -500,6 +507,46 @@ local function ecfg()
   return p.edit
 end
 
+-- ------------------------------------------------------------------------------------------------ Blizzard's frames
+-- Blizzard frames this edit mode moves (Sean 2026-11-04: "I also can't move buffs and debuffs up on the top right next
+-- to the map"): the frame keeps its own look, only its place is ours - profile.edit.blizzard[name] = { point, x, y },
+-- put back at login and a moment after (behind Blizzard's own layout pass) and on a profile change. Method calls only
+-- (StartMoving, StopMovingOrSizing, SetPoint); nothing written on the frame. Shown frames only get a box.
+EM.BLIZZARD = { { name = "BuffFrame", title = "Buffs" }, { name = "DebuffFrame", title = "Debuffs" } }
+
+function EM.BlizzardDragStart(f)
+  if f.IsMovable and not call(f.IsMovable, f) and f.SetMovable then call(f.SetMovable, f, true) end
+  call(f.StartMoving, f)
+end
+
+function EM.BlizzardDragStop(f)
+  call(f.StopMovingOrSizing, f)
+  local ok, point, _, _, x, y = pcall(f.GetPoint, f, 1)
+  local name = f.GetName and call(f.GetName, f)
+  if ok and type(point) == "string" and type(x) == "number" and type(y) == "number" and type(name) == "string" then
+    local c = ecfg()
+    c.blizzard = c.blizzard or {}
+    c.blizzard[name] = { point = point, x = x, y = y }
+  end
+end
+
+--- Put every saved place back. Returns how many frames moved.
+function EM.ApplyBlizzard()
+  local saved = ecfg().blizzard
+  if type(saved) ~= "table" then return 0 end
+  local n = 0
+  for name, p in pairs(saved) do
+    local f = G(name)
+    if type(f) == "table" and type(p) == "table" and type(p.point) == "string" and type(p.x) == "number" and type(p.y) == "number" then
+      call(f.ClearAllPoints, f)
+      call(f.SetPoint, f, p.point, UIParent, p.point, p.x, p.y)
+      n = n + 1
+    end
+  end
+  EM.blizzardApplied = n
+  return n
+end
+
 --- A frame's box in UIParent units: { l, r, b, t, cx, cy }, or nil while it has no place yet.
 function EM.Rect(f)
   if type(f) ~= "table" then return nil end
@@ -837,4 +884,13 @@ function EM.SetUnlocked(unlocked)
   EM.unlocked = unlocked and true or false
 end
 
-HH:RegisterModule("EditMode", { SetLocked = function(_, isLocked) EM.SetUnlocked(not isLocked) end })
+HH:RegisterModule("EditMode", {
+  SetLocked = function(_, isLocked) EM.SetUnlocked(not isLocked) end,
+  OnEnable = function()
+    EM.ApplyBlizzard()
+    if type(ecfg().blizzard) == "table" and C_Timer and C_Timer.After then
+      for _, secs in ipairs({ 1, 4 }) do C_Timer.After(secs, function() EM.ApplyBlizzard() end) end
+    end
+  end,
+  OnProfileChanged = function() EM.ApplyBlizzard() end,
+})
