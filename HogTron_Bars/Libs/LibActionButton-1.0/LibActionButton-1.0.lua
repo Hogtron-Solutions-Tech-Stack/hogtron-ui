@@ -1715,8 +1715,26 @@ function Generic:GetHotkey()
 		key = GetBindingKey(name)
 	end
 	if key then
-		return KeyBound and KeyBound:ToShortKey(key) or key
+		if KeyBound then return KeyBound:ToShortKey(key) end
+		return lib.hhShortKey(key)
 	end
+end
+
+-- HogTron: short keybind text without LibKeyBound (Anniversary 2026-11-03: the raw "SHIFT-1" / "CTRL-1" / "BUTTON4" was cut
+-- to "SHIF" / "CTR" / "BUTT" by the hotkey width). GetBindingText(key, 1) abbreviates on every client we run on ("s-1",
+-- "c-6", "M4"); the map below is the fallback when it is missing, throws, or hands the text back no shorter.
+local HH_SHORT = { { "SHIFT%-", "s-" }, { "CTRL%-", "c-" }, { "ALT%-", "a-" }, { "META%-", "w-" },
+	{ "MOUSEWHEELUP", "wU" }, { "MOUSEWHEELDOWN", "wD" }, { "NUMPADDECIMAL", "n." }, { "NUMPADDIVIDE", "n/" },
+	{ "NUMPADMINUS", "n-" }, { "NUMPADMULTIPLY", "n*" }, { "NUMPADPLUS", "n+" }, { "NUMPAD", "n" }, { "BUTTON", "m" },
+	{ "PAGEUP", "PU" }, { "PAGEDOWN", "PD" }, { "INSERT", "Ins" }, { "DELETE", "Del" }, { "HOME", "Hm" }, { "END", "End" },
+	{ "BACKSPACE", "BS" }, { "CAPSLOCK", "Cp" }, { "ESCAPE", "Esc" }, { "ENTER", "Ent" }, { "SPACE", "Sp" }, { "TAB", "Tb" } }
+function lib.hhShortKey(key)
+	if type(key) ~= "string" or key == "" then return key end
+	local ok, text = pcall(GetBindingText, key, 1)
+	if ok and type(text) == "string" and text ~= "" and #text < #key then return text end
+	local s = key
+	for _, pair in ipairs(HH_SHORT) do s = s:gsub(pair[1], pair[2]) end
+	return s
 end
 
 local function getKeys(binding, keys)
