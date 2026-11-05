@@ -130,7 +130,8 @@ python -m pytest tests -q                # ~1240 tests, ~1 min
 - A new feature ships with tests in `tests/test_<feature>.py`. Mutation-check the important ones (break the code, see a test fail).
 - `dev/render_*.py` render PNG previews of UI from the real code in the harness (Playwright / Pillow; dev-only), into `docs/mockups/`.
 - `dev/package.py --write` builds a tester zip; `dev/check_release_zip.py <zip>` checks every addon folder is top-level.
-- `dev/link.ps1 -Client beta` links the addon folders into a WoW install (directory junctions). A NEW addon folder or
+- `dev/link.ps1 -Client forever` links the addon folders into a WoW install (directory junctions; `forever` = live `_forever_`,
+  `beta` = `_classic_beta_`; from a worktree add `-Repo <main clone>` so the game keeps loading `main`). A NEW addon folder or
   new file in a `.toc` needs a **full WoW restart**; code changes need `/reload`.
 
 CI (`.github/workflows/test.yml`): lint + tests + package check on every push. Release (`release.yml`): pushing a `v*`
