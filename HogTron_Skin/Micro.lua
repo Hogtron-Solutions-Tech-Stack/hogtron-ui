@@ -367,15 +367,37 @@ function Part.BlizzardIcon(tex, src)
   return true
 end
 
---- Glyph / letter / size / tint for one cell.
+--- The Bags cell's Blizzard picture: the backpack button's own icon (its normal texture is the slot frame, not the bag).
+-- Read only, nothing written on Blizzard's button. Returns true when the client gave us one.
+function Part.BlizzardBagIcon(tex)
+  local bp = Skin.G("MainMenuBarBackpackButton")
+  if not tex or type(bp) ~= "table" then return false end
+  local icon = rawget(bp, "icon") or Skin.G("MainMenuBarBackpackButtonIconTexture")
+  if type(icon) ~= "table" or type(icon.GetTexture) ~= "function" then return false end
+  local file = Skin.call(icon.GetTexture, icon)
+  if (type(file) ~= "string" and type(file) ~= "number") or file == "" then return false end
+  if Skin.call(tex.SetTexture, tex, file) == false then return false end
+  if tex.SetTexCoord then pcall(tex.SetTexCoord, tex, 0, 1, 0, 1) end
+  return true
+end
+
+--- Blizzard's own pictures on the menu bar: the "blizzard" icon look (everything), or the menu bar's own switch
+-- (micro.blizzardArt - Anthony 2026-11-05: "an option to make these the normal blizzard buttons JUST THESE BUTTONS";
+-- the drawer, info bar and quest marks keep General > Icons).
+function Part.UseBlizzardArt()
+  if (Skin.cfg().micro or {}).blizzardArt == true then return true end
+  return HH.Look.IconStyle ~= nil and HH.Look.IconStyle() == "blizzard"
+end
+
+--- Glyph / letter / size / tint for one cell. `src` = the Blizzard micro button it stands in for, or "bags".
 local function paintCell(c, size, id, letter, label, strength, src)
   c.label = label
   c.letter:SetText(letter)
   Skin.SetFont(c.letter, math.max(9, math.floor(size * 0.5)))
   c:SetSize(size, size - 4)
   local took, art = false, false
-  if src and HH.Look.IconStyle and HH.Look.IconStyle() == "blizzard" then
-    took = Part.BlizzardIcon(c.icon, src)
+  if src and Part.UseBlizzardArt() then
+    if src == "bags" then took = Part.BlizzardBagIcon(c.icon) else took = Part.BlizzardIcon(c.icon, src) end
     art = took
   end
   if not took and id then took, art = HH.Look.Icon(c.icon, id) end
@@ -455,7 +477,7 @@ function Part.Strip()
   if n > 0 and Part.BagsAsButton() then
     total = n + 1
     local c = bagCell(bar)
-    paintCell(c, size, Part.BAG_CELL.icon, Part.BAG_CELL.letter, Part.BAG_CELL.label, strength)
+    paintCell(c, size, Part.BAG_CELL.icon, Part.BAG_CELL.letter, Part.BAG_CELL.label, strength, "bags")
     c:ClearAllPoints()
     c:SetPoint("LEFT", bar, "LEFT", pad + n * (size + pad), 0)
     c:Show()
