@@ -1,5 +1,11 @@
 # HogTron UI
 
+## v0.2.0-beta.8
+
+### Fixed
+- **Nameplate threat colours showed nothing until a mob had you on its threat table.** A mob already fighting your
+  group is coloured by whom it targets: a groupmate or pet = green (red in tank mode), you = red (green in tank mode).
+
 ## v0.2.0-beta.7
 
 ### Fixed
