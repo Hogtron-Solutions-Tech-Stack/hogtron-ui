@@ -1,5 +1,12 @@
 # HogTron UI
 
+## v0.2.0-beta.6
+
+### New
+- **Pick which parts load at all.** One package, every module inside; in the setup guide's "Pick your parts" page
+  (and General > Modules) each part has a load switch - off = the game does not load it, per character, from the
+  next /reload. `/hh modules` lists them.
+
 ## v0.2.0-beta.5
 
 ### New
