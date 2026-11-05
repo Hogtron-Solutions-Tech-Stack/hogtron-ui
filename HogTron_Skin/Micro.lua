@@ -100,6 +100,20 @@ Part.ICONS = {
 Part.ICON_PATTERNS = { { "^Legacy", "micro_legacy" } }
 Part.ICON_OTHER = "micro_other"
 
+--- Why a Blizzard menu button will not open right now: its level gate (Talents under SHOW_TALENT_LEVEL) or just
+-- "not available yet". nil while the button is enabled (or is not one we can ask).
+function Part.Unavailable(src)
+  if type(src) ~= "table" or type(src.IsEnabled) ~= "function" then return nil end
+  local ok, enabled = pcall(src.IsEnabled, src)
+  if not ok or enabled ~= false then return nil end
+  local name = src.GetName and Skin.call(src.GetName, src)
+  if type(name) == "string" and name:find("Talent") then
+    local lvl = tonumber(rawget(_G, "SHOW_TALENT_LEVEL"))
+    if lvl then return ("opens at level %d"):format(lvl) end
+  end
+  return "not available yet"
+end
+
 --- The icon id for a Blizzard micro button by name: known name, then a known family, then the generic one.
 function Part.IconFor(name)
   if Part.ICONS[name] then return Part.ICONS[name] end
@@ -301,6 +315,8 @@ local function dress(c)
     if GameTooltip and GameTooltip.SetOwner and self.label then
       GameTooltip:SetOwner(self, "ANCHOR_TOP")
       GameTooltip:AddLine(self.label, Skin.CREAM[1], Skin.CREAM[2], Skin.CREAM[3])
+      local why = Part.Unavailable(self.src)
+      if why then GameTooltip:AddLine(why, 0.80, 0.62, 0.40) end
       GameTooltip:Show()
     end
   end)
@@ -467,6 +483,13 @@ function Part.Strip()
     c:SetPoint("LEFT", bar, "LEFT", pad + (i - 1) * (size + pad), 0)
     c:SetAttribute("type", "click")
     c:SetAttribute("clickbutton", src)
+    c.src = src
+    -- a disabled Blizzard button swallows the click (Talents under level 10): say why (Sean 2026-11-05: "it should
+    -- tell me something when I try to open it")
+    c:SetScript("PostClick", function(self)
+      local why = Part.Unavailable(self.src)
+      if why then HH:Print((self.label or "That") .. ": " .. why .. ".") end
+    end)
     c.source = src
     c:Show()
     silence(src)
