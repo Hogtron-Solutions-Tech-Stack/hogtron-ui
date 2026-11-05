@@ -1173,7 +1173,13 @@ function Plates.ThreatLevel(unit)
     return "secret", tank, status
   end
   status = num(status)
-  if not status then Plates.NoteThreat("none") return nil, tank end
+  if not status then
+    -- not on its threat table (nothing of ours hit it yet): a mob already fighting our group still tells by whom it
+    -- targets (Sean 2026-11-05: "threat is not working by default" - the mob was on a party member, he was drinking)
+    local level = Plates.EngagedLevel(unit, tank)
+    if level then Plates.NoteThreat("engaged", { level = level, tank = tank and "yes" or "no" }) return level, tank end
+    Plates.NoteThreat("none") return nil, tank
+  end
   pct = num(pct)
   local level
   if tank then
@@ -1184,6 +1190,18 @@ function Plates.ThreatLevel(unit)
   else level = "safe" end
   Plates.NoteThreat("plain", { status = tostring(status), pct = describe(pct), tank = tank and "yes" or "no", level = level })
   return level, tank
+end
+
+--- A mob in combat that has no threat on us: its target says what we are to it - on me = aggro (a tank: secure), on a
+-- groupmate or a pet = safe (a tank: lost). nil when it is not fighting, has no target, or its target is not ours.
+function Plates.EngagedLevel(unit, tank)
+  if type(unit) ~= "string" or unit == "" then return nil end
+  if not bool(call(UnitAffectingCombat, unit)) then return nil end
+  local t = unit .. "target"
+  if not bool(call(UnitExists, t)) then return nil end
+  if bool(call(UnitIsUnit, t, "player")) then return tank and "secure" or "aggro" end
+  if bool(call(UnitIsUnit, t, "pet")) or bool(call(UnitInParty, t)) or bool(call(UnitInRaid, t)) then return tank and "lost" or "safe" end
+  return nil
 end
 
 --- The colour for a plain level, nil = keep the normal colour ("safe" when colorSafe is off).
@@ -1334,7 +1352,7 @@ end, "what this client tells addons about threat (the nameplate threat colours)"
 local EVENTS = { "NAME_PLATE_UNIT_ADDED", "NAME_PLATE_UNIT_REMOVED", "PLAYER_TARGET_CHANGED", "UNIT_THREAT_SITUATION_UPDATE",
   "UNIT_THREAT_LIST_UPDATE", "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_FACTION", "QUEST_LOG_UPDATE", "UNIT_QUEST_LOG_CHANGED",
   "QUEST_ACCEPTED", "QUEST_REMOVED", "PLAYER_ENTERING_WORLD", "PLAYER_REGEN_ENABLED", "PLAYER_REGEN_DISABLED",
-  "UPDATE_SHAPESHIFT_FORM", "PLAYER_ROLES_ASSIGNED" }
+  "UPDATE_SHAPESHIFT_FORM", "PLAYER_ROLES_ASSIGNED", "UNIT_TARGET" }
 
 function Plates.OnEvent(_, e, unit)
   if e == "NAME_PLATE_UNIT_ADDED" then Plates.Added(unit)
@@ -1350,6 +1368,11 @@ function Plates.OnEvent(_, e, unit)
     elseif unit == "player" or not unit then Plates.ForEach(Plates.Color) Plates.ForEach(Plates.UpdateHighlight) end
   elseif e == "PLAYER_REGEN_ENABLED" or e == "PLAYER_REGEN_DISABLED" or e == "UPDATE_SHAPESHIFT_FORM" or e == "PLAYER_ROLES_ASSIGNED" then
     Plates.ForEach(Plates.Color)
+    Plates.ForEach(Plates.UpdateHighlight)
+  elseif e == "UNIT_TARGET" then
+    -- a mob switching targets changes what we are to it (EngagedLevel) without any threat event of ours
+    local uf = unit and Plates.active[unit]
+    if uf then Plates.Color(uf) Plates.UpdateHighlight(uf) end
   elseif e == "UNIT_HEALTH" or e == "UNIT_MAXHEALTH" then
     local uf = unit and Plates.active[unit]
     if uf then
