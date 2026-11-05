@@ -170,6 +170,10 @@ function Skin.Apply()
   Skin.UpdateZone()
   Skin.DockButtons()
   Skin.HookCluster()
+  Skin.ApplyBox()
+  if type(cfg().box) == "table" and C_Timer and C_Timer.After then
+    for _, secs in ipairs({ 1, 4 }) do C_Timer.After(secs, function() if cfg().enabled ~= false then Skin.ApplyBox() end end) end
+  end
   Skin.missing = missing
   return missing
 end
@@ -178,6 +182,66 @@ end
 -- the rim of the round minimap view whenever you stand inside a quest area. Not a texture region (diag listed every
 -- region: all already hidden), so it is switched off through the Minimap's own blob-ring settings, the same calls
 -- square-minimap UIs (ElvUI) make. Returns the setters this client has, for diag.
+-- ------------------------------------------------------------------------------------------------ the box itself
+-- HogTron edit mode owns the minimap box (Sean 2026-11-04: "I also can't resize the mini map when I go into edit mode like
+-- I can with the chat"): the box's place and size live in quests.map.box { point, x, y, w, h } and go back on at every
+-- apply (login, /reload, profile) and a moment after, behind Blizzard's own layout pass. The map inside refits through
+-- HookCluster. Blizzard's frame only gets method calls (move, size, points) - nothing written on it.
+function Skin.Box() return (type(MinimapCluster) == "table" and MinimapCluster) or Minimap end
+
+function Skin.ApplyBox()
+  local b, box = cfg().box, Skin.Box()
+  if type(b) ~= "table" or type(box) ~= "table" then return false end
+  if type(b.w) == "number" and type(b.h) == "number" then
+    if box == Minimap then local s = math.min(b.w, b.h) call(Minimap.SetSize, Minimap, s, s) else call(box.SetSize, box, b.w, b.h) end
+  end
+  if type(b.point) == "string" and type(b.x) == "number" and type(b.y) == "number" then
+    call(box.ClearAllPoints, box)
+    call(box.SetPoint, box, b.point, UIParent, b.point, b.x, b.y)
+  end
+  return true
+end
+
+function Skin.BoxDragStart(box)
+  box = box or Skin.Box()
+  if box.IsMovable and not call(box.IsMovable, box) and box.SetMovable then call(box.SetMovable, box, true) end
+  call(box.StartMoving, box)
+end
+
+function Skin.BoxDragStop(box)
+  box = box or Skin.Box()
+  call(box.StopMovingOrSizing, box)
+  local ok, point, _, _, x, y = pcall(box.GetPoint, box, 1)
+  if ok and type(point) == "string" and type(x) == "number" and type(y) == "number" then
+    local d = cfg()
+    d.box = d.box or {}
+    d.box.point, d.box.x, d.box.y = point, x, y
+  end
+end
+
+--- The box's size now (the saved one first).
+function Skin.BoxSize()
+  local b, box = cfg().box, Skin.Box()
+  if type(b) == "table" and type(b.w) == "number" and type(b.h) == "number" then return b.w, b.h end
+  local w, h = call(box.GetWidth, box), call(box.GetHeight, box)
+  return (type(w) == "number" and w > 0) and w or 300, (type(h) == "number" and h > 0) and h or 340
+end
+
+--- Size the box (saved); the map refits through HookCluster. A plain Minimap (no cluster) takes the smaller side.
+function Skin.SetBoxSize(w, h)
+  local d = cfg()
+  d.box = d.box or {}
+  d.box.w, d.box.h = w, h
+  local box = Skin.Box()
+  if box == Minimap then
+    local s = math.min(w, h)
+    d.size = s
+    call(Minimap.SetSize, Minimap, s, s)
+  else
+    call(box.SetSize, box, w, h)
+  end
+end
+
 function Skin.HideBlobRings()
   local found = {}
   for _, m in ipairs({ "SetQuestBlobRingScalar", "SetQuestBlobRingAlpha", "SetArchBlobRingScalar", "SetArchBlobRingAlpha",
