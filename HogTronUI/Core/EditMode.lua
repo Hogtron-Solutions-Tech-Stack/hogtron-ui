@@ -116,6 +116,17 @@ function EM.Targets()
   -- undocked window get a box; moving goes through the client's own StartMoving / StopMovingOrSizing and is saved the
   -- way a tab drag saves it (FCF_SavePositionAndDimensions) - nothing of ours is written on the frame
   for _, c in ipairs(EM.ChatTargets()) do add(c) end
+  -- the minimap box (Sean 2026-11-04: "can't resize the mini map ... like I can with the chat"): HogTron UI Quests keeps
+  -- its place and size (quests.map.box) and refits the map inside; the box drags it, the corner grip sizes it
+  local Q = G("HogHealsQuests")
+  local MS = type(Q) == "table" and Q.MapSkin or nil
+  if type(MS) == "table" and type(MS.Box) == "function" then
+    local mm = call(MS.Box)
+    if type(mm) == "table" then
+      add({ key = "minimap", path = "Quests.minimap", title = "Minimap", mover = mm, frame = mm, how = "box",
+        onDragStart = MS.BoxDragStart, onDragStop = MS.BoxDragStop })
+    end
+  end
   table.sort(out, function(a, b) return a.key < b.key end)
   return out
 end
@@ -255,6 +266,17 @@ function EM.ResizeFor(t)
   if key:match("^chat:%d+$") and type(t.mover) == "table" then
     local cf = t.mover
     return { native = { start = function() call(cf.StartSizing, cf, "BOTTOMRIGHT") end, stop = function() EM.ChatDragStop(cf) end } }
+  end
+  if key == "minimap" then
+    local Q = G("HogHealsQuests")
+    local MS = type(Q) == "table" and Q.MapSkin or nil
+    if type(MS) == "table" and type(MS.SetBoxSize) == "function" then
+      local w, h = MS.BoxSize()
+      local want = { w = w, h = h }
+      return { apply = function() MS.SetBoxSize(want.w, want.h) end,
+        w = { get = function() return want.w end, set = function(v) want.w = v end, min = 120, max = 600, step = 2 },
+        h = { get = function() return want.h end, set = function(v) want.h = v end, min = 120, max = 700, step = 2 } }
+    end
   end
   local bar = key:match("^bar:(.+)$")
   if bar and type(p.bars) == "table" and type(p.bars.list) == "table" then
