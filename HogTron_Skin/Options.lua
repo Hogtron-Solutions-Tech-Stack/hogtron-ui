@@ -58,6 +58,7 @@ function Options.Build()
         microEnabled = toggle(sub("micro"), "enabled", "Skin the menu buttons", 1),
         strip = toggle(sub("micro"), "strip", "HogTron UI glyph buttons instead of Blizzard's art; /hh unlock to drag the bar", 1.5),
         alerts = toggle(sub("micro"), "alerts", "Blizzard's tips on its menu buttons (\"unopened items in your collection\", talent points)", 1.6, nil, "Off: they are hidden - they point at buttons the glyph strip stands in for and float over the bags."),
+        blizzardArt = toggle(sub("micro"), "blizzardArt", "Blizzard's own button pictures (this bar only)", 1.65, nil, "The menu bar shows the game's original menu-button and backpack pictures. The drawer, info bar and quest marks keep General > Icons. Needs the glyph buttons on."),
         size = range(sub("micro"), "size", "Menu button size", 1.7, 14, 40, 1),
         tint = toggle(sub("micro"), "tint", "Colour the glyphs (one colour per button, full colour under the mouse)", 1.8),
         tintStrength = range(sub("micro"), "tintStrength", "How much colour (0 = cream, 1 = full)", 1.9, 0, 1, 0.05),
