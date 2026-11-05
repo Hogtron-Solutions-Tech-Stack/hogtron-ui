@@ -1,5 +1,11 @@
 # HogTron UI
 
+## v0.2.0-beta.7
+
+### Fixed
+- **Chat windows moved in edit mode stayed put only until the next loading screen.** Their place and size are now
+  remembered by HogTron UI and put back at login and on every world entry. `/hh movediag` shows what is remembered.
+
 ## v0.2.0-beta.6
 
 ### New
