@@ -147,7 +147,7 @@ HH.defaults = {
       -- the world map (M): coordinates strip, scale, fade while moving, border art off (skipped when Leatrix Maps runs)
       -- coords + skin OFF: in game 2026-09-23 this client's "Map & Quest Log" frame already prints the player's
       -- coordinates, and hiding its art left holes ("this looks terrible"). Both stay as opt-ins.
-      worldMap = { enabled = true, coords = false, scale = 1.0, fadeWhileMoving = true, skin = false, alpha = 0.95 },
+      worldMap = { enabled = true, coords = false, scale = 1.0, fadeWhileMoving = true, skin = true, alpha = 0.95 },   -- skin on by default (Sean 2026-11-05: "reskin the M minimap" = the world map)
       buttons = { enabled = true, side = "left", columns = 4, size = 28, alpha = 0.92, hover = false, autoClose = true, hogui = true },   -- hogui = the HogTron UI entries (Core/Tray.lua) first in the drawer   -- addon minimap icons in one drawer; side: left (opens toward the screen) | right (opens down); point/x/y once dragged
     },
     training = { enabled = true, nudge = true, levelCard = true, cardSeconds = 30 },   -- HogTron_Training: learned at the trainer; nudge = chat line on level-up; levelCard = the level-up card (Sean 2026-11-04), gone after cardSeconds
