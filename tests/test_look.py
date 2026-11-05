@@ -9,6 +9,8 @@ L = "HogHeals.Look"
 
 @pytest.fixture
 def look(lua):
+    # these tests are about the Modern look (our fonts); the default look is Parchment (test_look_themes.py)
+    lua.execute('HogTronUIDB = { profiles = { Default = { look = { style = "hogtron" } } } }')
     lua.execute("function GetPhysicalScreenSize() return 2560, 1440 end")
     # the mock's GetScale is always 1; a real pair for UIParent so the pixel-perfect scale can be read back
     lua.execute("function UIParent:SetScale(s) self._scale = s end; function UIParent:GetScale() return self._scale or 1 end")
@@ -32,7 +34,7 @@ def test_fonts_ship_with_their_licences():
         assert "SIL OPEN FONT LICENSE" in (d / f).read_text(encoding="utf-8").upper(), f
 
 
-def test_defaults_are_hogtron_inter_shadow(look):
+def test_modern_is_inter_shadow_flat(look):
     c = look.eval("HogHeals.db.profile.look")
     assert c["style"] == "hogtron" and c["font"] == "Inter" and c["edge"] == "shadow" and c["size"] == 0
     assert look.eval(f"{L}.Font()").endswith("Inter-SemiBold.ttf")

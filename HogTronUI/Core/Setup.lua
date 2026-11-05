@@ -144,10 +144,10 @@ end)
 
 step("look", "Look", nil, function()
   return {
-    intro = text("How everything is drawn. HogTron is our own dark, flat look with painted art; Classic keeps Blizzard's style "
-      .. "but every HogTron UI feature still works."),
-    style = choose("look.style", "Style", { hogtron = "HogTron (recommended)", classic = "Classic (Blizzard's look)" },
-      { reload = true, module = "Look", default = "hogtron" }),
+    intro = text("How everything is drawn. Parchment puts the quest dialog's page on every window, in the game's own font; Modern is "
+      .. "HogTron's dark, flat look; Blizzard keeps the game's own look. Every HogTron UI feature works in all three."),
+    style = choose("look.style", "Style", { parchment = "Parchment (recommended)", hogtron = "Modern (HogTron)", classic = "Blizzard (the game's own)" },
+      { reload = true, module = "Look", default = "parchment" }),
     menus = choose("look.menus", "Menus and windows", { flat = "Flat (recommended)", art = "Painted (brass frame)" }, { module = "Look", default = "flat" }),
     icons = choose("look.icons", "Menu icons", { art = "Painted", glyph = "Simple glyphs" }, { module = "Look", default = "art" }),
     font = choose("look.font", "Font", { Inter = "Inter (recommended)", Manrope = "Manrope", ["Barlow Condensed"] = "Barlow Condensed" },
