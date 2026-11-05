@@ -22,6 +22,7 @@ Core\Legacy.lua
 Core\Options.lua
 Core\Panel.lua
 Core\Setup.lua
+Core\Modules.lua
 Core\EditMode.lua
 Core\GameMenu.lua
 Core\Perf.lua

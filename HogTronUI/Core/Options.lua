@@ -39,6 +39,10 @@ local function generalTab()
         type = "execute", order = 5, name = "Show caught errors",
         func = function() HH:SlashCommand("errors") end,
       },
+      modules = {
+        type = "group", inline = true, order = 6, name = "Modules",
+        args = (HH.Modules and HH.Modules.Args) and HH.Modules.Args(nil, 1) or {},
+      },
       look = {
         type = "group", inline = true, order = 10, name = "Look",
         args = {
