@@ -1,5 +1,16 @@
 # HogTron UI
 
+## v0.2.0-beta.12
+
+### Fixed
+- **Buffs, debuffs and chat windows stay where edit mode put them.** Blizzard's own layout pass (its Edit Mode
+  systems, re-run when its layouts arrive from the server and after every loading screen) could land after our
+  re-apply and put them back; now it is hooked and undone the moment it runs, `EDIT_MODE_LAYOUTS_UPDATED` re-applies,
+  and for a minute after each world entry a watch puts back anything else that moves them. A chat window sized on
+  Blizzard's own corner grip keeps that size through the pass too. A move made in Blizzard's Edit Mode hands the frame
+  back to Blizzard. `/hh movediag` now lists the guards and what moved what, when (also in `HogTronUIDB.global.diag.moves`).
+- A disabled menu-bar button (Talents under level 10) says why on click and in its tooltip instead of doing nothing.
+
 ## v0.2.0-beta.11
 
 ### New
