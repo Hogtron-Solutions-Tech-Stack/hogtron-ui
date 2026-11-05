@@ -145,6 +145,22 @@ function Skin.Panel(parent, anchor, pad, alpha)
   return p
 end
 
+--- Skin.Panel's frame in the UI's look: plain paper in the Parchment look (charred = the dark page, for frames full of
+--- Blizzard's own bright text - tooltips, chat), the ink panel otherwise. Returns the frame (.bg, .edges, .paper).
+function Skin.Sheet(parent, anchor, pad, alpha, charred)
+  local P = HogHeals.Parchment
+  if not (P and P.On and P.On()) then return Skin.Panel(parent, anchor, pad, alpha) end
+  pad = pad or 0
+  local p = CreateFrame("Frame", nil, parent)
+  p.hhOurs = true
+  p:SetPoint("TOPLEFT", anchor, "TOPLEFT", -pad, pad)
+  p:SetPoint("BOTTOMRIGHT", anchor, "BOTTOMRIGHT", pad, -pad)
+  p:SetFrameLevel(math.max(0, ((anchor.GetFrameLevel and anchor:GetFrameLevel()) or 1) - 1))
+  local back = P.Backdrop(p, alpha, p, { charred = charred })
+  p.bg, p.edges, p.paper = back.bg, back.edges, true
+  return p
+end
+
 function Skin.Outline(parent, anchor, color, thick)
   color, thick = color or Skin.LINE, thick or 1
   local edges = {}

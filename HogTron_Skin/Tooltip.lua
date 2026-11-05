@@ -25,7 +25,7 @@ function Part.Style(tt)
   local d = Skin.cfg().tooltips
   if not tt.hh then
     clearBackdrop(tt)
-    tt.hh = { panel = Skin.Panel(tt, tt, 0, d.alpha or 0.9) }
+    tt.hh = { panel = Skin.Sheet(tt, tt, 0, d.alpha or 0.9, true) }   -- Parchment: the charred page (its text is Blizzard's, bright)
     tt:HookScript("OnShow", function(self)
       if Skin.cfg().enabled == false or Skin.cfg().tooltips.enabled == false then return end
       clearBackdrop(self)
@@ -40,7 +40,8 @@ function Part.Style(tt)
     end
     Part.styled[#Part.styled + 1] = tt:GetName() or "?"
   end
-  tt.hh.panel.bg:SetColorTexture(Skin.INK[1], Skin.INK[2], Skin.INK[3], d.alpha or 0.9)
+  if tt.hh.panel.paper then tt.hh.panel.bg:SetAlpha(d.alpha or 0.9)
+  else tt.hh.panel.bg:SetColorTexture(Skin.INK[1], Skin.INK[2], Skin.INK[3], d.alpha or 0.9) end
 end
 
 -- ------------------------------------------------------------------------------------------------ the anchor box

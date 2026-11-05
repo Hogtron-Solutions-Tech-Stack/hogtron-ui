@@ -167,13 +167,20 @@ local function styleWindow(cf, s)
     p:SetPoint("TOPLEFT", cf, "TOPLEFT", -5, 5)
     p:SetPoint("BOTTOMRIGHT", cf, "BOTTOMRIGHT", 5, -5)
     p:SetFrameLevel(math.max(0, ((cf.GetFrameLevel and cf:GetFrameLevel()) or 1) - 1))
+    local P = HogHeals.Parchment
+    if P and P.On and P.On() then                   -- the Parchment look: the charred page (Sean 2026-11-05, "everything")
+      local back = P.Backdrop(p, cfg().backgroundAlpha or 0.6, p, { charred = true })
+      p.bg, p.edges, p.paper = back.bg, back.edges, true
+    else
     p.bg = solid(p, "BACKGROUND", INK, 0.6)
     p.bg.hhOurs = true
     p.bg:SetAllPoints(p)
     p.edges = outline(p, p)
+    end
     s.panel = p
   end
-  s.panel.bg:SetColorTexture(INK[1], INK[2], INK[3], cfg().backgroundAlpha or 0.6)
+  if s.panel.paper then s.panel.bg:SetAlpha(cfg().backgroundAlpha or 0.6)
+  else s.panel.bg:SetColorTexture(INK[1], INK[2], INK[3], cfg().backgroundAlpha or 0.6) end
 end
 
 local function styleTab(cf, s)

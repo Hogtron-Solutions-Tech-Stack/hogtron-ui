@@ -97,7 +97,7 @@ function Options.Build()
         enabled = toggle(sub("panels"), "enabled", "Skin Blizzard's windows", 1),
         look = { type = "select", name = "Look", order = 1.5, values = { auto = "Follow the UI's look (General > Look)", parchment = "Parchment page", ink = "Ink panel" },
           get = function() local v = root().panels.look return (v == "ink" or v == "parchment") and v or "auto" end, set = function(_, v) root().panels.look = v end },
-        alpha = range(sub("panels"), "alpha", "Background opacity", 2, 0.3, 1, 0.05),
+        alpha = range(sub("panels"), "alpha", "Background opacity (ink panel)", 2, 0.3, 1, 0.05),
         titleSize = range(sub("panels"), "titleSize", "Title text size", 3, 9, 20, 1),
         list = { type = "group", inline = true, name = "Windows", order = 4, args = (function()
           local a = {}

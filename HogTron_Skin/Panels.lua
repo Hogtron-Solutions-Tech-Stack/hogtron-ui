@@ -124,20 +124,7 @@ local function near(r, g, b, c) return math.abs(r - c[1]) + math.abs(g - c[2]) +
 -- muted ink, already dark -> left. A hue (gold, red, green, a class colour): kept, brought down to a luminance that
 -- reads on paper. One of the theme's own inks comes back unchanged (a second pass changes nothing). Pure maths.
 Part.INK_LUM = 0.34
-function Part.InkColor(r, g, b, th)
-  if near(r, g, b, th.text) or near(r, g, b, th.muted) or near(r, g, b, th.title) then return r, g, b end
-  local mx, mn = math.max(r, g, b), math.min(r, g, b)
-  local sat = mx > 0 and (mx - mn) / mx or 0
-  local lum = 0.299 * r + 0.587 * g + 0.114 * b
-  if sat < 0.25 then
-    if lum >= 0.62 then return th.text[1], th.text[2], th.text[3] end
-    if lum >= 0.30 then return th.muted[1], th.muted[2], th.muted[3] end
-    return r, g, b
-  end
-  if lum <= Part.INK_LUM + 0.005 then return r, g, b end
-  local k = Part.INK_LUM / lum
-  return r * k, g * k, b * k
-end
+function Part.InkColor(r, g, b, th) return HH.Parchment.InkColor(r, g, b, th) end   -- the maths lives in core (our own frames use it too)
 
 --- One string inked for the light page, and hooked once so a Blizzard repaint (hover, rebuild, tab select) is inked
 -- again. Nothing happens off the light page (the hook checks each time, so a look change needs no unhooking).
@@ -154,6 +141,7 @@ function Part.Ink(fs)
     fs.hhInking = false
     changed = true
   end
+  Part.Clean(fs)
   if not fs.hhInkHooked and type(hooksecurefunc) == "function" then
     fs.hhInkHooked = true
     pcall(hooksecurefunc, fs, "SetTextColor", function(self)
@@ -164,6 +152,33 @@ function Part.Ink(fs)
   return changed
 end
 
+--- Ink on paper casts no shadow and has no outline: both off on an inked string (in game 2026-11-05 "Level 10 Druid"
+--- kept Blizzard's black outline under the ink and read as a smudge). Method calls only.
+function Part.Clean(fs)
+  if fs.SetShadowOffset then Skin.call(fs.SetShadowOffset, fs, 0, 0) end
+  local path, size, flags = Skin.call(fs.GetFont, fs)
+  if type(path) == "string" and Skin.num(size) and type(flags) == "string" and flags:find("OUTLINE") and fs.SetFont then
+    Skin.call(fs.SetFont, fs, path, size, "")
+  end
+end
+
+--- A list row (a Button carrying its own background texture: the Friends list's entries): on the page its background
+--- goes and its text is inked like the window's. In game 2026-11-05 the friends rows stayed Blizzard's navy bars.
+Part.ROW_BG = { "background", "Background", "BG", "Bg", "bg" }
+function Part.Row(b)
+  local found = false
+  for _, k in ipairs(Part.ROW_BG) do
+    local t = rawget(b, k)
+    if type(t) == "table" and Skin.call(t.GetObjectType, t) == "Texture" and not t.hhOurs then Skin.Kill(t) found = true end
+  end
+  if not found then return 0 end
+  local n = 0
+  for _, r in ipairs(Skin.all(b.GetRegions, b)) do
+    if type(r) == "table" and Skin.call(r.GetObjectType, r) == "FontString" and not r.hhOurs and Part.Ink(r) then n = n + 1 end
+  end
+  return n
+end
+
 --- Every text in a window inked (depth 7). A Button's label is left: its art is Blizzard's and the label reads on it
 -- (tabs are inked by Part.Tabs). Budgeted at `budget.n` strings a pass; a long list is inked as it shows.
 function Part.InkAll(frame, depth, budget)
@@ -171,7 +186,7 @@ function Part.InkAll(frame, depth, budget)
   budget = budget or { n = 500 }
   if type(frame) ~= "table" or depth > 7 or budget.n <= 0 or frame.hhOurs then return 0 end
   local kind = Skin.call(frame.GetObjectType, frame) or "Frame"
-  if depth > 0 and (kind == "Button" or kind == "CheckButton") then return 0 end
+  if depth > 0 and (kind == "Button" or kind == "CheckButton") then return Part.Row(frame) end
   local n = 0
   for _, r in ipairs(Skin.all(frame.GetRegions, frame)) do
     if type(r) == "table" and Skin.call(r.GetObjectType, r) == "FontString" and not r.hhOurs then
@@ -510,7 +525,8 @@ function Part.StyleOnce(f, name)
   local th = Part.ThemeFor(name)
   local tabs = type(rawget(_G, name .. "Tab1")) == "table"                     -- a tab strip hangs under the window: paper under it too
   local title = rawget(f, "TitleText") or (type(rawget(f, "TitleContainer")) == "table" and rawget(f.TitleContainer, "TitleText")) or rawget(_G, name .. "TitleText")
-  f.hhPanel = th and Part.Page(f, d and d.alpha or 0.9, tabs and Part.TAB_ROOM or 0, type(title) == "table") or Skin.Panel(f, f, 0, d and d.alpha or 0.9)
+  -- the page is solid paper (in game 2026-11-05 at 0.9 the damage meter showed through it); the opacity slider is the ink panel's
+  f.hhPanel = th and Part.Page(f, 1, tabs and Part.TAB_ROOM or 0, type(title) == "table") or Skin.Panel(f, f, 0, d and d.alpha or 0.9)
   if type(title) == "table" then
     if th then HH.Parchment.Font(title, d and d.titleSize or 13) else Skin.SetFont(title, d and d.titleSize or 13) end
     local tc = th and th.title or Skin.CREAM

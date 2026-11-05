@@ -10,8 +10,20 @@
 - `/hh open <window>` opens one of Blizzard's windows by name (character, spellbook, questlog, social, guild, map,
   bags, lfg, options, ...) - handy for checking the skin window by window.
 
+- **Parchment reaches our own frames:** the quest tracker, the info bar (gold, durability, bags, fps ... in ink, the
+  value colours darkened to read on paper), the menu bar and bags sit on plain paper in the Parchment look.
+- **The minimap and the world map (M) on paper**: the minimap framed in paper with its zone name in ink; the map window
+  on the torn page with its quest log stripped and inked (the map itself untouched).
+- **Chat, the damage meter and tooltips on the charred page** in the Parchment look - their text is Blizzard's own, in
+  every colour, and reads on the dark sheet as it is.
+- **New icon set for the Parchment look: ink stamps** - every menu and drawer icon as a woodcut on a paper disc inside
+  the dialog's bronze ring (General > Look > Icons: Ink stamps; `dev/make_page_icons.py` makes them from our glyphs).
+
 ### Fixed
 - The spellbook loses its dark top bar and book frame on the page like every other window; its dark text already reads.
+- Parchment windows are solid paper (the damage meter showed through at 90%); inked text loses Blizzard's black
+  outline and shadow ("Level 10 Druid" read as a smudge); list rows (the friends list) lose their navy bars and are
+  inked like the rest.
 
 ## v0.2.0-beta.14
 

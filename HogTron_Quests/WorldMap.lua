@@ -175,6 +175,22 @@ function WM.Skin(f)
   if type(border) == "table" then strip(rawget(border, "NineSlice")) end
   strip(rawget(f, "NineSlice"))
   strip(f)
+  local PM = HH.Parchment
+  if PM and PM.On and PM.On() then
+    -- the Parchment look (Sean 2026-11-05: "everything to match this paper-like theme"): the torn page behind the whole
+    -- map window, the title in ink, the quest log beside the map stripped and inked by the window skin (only that
+    -- panel - the map's own tiles are never touched)
+    WM.page = PM.PageBehind(f, 1)
+    local tc = type(border) == "table" and rawget(border, "TitleContainer")
+    local title = (type(tc) == "table" and rawget(tc, "TitleText")) or rawget(f, "TitleText")
+    local ink = PM.Palette().title
+    if type(title) == "table" and title.SetTextColor then
+      call(title.SetTextColor, title, ink[1], ink[2], ink[3])
+      PM.Font(title, 14)
+    end
+    WM.InkQuestLog()
+    return hidden
+  end
   WM.bg = solid(f, "BACKGROUND", INK, d.alpha or 0.95)
   WM.bg:SetPoint("TOPLEFT", f, "TOPLEFT", -1, 1)
   WM.bg:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 1, -1)
@@ -197,6 +213,21 @@ function WM.Skin(f)
   return hidden
 end
 
+--- The quest log beside the map (QuestMapFrame) on the page: its art stripped and its text inked by the window skin
+--- (HogTron_Skin/Panels.lua Part.Inner), now and as its list is rebuilt. Nothing without the Skin module.
+function WM.InkQuestLog()
+  local S = rawget(_G, "HogHealsSkin")
+  local Panels = type(S) == "table" and S.Panels or nil
+  local q = rawget(_G, "QuestMapFrame")
+  if not (Panels and Panels.Inner and type(q) == "table") then return false end
+  pcall(Panels.Inner, q, "QuestMapFrame")
+  if not WM.questLogHooked and q.HookScript then
+    WM.questLogHooked = true
+    q:HookScript("OnShow", function(self) pcall(Panels.Inner, self, "QuestMapFrame") end)
+  end
+  return true
+end
+
 -- ------------------------------------------------------------------------------------------------ apply
 function WM.OnShow()
   local f, d = frame(), cfg()
@@ -205,6 +236,7 @@ function WM.OnShow()
   if WM.strip then
     if d.coords ~= false and not WM.LeatrixLoaded() then WM.strip:Show() else WM.strip:Hide() end
   end
+  if WM.page then WM.InkQuestLog() end
   WM.Tick()
 end
 

@@ -108,9 +108,10 @@ def test_entries_draw_their_glyph_with_the_letter_as_fallback(tray):
     assert tray.eval(f"{c}.glyph") == tray.eval(f"{c}.entry.icon")
     tex = tray.eval(f"{c}.icon._texture")
     icon = tray.eval(f"{c}.entry.icon")
-    assert tex.endswith(icon) or tex.endswith(icon + "_art")                      # painted by default, glyph on request
+    assert tex.endswith(icon) or tex.endswith(icon + "_art") or tex.endswith(icon + "_page")   # painted / glyph / ink stamp (Parchment)
     for e in tray.eval(f"{T}.ENTRIES").values():
         assert (media / (e["icon"] + "_art.tga")).exists(), e["icon"] + "_art"   # every entry has its painted icon
+        assert (media / (e["icon"] + "_page.tga")).exists(), e["icon"] + "_page"  # ... and its ink stamp
     # a client that refuses the file: the letter stands in
     tray.execute(f"{c}.icon.SetTexture = function() return false end; {D}.OwnCells()")
     assert tray.eval(f"{c}.letter:IsShown()") is True and tray.eval(f"{c}.icon:IsShown()") is False

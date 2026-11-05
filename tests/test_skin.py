@@ -85,8 +85,19 @@ NUM_BAG_SLOTS = 4
 '''
 
 
+MODERN = 'HogTronUIDB = { profiles = { Default = { look = { style = "hogtron" } } } }'
+
+
+@pytest.fixture(autouse=True)
+def modern_look(lua):
+    # these tests are about the Modern look (ink, cyan, the painted set); Parchment: test_parchment_own_frames.py.
+    # A test that seeds its own HogTronUIDB replaces this.
+    lua.execute(MODERN)
+
+
 @pytest.fixture
 def skin(lua):
+    lua.execute(MODERN)
     lua.execute(CLIENT)
     lua.load_addon("HogTronUI")
     lua.load_addon("HogTron_Skin")
@@ -234,7 +245,7 @@ def test_info_bar_ticks_and_drags_when_unlocked(skin):
 
 
 def test_skin_off_leaves_blizzard_alone(lua):
-    lua.execute(CLIENT + 'HogHealsDB = { profileKeys = {}, profiles = { Default = { skin = { enabled = false } } } }')
+    lua.execute(CLIENT + 'HogTronUIDB = { profileKeys = {}, profiles = { Default = { skin = { enabled = false } } } }')
     lua.load_addon("HogTronUI")
     lua.load_addon("HogTron_Skin")
     lua.player_login()
@@ -305,7 +316,7 @@ def test_blizzard_window_styled_on_show_and_lod_window_caught_by_showuipanel(lua
     assert lua.eval('CharacterFrame.hhPanel') is None
     lua.execute('CharacterFrame:Show(); CharacterFrame:GetScript("OnShow")(CharacterFrame)')
     assert lua.eval('CharacterFramePortrait._alpha') == 0 and lua.eval('CharacterFrame.NineSlice._alpha') == 0
-    assert lua.eval('CharacterFrame.hhPanel._alpha') == pytest.approx(0.9)            # the page's opacity (parchment look)
+    assert lua.eval('CharacterFrame.hhPanel.bg._color[4]') == pytest.approx(0.9)       # the ink panel's opacity (Modern)
     assert lua.eval('CharacterFrame.CloseButton.hhX._text') == "x"
     # a load-on-demand window that did not exist at login, opened through ShowUIPanel
     lua.execute("""
@@ -980,7 +991,7 @@ def test_painted_icons_by_default_untinted_and_shipped_for_every_glyph(skin):
     import pathlib
     media = pathlib.Path(__file__).resolve().parents[1] / "HogTronUI" / "Media"
     for glyph in media.glob("micro_*.tga"):
-        if glyph.stem.endswith("_art"):
+        if glyph.stem.endswith("_art") or glyph.stem.endswith("_page"):   # the painted / ink-stamp twins
             continue
         assert (media / (glyph.stem + "_art.tga")).exists(), glyph.stem
     bar = "HogHealsMicroBar"

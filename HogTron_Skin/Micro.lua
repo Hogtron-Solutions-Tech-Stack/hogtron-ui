@@ -274,9 +274,15 @@ local function barFrame()
   bar:SetFrameStrata("MEDIUM")   -- above the bag strip (LOW): in game 2026-10-01 the cells hid behind it
   bar:SetMovable(true)
   bar:SetClampedToScreen(true)
+  local P = HH.Parchment
+  if P and P.On and P.On() then                       -- the Parchment look: a strip of paper (Sean 2026-11-05)
+    local back = P.Backdrop(bar, Skin.cfg().backgroundAlpha or 0.75)
+    bar.bg, bar.edges, bar.paper = back.bg, back.edges, true
+  else
   bar.bg = Skin.Solid(bar, "BACKGROUND", Skin.INK, Skin.cfg().backgroundAlpha or 0.75)
   bar.bg:SetAllPoints(bar)
   bar.edges = Skin.Outline(bar, bar)
+  end
   bar.cells = {}
   -- /hh unlock: drag the bar; the spot is kept
   bar:EnableMouse(false)
@@ -294,12 +300,22 @@ end
 --- The look every cell shares: ink backdrop, outline, letter, glyph, cyan edges + full tint + tooltip on hover.
 local function dress(c)
   c.hhOurs = true
+  local P = HH.Parchment
+  c.page = P and P.On and P.On() or false             -- the Parchment look: the stamp brings its own disc and ring
   c.bg = Skin.Solid(c, "BACKGROUND", { 0.10, 0.10, 0.12 }, 0.9)
   c.bg:SetAllPoints(c)
   c.edges = Skin.Outline(c, c)
   c.letter = c:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
   c.letter:SetPoint("CENTER", c, "CENTER", 0, 0)
   c.letter:SetTextColor(Skin.CREAM[1], Skin.CREAM[2], Skin.CREAM[3])
+  if c.page then
+    local pal = P.Palette()
+    c.bg:SetColorTexture(pal.header[1], pal.header[2], pal.header[3], pal.header[4] or 0.16)
+    c.bg:Hide()                                     -- shown on hover only: a soft plate behind the stamp
+    for _, e in ipairs(c.edges) do e:Hide() end
+    c.letter:SetTextColor(pal.text[1], pal.text[2], pal.text[3])
+    if c.letter.SetShadowOffset then c.letter:SetShadowOffset(0, 0) end
+  end
   c.icon = c:CreateTexture(nil, "ARTWORK")
   c.icon:SetPoint("CENTER", c, "CENTER", 0, 0)
   c.icon.hhOurs = true
@@ -310,7 +326,7 @@ local function dress(c)
   c.accent:SetPoint("BOTTOMRIGHT", c, "BOTTOMRIGHT", -3, 1)
   c.accent:SetHeight(2)
   c:SetScript("OnEnter", function(self)
-    Skin.ColorEdges(self.edges, Skin.CYAN)
+    if self.page then self.bg:Show() else Skin.ColorEdges(self.edges, Skin.CYAN) end
     if self.tintFull then self.icon:SetVertexColor(self.tintFull[1], self.tintFull[2], self.tintFull[3]) end
     if GameTooltip and GameTooltip.SetOwner and self.label then
       GameTooltip:SetOwner(self, "ANCHOR_TOP")
@@ -321,7 +337,7 @@ local function dress(c)
     end
   end)
   c:SetScript("OnLeave", function(self)
-    Skin.ColorEdges(self.edges, Skin.LINE)
+    if self.page then self.bg:Hide() else Skin.ColorEdges(self.edges, Skin.LINE) end
     if self.tint then self.icon:SetVertexColor(self.tint[1], self.tint[2], self.tint[3]) end
     if GameTooltip and GameTooltip.Hide then GameTooltip:Hide() end
   end)
@@ -429,7 +445,7 @@ local function paintCell(c, size, id, letter, label, strength, src)
   if c.accent then
     local a = Part.TINT[id] or Skin.CREAM
     c.accent:SetColorTexture(a[1], a[2], a[3], 0.9)
-    if (Skin.cfg().micro or {}).accent == false then c.accent:Hide() else c.accent:Show() end
+    if (Skin.cfg().micro or {}).accent == false or c.page then c.accent:Hide() else c.accent:Show() end
   end
 end
 
@@ -509,7 +525,8 @@ function Part.Strip()
   end
   bar:SetSize(pad + total * (size + pad), size + 2)
   bar:SetScale(1)   -- never the "Menu buttons scale" (that shrinks Blizzard's menu; it made these letters 10 px apart)
-  bar.bg:SetColorTexture(Skin.INK[1], Skin.INK[2], Skin.INK[3], Skin.cfg().backgroundAlpha or 0.75)
+  if bar.paper then bar.bg:SetAlpha(math.max(0.9, Skin.cfg().backgroundAlpha or 0.75))
+  else bar.bg:SetColorTexture(Skin.INK[1], Skin.INK[2], Skin.INK[3], Skin.cfg().backgroundAlpha or 0.75) end
   Part.SilenceContainers(srcs, Part.BagButtons())
   Part.AnchorBar()
   if n > 0 then bar:Show() else bar:Hide() end

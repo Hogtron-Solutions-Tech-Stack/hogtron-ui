@@ -18,7 +18,21 @@ local GREY = { 0.55, 0.55, 0.60 }
 local GREEN = { 0.25, 0.80, 0.35 }
 local AMBER = { 0.95, 0.65, 0.15 }
 local LINE = { 0.20, 0.20, 0.25 }
+local HEADER = { 0.11, 0.11, 0.14 }
 local HEADER_H = 20
+local PAGE = false   -- the Parchment look: paper backing, ink text, no shadows (Tracker.Paint)
+
+--- The UI's look into this file's colour names (HogTronUI/Core/Parchment.lua Palette): Modern keeps cream / cyan on ink,
+--- Parchment inks on paper. Sean 2026-11-05: "I want things like the quest menus on the side changed ... everything to
+--- match this paper-like theme." Read when the tracker is built (a look change needs /reload).
+function Tracker.Paint()
+  local P = HH.Parchment
+  local pal = P and P.Palette and P.Palette() or nil
+  if not pal then return false end
+  CREAM, CYAN, GREY, GREEN, LINE, HEADER = pal.text, pal.accent, pal.muted, pal.good, pal.line, pal.header
+  AMBER, PAGE = pal.warn, pal.page == true
+  return PAGE
+end
 
 local function cfg() return HH.db.profile.quests.tracker end
 
@@ -33,6 +47,7 @@ local function text(parent, c, justify)
   local fs = parent:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
   fs:SetTextColor(c[1], c[2], c[3])
   if justify then fs:SetJustifyH(justify) end
+  if PAGE and fs.SetShadowOffset then fs:SetShadowOffset(0, 0) end   -- ink on paper casts no shadow
   return fs
 end
 
@@ -43,6 +58,12 @@ end
 
 --- Difficulty colour for a quest level: Blizzard's own function when the client has it, else a plain band.
 function Tracker.LevelColor(level)
+  local r, g, b = Tracker.RawLevelColor(level)
+  local P = HH.Parchment
+  if PAGE and P and P.Hue then return P.Hue(r, g, b) end   -- on the light page: the same hue, dark enough to read
+  return r, g, b
+end
+function Tracker.RawLevelColor(level)
   if type(level) ~= "number" then return CREAM[1], CREAM[2], CREAM[3] end
   local f = rawget(_G, "GetQuestDifficultyColor")
   if type(f) == "function" then
@@ -109,10 +130,16 @@ local function build()
   f:SetMovable(true)
   f:SetClampedToScreen(true)
   f:SetFrameStrata("LOW")
+  Tracker.Paint()
+  if PAGE then
+    local back = HH.Parchment.Backdrop(f, d.backgroundAlpha or 0.6)
+    f.bg, f.edges, f.paper = back.bg, back.edges, true
+  else
   f.bg = solid(f, "BACKGROUND", INK, d.backgroundAlpha or 0.6)
   f.bg:SetAllPoints(f)
   f.edges = {}
-  local spec = { { "TOPLEFT", "TOPRIGHT", nil, 1 }, { "BOTTOMLEFT", "BOTTOMRIGHT", nil, 1 }, { "TOPLEFT", "BOTTOMLEFT", 1, nil }, { "TOPRIGHT", "BOTTOMRIGHT", 1, nil } }
+  end
+  local spec = PAGE and {} or { { "TOPLEFT", "TOPRIGHT", nil, 1 }, { "BOTTOMLEFT", "BOTTOMRIGHT", nil, 1 }, { "TOPLEFT", "BOTTOMLEFT", 1, nil }, { "TOPRIGHT", "BOTTOMRIGHT", 1, nil } }
   for i, sp in ipairs(spec) do
     local e = solid(f, "BORDER", LINE)
     e:SetPoint(sp[1], f, sp[1], 0, 0)
@@ -126,7 +153,7 @@ local function build()
   header:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0)
   header:SetPoint("TOPRIGHT", f, "TOPRIGHT", 0, 0)
   header:SetHeight(HEADER_H)
-  header.bg = solid(header, "BACKGROUND", { 0.11, 0.11, 0.14 })
+  header.bg = solid(header, "BACKGROUND", HEADER, HEADER[4] or 1)
   header.bg:SetAllPoints(header)
   header.rule = solid(header, "ARTWORK", CYAN)
   header.rule:SetPoint("BOTTOMLEFT", header, "BOTTOMLEFT", 0, 0)
@@ -373,7 +400,7 @@ function Tracker.Update()
   if d.fixedHeight and d.fill == false and not d.collapsed then listH = math.max(y, d.maxHeight or 420) end
   f:SetSize(d.width or 260, math.max(HEADER_H, size + 8) + (d.collapsed and 0 or (listH + 8)))
   f:SetScale(d.scale or 1)
-  f.bg:SetColorTexture(INK[1], INK[2], INK[3], d.backgroundAlpha or 0.6)
+  if f.paper then f.bg:SetAlpha(math.max(0.9, d.backgroundAlpha or 0.6)) else f.bg:SetColorTexture(INK[1], INK[2], INK[3], d.backgroundAlpha or 0.6) end
   Tracker.shownCount, Tracker.moreCount = ti, more
 end
 
