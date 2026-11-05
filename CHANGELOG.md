@@ -1,5 +1,25 @@
 # HogTron UI
 
+## v0.2.0-beta.4
+
+### New
+- **HogTron Edit Mode on the Escape menu**, in place of Blizzard's Edit Mode (which arranges frames this UI replaces).
+  General > "Escape menu: HogTron Edit Mode" brings Blizzard's button back.
+- **Edit mode moves more:** the menu bar (bottom icons), every chat window (drag; corner grip resizes), the minimap
+  box (drag; corner grip resizes, the map refits), and Blizzard's buff and debuff frames. Places are remembered.
+- **Level-up card:** when you level, a small card says what to train now (from your trainer memory), which dungeons
+  came into range, and talent points to spend - Train / Where next buttons. `/hh levelup` previews it; Training tab.
+- **Camera zoom-out:** the camera pulls back further (2.6, the client's cap on Classic). General > "Camera zoom-out
+  (max)"; `/hh zoom`.
+- **Training window pictures:** each spell shows the trainer's own icon; weapon trainers show weapon-skill icons.
+- **Nameplate threat colours:** yellow / orange / red as aggro climbs (tank mode flips it). Nameplates > Threat.
+
+### Fixed
+- Action bar keybinds read "SHIF" / "CTR" / "BUTT" on Anniversary and Forever: now `s-1`, `c-1`, `m4`.
+- Blizzard's "unopened items in your collection" tip floated over the bag bar: menu-button tips are hidden while the
+  HogTron menu bar stands in (switch in Skin > Menu & bag bar).
+- `dev/check_client_build.py` warns before a release when an installed client has patched past the toc versions.
+
 ## v0.2.0-beta.3
 
 ### New
