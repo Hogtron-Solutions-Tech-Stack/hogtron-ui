@@ -250,6 +250,12 @@ function EM.ResizeFor(t)
       w = { get = function() return num(lay().width, 90) end, set = function(v) lay().width = v end, min = 40, max = 300, step = 1 },
       h = { get = function() return num(lay().height, 60) end, set = function(v) lay().height = v end, min = 12, max = 80, step = 1 } }
   end
+  -- a chat window (Sean 2026-11-03: "I can't resize the chat window ... in edit mode"): the client sizes it itself from
+  -- its bottom-right corner (StartSizing, what Blizzard's own corner grip does) and the drop saves it like a tab drag
+  if key:match("^chat:%d+$") and type(t.mover) == "table" then
+    local cf = t.mover
+    return { native = { start = function() call(cf.StartSizing, cf, "BOTTOMRIGHT") end, stop = function() EM.ChatDragStop(cf) end } }
+  end
   local bar = key:match("^bar:(.+)$")
   if bar and type(p.bars) == "table" and type(p.bars.list) == "table" then
     local bd = p.bars.list[tonumber(bar) or bar]
@@ -278,6 +284,11 @@ function EM.BeginResize(t)
   if not t or not t.resize then return false end
   if InCombatLockdown and InCombatLockdown() then HH:Print("edit: not in combat") return false end
   local R = t.resize
+  if R.native then                                        -- the client sizes the frame itself until the grip lets go
+    local ok = pcall(R.native.start)
+    EM.resizing = { t = t, native = true }
+    return ok
+  end
   local x, y = cursor()
   local ref = t.box or t.clickFrame or t.mover
   EM.resizing = { t = t, x = x, y = y, w = R.w and R.w.get(), h = R.h and R.h.get(), s = R.s and R.s.get(),
@@ -296,7 +307,7 @@ end
 -- Applies only a change (snapped to the setting's step, inside its range). Returns true when something changed.
 function EM.ResizeStep(dx, dy)
   local r = EM.resizing
-  if not r then return false end
+  if not r or r.native then return false end
   local R, changed = r.t.resize, false
   if R.w and r.w then local v = snap(r.w + dx * (R.w.factor or 1), R.w) if v ~= R.w.get() then R.w.set(v) changed = true end end
   if R.h and r.h then local v = snap(r.h - dy, R.h) if v ~= R.h.get() then R.h.set(v) changed = true end end
@@ -310,6 +321,7 @@ function EM.EndResize()
   if EM.driver then EM.driver:SetScript("OnUpdate", nil) end
   EM.resizing = nil
   if not r then return false end
+  if r.native and r.t.resize and r.t.resize.native then pcall(r.t.resize.native.stop) end
   EM.lastResize = r.t.key
   -- an open settings panel for this frame: reopened so its sliders show the new numbers
   local P = HH.Panel

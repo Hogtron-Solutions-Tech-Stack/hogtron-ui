@@ -296,7 +296,17 @@ def test_chat_windows_get_boxes_moved_through_the_clients_own_calls(ed):
     t = target(ed, "chat:2")
     assert ed.eval(f'HogHeals.EditMode.Center({t}, "h")') is True
     assert ed.eval("SAVED[2]") == "ChatFrame2"
+    # the corner grip: the client sizes the window itself (StartSizing from its bottom-right), the drop saves it
+    assert ed.eval("HogHeals.EditMode.grips['chat:2']:IsShown()") is True
+    ed.execute(f"{t}.resize = HogHeals.EditMode.ResizeFor({t})")
+    assert ed.eval(f"HogHeals.EditMode.BeginResize({t})") is True
+    assert ed.eval("ChatFrame2._last.StartSizing[1]") == "BOTTOMRIGHT" and ed.eval("HogHeals.EditMode.resizing.native") is True
+    assert ed.eval("HogHeals.EditMode.ResizeStep(40, -40)") is False             # nothing of ours steps the size
+    ed.execute("ChatFrame2._moving = true; HogHeals.EditMode.EndResize()")
+    assert ed.eval("ChatFrame2._moving") is False and ed.eval("SAVED[3]") == "ChatFrame2"
+    assert ed.eval("HogHeals.EditMode.lastResize") == "chat:2" and ed.eval("HogHeals.EditMode.resizing") is None
     ed.execute('HogHeals:SlashCommand("lock"); ChatFrame2:Hide(); HogHeals:SlashCommand("unlock")')
     assert ed.eval("HogHeals.EditMode.boxes['chat:2']:IsShown()") is False       # a window gone meanwhile loses its box
+    assert ed.eval("HogHeals.EditMode.grips['chat:2']:IsShown()") is False
     assert errors(ed) == []
 
