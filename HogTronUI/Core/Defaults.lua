@@ -49,7 +49,7 @@ HH.defaults = {
     },
     -- how it looks (Core/Look.lua): style hogtron | classic (reload), font Inter | Manrope | Barlow Condensed,
     -- edge shadow | outline (panel text; text on bars keeps its outline), size -2..+4, pixel = saved pixel-perfect scale
-    look = { style = "hogtron", font = "Inter", edge = "shadow", size = 0, icons = "art", menus = "flat" },   -- icons / menus: art = painted set | glyph / flat
+    look = { style = "hogtron", font = "Inter", edge = "shadow", size = 0, icons = "art", menus = "flat" },   -- icons: art = painted set | glyph | blizzard (the game's own pictures, Sean 2026-11-05); menus: art | flat
     frames = {
       hideBlizzard = true,           -- our group frames on = Blizzard's party / raid-style frames off
       soloSharesParty = true,        -- one layout for solo and party (size, growth, anchor); showSolo stays solo's own

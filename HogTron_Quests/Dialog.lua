@@ -65,6 +65,11 @@ local QUEST_OPEN = MEDIA .. "dialog_quest_open"
 local QUEST_DONE = MEDIA .. "dialog_quest_done"
 local QUEST_WAIT = MEDIA .. "dialog_quest_wait"
 Dialog.MARKS = { open = QUEST_OPEN, done = QUEST_DONE, wait = QUEST_WAIT }
+--- The mark file for a kind, in the chosen icon look (Blizzard's gossip icons in the "blizzard" look).
+function Dialog.Mark(kind)
+  if HH.Look and HH.Look.QuestMark then return HH.Look.QuestMark(kind, "dialog") end
+  return Dialog.MARKS[kind]
+end
 local FLAT = "Interface\\Buttons\\WHITE8X8"
 local PAGE_W, PAGE_H, SLICE = 512, 1024, 160    -- the page texture, and the height of its torn top / bottom slices
 local EDGE_PERIOD = 176                         -- the art's side edges repeat every 176 px (build_dialog_art.py PERIOD)
@@ -286,14 +291,14 @@ function Dialog.Read(kind)
     m.body = str(call(GI.GetText)) or ""
     local active = call(GI.GetActiveQuests) or {}
     for _, q in ipairs(active) do
-      if q.isComplete then row({ text = str(q.title) or "?", icon = QUEST_DONE, glyph = "?", tone = "quest", act = { "active", q.questID } }) end
+      if q.isComplete then row({ text = str(q.title) or "?", icon = Dialog.Mark("done"), glyph = "?", tone = "quest", act = { "active", q.questID } }) end
     end
     for _, q in ipairs(call(GI.GetAvailableQuests) or {}) do
-      row({ text = str(q.title) or "?", icon = QUEST_OPEN, glyph = "!", tone = q.isTrivial and "muted" or "quest", dim = q.isTrivial == true,
+      row({ text = str(q.title) or "?", icon = Dialog.Mark("open"), glyph = "!", tone = q.isTrivial and "muted" or "quest", dim = q.isTrivial == true,
         act = { "available", q.questID } })
     end
     for _, q in ipairs(active) do
-      if not q.isComplete then row({ text = str(q.title) or "?", icon = QUEST_WAIT, glyph = "?", tone = "muted", act = { "active", q.questID } }) end
+      if not q.isComplete then row({ text = str(q.title) or "?", icon = Dialog.Mark("wait"), glyph = "?", tone = "muted", act = { "active", q.questID } }) end
     end
     local opts = call(GI.GetOptions) or {}
     table.sort(opts, function(a, b) return (num(a.orderIndex) or 0) < (num(b.orderIndex) or 0) end)
@@ -308,11 +313,11 @@ function Dialog.Read(kind)
     for i = 1, nAc do
       local title, done = call(g("GetActiveTitle"), i)
       done = done == true or done == 1
-      row({ text = str(title) or "?", icon = done and QUEST_DONE or QUEST_WAIT, glyph = "?", tone = done and "quest" or "muted", act = { "activeIndex", i } })
+      row({ text = str(title) or "?", icon = Dialog.Mark(done and "done" or "wait"), glyph = "?", tone = done and "quest" or "muted", act = { "activeIndex", i } })
     end
     for i = 1, nAv do
       local title = call(g("GetAvailableTitle"), i)
-      row({ text = str(title) or "?", icon = QUEST_OPEN, glyph = "!", tone = "quest", act = { "availableIndex", i } })
+      row({ text = str(title) or "?", icon = Dialog.Mark("open"), glyph = "!", tone = "quest", act = { "availableIndex", i } })
     end
     m.secondary = { label = "Goodbye", action = "closeQuest", key = "Esc" }
   else
