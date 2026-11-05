@@ -44,6 +44,22 @@ function Part.Look()
   return HH.Parchment and "parchment" or "ink"
 end
 function Part.Theme() return Part.Look() == "parchment" and HH.Parchment.Theme() or nil end
+
+-- Windows whose inner art IS the content (talent trees, models, journals, the auction house, recipe schematics, the
+-- calendar grid): the deep strip would take meaning with it, and inked text on their dark art cannot be read. They
+-- keep the ink panel in either look - Blizzard's art and Blizzard's light text, as before.
+Part.KEEP_INNER = { TalentFrame = true, PlayerTalentFrame = true, ClassTalentFrame = true, DressUpFrame = true,
+  PetStableFrame = true, AchievementFrame = true, EncounterJournal = true, CollectionsJournal = true, CalendarFrame = true,
+  AuctionFrame = true, AuctionHouseFrame = true, MacroFrame = true, ProfessionsFrame = true, TradeSkillFrame = true, CraftFrame = true,
+  KeyBindingFrame = true }
+-- Windows whose inner art is already a paper page with dark text (the spellbook's book): the page goes behind, the
+-- book stays. Sean 2026-11-05 on the spellbook in game: it "looks fine" - left exactly so.
+Part.BOOK = { PlayerSpellsFrame = true, SpellBookFrame = true }
+--- The page theme for one window (nil = the ink panel: the ink look, or a window that keeps its inner art).
+function Part.ThemeFor(name)
+  if Part.KEEP_INNER[name or ""] then return nil end
+  return Part.Theme()
+end
 --- true on the light page: Blizzard's (white / gold / grey) text must be inked to read.
 function Part.Paper()
   local th = Part.Theme()
@@ -56,7 +72,7 @@ end
 -- Margins measured on the 512 x 1024 art (2026-11-05): over the page body the tears stay within 46 px of the top,
 -- 48 of the bottom and 32 of either side (only the outermost columns tear deeper).
 Part.PAGE_SIDE, Part.PAGE_TOP, Part.PAGE_BOTTOM, Part.TAB_ROOM = 32, 46, 48, 34
-function Part.Page(f, alpha, tabRoom)
+function Part.Page(f, alpha, tabRoom, titled)
   local P = HH.Parchment
   local p = CreateFrame("Frame", nil, f)
   p.hhOurs = true
@@ -69,6 +85,7 @@ function Part.Page(f, alpha, tabRoom)
   p.rule:SetPoint("TOPLEFT", f, "TOPLEFT", 10, -30)
   p.rule:SetPoint("TOPRIGHT", f, "TOPRIGHT", -10, -30)
   p.rule:SetHeight(6)
+  if titled == false then p.rule:Hide() end        -- no title row (a popup): a rule would cross its message
   p:SetAlpha(alpha or 0.9)
   p.window, p.tabRoom = f, tabRoom or 0
   p:SetScript("OnSizeChanged", function(self) Part.Relay(self) end)
@@ -161,6 +178,16 @@ function Part.InkAll(frame, depth, budget)
   return n
 end
 
+--- A window on the page: every decorative texture inside it cleared (not in buttons, bars, edit boxes, scroll bars,
+--- icons or selection marks), then on the light page its text inked. Lists that build late are caught by the
+--- timed passes in Part.Style.
+function Part.Inner(f, name)
+  local n = 0
+  if not Part.BOOK[name or ""] then n = Part.DeepKill(f) end
+  if Part.Paper() then Part.InkAll(f) end
+  return n
+end
+
 --- A tab's own label inked (regions only), on the light page.
 function Part.InkLabel(tab)
   if not Part.Paper() then return 0 end
@@ -208,7 +235,7 @@ end
 -- Blizzard's QuestInfoItemHighlight is a plain Frame holding one texture, and the parchment pass had wiped it
 -- (and Skin.Kill's hooks kept its alpha at 0 every time Blizzard showed it). Highlight / selection / check art is
 -- recognised by the texture's name, its parent's name, or the file it draws, and left alone.
-local FUNCTIONAL = { "Highlight", "Selected", "Selection", "Check", "Glow" }
+local FUNCTIONAL = { "Highlight", "Selected", "Selection", "Check", "Glow", "Branch", "Arrow" }
 local function isFunctional(t)
   local names = { t.GetName and t:GetName() }
   local parent = t.GetParent and t:GetParent()
@@ -282,7 +309,8 @@ function Part.DeepKill(frame, depth)
   depth = depth or 0
   if type(frame) ~= "table" or depth > 6 then return 0 end
   local kind = frame.GetObjectType and frame:GetObjectType() or "Frame"
-  if depth > 0 and KEEP_TYPES[kind] then return 0 end
+  if depth > 0 and (KEEP_TYPES[kind] or frame.hhOurs) then return 0 end
+  if depth > 0 and (type(rawget(frame, "Track")) == "table" or type(rawget(frame, "Thumb")) == "table") then return 0 end   -- a scroll bar
   local n = 0
   if frame.GetRegions then
     for _, r in ipairs({ frame:GetRegions() }) do
@@ -299,7 +327,10 @@ end
 -- re-applied border layout (NineSliceUtil on show) or a portrait ring cannot come back. Sean 2026-10-15: Friends and
 -- Looking For Group still showed Blizzard's gold border, portrait and red X next to a skinned Character window.
 Part.HIDE_CHILDREN = { "NineSlice", "PortraitContainer", "TopTileStreaks", "BorderFrame", "Border" }
-Part.STRIP_CHILDREN = { "Bg", "TitleBg", "Inset", "InsetBg", "Background", "TitleContainer" }
+-- BG / Header: in game 2026-11-05 the exit popup kept StaticPopup1.BG (UI-DiamondDialogBox-Border over
+-- UI-DialogBox-Background-Dark) and the escape menu GameMenuFrame.Header (UI-Frame-DiamondMetal-Header-*); Sean: "remove that
+-- inner box". Textures only: the header's title text stays.
+Part.STRIP_CHILDREN = { "Bg", "TitleBg", "Inset", "InsetBg", "Background", "TitleContainer", "BG", "Header" }
 
 local function hideWhole(child)
   if type(child) ~= "table" then return end
@@ -402,8 +433,8 @@ function Part.SubWindows(f, name)
 end
 
 --- The cell behind a tab: a rounded slab in the page's tag colour (parchment), else the ink panel.
-function Part.Cell(tab, pad, alpha)
-  local th = Part.Theme()
+function Part.Cell(tab, pad, alpha, name)
+  local th = Part.ThemeFor(name)
   if th then
     local s = HH.Parchment.Slab(tab, "BACKGROUND")
     for _, part in ipairs(s.parts) do part.hhOurs = true end
@@ -422,8 +453,8 @@ function Part.SideTabs(f, name)
   for k, tab in pairs(f) do
     if type(k) == "string" and k:find("Tab$") and type(tab) == "table" and type(rawget(tab, "Background")) == "table" then
       Skin.Kill(rawget(tab, "Background"))
-      if not Part.sideTabPanels[tab] then Part.sideTabPanels[tab] = Part.Cell(tab, -2, 0.9) end
-      local pick = Part.Theme() and Part.Theme().pick or Skin.CYAN
+      if not Part.sideTabPanels[tab] then Part.sideTabPanels[tab] = Part.Cell(tab, -2, 0.9, name) end
+      local pick = Part.ThemeFor(name) and Part.ThemeFor(name).pick or Skin.CYAN
       Part.Tint(rawget(tab, "SelectedTexture"), pick)
       Part.Tint(rawget(tab, "HighlightTexture"), pick, 0.5)
       n = n + 1
@@ -443,8 +474,8 @@ function Part.Tabs(f, name)
       local t = rawget(tab, k)
       if type(t) == "table" then Skin.Kill(t) end
     end
-    if not tab.hhTabPanel then tab.hhTabPanel = Part.Cell(tab, -2, 0.85) end
-    Part.InkLabel(tab)
+    if not tab.hhTabPanel then tab.hhTabPanel = Part.Cell(tab, -2, 0.85, name) end
+    if Part.ThemeFor(name) then Part.InkLabel(tab) end
   end
 end
 
@@ -470,10 +501,10 @@ end
 
 function Part.StyleOnce(f, name)
   local d = Skin.cfg().panels
-  local th = Part.Theme()
+  local th = Part.ThemeFor(name)
   local tabs = type(rawget(_G, name .. "Tab1")) == "table"                     -- a tab strip hangs under the window: paper under it too
-  f.hhPanel = th and Part.Page(f, d and d.alpha or 0.9, tabs and Part.TAB_ROOM or 0) or Skin.Panel(f, f, 0, d and d.alpha or 0.9)
   local title = rawget(f, "TitleText") or (type(rawget(f, "TitleContainer")) == "table" and rawget(f.TitleContainer, "TitleText")) or rawget(_G, name .. "TitleText")
+  f.hhPanel = th and Part.Page(f, d and d.alpha or 0.9, tabs and Part.TAB_ROOM or 0, type(title) == "table") or Skin.Panel(f, f, 0, d and d.alpha or 0.9)
   if type(title) == "table" then
     if th then HH.Parchment.Font(title, d and d.titleSize or 13) else Skin.SetFont(title, d and d.titleSize or 13) end
     local tc = th and th.title or Skin.CREAM
@@ -595,10 +626,12 @@ function Part.Style(f)
     Part.KillPieces(f, name)
     if first then Part.StyleOnce(f, name) end
     if Part.PARCHMENT[name] then Part.Parchment(f) end
-    if f.hhPanel and f.hhPanel.pageTop then Part.Relay(f.hhPanel) end
-    if Part.Paper() then
-      Part.InkAll(f)
-      if C_Timer and C_Timer.After then C_Timer.After(0.2, function() if Skin.call(f.IsShown, f) then Part.InkAll(f) end end) end
+    if f.hhPanel and f.hhPanel.pageTop then
+      Part.Relay(f.hhPanel)
+      Part.Inner(f, name)
+      if C_Timer and C_Timer.After then
+        for _, delay in ipairs({ 0.2, 0.6 }) do C_Timer.After(delay, function() if Skin.call(f.IsShown, f) then Part.Inner(f, name) end end) end
+      end
     end
   end, HH.Trace or debugstack)
   if not ok then

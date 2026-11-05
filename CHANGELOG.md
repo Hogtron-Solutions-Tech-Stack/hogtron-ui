@@ -1,5 +1,18 @@
 # HogTron UI
 
+## v0.2.0-beta.14
+
+### Fixed
+- **Parchment windows lose their inner boxes, so every text reads.** The exit / confirm popups kept Blizzard's dark
+  diamond box (`BG`), the escape menu its metal header, the character window its dark panes and stat rows - and the
+  inked text on them could not be read. On the page every decorative texture inside a window now goes (buttons, bars,
+  edit boxes, scroll bars, icons, item slots and selection marks stay), before the text is inked; lists that build late
+  are caught a moment later. The spellbook keeps its own book page (it already reads). Windows whose art is their
+  content (talents, achievements, journals, collections, calendar, auction house, professions, macros, key bindings,
+  dressing room, stable) keep the ink panel with Blizzard's own text colours.
+- A window without a title row (popups) gets no bronze rule across its message; a short page's torn slices meet
+  instead of overlapping (no lighter band).
+
 ## v0.2.0-beta.13
 
 ### New

@@ -51,6 +51,22 @@ b.label:SetText("Add Friend") b.label:SetTextColor(1, 0.82, 0)
 ShowUIPanel(f) MockAdvance(1)
 '''
 
+POPUP = r'''
+local f = CreateFrame("Frame", "StaticPopup1", UIParent)
+f:SetSize(320, 96) f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+f.BG = CreateFrame("Frame", nil, f) f.BG:SetAllPoints(f)
+f.BG.Bottom = f.BG:CreateTexture(nil, "BACKGROUND") f.BG.Bottom:SetAllPoints(f.BG) f.BG.Bottom:SetColorTexture(0.12, 0.11, 0.10, 0.95)
+f.BG.Top = f.BG:CreateTexture(nil, "BORDER") f.BG.Top:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0) f.BG.Top:SetSize(320, 3) f.BG.Top:SetColorTexture(0.6, 0.45, 0.2, 1)
+local msg = f:CreateFontString("StaticPopup1Text", "OVERLAY", "GameFontHighlight") msg:SetPoint("TOP", f, "TOP", 0, -18)
+msg:SetText("15 Seconds until exit") msg:SetTextColor(1, 0.82, 0)
+for i, label in ipairs({ "Exit now", "Cancel" }) do
+  local b = CreateFrame("Button", "StaticPopup1Button" .. i, f) b:SetSize(130, 24) b:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 20 + (i - 1) * 150, 16)
+  b.art = b:CreateTexture(nil, "BACKGROUND") b.art:SetAllPoints(b) b.art:SetColorTexture(0.45, 0.06, 0.04, 1)
+  b.label = b:CreateFontString(nil, "OVERLAY", "GameFontNormal") b.label:SetPoint("CENTER", b, "CENTER", 0, 0) b.label:SetText(label) b.label:SetTextColor(1, 0.82, 0)
+end
+f:Hide() ShowUIPanel(f) MockAdvance(1)
+'''
+
 
 class WindowPainter(Painter):
     """Two-point anchors (TOPLEFT + BOTTOMRIGHT, SetAllPoints), solid colour textures, and our backing drawn first."""
@@ -97,7 +113,11 @@ class WindowPainter(Painter):
         if not frame["_shown"] or (frame["_alpha"] is not None and frame["_alpha"] <= 0):
             return
         kids = vals(frame["_children"])
-        kids.sort(key=lambda c: 0 if (c["_kind"] not in ("Texture", "FontString") and c["hhOurs"]) else 1)   # our backing under all
+        # our backing (the page, one frame level under the window in game) is painted before the window's own regions
+        backing = [c for c in kids if c["_kind"] not in ("Texture", "FontString") and c["hhOurs"]]
+        for c in backing:
+            self.walk(img, c)
+        kids = [c for c in kids if not any(c is b for b in backing)]
         regions = [c for c in kids if c["_kind"] in ("Texture", "FontString") and c["_shown"]]
         regions.sort(key=lambda c: (LAYERS.get(c["_layer"], 2) if c["_kind"] == "Texture" else 4))
         for c in regions:
@@ -141,6 +161,11 @@ def main():
         lua.execute(SCENE)
         img = WindowPainter(lua, s).paint()
         path = OUT / f"windows-{look}.png"
+        img.save(path)
+        print("wrote", path.relative_to(ROOT), img.size)
+        lua.execute(POPUP)                                  # the exit popup, as the client reported it (StaticPopup1.BG)
+        img = WindowPainter(lua, s).paint("StaticPopup1")
+        path = OUT / f"windows-popup-{look}.png"
         img.save(path)
         print("wrote", path.relative_to(ROOT), img.size)
         errs += [e["msg"] for e in lua.eval("HogHeals.errors").values()]
