@@ -19,6 +19,12 @@ local function generalTab()
         get = function() return not HH.db.profile.minimap.hide end,
         set = function(_, v) HH.db.profile.minimap.hide = not v; HH:UpdateMinimap() end,
       },
+      camera = {
+        type = "range", order = 3.5, name = "Camera zoom-out (max)", min = 1, max = 4, step = 0.1,
+        desc = "How far the camera may pull back (the game's cameraDistanceMaxZoomFactor; its own default is 1.9). The client caps what it keeps - Classic 2.6; /hh zoom shows the value it kept.",
+        get = function() return (HH.db.profile.camera or {}).maxZoom or 2.6 end,
+        set = function(_, v) HH.db.profile.camera = HH.db.profile.camera or {}; HH.db.profile.camera.maxZoom = v; if HH.Camera then HH.Camera.Apply("options") end end,
+      },
       wizard = {
         type = "execute", order = 4, name = "Run setup wizard",
         func = function() if HH.RunWizard then HH:RunWizard() end end,

@@ -26,5 +26,6 @@ Core\EditMode.lua
 Core\Perf.lua
 Core\AtlasProbe.lua
 Core\Session.lua
+Core\Camera.lua
 Core\ChatKey.lua
 Core\Tray.lua
