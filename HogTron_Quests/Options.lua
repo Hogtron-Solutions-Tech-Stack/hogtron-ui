@@ -143,6 +143,8 @@ function Options.Build()
         fadeWhileMoving = toggle(wm, "fadeWhileMoving", "Fade the map while moving", 4, wr),
         skin = toggle(wm, "skin", "Ink panel instead of Blizzard's border art - experimental (needs /reload to undo)", 5, wr),
         alpha = range(wm, "alpha", "Panel opacity", 6, 0.3, 1, 0.05, wr),
+        flightMasters = toggle(wm, "flightMasters", "Flight masters on the map (hover one for its name)", 7, wr),
+        flightAbout = { type = "description", order = 8, name = "This client's own map shows no flight masters. HogTron UI pins the ones the game lists for the map, plus every flight master you open the flight map at (and every stop that flight map shows) - remembered for all your characters of that faction. /hh flightdiag says what this client hands out." },
       } },
       minimap = { type = "group", name = "Minimap", order = 2, args = {
         look = { type = "group", inline = true, name = "Look", order = 1, args = {
