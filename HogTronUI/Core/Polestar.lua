@@ -15,6 +15,12 @@
 --   quests shift-click a tracked quest = its chain from Polestar's quest database (HogTron_Quests/Chain.lua); quest
 --          givers on the world map (M) are Polestar's own markers - its "available quests" switch, on once for it
 --          (Sean 2026-11-05, backlog #28: "see the Quest pickups if I hit M")
+--   chores HogTron's duplicates stand aside while Polestar's matching switch is on: quest lines on tooltips
+--          (qol.questTooltips), selling grey junk (qol.sellJunk), repairing (qol.autoRepair). Polestar does the same for
+--          EllesmereUI's modules (its QoL.CoveredBy); nothing of HogTron's is switched off in its settings.
+--   gear   HogTron's quest dialog marks Polestar's verdict on reward choices (its Gear.RankChoices: upgrades, its pick -
+--          Polestar's own marks sit on Blizzard's reward panel, which our dialog stands in for); Atlas's "upgrade
+--          looted" chat line stands aside while Polestar offers upgrades itself (qol.wearOffer)
 local HH = HogHeals
 
 local PS = { handles = {}, counts = {} }
@@ -120,6 +126,29 @@ function PS.ToggleGuide()
   return (pcall(ns.Fire, "TOGGLE_FRAME"))
 end
 
+--- Polestar leads `area` and its own switch `key` is on: it is doing that job, ours stands aside.
+function PS.Doing(area, key)
+  return PS.Leads(area) and PS.Get(key) == true
+end
+
+--- gear: Polestar's verdict on reward choices. links = { itemLink | false, ... } (one per choice) ->
+--- { [i] = { upgrade = bool, pct = n|nil } }, pick (the choice it would take) | nil. nil without Polestar's gear.
+function PS.RankRewards(links)
+  if not PS.Leads("gear") then return nil end
+  local ns = PS.NS()
+  local G = ns and ns.Gear
+  if type(G) ~= "table" or type(G.RankChoices) ~= "function" then return nil end
+  local ok, list, pick = pcall(G.RankChoices, links)
+  if not ok or type(list) ~= "table" then return nil end
+  local out = {}
+  for i, e in pairs(list) do
+    if type(i) == "number" and type(e) == "table" then
+      out[i] = { upgrade = e.upgrade == true, pct = type(e.pct) == "number" and e.pct or nil }
+    end
+  end
+  return out, type(pick) == "number" and pick or nil
+end
+
 -- ------------------------------------------------------------------------------------------------ listening
 PS.listeners = {}
 
@@ -187,7 +216,9 @@ function PS.Diagnose()
   local step = PS.Step()
   local d = {
     loaded = PS.Loaded(), hooked = PS.hooked and true or false, guiding = PS.Guiding(),
-    leads = { guide = PS.Leads("guide"), arrow = PS.Leads("arrow"), quests = PS.Leads("quests") },
+    leads = { guide = PS.Leads("guide"), arrow = PS.Leads("arrow"), quests = PS.Leads("quests"), chores = PS.Leads("chores"), gear = PS.Leads("gear") },
+    standAside = { tooltips = PS.Doing("chores", "qol.questTooltips"), sellJunk = PS.Doing("chores", "qol.sellJunk"),
+      repair = PS.Doing("chores", "qol.autoRepair"), upgradeLine = PS.Doing("gear", "qol.wearOffer") },
     givers = PS.Get(PS.MARKERS.givers), turnIns = PS.Get(PS.MARKERS.turnIns),
     blizzardWaypoint = PS.Get("nav.blizzardWaypoint"), counts = PS.counts,
     engine = PS.Engine() ~= nil, step = step,
@@ -203,6 +234,9 @@ function PS.Diagnose()
   out[#out + 1] = ("  leads: guide %s, arrow %s, quests %s   Polestar's Blizzard waypoint: %s"):format(tostring(d.leads.guide),
     tostring(d.leads.arrow), tostring(d.leads.quests), tostring(d.blizzardWaypoint))
   out[#out + 1] = ("  Polestar map markers: quest givers %s, turn-ins %s"):format(tostring(d.givers), tostring(d.turnIns))
+  local aside = {}
+  for _, k in ipairs({ "tooltips", "sellJunk", "repair", "upgradeLine" }) do if d.standAside[k] then aside[#aside + 1] = k end end
+  out[#out + 1] = "  ours standing aside for Polestar's: " .. (#aside > 0 and table.concat(aside, ", ") or "nothing")
   if step then
     out[#out + 1] = ("  step %s/%s: %s - %s %s"):format(tostring(step.index), tostring(step.count), tostring(step.title), tostring(step.goal), step.progress or "")
   end

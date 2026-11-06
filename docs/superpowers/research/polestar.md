@@ -21,6 +21,9 @@ gear + reward advice, QoL automation.
 
 ## What HogTron UI reads (runtime only, every call pcall'd) - HogTronUI/Core/Polestar.lua
 - `Polestar` global = its addon namespace (Core/Init.lua `Polestar = ns`).
+- Quest database `Polestar.QuestDB`: IsLoaded, Load (on demand), GetQuest(id) -> { title, level, pre, preAll, ... },
+  QuestIds. Gear `Polestar.Gear.RankChoices(links)` -> list { upgrade, pct }, pick. Polestar has no quest auto-accept /
+  turn-in (HogTron's stays).
 - Message bus: `Polestar.On(msg, fn)` / `Polestar.Fire(msg, ...)`. Messages used: GUIDE_CHANGED, STEP_CHANGED,
   STEP_UPDATED, WAYPOINT_CHANGED. `Fire("TOGGLE_FRAME")` toggles its guide window (UI/UI.lua).
 - Settings: `Polestar.Get(path)` / `Polestar.Set(path, v)` - Set fires SETTING_CHANGED, so Polestar applies it.
@@ -35,12 +38,12 @@ gear + reward advice, QoL automation.
 |---|---|---|---|
 | Next thing to do | guide step | GO row (tracker) | Polestar's step on the GO row while it guides (`interop.polestar.guide`) |
 | Game's arrow | user waypoint (`nav.blizzardWaypoint`) | GO super-tracks its pick | GO stands down while Polestar guides (`arrow`); waypoint switch turned on once |
-| Quest givers / turn-ins on M | `qol.availableQuests`, `qol.turnInMarkers` (OFF by default) | none (backlog #28) | next PR: switches in HogTron UI |
-| Quest chains | quest records `pre` / `preAll` / `excl` | none (backlog #27) | next PR: shift-click chain from its quest DB |
-| Quest lines on tooltips | `qol.questTooltips` (ON) | Quests > tooltip (ON) | next PR: HogTron defers |
-| Gossip | `qol.skipGossip`, `qol.stepGossip` (ON) | quests.auto.gossip (ON) | next PR: HogTron defers |
-| Sell junk / repair | `qol.sellJunk`, `qol.autoRepair` (ON) | skin.auto.sellJunk / repair (ON) | next PR: HogTron defers |
-| Upgrade offers | `qol.wearOffer`, `qol.rewardHighlight` (ON) | atlas.upgradeAlerts (ON) | next PR: decide per feature |
+| Quest givers / turn-ins on M | `qol.availableQuests`, `qol.turnInMarkers` (OFF by default) | none (backlog #28) | givers switched on once; Quests > Polestar drives its marker switches (`quests`) |
+| Quest chains | quest records `pre` / `preAll` / `excl` | none (backlog #27) | shift-click a tracked quest = chain from its quest DB (HogTron_Quests/Chain.lua) |
+| Quest lines on tooltips | `qol.questTooltips` (ON) | Quests > tooltip (ON) | ours defers while its switch is on (`chores`) |
+| Gossip | `qol.skipGossip`, `qol.stepGossip` (ON) - NPCs WITHOUT quests only | quests.auto.gossip - quest menus only | no overlap: both stay |
+| Sell junk / repair | `qol.sellJunk`, `qol.autoRepair` (ON) | skin.auto.sellJunk / repair (ON) | ours defers per switch (`chores`) |
+| Upgrade offers | `qol.wearOffer`, `qol.rewardHighlight` (ON; its marks sit on Blizzard's reward panel) | atlas.upgradeAlerts (ON); our quest dialog replaces that panel | Atlas line defers to wearOffer; its `Gear.RankChoices` verdict shown in our dialog (`gear`) |
 | XP level target | marks the game's XP bar | our XP bar replaces it | idea: draw its target on ours |
 
 ## Facts to check in game

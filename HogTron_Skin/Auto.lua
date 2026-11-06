@@ -50,6 +50,8 @@ Part.SellPrice = sellPrice
 function Part.SellJunk()
   local d = cfg()
   if not d or d.sellJunk == false then return 0, 0, 0 end
+  -- Polestar sells the junk itself (its qol.sellJunk): one seller (Core/Polestar.lua, chores)
+  if HH.Polestar and HH.Polestar.Doing("chores", "qol.sellJunk") then Part.deferred = "Polestar" return 0, 0, 0 end
   local nSlots = (type(C_Container) == "table" and C_Container.GetContainerNumSlots) or rawget(_G, "GetContainerNumSlots")
   local use = (type(C_Container) == "table" and C_Container.UseContainerItem) or rawget(_G, "UseContainerItem")
   if type(nSlots) ~= "function" or type(use) ~= "function" then return 0, 0, 0 end
@@ -74,6 +76,7 @@ end
 function Part.Repair()
   local d = cfg()
   if not d or d.repair == false then return 0 end
+  if HH.Polestar and HH.Polestar.Doing("chores", "qol.autoRepair") then Part.deferred = "Polestar" return 0 end
   if not call(CanMerchantRepair) then return 0 end
   local cost, canRepair = call(GetRepairAllCost)
   cost = num(cost) or 0

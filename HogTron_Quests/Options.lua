@@ -154,6 +154,13 @@ function Options.Build()
         quests = { type = "toggle", order = 3.1, width = "full", name = "Quest chains on shift-click (tracker), from Polestar's quest database",
           get = function() return HH.db.profile.interop.polestar.quests ~= false end,
           set = function(_, v) HH.db.profile.interop.polestar.quests = v and true or false end },
+        chores = { type = "toggle", order = 3.2, width = "full", name = "Leave Polestar the chores it does too: quest lines on tooltips, selling junk, repairing",
+          desc = "Each of ours stands aside only while Polestar's own switch for that job is on.",
+          get = function() return HH.db.profile.interop.polestar.chores ~= false end,
+          set = function(_, v) HH.db.profile.interop.polestar.chores = v and true or false end },
+        gear = { type = "toggle", order = 3.3, width = "full", name = "Polestar's gear advice: its reward pick in the quest window; no second upgrade line in chat",
+          get = function() return HH.db.profile.interop.polestar.gear ~= false end,
+          set = function(_, v) HH.db.profile.interop.polestar.gear = v and true or false end },
         markers = { type = "group", inline = true, order = 3.5, name = "Polestar's markers on the map (its own settings)",
           disabled = function() return not (HH.Polestar and HH.Polestar.Loaded()) end, args = {
           givers = { type = "toggle", order = 1, width = "full", name = "Quest givers with a quest for you (!) on the world map (M) and minimap",

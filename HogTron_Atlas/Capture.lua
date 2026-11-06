@@ -74,6 +74,9 @@ end
 --- You looted something: if it beats what you wear, say so once. Anywhere, not only in dungeons.
 function Capture.UpgradeAlert(link)
   if not link or A.cfg().upgradeAlerts == false then return end
+  -- Polestar offers the upgrade itself (its qol.wearOffer): one voice, not two (HogTronUI/Core/Polestar.lua, gear)
+  local PS = HogHeals.Polestar
+  if PS and PS.Doing("gear", "qol.wearOffer") then Capture.upgradeDeferred = (Capture.upgradeDeferred or 0) + 1 return end
   local function check()
     local ok, c = pcall(A.Gear.Compare, link)
     if not ok or not c or c.worn or not c.usable or c.later or not c.delta or c.delta <= 0 then return end

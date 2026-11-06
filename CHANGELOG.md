@@ -25,7 +25,12 @@
   row is its current step (GUIDE: the step, the goal still open with its count, step n of all; click = Polestar's
   window) instead of GO; GO stops pointing the game's arrow so the two never fight over it; the HogTron beam follows
   Polestar's target, titled with the goal (Polestar's "Blizzard waypoint" switch is turned on once for that).
-  Quests > Polestar to switch each part; `/hh polestardiag`. New file: restart the game once.
+  Shift-click a tracked quest: its **quest chain** from Polestar's quest database (done / in your log / later).
+  Polestar's **quest-giver markers on the map (M)** are switched on once (its own setting, also under Quests > Polestar
+  with its turn-in and objective markers). Its **reward pick and upgrades** show in our quest window. Where both would do
+  the same job - quest lines on tooltips, selling junk, repairing, the "upgrade looted" chat line - ours stands aside
+  while Polestar's own switch for it is on.
+  Quests > Polestar to switch each part; `/hh polestardiag`. New files: restart the game once.
 
 ### Fixed
 - The spellbook loses its dark top bar and book frame on the page like every other window; its dark text already reads.
