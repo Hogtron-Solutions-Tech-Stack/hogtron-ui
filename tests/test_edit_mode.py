@@ -310,3 +310,30 @@ def test_chat_windows_get_boxes_moved_through_the_clients_own_calls(ed):
     assert ed.eval("HogHeals.EditMode.grips['chat:2']:IsShown()") is False
     assert errors(ed) == []
 
+
+STRATA = ["BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG", "FULLSCREEN", "FULLSCREEN_DIALOG", "TOOLTIP"]
+
+
+def test_edit_handles_draw_under_the_settings_window_and_over_what_they_mark(ed):
+    # Sean 2026-11-05, a bar's settings open in unlock: "These arrows and gears and things need to be hidden behind the
+    # UI" - gears and grips were DIALOG like the settings window, so the client drew them over it.
+    ed.execute('HogHeals:SlashCommand("unlock")')
+    h = "HogHealsBars.Bars.bars[2].handle"
+    ed.execute(f'{h}:GetScript("OnMouseUp")({h}, "LeftButton")')
+    assert ed.eval("HogHeals.Panel.frame:IsShown()") is True
+
+    def rank(expr):
+        return STRATA.index(ed.eval(f"{expr}._last.SetFrameStrata[1]"))
+
+    EM = "HogHeals.EditMode"
+    window = rank("HogHeals.Panel.frame")
+    chrome = [f"{EM}.cogs.tracker", f"{EM}.grips['unit:player']", f"{EM}.boxes['hud:castbar']", h]
+    for c in chrome:
+        assert rank(c) < window, c
+    assert rank(h) > rank("HogHealsBars.Bars.bars[2]")                         # still over the bar it moves
+    assert rank(f"{EM}.cogs['unit:player']") > rank("HogHealsUnits.Units.frames.player")
+    # gears and grips over the boxes they sit on
+    lvl = lambda e: ed.eval(f"{e}:GetFrameLevel()")
+    assert lvl(f"{EM}.cogs.tracker") > lvl(f"{EM}.boxes['hud:castbar']")
+    assert lvl(f"{EM}.grips['unit:player']") > lvl(h)
+    assert errors(ed) == []

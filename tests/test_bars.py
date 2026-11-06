@@ -407,7 +407,10 @@ def test_unlock_shows_a_top_layer_box_per_bar_and_dragging_saves_under_the_layou
     xbars.execute('HogHealsBars.Bars.bars[2]:SetAlpha(0.3); HogHeals:SlashCommand("unlock")')
     h2 = 'HogHealsBars.Bars.bars[2].handle'
     assert xbars.eval(f'{h2}:IsShown()') is True and xbars.eval(f'{h2}:GetParent() == UIParent') is True
-    assert xbars.eval(f'{h2}._last.SetFrameStrata[1]') == "DIALOG"
+    # over the (MEDIUM) bar and its fade, under every (DIALOG) window - Sean 2026-11-05: the gears and boxes "need to be
+    # hidden behind the UI" (tests/test_edit_mode.py pins the order against the settings window)
+    assert xbars.eval(f'{h2}._last.SetFrameStrata[1]') == "HIGH"
+    assert xbars.eval('HogHealsBars.Bars.bars[2]._last.SetFrameStrata[1]') == "MEDIUM"
     assert xbars.eval(f'{h2}.label._text') == "Action bar 2  -  drag, or click for settings"
     assert xbars.eval('HogHealsBars.Bars.bars[2]._alpha') == 1                                   # fully visible while unlocked
     assert any("drag the cyan boxes" in m for m in xbars.eval("MockLog.chat").values())

@@ -280,12 +280,14 @@ end
 
 -- ------------------------------------------------------------------------------------------------ bars
 -- The cyan box you drag after /hh unlock. Sean 2026-10-06: "the action bars need to be movable in the unlock".
--- Its own frame on UIParent at DIALOG strata, laid over the bar: a bar's fade, alpha or child levels can neither hide
--- it nor take the mouse from it. The position is saved under the bar's own key (bar.n): the pet bar used to save
+-- Its own frame on UIParent at the edit chrome's strata (HIGH, HogTronUI/Core/EditMode.lua), laid over the bar: the
+-- bars are MEDIUM, so a bar's fade, alpha or child levels can neither hide it nor take the mouse from it - and every
+-- window (the bar's own settings beside it) is DIALOG, over it (Sean 2026-11-05). The position is saved under the bar's own key (bar.n): the pet bar used to save
 -- under "Pet" while its layout read "pet", so a dragged pet bar jumped back.
 local function dragHandle(bar, label)
   local h = CreateFrame("Frame", nil, UIParent)
-  h:SetFrameStrata("DIALOG")
+  h:SetFrameStrata("HIGH")
+  h:SetFrameLevel(20)   -- EditMode.BOX_LEVEL: its gears / grips (KNOB_LEVEL) sit on it
   h:SetAllPoints(bar)
   h.bg = h:CreateTexture(nil, "BACKGROUND")
   h.bg:SetColorTexture(CYAN[1], CYAN[2], CYAN[3], 0.30)

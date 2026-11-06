@@ -38,6 +38,8 @@
 - The waypoint beam no longer vanishes when GO's pick is a quest the game cannot place (a dungeon quest such as
   Searching for the Lost Satchel): GO's line still recommends it, but the beam and arrow point at the best quest
   that has a spot on your map. `/hh go` says so when they differ.
+- Unlock mode: a frame's settings window covers the gears, resize squares and cyan boxes behind it (they drew on
+  top of the window); they still sit over the frames they move.
 
 ## v0.2.0-beta.14
 
