@@ -587,6 +587,27 @@ def test_a_stale_grey_is_read_again(bars):
     assert list(bars.eval("B.icon._color").values())[:3] == [0.4, 0.4, 0.4]
 
 
+def test_rage_coming_in_clears_the_tint_without_the_clients_usable_event(bars):
+    # Sean 2026-11-05, bear form: "things are getting greyed out for some reason" - tinted at 0 rage (right), still
+    # tinted with rage in the bar (wrong) when the client sends no ACTIONBAR_UPDATE_USABLE for the change
+    bars.execute(STATE + 'USE, NOMANA = false, true; MockFire("UPDATE_SHAPESHIFT_FORM"); MockAdvance(0.4)')   # pass + its re-check
+    assert list(bars.eval("B.icon._color").values())[:3] == [0.5, 0.5, 1]                 # no rage: the power tint
+    passes = bars.eval("HogHealsBars.Extra.refreshes")
+    bars.execute('USE, NOMANA = true, false')
+    for _ in range(8):                                                                     # rage ticking in a fight
+        bars.execute('MockFire("UNIT_POWER_UPDATE", "player", "RAGE")')
+    assert bars.eval("HogHealsBars.Extra.refreshes") == passes                             # throttled: nothing yet
+    bars.execute("MockAdvance(0.25)")
+    assert list(bars.eval("B.icon._color").values())[:3] == [1, 1, 1]                      # rage in: full colour
+    assert bars.eval("HogHealsBars.Extra.refreshes") == passes + 1                         # one pass for eight ticks
+    assert bars.eval("HogHealsBars.Extra.seen.UNIT_POWER_UPDATE") == 8
+    assert bars.eval("HogHealsBars.Extra.seen.UPDATE_SHAPESHIFT_FORM") == 1
+    # the live diag carries the events and bar 1's buttons for the next /reload
+    live = bars.eval("HogHealsBars.Extra.SaveLive()")
+    assert "UNIT_POWER_UPDATE=8" in live["events"] and "bar1 #1 action 7" in live["bar1"]
+    assert errors(bars) == []
+
+
 def test_secret_state_is_left_alone_and_the_diag_counts(bars):
     bars.execute(STATE + "B:SetChecked(true); MockSetSecrets(true); CUR = MockSecret(false)")
     bars.execute('MockFire("UNIT_SPELLCAST_STOP", "player"); MockAdvance(0.1)')
