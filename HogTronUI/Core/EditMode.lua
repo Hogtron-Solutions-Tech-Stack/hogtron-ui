@@ -25,6 +25,12 @@ local EM = { cogs = {}, attached = {}, byFrame = {} }
 HH.EditMode = EM
 
 local CYAN, INK = { 0.13, 0.83, 0.88 }, { 0.07, 0.07, 0.09 }
+-- Where the edit chrome (boxes, gears, grips) draws: the HIGH strata, over every frame it marks (ours are LOW /
+-- MEDIUM, the party frames' anchor HIGH) and UNDER every window - our settings window, Blizzard's popups and the
+-- colour picker are DIALOG. Sean 2026-11-05, a bar's settings open in unlock: "These arrows and gears and things need
+-- to be hidden behind the UI" (gears and grips were DIALOG like the window, so whichever the client drew last won).
+-- Inside HIGH: boxes at BOX_LEVEL, the gears and grips that sit on them above, at KNOB_LEVEL.
+EM.STRATA, EM.BOX_LEVEL, EM.KNOB_LEVEL = "HIGH", 20, 40
 local GEAR = "Interface\\Icons\\INV_Misc_Gear_01"
 
 local function G(name) return rawget(_G, name) end
@@ -373,7 +379,8 @@ local function grip(t, onFrame)
   if not g then
     g = CreateFrame("Frame", nil, UIParent)
     g:SetSize(12, 12)
-    g:SetFrameStrata("DIALOG")
+    g:SetFrameStrata(EM.STRATA)
+    g:SetFrameLevel(EM.KNOB_LEVEL)
     g:EnableMouse(true)
     g.edge = g:CreateTexture(nil, "BACKGROUND")
     g.edge:SetAllPoints(g)
@@ -407,7 +414,8 @@ local function box(t)
   local b = EM.boxes[t.key]
   if not b then
     b = CreateFrame("Frame", nil, UIParent)
-    b:SetFrameStrata("HIGH")
+    b:SetFrameStrata(EM.STRATA)
+    b:SetFrameLevel(EM.BOX_LEVEL)
     b:EnableMouse(true)
     if b.RegisterForDrag then b:RegisterForDrag("LeftButton") end
     b.bg = b:CreateTexture(nil, "BACKGROUND")
@@ -471,7 +479,8 @@ local function gear(t)
   if not b then
     b = CreateFrame("Button", nil, UIParent)
     b:SetSize(18, 18)
-    b:SetFrameStrata("DIALOG")
+    b:SetFrameStrata(EM.STRATA)
+    b:SetFrameLevel(EM.KNOB_LEVEL)
     b.bg = b:CreateTexture(nil, "BACKGROUND")
     b.bg:SetPoint("TOPLEFT", b, "TOPLEFT", -1, 1)
     b.bg:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 1, -1)

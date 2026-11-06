@@ -108,6 +108,7 @@ function Module.WriteProbe()
     worldMap = (function() local ok4, m = pcall(HHQ.WorldMap.Probe) return ok4 and m or ("probe failed: " .. tostring(m)) end)(),
     buttons = (function() local ok5, m = pcall(HHQ.Buttons.Probe) return ok5 and m or ("probe failed: " .. tostring(m)) end)(),
     offers = (function() local ok6, m = pcall(Module.OffersProbe) return ok6 and m or ("probe failed: " .. tostring(m)) end)(),
+    flight = (function() local ok7, m = pcall(HHQ.WorldMap.Flight.Probe) return ok7 and m or ("probe failed: " .. tostring(m)) end)(),
     unknownEvents = table.concat(Module.unknown or {}, ","),
   }
 end
@@ -147,6 +148,7 @@ function Module:OnEnable()
   end
   HH:SafeCall(HHQ.MapSkin, "Apply")
   HH:SafeCall(HHQ.WorldMap, "Apply")
+  HH:SafeCall(HHQ.WorldMap, "FlightStart")
   HH:SafeCall(HHQ.Buttons, "Apply")
   HHQ.Pins.Start()
   HH:SafeCall(HHQ.Waypoint, "Start")
@@ -194,6 +196,14 @@ HH:RegisterSlash("questdiag", function()
   HH:Print(("offers: map %s | %s"):format(tostring(o.mapID), tostring(o.counts or o.apis)))
   HH:Print("offer pins: " .. tostring(o.pinPools))
 end, "print what the quest tracker / minimap can read on this client")
+HH:RegisterSlash("flightdiag", function()
+  Module.WriteProbe()
+  local f = HH.db.global.diag.quests.flight
+  if type(f) ~= "table" then HH:Print("flight masters: " .. tostring(f)) return end
+  HH:Print(("flight masters: map %s | game list: %s | remembered: %s | drawn: %s"):format(tostring(f.mapID), tostring(f.api), tostring(f.learned), tostring(f.drawn)))
+  HH:Print(("pins: %s | last flight map: %s"):format(tostring(f.why), tostring(f.last)))
+  HH:Print(("C_TaxiMap: %s | world pos %s/%s | icons %s"):format(tostring(f.C_TaxiMap), tostring(f.worldPos), tostring(f.mapPos), tostring(f.atlases)))
+end, "print what the world map's flight-master pins can read on this client")
 HH:RegisterSlash("buttons", function(rest)
   local D = HHQ.Buttons
   if type(rest) == "string" and rest:lower():find("^list") then
