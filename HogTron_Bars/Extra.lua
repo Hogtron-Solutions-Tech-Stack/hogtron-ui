@@ -339,8 +339,33 @@ function Extra.UpdateStance()
     b:UpdateHotkeys()
     Bars.UpdateCell(b)
   end
-  if n == 0 then bar:Hide() elseif cfg().list.stance.enabled ~= false then bar:Show() end
+  if n ~= bar.placedForms then Extra.PlaceStance() end
   return n
+end
+
+--- The bar sized and shown for the forms known now: only when that count changed, and never in combat. The bar is a
+-- secure frame, so ANY Show / Hide / SetSize on it in combat is ADDON_ACTION_BLOCKED - in game 2026-11-05 (Sean, a
+-- druid shifting in a fight): "HogTron_Bars called HogUIStanceBar:Show() (in combat)", once per UPDATE_SHAPESHIFT_*.
+-- A form learned in combat is placed (and its spell set) when the fight ends. No forms: "hide;" ahead of the
+-- visibility driver, so a driver ("show in combat") cannot bring an empty bar back.
+function Extra.PlaceStance()
+  local bar = Bars.bars.stance
+  if not bar then return false end
+  if type(InCombatLockdown) == "function" and InCombatLockdown() then
+    if not Extra.stanceQueued then
+      Extra.stanceQueued = true
+      -- the whole update again: the new form's spell attribute could not be set in combat either
+      HH:RunOutOfCombat(function() Extra.stanceQueued = nil Extra.UpdateStance() end)
+    end
+    return false
+  end
+  local n = Extra.formCount or 0
+  bar.placedForms = n
+  bar.visPrefix = n == 0 and "hide;" or nil
+  if cfg().list.stance.enabled == false then bar:Hide() return true end
+  Bars.Layout(bar)                                  -- the new count's buttons, and the visibility driver with its prefix
+  if n == 0 then bar:Hide() elseif not bar.visDriver then bar:Show() end
+  return true
 end
 
 -- ------------------------------------------------------------------------------------------------ build / events
