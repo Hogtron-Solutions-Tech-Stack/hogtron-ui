@@ -21,6 +21,12 @@
 - **New icon set for the Parchment look: ink stamps** - every menu and drawer icon as a woodcut on a paper disc inside
   the dialog's bronze ring (General > Look > Icons: Ink stamps; `dev/make_page_icons.py` makes them from our glyphs).
 
+- **Druids see their mana in bear and cat form**: rage / energy stays on the player frame's power bar and the mana
+  hangs under the frame as a thin bar while a form is up; the HUD mana bar stays up in forms too (Units > Player,
+  HUD > Mana: switches).
+- **Combo points** over the player frame - rogues always, druids in cat form: five pips that warm from gold to red as
+  they fill (Units > Player: switch). A HUD cast bar attached to the player frame hangs past both.
+
 ### Fixed
 - The spellbook loses its dark top bar and book frame on the page like every other window; its dark text already reads.
 - Parchment windows are solid paper (the damage meter showed through at 90%); inked text loses Blizzard's black

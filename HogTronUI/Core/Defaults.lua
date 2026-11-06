@@ -35,7 +35,9 @@ HH.defaults = {
       nameFormat = "full",   -- full = first + last name (WoW: Forever has last names; Sean 2026-10-17) | first
       texture = "Solid", font = "HogTron", fontSize = 12, backgroundAlpha = 0.6,
       -- flanking the bottom centre (ElvUI's arrangement): player left, target right, small frames beside them
-      player = { portrait = false, enabled = true, width = 240, height = 42, powerHeight = 8, showPower = true, showName = true, showLevel = true, point = "BOTTOM", x = -280, y = 230 },
+      player = { portrait = false, enabled = true, width = 240, height = 42, powerHeight = 8, showPower = true, showName = true, showLevel = true, point = "BOTTOM", x = -280, y = 230,
+        -- Sean 2026-11-06: mana under the frame while a druid's form shows rage / energy; combo pips over it (rogue, cat)
+        formMana = { enabled = true, height = 10 }, combo = { enabled = true, height = 7 } },
       target = { portrait = false, enabled = true, width = 240, height = 42, powerHeight = 8, showPower = true, showName = true, showLevel = true, point = "BOTTOM", x = 280, y = 230,
         castbar = true, castbarHeight = 16, targetLine = true, castTarget = true,   -- who it targets, on the frame + its cast bar (2026-10-18)
         debuffs = true, buffs = false, auraSize = 22, aurasPerRow = 8, maxDebuffs = 16, maxBuffs = 16,
@@ -226,7 +228,7 @@ HH.defaults = {
       -- ink frame; fontSize 0 = the strip's font one step larger (Sean 2026-10-05: bigger, wider, cleaner)
       swing = { color = { 0.96, 0.92, 0.86 }, text = true, precision = 1, hideWhenIdle = true, width = 0, spark = true, outline = true, fontSize = 0,
         art = true, glow = true, motes = true, flash = true },   -- the animated look (Sean 2026-10-17); art off = the plain bar in `color`
-      mana = { width = 0, textMode = "cur", showTicks = true, showFsrText = true, fsrColor = { 0.13, 0.83, 0.88 }, tickColor = { 0.96, 0.92, 0.86 } },
+      mana = { inForms = true, width = 0, textMode = "cur", showTicks = true, showFsrText = true, fsrColor = { 0.13, 0.83, 0.88 }, tickColor = { 0.96, 0.92, 0.86 } },
       -- experience bar (XPBar.lua): showXP above is the on / off. questMode "complete" = reward xp of the quests ready
       -- to turn in, "all" = every quest in the log; hideAtMax = gone at the level cap; fontSize 0 = strip font one step smaller
       -- mode "bar" = its own bar, the whole screen width along the top until dragged (point/x/y), width 0 = screen;
