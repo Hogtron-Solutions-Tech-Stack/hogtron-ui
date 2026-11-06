@@ -9,6 +9,9 @@
 - Skin > Windows > Look now follows the UI's look by default (or force parchment / ink per your taste).
 - `/hh open <window>` opens one of Blizzard's windows by name (character, spellbook, questlog, social, guild, map,
   bags, lfg, options, ...) - handy for checking the skin window by window.
+- `/hh btndiag` names the spell behind each bar-1 slot with 'usable' from every source (the lib, the game, C_ActionBar),
+  the icon's colour and the dim layer - and every form change records that per form, so a bear-form answer survives
+  to the next /reload (Sean 2026-11-06: bear skills on Q-E-R greyed out).
 
 - **Parchment reaches our own frames:** the quest tracker, the info bar (gold, durability, bags, fps ... in ink, the
   value colours darkened to read on paper), the menu bar and bags sit on plain paper in the Parchment look.

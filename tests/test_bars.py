@@ -1060,3 +1060,37 @@ def test_hotkey_text_is_short_without_libkeybound():
     a = next(k for k, l in enumerate(src) if l.startswith("function Generic:GetHotkey()"))
     body = chr(10).join(src[a:a + 12])
     assert "if KeyBound then return KeyBound:ToShortKey(key) end" in body and "return lib.hhShortKey(key)" in body
+
+
+# ---------------------------------------------------------------- 2026-11-06: bear-form slots "greyed out for some"
+FORMS = r'''
+FORM = 1
+function GetShapeshiftForm() return FORM end
+function GetBonusBarOffset() return FORM == 1 and 3 or 0 end
+ACTIONS = { [97] = { "spell", 5487 }, [98] = { "spell", 6795 }, [99] = { "macro", 7 } }
+function GetActionInfo(slot) local a = ACTIONS[slot] if a then return a[1], a[2] end end
+function GetActionText(slot) return "roar" end
+function IsUsableAction(slot) return slot ~= 98, slot == 98 end
+for i, b in ipairs(HogUIBar1.buttons) do b._state_type = "action" b._state_action = 96 + i b._hasAction = (i <= 3) end
+'''
+
+
+def test_a_form_change_records_bar_1_per_form_with_the_spell_behind_each_slot(bars):
+    bars.execute("MockAdvance(1)")   # the login snapshot lands first
+    bars.execute(FORMS)
+    bars.execute('MockFire("UPDATE_SHAPESHIFT_FORM"); MockAdvance(1)')
+    rec = bars.eval('HogHeals.db.global.diag.barsForm["1"]')
+    lines = list(rec["lines"].values())
+    assert lines[0].startswith("form=1.0 bonus=3.0") and rec["why"] == "UPDATE_SHAPESHIFT_FORM"
+    assert lines[1].startswith("#1 slot 97.0 Spell5487: has=T") and "global=T" in lines[1]
+    assert lines[2].startswith("#2 slot 98.0 Spell6795: has=T") and "global=F" in lines[2]
+    assert lines[3].startswith("#3 slot 99.0 macro roar: has=T")
+    assert lines[4].startswith("#4 slot 100.0 empty: has=F")
+    # caster form later: its own record, the bear one kept
+    bars.execute('FORM = 0; MockFire("UPDATE_SHAPESHIFT_FORM"); MockAdvance(1)')
+    assert bars.eval('HogHeals.db.global.diag.barsForm["0"] ~= nil and HogHeals.db.global.diag.barsForm["1"] ~= nil') is True
+    # the slash prints the current form and lists what is recorded
+    bars.execute('wipe(MockLog.chat); HogHeals:SlashCommand("btndiag")')
+    chat = chr(10).join(bars.eval("MockLog.chat").values())
+    assert "form=0.0 bonus=0.0" in chat and "forms recorded for the next /reload: form 0 at" in chat and "form 1 at" in chat
+    assert errors(bars) == []
