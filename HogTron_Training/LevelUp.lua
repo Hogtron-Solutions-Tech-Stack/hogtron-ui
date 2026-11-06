@@ -118,10 +118,37 @@ local function button(parent, text, width, onClick)
   return b
 end
 
+-- The Parchment look (Sean 2026-11-05, the Level 11 card: "the initial pop-up has not changed" - the Training window
+-- it opens was on the torn page, the card still the dark Modern strip): the card is a small torn page too - the
+-- quest page art, the game's Friz Quadrata in the page's inks, a ruled line, and the page's
+-- rounded key caps for x / Train / Where next. Lines wrap inside the paper margins. Modern keeps the ink card.
+local PAGE_WIDTH = 540
+
+--- true when the card is drawn as a page (read when the card is built; a look change needs a /reload anyway).
+function T.CardOnPage()
+  local P = HH.Parchment
+  return P ~= nil and type(P.On) == "function" and P.On() == true
+end
+
+local function pageButton(parent, text, width, onClick)
+  local P = HH.Parchment
+  local b = CreateFrame("Button", nil, parent)
+  b:SetSize(width, 22)
+  b.cap = P.Slab(b, "BACKGROUND")
+  b.label = b:CreateFontString(nil, "OVERLAY", "HogTronFontSmall")
+  b.label:SetPoint("CENTER", b, "CENTER", 0, 0)
+  b.label:SetJustifyH("CENTER")
+  b.label:SetText(text)
+  b:SetScript("OnClick", onClick)
+  return b
+end
+
 function T.BuildCard()
   if T.card then return T.card end
+  local onPage = T.CardOnPage()
   local f = CreateFrame("Frame", "HogTronUILevelUpCard", UIParent)
-  f:SetSize(WIDTH, 100)
+  f.onPage = onPage
+  f:SetSize(onPage and PAGE_WIDTH or WIDTH, 100)
   f:SetPoint("TOP", UIParent, "TOP", 0, -140)
   f:SetFrameStrata("DIALOG")
   f:SetMovable(true)
@@ -129,6 +156,27 @@ function T.BuildCard()
   f:RegisterForDrag("LeftButton")
   f:SetScript("OnDragStart", function(self) self:StartMoving() end)
   f:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() end)
+  if onPage then
+    local P = HH.Parchment
+    P.MakePage(f)
+    f.rule = f:CreateTexture(nil, "ARTWORK")
+    f.rule:SetTexture(P.ART.rule)
+    f.title = fs(f, CREAM, "LEFT", "HogTronFontNormal")
+    f.close = pageButton(f, "x", 24, function() f:Hide() end)
+    f.lines = {}
+    for i = 1, MAX_LINES do
+      local l = fs(f, CREAM, "LEFT")
+      if l.SetJustifyV then l:SetJustifyV("TOP") end
+      f.lines[i] = l
+    end
+    f.train = pageButton(f, "Train", 80, function() f:Hide() T.Toggle() end)
+    f.next = pageButton(f, "Where next", 104, function() f:Hide() HH:SlashCommand("next") end)
+    local special = G("UISpecialFrames")
+    if type(special) == "table" then special[#special + 1] = "HogTronUILevelUpCard" end
+    f:Hide()
+    T.card = f
+    return f
+  end
   f.bg = f:CreateTexture(nil, "BACKGROUND")
   f.bg:SetAllPoints(f)
   f.bg:SetColorTexture(INK[1], INK[2], INK[3], 0.92)
@@ -164,13 +212,16 @@ function T.ShowLevelUp(level)
   local facts = T.LevelUpFacts(level)
   local lines = T.LevelUpLines(facts)
   local f = T.BuildCard()
-  f.title:SetText(("|cffF5EBDCLEVEL|r |cff21D4E0%d|r"):format(facts.level))
-  for i, l in ipairs(f.lines) do
-    local row = lines[i]
-    if row then l:SetText(row[1]) l:SetTextColor(row[2][1], row[2][2], row[2][3]) l:Show() else l:SetText("") l:Hide() end
+  if f.onPage then T.LayCardPage(f, facts, lines)
+  else
+    f.title:SetText(("|cffF5EBDCLEVEL|r |cff21D4E0%d|r"):format(facts.level))
+    for i, l in ipairs(f.lines) do
+      local row = lines[i]
+      if row then l:SetText(row[1]) l:SetTextColor(row[2][1], row[2][2], row[2][3]) l:Show() else l:SetText("") l:Hide() end
+    end
+    local n = math.max(1, math.min(#lines, MAX_LINES))
+    f:SetHeight(30 + n * LINE_H + 36)
   end
-  local n = math.max(1, math.min(#lines, MAX_LINES))
-  f:SetHeight(30 + n * LINE_H + 36)
   if G("HogHealsAtlas") then f.next:Show() else f.next:Hide() end
   T.cardShows = (T.cardShows or 0) + 1
   local stamp = T.cardShows
@@ -182,6 +233,66 @@ function T.ShowLevelUp(level)
   end
   T.lastCard = { level = facts.level, lines = lines }
   return lines
+end
+
+--- The card's colours in the page's inks: the Modern line colours (green = train now, cyan = dungeons, amber =
+-- talents, grey = memo) mapped by meaning, so the facts code stays one.
+function T.CardInk(color, th)
+  if color == GREEN then return th.good end
+  if color == CYAN or color == AMBER then return th.quest end
+  if color == GREY then return th.muted end
+  return th.text
+end
+
+--- The page card for these facts: margins from the page art (like the Training window), each line wrapped onto as
+-- many rows as its length needs (an estimate from the font size: the client measures nothing before it draws).
+function T.LayCardPage(f, facts, lines)
+  local P, th = HH.Parchment, HH.Parchment.Theme()
+  local W = PAGE_WIDTH
+  local s = W / P.PAGE_W
+  local PADX, TOP = math.floor(46 * s + 0.5), math.floor(40 * s + 0.5)
+  local inner = W - 2 * PADX
+  P.Font(f.title, 18)
+  f.title:SetText(("Level %d"):format(facts.level))
+  f.title:SetTextColor(th.title[1], th.title[2], th.title[3])
+  f.title:ClearAllPoints() f.title:SetPoint("TOPLEFT", f, "TOPLEFT", PADX, -TOP) f.title:SetWidth(inner - 40) f.title:Show()
+  f.close:ClearAllPoints() f.close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PADX + 6, -TOP + 2)
+  f.close.cap:Place(f.close, 0, 0, 24, 22) f.close.cap:Color(th.key)
+  P.Font(f.close.label, 12)
+  f.close.label:SetTextColor(th.keyText[1], th.keyText[2], th.keyText[3])
+  f.rule:ClearAllPoints() f.rule:SetPoint("TOPLEFT", f, "TOPLEFT", PADX - 2, -TOP - 26) f.rule:SetSize(inner + 4, 6)
+  P.Tint(f.rule, th.rule, 0.9)
+  f.rule:Show()
+  local SIZE, ROW = 13, 17
+  local perLine = math.max(20, math.floor(inner / (SIZE * 0.5)))   -- Friz Quadrata: about half its size per character
+  local y = -TOP - 40
+  for i, l in ipairs(f.lines) do
+    local row = lines[i]
+    if row then
+      local rows = math.max(1, math.ceil(#row[1] / perLine))
+      P.Font(l, SIZE)
+      if l.SetWordWrap then l:SetWordWrap(rows > 1) end
+      l:SetText(row[1])
+      local c = T.CardInk(row[2], th)
+      l:SetTextColor(c[1], c[2], c[3])
+      l:ClearAllPoints() l:SetPoint("TOPLEFT", f, "TOPLEFT", PADX, y) l:SetSize(inner, rows * ROW)
+      l:Show()
+      y = y - rows * ROW - 4
+    else l:SetText("") l:Hide() end
+  end
+  y = y - 6
+  for _, b in ipairs({ f.train, f.next }) do
+    b.cap:Place(b, 0, 0, b:GetWidth(), 22) b.cap:Color(th.button)
+    P.Font(b.label, 12)
+    b.label:SetTextColor(th.buttonText[1], th.buttonText[2], th.buttonText[3])
+  end
+  f.train:ClearAllPoints() f.train:SetPoint("TOPLEFT", f, "TOPLEFT", PADX, y)
+  f.next:ClearAllPoints() f.next:SetPoint("LEFT", f.train, "RIGHT", 10, 0)
+  local h = -y + 22 + math.floor((P.TEAR + 22) * s + 0.5)
+  f:SetSize(W, h)
+  P.PlacePage(f, W, h)
+  f.pageHeight = h
+  return h
 end
 
 HH:RegisterSlash("levelup", function(rest)
