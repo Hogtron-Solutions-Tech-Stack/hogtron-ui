@@ -22,6 +22,8 @@
   the dialog's bronze ring (General > Look > Icons: Ink stamps; `dev/make_page_icons.py` makes them from our glyphs).
 
 ### Fixed
+- The swing timer is on for everyone again: a profile saved with it off (the setup guide's switch) has it back,
+  once - it only shows while you auto-attack. Switch it off again under HUD > Swing timer.
 - The spellbook loses its dark top bar and book frame on the page like every other window; its dark text already reads.
 - Parchment windows are solid paper (the damage meter showed through at 90%); inked text loses Blizzard's black
   outline and shadow ("Level 10 Druid" read as a smudge); list rows (the friends list) lose their navy bars and are

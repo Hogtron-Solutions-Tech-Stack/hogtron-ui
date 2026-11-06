@@ -46,6 +46,15 @@ Migrate.steps = {
         if solo then solo.showSolo = false end
       end
     end },
+  { version = 5, run = function(db)
+      -- Sean 2026-11-06: "a swing timer by default". The default was already on, but a profile saved with it off
+      -- (the setup guide's switch, Sean's from his priest days in the beta) kept every character since without one.
+      -- Once, in every profile: the saved off goes, the default (on) shows through. It only shows while you swing.
+      for _, profile in pairs(db.profiles or { db.profile }) do
+        local hud = profile.hud
+        if type(hud) == "table" and rawget(hud, "showSwing") == false then hud.showSwing = nil end
+      end
+    end },
 }
 
 function Migrate.Run(db)
