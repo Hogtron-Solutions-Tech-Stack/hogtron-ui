@@ -19,8 +19,10 @@
   in ink and amber, flat paper controls).
 - **Chat, the damage meter and tooltips on the charred page** in the Parchment look - their text is Blizzard's own, in
   every colour, and reads on the dark sheet as it is.
-- **New icon set for the Parchment look: ink stamps** - every menu and drawer icon as a woodcut on a paper disc inside
-  the dialog's bronze ring (General > Look > Icons: Ink stamps; `dev/make_page_icons.py` makes them from our glyphs).
+- **New icon set for the Parchment look: painted on paper** - every menu-bar and drawer icon painted as a small
+  manuscript miniature (the same subjects as the HogTron art set: horned helm, spellbook, banner, backpack ...) on a
+  paper disc inside the dialog's bronze ring; Forever's Legacy button gets one too (General > Look > Icons: Painted on
+  paper; `dev/make_page_icons.py` cuts them from the OpenArt sheets).
 
 - **Druids see their mana in bear and cat form**: rage / energy stays on the player frame's power bar and the mana
   hangs under the frame as a thin bar while a form is up; the HUD mana bar stays up in forms too (Units > Player,
