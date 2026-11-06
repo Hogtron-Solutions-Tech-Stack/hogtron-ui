@@ -38,7 +38,7 @@ gear + reward advice, QoL automation.
 |---|---|---|---|
 | Next thing to do | guide step | GO row (tracker) | Polestar's step on the GO row while it guides (`interop.polestar.guide`) |
 | Game's arrow | user waypoint (`nav.blizzardWaypoint`) | GO super-tracks its pick | GO stands down while Polestar guides (`arrow`); waypoint switch turned on once |
-| Quest givers / turn-ins on M | `qol.availableQuests`, `qol.turnInMarkers` (OFF by default) | none (backlog #28) | givers switched on once; Quests > Polestar drives its marker switches (`quests`) |
+| Quest givers / turn-ins on M | `qol.availableQuests`, `qol.turnInMarkers` (OFF by default) | none (backlog #28) | left to the player (the first build switched givers on once -> undone 2026-11-06, Sean: "double icons"); Quests > Polestar drives its marker switches (`quests`) |
 | Quest chains | quest records `pre` / `preAll` / `excl` | none (backlog #27) | shift-click a tracked quest = chain from its quest DB (HogTron_Quests/Chain.lua) |
 | Quest lines on tooltips | `qol.questTooltips` (ON) | Quests > tooltip (ON) | ours defers while its switch is on (`chores`) |
 | Gossip | `qol.skipGossip`, `qol.stepGossip` (ON) - NPCs WITHOUT quests only | quests.auto.gossip - quest menus only | no overlap: both stay |

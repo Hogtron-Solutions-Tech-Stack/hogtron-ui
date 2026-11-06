@@ -26,8 +26,8 @@
   window) instead of GO; GO stops pointing the game's arrow so the two never fight over it; the HogTron beam follows
   Polestar's target, titled with the goal (Polestar's "Blizzard waypoint" switch is turned on once for that).
   Shift-click a tracked quest: its **quest chain** from Polestar's quest database (done / in your log / later).
-  Polestar's **quest-giver markers on the map (M)** are switched on once (its own setting, also under Quests > Polestar
-  with its turn-in and objective markers). Its **reward pick and upgrades** show in our quest window. Where both would do
+  Polestar's **quest-giver markers on the map (M)** stay its own setting, yours to switch under Quests > Polestar
+  (with its turn-in and objective markers); a build of this branch had switched them on for you - that is undone once. Its **reward pick and upgrades** show in our quest window. Where both would do
   the same job - quest lines on tooltips, selling junk, repairing, the "upgrade looted" chat line - ours stands aside
   while Polestar's own switch for it is on.
   Quests > Polestar to switch each part; `/hh polestardiag`. New files: restart the game once.

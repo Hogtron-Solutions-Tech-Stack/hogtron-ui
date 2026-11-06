@@ -174,21 +174,22 @@ function PS.Hook()
   end
   PS.hooked = true
   PS.EnsureWaypoint()
-  PS.EnsureGivers()
+  PS.UndoGivers()
   return true
 end
 
---- quests: Polestar marks quest givers with something you can take now on the maps - its switch is off by default.
---- Switched on ONCE (Polestar's options, or Quests > Polestar here, turn it off again).
+--- quests: Polestar marks quest givers with something you can take now on the maps - its switch is off by default
+--- and STAYS the player's: Quests > Polestar here drives it (through PS.Set), nothing switches it on for them.
+--- Sean 2026-11-06 ("double icons ... I don't like that"): the first build turned it on once for everyone, and the map
+--- showed its markers on top of the game's own. UndoGivers turns that one change back, once, where this addon made it.
 PS.MARKERS = { givers = "qol.availableQuests", turnIns = "qol.turnInMarkers", objectives = "qol.mapObjectives" }
-function PS.EnsureGivers()
-  if not PS.Leads("quests") then return false end
+function PS.UndoGivers()
   local gl = HH.db and HH.db.global
-  if type(gl) ~= "table" or gl.polestarGiversOn then return false end
-  gl.polestarGiversOn = true
-  if PS.Get(PS.MARKERS.givers) == true then return false end
-  if PS.Set(PS.MARKERS.givers, true) then
-    HH:Print("Polestar: quest givers with a quest for you are marked on the map (M) now (Quests > Polestar to change it).")
+  if type(gl) ~= "table" or not gl.polestarGiversOn then return false end
+  gl.polestarGiversOn = nil
+  if PS.Get(PS.MARKERS.givers) ~= true then return false end
+  if PS.Set(PS.MARKERS.givers, false) then
+    HH:Print("Polestar: its quest-giver markers on the map are off again (an earlier HogTron UI build had switched them on; Quests > Polestar turns them on).")
     return true
   end
   return false

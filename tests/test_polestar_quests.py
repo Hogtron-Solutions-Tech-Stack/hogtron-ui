@@ -1,7 +1,7 @@
 # Polestar alongside, quests (Core/Polestar.lua + HogTron_Quests/Chain.lua). Sean 2026-11-05 backlog #27: "in Questie,
 # you can shift-click a Quest and it will show you the chain. I want that too." + #28: "see the Quest pickups if I hit
 # M". The chain comes from Polestar's quest database (a fake one here); the quest givers on M are Polestar's own
-# markers, switched on once.
+# markers, its own setting: ours never switches them on (2026-11-06 "double icons"), only undoes the once it did.
 import pytest
 
 from test_polestar_guide import FAKE_POLESTAR
@@ -104,12 +104,11 @@ def test_hover_hint_names_the_chain_without_loading_anything(pq):
     assert pq.eval("PS_LOADS") == 0
 
 
-def test_quest_givers_switched_on_once_and_the_switches_drive_polestar(pq):
-    assert pq.eval('PS_SETTINGS["qol.availableQuests"]') is True
-    assert "quest givers with a quest for you are marked on the map" in "\n".join(pq.eval("MockLog.chat").values())
-    # off again in Polestar: a new hook does not turn it back on
-    pq.execute('PS_SETTINGS["qol.availableQuests"] = false; HogHeals.Polestar.hooked = nil; HogHeals.Polestar.Hook()')
+def test_quest_givers_stay_polestars_setting_and_our_switches_drive_it(pq):
+    # nothing of ours turns Polestar's markers on: its default (off) stands, no flag, no chat line
     assert pq.eval('PS_SETTINGS["qol.availableQuests"]') is False
+    assert pq.eval("HogHeals.db.global.polestarGiversOn") is None
+    assert "quest givers" not in "\n".join(pq.eval("MockLog.chat").values())
     # our options page writes Polestar's own settings (through Polestar.Set)
     m = "HogHealsQuests.Options.Build().args.polestar.args.markers.args"
     pq.execute(f"{m}.turnIns.set(nil, true); {m}.givers.set(nil, true)")
@@ -117,4 +116,22 @@ def test_quest_givers_switched_on_once_and_the_switches_drive_polestar(pq):
     assert pq.eval(f"{m}.turnIns.get()") is True
     lines = "\n".join(pq.eval("HogHeals.Polestar.Diagnose()").values())
     assert "quest givers true, turn-ins true" in lines
+    # a new hook leaves the player's choice alone
+    pq.execute("HogHeals.Polestar.hooked = nil; HogHeals.Polestar.Hook()")
+    assert pq.eval('PS_SETTINGS["qol.availableQuests"]') is True
+    assert errors(pq) == []
+
+
+def test_the_markers_an_earlier_build_switched_on_are_switched_off_once(pq):
+    # the first build of this branch set the flag and turned Polestar's switch on; Sean saw two sets of map icons
+    pq.execute('HogHeals.db.global.polestarGiversOn = true; PS_SETTINGS["qol.availableQuests"] = true; HogHeals.Polestar.hooked = nil; HogHeals.Polestar.Hook()')
+    assert pq.eval('PS_SETTINGS["qol.availableQuests"]') is False
+    assert pq.eval("HogHeals.db.global.polestarGiversOn") is None
+    assert "quest-giver markers on the map are off again" in "\n".join(pq.eval("MockLog.chat").values())
+    # turned on again by the player: the next hook does not touch it (the flag is gone)
+    pq.execute('PS_SETTINGS["qol.availableQuests"] = true; HogHeals.Polestar.hooked = nil; HogHeals.Polestar.Hook()')
+    assert pq.eval('PS_SETTINGS["qol.availableQuests"]') is True
+    # the flag without the switch on: just cleared, quietly
+    pq.execute('HogHeals.db.global.polestarGiversOn = true; PS_SETTINGS["qol.availableQuests"] = false; MockLog.chat = {}; HogHeals.Polestar.hooked = nil; HogHeals.Polestar.Hook()')
+    assert pq.eval("HogHeals.db.global.polestarGiversOn") is None and pq.eval("#MockLog.chat") == 0
     assert errors(pq) == []
