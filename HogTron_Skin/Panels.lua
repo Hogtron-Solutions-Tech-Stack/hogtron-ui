@@ -864,3 +864,77 @@ function Part.Open(what)
 end
 
 HH:RegisterSlash("open", function(rest) Part.Open(rest) end, "open one of Blizzard's windows by name, to check the skin (character, spellbook, questlog, social, guild, map, bags, ...)")
+
+-- ------------------------------------------------------------------------------------------------ spellbook probe
+-- Sean 2026-11-06 (Forever, druid, parchment look, Balance tab): "Spell book is broken. I can't see a lot of spells" -
+-- gaps in the grid and General spells (Attack, Cultivation twice) on the Balance page. Blizzard's item Init sets the
+-- name first, unless C_SpellBook.GetSpellBookItemInfo(slot) answers nothing - then the slot keeps what it showed
+-- before (stale) or stays empty. So: which slots does the page ask for, what does the client say is in them, and what
+-- does each frame show? /hh bookdiag with the spellbook open; HogTronUIDB.global.diag.book.
+local function bookAPI() local C = rawget(_G, "C_SpellBook") return type(C) == "table" and C or {} end
+function Part.BookDiagnose()
+  local out, rec = {}, { at = date and date("%Y-%m-%d %H:%M:%S") or "?", frames = {}, lines = {} }
+  local psf = rawget(_G, "PlayerSpellsFrame")
+  local sb = type(psf) == "table" and rawget(psf, "SpellBookFrame") or nil
+  if type(sb) ~= "table" then
+    out[#out + 1] = "book: no PlayerSpellsFrame.SpellBookFrame on this client (open the spellbook once)"
+    return out, rec
+  end
+  local C = bookAPI()
+  rec.shown = Skin.call(sb.IsShown, sb) == true
+  local tab = Skin.call(sb.GetTab, sb)
+  rec.tab = tab
+  local cat = Skin.call(sb.GetActiveCategoryMixin, sb)
+  rec.category = type(cat) == "table" and tostring(Skin.call(cat.GetName, cat) or "?") or "none"
+  rec.dirty = rawget(sb, "spellDataDirty") and true or false
+  rec.styled = sb.hhPanel ~= nil or (type(psf) == "table" and psf.hhPanel ~= nil)
+  local nLines = Skin.num(Skin.call(C.GetNumSpellBookSkillLines)) or 0
+  for i = 1, math.min(nLines, 12) do
+    local li = Skin.call(C.GetSpellBookSkillLineInfo, i)
+    if type(li) == "table" then
+      rec.lines[#rec.lines + 1] = ("%s %s+%s"):format(tostring(li.name), tostring(li.itemIndexOffset), tostring(li.numSpellBookItems))
+    end
+  end
+  out[#out + 1] = ("book: shown %s, tab %s (%s), dirty %s, skinned %s"):format(tostring(rec.shown), tostring(tab), rec.category, tostring(rec.dirty), tostring(rec.styled))
+  out[#out + 1] = "  skill lines (name offset+count): " .. table.concat(rec.lines, ", ")
+  local paged = rawget(sb, "PagedSpellsFrame")
+  local bad = 0
+  if type(paged) == "table" and type(paged.EnumerateFrames) == "function" then
+    local ok, err = pcall(function()
+      for _, f in paged:EnumerateFrames() do
+        local ed = rawget(f, "elementData")
+        local slot, bank = type(ed) == "table" and ed.slotIndex or nil, type(ed) == "table" and ed.spellBank or nil
+        if slot then
+          local name = rawget(f, "Name")
+          local shownText = type(name) == "table" and Skin.call(name.GetText, name) or nil
+          local info = Skin.call(C.GetSpellBookItemInfo, slot, bank)
+          local real = type(info) == "table" and info.name or nil
+          local valid = f.HasValidData and Skin.call(f.HasValidData, f) and true or false
+          local visible = Skin.call(f.IsVisible, f) == true
+          local mismatch = (not valid) or (real ~= shownText)
+          if mismatch then bad = bad + 1 end
+          rec.frames[#rec.frames + 1] = ("%s:%s shows %q, client %q%s%s"):format(tostring(bank), tostring(slot), tostring(shownText),
+            tostring(real), valid and "" or " INVALID", visible and "" or " hidden")
+        end
+      end
+    end)
+    if not ok then rec.error = tostring(err) end
+  else
+    rec.error = "no PagedSpellsFrame:EnumerateFrames"
+  end
+  out[#out + 1] = ("  %d spell slots on the page, %d not showing what the client holds%s"):format(#rec.frames, bad, rec.error and ("  error: " .. rec.error) or "")
+  for i = 1, math.min(#rec.frames, 24) do out[#out + 1] = "    " .. rec.frames[i] end
+  rec.bad = bad
+  local g = HH.db and HH.db.global
+  if type(g) == "table" then
+    g.diag = type(g.diag) == "table" and g.diag or {}
+    g.diag.book = rec
+  end
+  return out, rec
+end
+
+HH:RegisterSlash("bookdiag", function()
+  local ok, lines = pcall(Part.BookDiagnose)
+  if not ok then HH:Print("bookdiag failed: " .. tostring(lines)) return end
+  for _, l in ipairs(lines) do HH:Print(l) end
+end, "with the spellbook open: which spells each slot shows vs what the game holds there (saved for a /reload)")
