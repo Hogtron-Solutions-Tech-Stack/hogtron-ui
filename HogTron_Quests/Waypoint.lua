@@ -131,6 +131,25 @@ function WP.TrackedID()
   return num(call(fn(st, "GetSuperTrackedQuestID")))
 end
 
+--- The game's arrow is on a map pin of its own (a user waypoint: Polestar's target, or one you set on the map).
+function WP.UserTracked()
+  local st = rawget(_G, "C_SuperTrack")
+  local f = fn(st, "IsSuperTrackingUserWaypoint")
+  if f then WP.path.user = "IsSuperTrackingUserWaypoint" return call(f) == true end
+  -- a client without the direct question: tracking something + a map pin set + no quest tracked (we only get here then)
+  local any, has = fn(st, "IsSuperTrackingAnything"), fn(rawget(_G, "C_Map"), "HasUserWaypoint")
+  WP.path.user = (any and has) and "HasUserWaypoint" or "none"
+  return any ~= nil and has ~= nil and call(any) == true and call(has) == true
+end
+
+--- What the beam over a user waypoint says: Polestar's goal (or step) while Polestar guides, else "Waypoint".
+function WP.UserTarget()
+  local PS = HH.Polestar
+  local step = PS and PS.Leads("arrow") and PS.Guiding() and PS.Step() or nil
+  if step then return { title = tostring(step.goal or step.title), polestar = true } end
+  return { title = "Waypoint" }
+end
+
 --- The quest record for an id from the Quests data (last read, else a fresh read).
 function WP.Quest(id)
   if not id then return nil end
@@ -256,8 +275,10 @@ function WP.Update()
   local o = cfg()
   count("updates")
   local id = o.enabled ~= false and WP.TrackedID() or nil
-  local nav = id and WP.NavFrame() or nil
-  if not id or not nav then
+  -- no quest super-tracked: a map pin of its own may be (Polestar's target - Sean 2026-11-06, Polestar alongside)
+  local user = (not id and o.enabled ~= false) and WP.UserTracked() or false
+  local nav = (id or user) and WP.NavFrame() or nil
+  if not (id or user) or not nav then
     f:Hide()
     if WP.blizzardHidden and WP.attachedTo then WP.BlizzardArt(WP.attachedTo, true) end
     WP.current = nil
@@ -266,7 +287,7 @@ function WP.Update()
   end
   WP.Attach(nav)
   if o.hideBlizzard ~= false then WP.BlizzardArt(nav, false) elseif WP.blizzardHidden then WP.BlizzardArt(nav, true) end
-  local q = WP.Quest(id)
+  local q = id and WP.Quest(id) or (user and WP.UserTarget()) or nil
   local yards = WP.Distance(id)
   local c = WP.Content(q or { title = "" }, yards, WP.Speed(), o)
   f.title:SetText(o.title ~= false and c.title or "")
@@ -503,6 +524,7 @@ function WP.Probe()
     nav = WP.path.nav, distance = WP.path.distance,
     hasGetFrame = fn(nav, "GetFrame") and true or false, hasGetDistance = fn(nav, "GetDistance") and true or false,
     hasSuperTrack = type(rawget(_G, "C_SuperTrack")) == "table", tracked = WP.TrackedID(),
+    userTracked = WP.UserTracked(), user = WP.path.user or "?",
     unknownEvents = table.concat(WP.unknown or {}, ","),
   }
 end
@@ -512,6 +534,7 @@ function WP.Lines()
   local c = WP.current
   local out = {}
   out[#out + 1] = ("waypoint: nav frame = %s, distance = %s, super-track api %s"):format(p.nav, p.distance, p.hasSuperTrack and "yes" or "no")
+  out[#out + 1] = ("  map pin (user waypoint) tracked: %s (read via %s)"):format(tostring(p.userTracked), tostring(p.user))
   if p.nav == "none" then out[#out + 1] = "  this client gives addons no navigation frame: no marker in the world is possible (the GO row and minimap pins still work)." end
   if c then out[#out + 1] = ("  tracking %s (%s) %s%s"):format(tostring(c.title), tostring(c.id), c.yards and (WP.FormatDistance(c.yards) or "") or "distance unknown", c.clamped and ", off-screen arrow" or "")
   else out[#out + 1] = "  nothing tracked (click a quest in the tracker, or let the GO row pick)." end

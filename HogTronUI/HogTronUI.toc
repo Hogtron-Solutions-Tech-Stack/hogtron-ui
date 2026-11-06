@@ -32,3 +32,4 @@ Core\Session.lua
 Core\Camera.lua
 Core\ChatKey.lua
 Core\Tray.lua
+Core\Polestar.lua
