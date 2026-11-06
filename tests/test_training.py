@@ -171,3 +171,48 @@ def test_a_list_that_arrives_after_the_window_is_still_read(tr):
         tr.execute("MockAdvance(0.05)")
     assert tr.eval(f"{T}.db().visits") == 1 and tr.eval(f"{T}.lastLearn") == 6
     assert tr.eval("SET_CALLS") <= 24
+
+
+# In game 2026-11-05 (Sean, druid): "I've opened up my class trainer multiple times, and this is not updated" -
+# diag training.DRUID visits 0, spells {}. The modern trainer window's layout is (name, category, icon, level):
+# no category where the Classic layout keeps it, so every read recorded nothing.
+MODERN_TRAINER = """
+SERVICES = {
+  { "Healing Touch", "available", 136041, 14, 800 },
+  { "Healing Touch", "unavailable", 136041, 20, 1800 },
+  { "Maul", "used", 132136, 10, 0 },
+  { "Druid", "header", nil, 0, 0 },
+}
+function GetTrainerServiceInfo(i) local s = SERVICES[i] return s[1], s[2], s[3], s[4] end
+function GetTrainerServiceCost(i) return SERVICES[i][5] end
+GetTrainerServiceLevelReq = nil
+GetTrainerServiceIcon = nil
+"""
+
+
+def test_the_modern_trainer_layout_is_read_and_ranks_kept_apart_by_level(tr):
+    tr.execute(MODERN_TRAINER + "MockFire('TRAINER_SHOW'); MockAdvance(0.01)")
+    assert tr.eval(f"{T}.lastLearn") == 3                                   # the header is not a spell
+    db = tr.eval(f"{T}.db()")
+    assert db["visits"] == 1
+    sp = db["spells"]
+    assert sp["Healing Touch|L14"]["cost"] == 800 and sp["Healing Touch|L20"]["level"] == 20
+    assert sp["Healing Touch|L14"]["icon"] == 136041 and sp["Maul|L10"]["known"] is True
+    # read the classic way too (the old fixture): a rank is a rank, not a category
+    assert tr.eval(f"{T}.ServiceInfo(1).category") == "available" and tr.eval(f"{T}.ServiceInfo(1).rank") is None
+    assert errors(tr) == []
+
+
+def test_traindiag_shows_exactly_what_the_client_returned(tr):
+    tr.execute(MODERN_TRAINER + "MockFire('TRAINER_SHOW'); MockAdvance(0.01)")
+    r = "HogHeals.db.global.diag.trainerRead"
+    assert tr.eval(f"{r}.n") == 4 and tr.eval(f"{r}.recorded") == 3 and tr.eval(f"{r}.trainer") == "Grezz Ragefist"
+    assert tr.eval(f"{r}.sample").startswith("1: string:Healing Touch, string:available, number:136041, number:14")
+    assert "GetTrainerServiceLevelReq" in tr.eval(f"{r}.missing") and "show 1" in tr.eval(f"{r}.events")
+    tr.execute("MockLog.chat = {}; HogHeals:SlashCommand('traindiag')")
+    chat = " | ".join(tr.eval("MockLog.chat").values())
+    assert "services 4, recorded 3" in chat and "first services: 1: string:Healing Touch" in chat
+    # no window open: says why
+    tr.execute("GetNumTrainerServices = function() return nil end; " + T + ".Learn()")
+    assert "no trainer window" in tr.eval(f"{r}.why")
+    assert errors(tr) == []

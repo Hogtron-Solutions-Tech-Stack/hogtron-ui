@@ -7,19 +7,34 @@
   dialog's page on every window, the game's Friz Quadrata, ink on paper; **Modern** - HogTron's dark, flat look;
   **Blizzard** - the game's own look and icons. Every feature works in all three. `/hh look parchment | modern | blizzard`.
 - Skin > Windows > Look now follows the UI's look by default (or force parchment / ink per your taste).
-- `/hh open <window>` opens one of Blizzard's windows by name (character, spellbook, questlog, social, guild, map,
-  bags, lfg, options, ...) - handy for checking the skin window by window.
 
 - **Parchment reaches our own frames:** the quest tracker, the info bar (gold, durability, bags, fps ... in ink, the
   value colours darkened to read on paper), the menu bar and bags sit on plain paper in the Parchment look.
 - **The minimap and the world map (M) on paper**: the minimap framed in paper with its zone name in ink; the map window
   on the torn page with its quest log stripped and inked (the map itself untouched).
+- **The level-up card on the page** in the Parchment look: a small torn page with the level in ink, its lines in
+  the page's inks (train now green, dungeons amber) and Train / Where next as the page's key caps; Modern keeps the
+  ink card. Short pages lose the seam that ran past their torn edges.
 - **Our settings window and the setup guide on the torn page** in the Parchment look (ink text, the two-tone wordmark
   in ink and amber, flat paper controls).
 - **Chat, the damage meter and tooltips on the charred page** in the Parchment look - their text is Blizzard's own, in
   every colour, and reads on the dark sheet as it is.
-- **New icon set for the Parchment look: ink stamps** - every menu and drawer icon as a woodcut on a paper disc inside
-  the dialog's bronze ring (General > Look > Icons: Ink stamps; `dev/make_page_icons.py` makes them from our glyphs).
+- **New icon set for the Parchment look: painted on paper** - every menu-bar and drawer icon painted as a small
+  manuscript miniature (the same subjects as the HogTron art set: horned helm, spellbook, banner, backpack ...) on a
+  paper disc inside the dialog's bronze ring; Forever's Legacy button gets one too (General > Look > Icons: Painted on
+  paper; `dev/make_page_icons.py` cuts them from the OpenArt sheets).
+
+- **Druids see their mana in bear and cat form**: rage / energy stays on the player frame's power bar and the mana
+  hangs under the frame as a thin bar while a form is up; the HUD mana bar stays up in forms too (Units > Player,
+  HUD > Mana: switches).
+- **Combo points** over the player frame - rogues always, druids in cat form: five pips that warm from gold to red as
+  they fill (Units > Player: switch). A HUD cast bar attached to the player frame hangs past both.
+- **Move the bags in edit mode** (`/hh unlock`): a Bags box sits where your bags open - drag it and they open there
+  from then on (Blizzard still stacks them; the whole stack moves). Its window: Open bags, Blizzard's place.
+- **Flight masters on the world map (M)**: this client's map shows none, so HogTron UI pins them - the ones the game
+  lists for the map, plus every flight master you open the flight map at and every stop that flight map shows
+  (remembered for all your characters of that faction, on the zone map and the continent map). Hover a pin for
+  the stop and the NPC's name. Quests > World map > Flight masters; `/hh flightdiag` says what the client hands out.
 
 - **Polestar alongside** (WoW: Forever's leveling-guide addon, when installed): while it runs a guide the tracker's top
   row is its current step (GUIDE: the step, the goal still open with its count, step n of all; click = Polestar's
@@ -33,15 +48,30 @@
   Quests > Polestar to switch each part; `/hh polestardiag`. New files: restart the game once.
 
 ### Fixed
+- The swing timer is on for everyone again: a profile saved with it off (the setup guide's switch) has it back,
+  once - it only shows while you auto-attack. Switch it off again under HUD > Swing timer.
+- Casting a spell from the spellbook no longer pops "HogTron_Skin has been blocked from an action only available to
+  the Blizzard UI": the `/hh open <window>` check command opened Blizzard's windows from addon code and left the
+  spellbook tainted until a /reload. It is gone; open windows with your keys or the menu bar.
 - The spellbook loses its dark top bar and book frame on the page like every other window; its dark text already reads.
+- Shifting forms (druid) or stances in a fight no longer trips "Interface action failed because of an AddOn": the
+  stance bar is only re-laid out when you learn a form, and a form learned mid-fight joins the bar when it ends.
 - Parchment windows are solid paper (the damage meter showed through at 90%); inked text loses Blizzard's black
   outline and shadow ("Level 10 Druid" read as a smudge); list rows (the friends list) lose their navy bars and are
   inked like the rest.
+- Forms and stances page your main-bar KEYS too: in bear form (cat, prowl, a warrior stance ...) the keys for slots
+  1-12 cast that form's bar, not your caster spells - they press HogTron bar 1 now, which pages with the form
+  (Bars > "Main-bar keys follow bar 1's pages"; `/hh pagediag` says which page bar 1 is on).
 - The settings window and setup guide on paper read again: the sidebar was still navy under ink labels and the body
   text still light grey on the page. Now the sidebar is a faint shade of the page with a ruled margin, the body text
   and inputs are ink on paper, and picked tabs and headers use a darker amber that reads at small size.
+- Training learns your class trainer on this client: its list comes back in the newer layout (name, type, icon,
+  level), which the old reader skipped, so "Nothing learned yet" stayed after every visit. Two ranks of a spell are
+  kept apart by level. `/hh traindiag` shows exactly what the trainer handed over.
 - The info bar's readings (and a bag's title, the menu bar's letters) lose the black outline on paper - brown ink with
   a black rim read as a smudge.
+- Bar buttons follow your rage / energy / mana and your form: an ability tinted for lack of rage goes back to full
+  colour as the rage comes in (this client does not always say so itself), and shifting re-reads the whole bar.
 - Lists on paper are inked as they fill: the friends list kept Blizzard's light blue names, gold character names, white
   levels and class colours on the light page. Colour codes inside the text are inked too (the same darker hue), every
   scroll list's rows are inked again each time Blizzard repaints them, and one-line headers keep their own bar.
@@ -49,6 +79,8 @@
 - The waypoint beam no longer vanishes when GO's pick is a quest the game cannot place (a dungeon quest such as
   Searching for the Lost Satchel): GO's line still recommends it, but the beam and arrow point at the best quest
   that has a spot on your map. `/hh go` says so when they differ.
+- Unlock mode: a frame's settings window covers the gears, resize squares and cyan boxes behind it (they drew on
+  top of the window); they still sit over the frames they move.
 
 ## v0.2.0-beta.14
 
