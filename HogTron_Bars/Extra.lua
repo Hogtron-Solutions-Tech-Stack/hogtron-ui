@@ -386,6 +386,7 @@ end
 
 --- Called from Bars.Build (out of combat): both bars built / laid out / updated as the profile says.
 function Extra.Build()
+  Extra.StartFormRecorder()
   local d = cfg()
   Extra.HideBlizzard()
   local pet = Extra.CreatePet()
@@ -645,6 +646,88 @@ function Extra.BtnDiagLines()
   return out
 end
 
+-- ------------------------------------------------------------------------------------------------ form snapshots
+-- Sean 2026-11-06 ("when I'm in bear form ... the bear skills on Q-E-R are greyed out for some. I'm not sure why"):
+-- his /hh btndiag ran in caster form and said every slot usable and white; diag.barsLive keeps the last 3 s only, so
+-- no bear-form answer ever reached the disk. Now every form change records bar 1 half a second later, per form (caster
+-- and bear both survive to the next /reload): the spell behind each slot, "has an action" and "usable" from every
+-- source (the lib, the game's global, C_ActionBar), the icon's colour and the dim layer. Secrets are shown as S.
+function Extra.SlotName(slot)
+  local kind, id = call(rawget(_G, "GetActionInfo"), slot)
+  if isSecret(kind) or isSecret(id) then return "S" end
+  if kind == "spell" and id then
+    local CS = rawget(_G, "C_Spell")
+    local n = type(CS) == "table" and type(CS.GetSpellName) == "function" and call(CS.GetSpellName, id) or nil
+    if n == nil then n = call(rawget(_G, "GetSpellInfo"), id) end
+    if isSecret(n) then return "S" end
+    return n and tostring(n) or ("spell " .. tostring(id))
+  elseif kind == "macro" then
+    local t = call(rawget(_G, "GetActionText"), slot)
+    return "macro " .. (isSecret(t) and "S" or tostring(t))
+  elseif kind then
+    return tostring(kind) .. " " .. tostring(id)
+  end
+  return "empty"
+end
+
+--- Bar 1 as it stands: one header line (form, bonus bar, the bar's state), one line per button.
+function Extra.FormLines()
+  local out = {}
+  local bar = Bars.bars and Bars.bars[1]
+  local CAB = rawget(_G, "C_ActionBar")
+  out[#out + 1] = ("form=%s bonus=%s state=%s"):format(desc(call(rawget(_G, "GetShapeshiftForm"))), desc(call(rawget(_G, "GetBonusBarOffset"))),
+    bar and desc(call(bar.GetAttribute, bar, "state")) or "nobar")
+  for i, b in ipairs(bar and bar.buttons or {}) do
+    local slot = rawget(b, "_state_action")
+    local lu, lm = call(b.IsUsable, b)
+    local gu = call(rawget(_G, "IsUsableAction"), slot)
+    local cu = type(CAB) == "table" and type(CAB.IsUsableAction) == "function" and call(CAB.IsUsableAction, slot) or nil
+    local r = call(rawget(b, "icon") and b.icon.GetVertexColor, b.icon)
+    local dim = rawget(b, "hhUnusableDim")
+    out[#out + 1] = ("#%d slot %s %s: has=%s usable lib=%s/%s global=%s C_=%s icon=%s dim=%s checked=%s"):format(i, desc(slot),
+      num(slot) and Extra.SlotName(slot) or "?", desc(call(b.HasAction, b)), desc(lu), desc(lm), desc(gu), desc(cu), desc(r),
+      dim and desc(call(dim.IsShown, dim)) or "none", desc(call(b.GetChecked, b)))
+  end
+  return out
+end
+
+--- Record the current form's lines under diag.barsForm[form]. Returns the record.
+function Extra.SaveForm(why)
+  local g = HH.db and HH.db.global
+  if not g then return nil end
+  g.diag = g.diag or {}
+  g.diag.barsForm = g.diag.barsForm or {}
+  local f = call(rawget(_G, "GetShapeshiftForm"))
+  local key = isSecret(f) and "S" or tostring(f)
+  local ok, lines = pcall(Extra.FormLines)
+  g.diag.barsForm[key] = { at = date and date("%Y-%m-%d %H:%M:%S") or "?", why = tostring(why),
+    lines = ok and lines or { "probe error: " .. tostring(lines) } }
+  return g.diag.barsForm[key]
+end
+
+function Extra.QueueFormSnapshot(why)
+  if Extra.formPending then return end
+  Extra.formPending = true
+  local function run() Extra.formPending = false pcall(Extra.SaveForm, why) end
+  if C_Timer and C_Timer.After then C_Timer.After(0.5, run) else run() end
+end
+
+function Extra.StartFormRecorder()
+  if Extra.formFrame then return false end
+  local f = CreateFrame("Frame")
+  for _, e in ipairs({ "UPDATE_SHAPESHIFT_FORM", "UPDATE_BONUS_ACTIONBAR", "PLAYER_ENTERING_WORLD" }) do pcall(f.RegisterEvent, f, e) end
+  f:SetScript("OnEvent", function(_, e) Extra.QueueFormSnapshot(e) end)
+  Extra.formFrame = f
+  return true
+end
+
 HH:RegisterSlash("btndiag", function()
   for _, l in ipairs(Extra.BtnDiagLines()) do HH:Print(l) end
-end, "action bar buttons: which state events fired, each bar-1 slot's current / usable / checked state")
+  local rec = Extra.SaveForm("slash")
+  for _, l in ipairs(rec and rec.lines or {}) do HH:Print("  " .. l) end
+  local g = HH.db and HH.db.global
+  local forms = {}
+  for k, r in pairs((g and g.diag and g.diag.barsForm) or {}) do forms[#forms + 1] = ("form %s at %s (%s)"):format(k, tostring(r.at), tostring(r.why)) end
+  table.sort(forms)
+  HH:Print("forms recorded for the next /reload: " .. (#forms > 0 and table.concat(forms, "; ") or "none"))
+end, "action bar buttons: state events seen, each bar-1 slot (spell, usable from every source, icon, dim layer) now and per form")
