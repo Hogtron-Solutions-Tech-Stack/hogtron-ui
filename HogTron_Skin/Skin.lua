@@ -70,6 +70,14 @@ function Skin.SetFont(fs, size, outline)
   if type(fs) == "table" and fs.SetFont then call(fs.SetFont, fs, Skin.font(), size, outline or "OUTLINE") end
 end
 
+--- Text that sits ON paper (the Parchment look): no outline and no shadow - a black rim around brown ink reads as a
+--- smudge (Sean 2026-11-05, the info bar in game: "the coloring here is all messed up"). Off paper: Skin.SetFont.
+function Skin.InkFont(fs, size, onPaper)
+  if not onPaper then return Skin.SetFont(fs, size) end
+  Skin.SetFont(fs, size, "")
+  if type(fs) == "table" and fs.SetShadowOffset then call(fs.SetShadowOffset, fs, 0, 0) end
+end
+
 --- A texture: cleared and kept clear (SetTexture(nil) + alpha 0). Blizzard re-applies art through SetTexture /
 -- SetAtlas on some pieces; hook both so ours wins every time. Never touches our own pieces (hhOurs).
 function Skin.Kill(t)

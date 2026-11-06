@@ -26,6 +26,11 @@
 - Parchment windows are solid paper (the damage meter showed through at 90%); inked text loses Blizzard's black
   outline and shadow ("Level 10 Druid" read as a smudge); list rows (the friends list) lose their navy bars and are
   inked like the rest.
+- The settings window and setup guide on paper read again: the sidebar was still navy under ink labels and the body
+  text still light grey on the page. Now the sidebar is a faint shade of the page with a ruled margin, the body text
+  and inputs are ink on paper, and picked tabs and headers use a darker amber that reads at small size.
+- The info bar's readings (and a bag's title, the menu bar's letters) lose the black outline on paper - brown ink with
+  a black rim read as a smudge.
 
 ## v0.2.0-beta.14
 

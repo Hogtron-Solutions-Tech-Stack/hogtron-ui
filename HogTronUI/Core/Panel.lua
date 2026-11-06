@@ -18,6 +18,9 @@ local P = ns and ns.palette or {}
 local INK, CREAM, CYAN, GREY = P.ink or { 0.07, 0.07, 0.09 }, P.cream or { 0.96, 0.92, 0.86 }, P.cyan or { 0.13, 0.83, 0.88 }, P.grey or { 0.45, 0.45, 0.5 }
 local RAISED = { 0.11, 0.11, 0.14 }
 local LINE = { 0.20, 0.20, 0.25 }
+local SIDE, WELL, BODY = { 0.09, 0.09, 0.115 }, { 0.05, 0.05, 0.065 }, { 0.78, 0.75, 0.70 }   -- sidebar, input well, body text
+local SIDE_A, BAR_A = 1, 1                                                                  -- sidebar / title bar fill alpha
+local MARK = CYAN                                                    -- the accent as small text (a picked tab, a header)
 
 --- The UI's look into this file's colour names (HogTronUI/Core/Parchment.lua Palette). Parchment: the window on the
 --- torn page, ink text, flat paper fills, the page's amber accent, no slate art. Sean 2026-11-05: "everything to match
@@ -28,6 +31,15 @@ function Panel.Paint()
   local pal = PM.Palette()
   INK, CREAM, CYAN, GREY, LINE = pal.bg, pal.text, pal.accent, pal.muted, pal.line
   RAISED = { pal.bg[1] * 0.93, pal.bg[2] * 0.92, pal.bg[3] * 0.88 }
+  -- Sean 2026-11-05 in game, the guide on paper: "the coloring here is all messed up" - the sidebar stayed navy (ink
+  -- labels on navy), the body text stayed light grey on paper, the title bar was a flat card strip. On paper: the
+  -- sidebar is a faint shade of the page with a rule, the title sits on the page, inputs are a lighter paper well,
+  -- body text is ink.
+  SIDE, SIDE_A, BAR_A = RAISED, 0.35, 0
+  WELL = { math.min(1, pal.bg[1] * 1.08), math.min(1, pal.bg[2] * 1.08), math.min(1, pal.bg[3] * 1.10) }
+  BODY = pal.text
+  -- the page's amber is a fill colour; as small text on light paper it is too pale to read: inked down (Parchment.Hue)
+  MARK = { PM.Hue(pal.accent[1], pal.accent[2], pal.accent[3]) }
   Panel.page = true
   return true
 end
@@ -372,7 +384,7 @@ local function build()
   bar:SetPoint("TOPLEFT", f, "TOPLEFT", 1, -1)
   bar:SetPoint("TOPRIGHT", f, "TOPRIGHT", -1, -1)
   bar:SetHeight(TITLE)
-  skin(bar, RAISED)
+  skin(bar, RAISED, nil, BAR_A)
   bar:EnableMouse(true)
   bar:RegisterForDrag("LeftButton")
   bar:SetScript("OnDragStart", function() f:StartMoving() end)
@@ -404,7 +416,13 @@ local function build()
   side:SetPoint("TOPLEFT", bar, "BOTTOMLEFT", 0, 0)
   side:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 1, 1)
   side:SetWidth(SIDEBAR)
-  skin(side, { 0.09, 0.09, 0.115 })
+  skin(side, SIDE, nil, SIDE_A)
+  if Panel.page then                                  -- a ruled margin between the sidebar and the page
+    side.rule = solid(side, "ARTWORK", LINE)
+    side.rule:SetPoint("TOPRIGHT", side, "TOPRIGHT", 0, 0)
+    side.rule:SetPoint("BOTTOMRIGHT", side, "BOTTOMRIGHT", 0, 0)
+    side.rule:SetWidth(1)
+  end
   f.side = side
   f.bar = bar
   Panel.ApplyArt(f)
@@ -537,7 +555,7 @@ local function openMenu(anchor, entries, current, onPick)
     it:SetPoint("TOPLEFT", m, "TOPLEFT", 1, -1 - (i - 1) * 20)
     it:SetWidth(w - 2)
     it.label:SetText(e.label)
-    local c = (e.key == current) and CYAN or CREAM
+    local c = (e.key == current) and MARK or CREAM
     it.label:SetTextColor(c[1], c[2], c[3])
     it:SetScript("OnClick", function() m:Hide(); onPick(e.key) end)
     it:Show()
@@ -580,7 +598,7 @@ local makers, fillers = {}, {}
 
 makers.header = function()
   local r = rowFrame()
-  r.text = text(r, "HogTronFontNormalSmall", CYAN, "LEFT")
+  r.text = text(r, "HogTronFontNormalSmall", MARK, "LEFT")
   r.text:SetPoint("BOTTOMLEFT", r, "BOTTOMLEFT", 0, 6)
   r.rule = solid(r, "ARTWORK", LINE)
   r.rule:SetPoint("BOTTOMLEFT", r, "BOTTOMLEFT", 0, 0)
@@ -595,7 +613,7 @@ end
 
 makers.description = function()
   local r = rowFrame()
-  r.text = text(r, "HogTronFontSmall", { 0.78, 0.75, 0.70 }, "LEFT")
+  r.text = text(r, "HogTronFontSmall", BODY, "LEFT")
   r.text:SetPoint("TOPLEFT", r, "TOPLEFT", 0, -2)
   r.text:SetPoint("RIGHT", r, "RIGHT", 0, 0)
   if r.text.SetJustifyV then r.text:SetJustifyV("TOP") end
@@ -662,7 +680,7 @@ end
 makers.range = function()
   local r = rowFrame()
   labelOn(r):SetPoint("TOPLEFT", r, "TOPLEFT", 0, -2)
-  r.valueText = text(r, "HogTronFontSmall", CYAN, "RIGHT")
+  r.valueText = text(r, "HogTronFontSmall", MARK, "RIGHT")
   r.valueText:SetPoint("TOPRIGHT", r, "TOPRIGHT", 0, -2)
   local s = CreateFrame("Slider", nil, r)
   s:SetOrientation("HORIZONTAL")
@@ -728,7 +746,7 @@ makers.select = function()
   r.button:SetPoint("TOPRIGHT", r, "TOPRIGHT", 0, -18)
   r.button.label:ClearAllPoints()
   r.button.label:SetPoint("LEFT", r.button, "LEFT", 8, 0)
-  r.button.arrow = text(r.button, "HogTronFontSmall", CYAN)
+  r.button.arrow = text(r.button, "HogTronFontSmall", MARK)
   r.button.arrow:SetPoint("RIGHT", r.button, "RIGHT", -8, 0)
   r.button.arrow:SetText("v")
   return r
@@ -761,7 +779,7 @@ makers.input = function()
   r.well = CreateFrame("Frame", nil, r)
   r.well:SetPoint("TOPLEFT", r, "TOPLEFT", 0, -18)
   r.well:SetPoint("BOTTOMRIGHT", r, "BOTTOMRIGHT", 0, 6)
-  skin(r.well, { 0.05, 0.05, 0.065 }, LINE)
+  skin(r.well, WELL, LINE)
   local e = CreateFrame("EditBox", nil, r.well)
   e:SetPoint("TOPLEFT", r.well, "TOPLEFT", 6, -4)
   e:SetPoint("BOTTOMRIGHT", r.well, "BOTTOMRIGHT", -6, 4)
@@ -992,7 +1010,7 @@ function Panel.Refresh()
     b.label:SetText(tostring(val(a.opt.name, mkInfo(a.key, a.opt)) or a.key))
     local on = a.key == Panel.selected
     if on then b.bg:Show(); b.mark:Show() else b.bg:Hide(); b.mark:Hide() end
-    local c = on and CYAN or CREAM
+    local c = on and MARK or CREAM
     b.label:SetTextColor(c[1], c[2], c[3])
     b:Show()
   end
@@ -1022,7 +1040,7 @@ function Panel.Refresh()
     x = x + w + 4
     local on = a.key == Panel.selectedTab
     if on then b.mark:Show() else b.mark:Hide() end
-    local c = on and CYAN or GREY
+    local c = on and MARK or GREY
     b.label:SetTextColor(c[1], c[2], c[3])
     b:Show()
   end

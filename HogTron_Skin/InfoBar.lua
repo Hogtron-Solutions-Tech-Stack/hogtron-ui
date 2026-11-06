@@ -334,7 +334,7 @@ function Bar.Layout()
     s:SetSize(w, d.height or 18)
     s:ClearAllPoints()
     s:SetPoint("LEFT", f, "LEFT", (i - 1) * w, 0)
-    Skin.SetFont(s.text, d.fontSize or 11)
+    Skin.InkFont(s.text, d.fontSize or 11, page())
     s.text:SetWidth(w - 6)
     local file = d.icons ~= false and Bar.ICONS[s.key]
     local isz = math.max(10, (d.height or 18) - 2)
