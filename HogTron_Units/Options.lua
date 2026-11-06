@@ -65,6 +65,13 @@ local function unitTab(unit, order)
       get = function() return g().portraitStyle or "2D" end, set = function(_, v) g().portraitStyle = v; refresh() end }
   end
   if unit == "player" then
+    t.args.formMana = { type = "toggle", name = "Mana under the frame in bear / cat form (druids)", order = 7.65, width = "full",
+      desc = "While a form shows rage or energy, your mana as a thin bar under the player frame.",
+      get = function() return HH.db.profile.units.player.formMana.enabled ~= false end,
+      set = function(_, v) HH.db.profile.units.player.formMana.enabled = v and true or false; refresh() end }
+    t.args.combo = { type = "toggle", name = "Combo points over the frame (rogues, druids in cat form)", order = 7.66, width = "full",
+      get = function() return HH.db.profile.units.player.combo.enabled ~= false end,
+      set = function(_, v) HH.db.profile.units.player.combo.enabled = v and true or false; refresh() end }
     t.args.castbarAttach = { type = "select", name = "Your cast bar", order = 7.7,
       desc = "Same setting as HUD > Castbar > Attach to the player frame.",
       values = { none = "In the HUD (not on this frame)", below = "Under this frame", above = "Over this frame" },

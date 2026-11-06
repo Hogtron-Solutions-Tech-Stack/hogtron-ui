@@ -148,9 +148,11 @@ function Units.HealthText(unit, mode)
   return abbreviate(hp)
 end
 
-function Units.PowerText(unit, mode)
+function Units.PowerText(unit, mode, ptype)
   if mode == "none" then return "" end
-  local p, max = call(UnitPower, unit), call(UnitPowerMax, unit)
+  local p, max
+  if ptype ~= nil then p, max = call(UnitPower, unit, ptype), call(UnitPowerMax, unit, ptype)
+  else p, max = call(UnitPower, unit), call(UnitPowerMax, unit) end
   if p == nil then return "" end
   local m = num(max)
   if m and m <= 0 then return "" end
@@ -331,6 +333,8 @@ function Units.ApplyLook(f)
   if HHU.Auras and HHU.Auras.Layout then HHU.Auras.Layout(f) end
   if Units.PlaceCastbar then Units.PlaceCastbar(f) end
   if Units.PlacePortrait then Units.PlacePortrait(f) Units.UpdatePortrait(f) end
+  if f.formMana then Units.PlaceFormMana(f) Units.ShowFormMana(f, f.formMana.hhShown) end
+  if f.combo then Units.PlaceCombo(f) Units.ShowCombo(f, f.combo.hhShown) end
 end
 
 --- Text placement. Full frames: name top-left, level top-right, health text bottom-right, power text on the
@@ -423,6 +427,7 @@ end
 
 function Units.UpdatePower(f)
   local unit = f.unit
+  if unit == "player" and Units.Piece then Units.Piece("mana in forms / combo", Units.UpdateClassPower, f) end
   if ucfg(unit).showPower == false then return end
   local p, max = call(UnitPower, unit), call(UnitPowerMax, unit)
   if max == nil then return end
@@ -432,6 +437,244 @@ function Units.UpdatePower(f)
   f.power:SetValue(p or 0)
   f.power:SetStatusBarColor(Units.PowerColor(unit))
   f.powerText:SetText(Units.PowerText(unit, cfg().powerText or "current-max"))
+end
+
+-- ------------------------------------------------------------------------------------------------ mana in forms + combo points
+-- Sean 2026-11-06: "I want energy and mana displayed for hybrid classes as well as combo points for feral". A druid in
+-- bear / cat form sees rage / energy on the power bar and nothing of the mana it shifts back for: classes in
+-- Units.MANA_IN_FORMS get their mana as a second thin bar hanging under the player frame while the shown power is not
+-- mana (Blizzard's own "alternate mana bar"). Combo points (rogues; druids while energy is the shown power = cat form):
+-- five pips over the player frame. Both are plain bars on our frame (no secure template), so they show and hide in
+-- combat, and the frame's own size never changes. Secret-safe: the mana bar takes the value as it comes; each pip is a
+-- StatusBar from i - 1 to i fed the count, so pip i fills at count >= i with no comparison of ours.
+-- A HUD cast bar attached under / over the player frame hangs past them (f.hhBelow / f.hhAbove, collapsed when hidden).
+Units.MANA_IN_FORMS = { DRUID = true }
+Units.COMBO_CLASSES = { ROGUE = "always", DRUID = "ENERGY" }   -- DRUID: while energy is the shown power (cat form)
+Units.COMBO_MAX = 5
+Units.POWER_INDEX = { MANA = 0, RAGE = 1, FOCUS = 2, ENERGY = 3 }
+-- the pips warm from gold to red as they fill: the last ones lit say "finisher"
+Units.COMBO_COLORS = { { 1.00, 0.96, 0.41 }, { 1.00, 0.84, 0.30 }, { 1.00, 0.68, 0.24 }, { 1.00, 0.50, 0.20 }, { 0.95, 0.28, 0.18 } }
+Units.CLASS_GAP = 2
+local MANA, COMBO = 0, 4                               -- Enum.PowerType.Mana / .ComboPoints
+local function ptypeConst(name, fallback)
+  local e = rawget(_G, "Enum")
+  local pt = type(e) == "table" and e.PowerType
+  local v = type(pt) == "table" and pt[name]
+  return type(v) == "number" and v or fallback
+end
+
+--- The player's shown power as a token ("MANA", "ENERGY" ...), read by name, else by index; nil when unreadable.
+function Units.ShownPower(unit)
+  local idx, token = call(UnitPowerType, unit or "player")
+  token = str(token)
+  if token then return token end
+  local n = num(idx)
+  if n == nil then return nil end
+  for k, v in pairs(Units.POWER_INDEX) do if v == n then return k end end
+  return "OTHER"
+end
+
+--- Mana under the frame: the player, a class that keeps mana in its forms, the shown power not mana, switched on.
+function Units.WantsFormMana(unit)
+  if unit ~= "player" then return false end
+  local a = ucfg(unit).formMana
+  if type(a) == "table" and a.enabled == false then return false end
+  local class = Units.ClassOf("player")
+  if not (class and Units.MANA_IN_FORMS[class]) then return false end
+  local shown = Units.ShownPower("player")
+  return shown ~= nil and shown ~= "MANA"
+end
+
+--- Combo pips over the frame: rogues always, druids while energy is shown (cat form), switched on.
+function Units.WantsCombo(unit)
+  if unit ~= "player" then return false end
+  local c = ucfg(unit).combo
+  if type(c) == "table" and c.enabled == false then return false end
+  local class = Units.ClassOf("player")
+  local rule = class and Units.COMBO_CLASSES[class]
+  if rule == "always" then return true end
+  if rule then return Units.ShownPower("player") == rule end
+  return false
+end
+
+--- The combo count to show and where it came from. Classic keeps the points on the target (GetComboPoints), the
+--- modern client on the player (UnitPower ComboPoints); both are read and, when both are plain numbers, the larger
+--- wins (a client answers 0 from the one it does not use). A secret answer is shown as it is.
+function Units.ComboCount()
+  local a = call(rawget(_G, "GetComboPoints"), "player", "target")
+  local b = call(UnitPower, "player", ptypeConst("ComboPoints", COMBO))
+  local na, nb = num(a), num(b)
+  Units.comboRead = { gcp = a == nil and "nil" or (na and tostring(na) or "secret"), power = b == nil and "nil" or (nb and tostring(nb) or "secret") }
+  if na and nb then if nb > na then return nb, "UnitPower" end return na, "GetComboPoints" end
+  if na and b ~= nil and not nb then return b, "UnitPower" end   -- the player's own (secret) count over a plain 0
+  if a ~= nil then return a, "GetComboPoints" end
+  if b ~= nil then return b, "UnitPower" end
+  return 0, "none"
+end
+
+function Units.BuildFormMana(f)
+  if f.formMana then return f.formMana end
+  local b = CreateFrame("StatusBar", nil, f)
+  b:SetStatusBarTexture(barTexture())
+  b:SetMinMaxValues(0, 1)
+  b:SetValue(0)
+  b:SetFrameLevel(f:GetFrameLevel() + 1)
+  b.bg = solid(b, "BACKGROUND", INK, 0.85)
+  b.bg:SetAllPoints(b)
+  b.edges = outline(b, b)
+  b.text = text(b, CREAM, "RIGHT")
+  b.text:SetPoint("RIGHT", b, "RIGHT", -4, 0)
+  b.label = text(b, CREAM, "LEFT")
+  b.label:SetPoint("LEFT", b, "LEFT", 4, 0)
+  b.label:SetText("Mana")
+  f.formMana = b
+  f.hhBelow = b
+  Units.PlaceFormMana(f)
+  Units.ShowFormMana(f, false)
+  return b
+end
+
+function Units.PlaceFormMana(f)
+  local b = f.formMana
+  if not b then return end
+  local d, g = ucfg(f.unit), cfg()
+  b:ClearAllPoints()
+  b:SetPoint("TOPLEFT", f, "BOTTOMLEFT", 0, -Units.CLASS_GAP)
+  b:SetPoint("TOPRIGHT", f, "BOTTOMRIGHT", 0, -Units.CLASS_GAP)
+  b:SetStatusBarTexture(barTexture())
+  local size = math.max(7, (d.fontSize or g.fontSize or 12) - 3)
+  setFont(b.text, size)
+  setFont(b.label, size)
+  local r, gg, bb = Units.ManaColor()
+  b:SetStatusBarColor(r, gg, bb)
+end
+
+--- Shown: its height; hidden: collapsed to nothing (what hangs under it closes up).
+function Units.ShowFormMana(f, on)
+  local b = f.formMana
+  if not b then return end
+  local a = ucfg(f.unit).formMana
+  local h = (type(a) == "table" and a.height) or 10
+  if on then b:SetHeight(h) b:Show() else b:SetHeight(0.001) b:Hide() end
+  b.hhShown = on and true or false
+end
+
+function Units.ManaColor()
+  local pbc = rawget(_G, "PowerBarColor")
+  local c = type(pbc) == "table" and pbc.MANA
+  if type(c) == "table" and c.r then return c.r, c.g, c.b end
+  local m = POWER_FALLBACK.MANA
+  return m[1], m[2], m[3]
+end
+
+--- The player is of a class that may need the bar (and has it switched on): built at once, hidden, so a HUD cast bar
+--- attached under the frame already hangs past it when it first shows (no layout needed in combat).
+function Units.MayNeed(f, kind)
+  if f.unit ~= "player" then return false end
+  local c = ucfg(f.unit)[kind]
+  if type(c) == "table" and c.enabled == false then return false end
+  local class = Units.ClassOf("player")
+  local list = kind == "formMana" and Units.MANA_IN_FORMS or Units.COMBO_CLASSES
+  return class ~= nil and list[class] ~= nil
+end
+
+--- A bar just built: a HUD cast bar attached to this frame lays out again to hang past it.
+function Units.TellHUD()
+  local H = rawget(_G, "HogHealsHUD")
+  if type(H) == "table" and type(H.HUD) == "table" and type(H.HUD.Layout) == "function" then pcall(H.HUD.Layout) end
+end
+
+function Units.UpdateFormMana(f)
+  if not f.formMana and Units.MayNeed(f, "formMana") then Units.BuildFormMana(f) Units.TellHUD() end
+  if not Units.WantsFormMana(f.unit) then
+    if f.formMana and f.formMana.hhShown ~= false then Units.ShowFormMana(f, false) end
+    return
+  end
+  local b = Units.BuildFormMana(f)
+  local mana = ptypeConst("Mana", MANA)
+  local p, max = call(UnitPower, f.unit, mana), call(UnitPowerMax, f.unit, mana)
+  local m = num(max)
+  if max == nil or (m and m <= 0) then Units.ShowFormMana(f, false) return end
+  b:SetMinMaxValues(0, max)
+  b:SetValue(p or 0)
+  b.text:SetText(Units.PowerText(f.unit, cfg().powerText or "current-max", mana))
+  if not b.hhShown then Units.ShowFormMana(f, true) end
+end
+
+function Units.BuildCombo(f)
+  if f.combo then return f.combo end
+  local bar = CreateFrame("Frame", nil, f)
+  bar:SetFrameLevel(f:GetFrameLevel() + 2)
+  bar.pips = {}
+  for i = 1, Units.COMBO_MAX do
+    local p = CreateFrame("StatusBar", nil, bar)
+    p:SetStatusBarTexture(barTexture())
+    p:SetMinMaxValues(i - 1, i)
+    p:SetValue(0)
+    p.bg = solid(p, "BACKGROUND", INK, 0.85)
+    p.bg:SetAllPoints(p)
+    p.edges = outline(p, p)
+    bar.pips[i] = p
+  end
+  f.combo = bar
+  f.hhAbove = bar
+  Units.PlaceCombo(f)
+  Units.ShowCombo(f, false)
+  return bar
+end
+
+function Units.PlaceCombo(f)
+  local bar = f.combo
+  if not bar then return end
+  local d = ucfg(f.unit)
+  local h = (type(d.combo) == "table" and d.combo.height) or 7
+  local gap = 3
+  bar:ClearAllPoints()
+  bar:SetPoint("BOTTOMLEFT", f, "TOPLEFT", 0, Units.CLASS_GAP)
+  bar:SetPoint("BOTTOMRIGHT", f, "TOPRIGHT", 0, Units.CLASS_GAP)
+  local w = num(d.width) or 240
+  local pw = (w - gap * (Units.COMBO_MAX - 1)) / Units.COMBO_MAX
+  for i, p in ipairs(bar.pips) do
+    p:ClearAllPoints()
+    p:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", (i - 1) * (pw + gap), 0)
+    p:SetSize(pw, h)
+    p:SetStatusBarTexture(barTexture())
+    local c = Units.COMBO_COLORS[i] or Units.COMBO_COLORS[#Units.COMBO_COLORS]
+    p:SetStatusBarColor(c[1], c[2], c[3])
+  end
+  bar.hhHeight = h
+end
+
+function Units.ShowCombo(f, on)
+  local bar = f.combo
+  if not bar then return end
+  if on then bar:SetHeight(bar.hhHeight or 7) bar:Show() else bar:SetHeight(0.001) bar:Hide() end
+  bar.hhShown = on and true or false
+end
+
+function Units.UpdateCombo(f)
+  if not f.combo and Units.MayNeed(f, "combo") then Units.BuildCombo(f) Units.TellHUD() end
+  if not Units.WantsCombo(f.unit) then
+    if f.combo and f.combo.hhShown ~= false then Units.ShowCombo(f, false) end
+    return
+  end
+  local bar = Units.BuildCombo(f)
+  local count, src = Units.ComboCount()
+  for _, p in ipairs(bar.pips) do p:SetValue(count) end
+  bar.hhSource = src
+  if not bar.hhShown then Units.ShowCombo(f, true) end
+  local g = HH.db and HH.db.global
+  if type(g) == "table" then
+    g.diag = type(g.diag) == "table" and g.diag or {}
+    g.diag.combo = { source = src, read = Units.comboRead, shown = Units.ShownPower("player") }
+  end
+end
+
+--- Both, for the player frame (called with every power update, a form change, a target change).
+function Units.UpdateClassPower(f)
+  if f.unit ~= "player" then return end
+  Units.UpdateFormMana(f)
+  Units.UpdateCombo(f)
 end
 
 -- ------------------------------------------------------------------------------------------------ names
@@ -624,6 +867,7 @@ local function piece(label, fn, f)
   end
   return ok
 end
+Units.Piece = piece
 
 function Units.UpdateAll(f)
   if ucfg(f.unit).enabled == false then return end
@@ -867,7 +1111,8 @@ local UNIT_EVENTS = {
   UNIT_CONNECTION = "health", UNIT_AURA = "auras", UNIT_PORTRAIT_UPDATE = "portrait", UNIT_MODEL_CHANGED = "portrait",
 }
 local OTHER_EVENTS = { "PLAYER_TARGET_CHANGED", "UNIT_TARGET", "UNIT_PET", "PLAYER_FOCUS_CHANGED", "PLAYER_ENTERING_WORLD",
-  "RAID_TARGET_UPDATE", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "PLAYER_UPDATE_RESTING", "GROUP_ROSTER_UPDATE" }
+  "RAID_TARGET_UPDATE", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "PLAYER_UPDATE_RESTING", "GROUP_ROSTER_UPDATE",
+  "UPDATE_SHAPESHIFT_FORM", "PLAYER_COMBO_POINTS", "UNIT_COMBO_POINTS" }
 
 local function refresh(unit)
   local f = Units.frames[unit]
@@ -891,7 +1136,15 @@ function Units.OnEvent(_, e, arg1)
     elseif kind == "portrait" then Units.UpdatePortrait(f) end
     return
   end
-  if e == "PLAYER_TARGET_CHANGED" then refresh("target") refresh("targettarget")
+  if e == "UPDATE_SHAPESHIFT_FORM" or e == "PLAYER_COMBO_POINTS" or e == "UNIT_COMBO_POINTS" then
+    local p = Units.frames.player
+    if p and ucfg("player").enabled ~= false then Units.UpdatePower(p) end
+    return
+  end
+  if e == "PLAYER_TARGET_CHANGED" then
+    refresh("target") refresh("targettarget")
+    local p = Units.frames.player
+    if p and ucfg("player").enabled ~= false then Units.Piece("combo", Units.UpdateCombo, p) end
   elseif e == "UNIT_TARGET" then
     if arg1 == "target" then refresh("targettarget") end
     local f = type(arg1) == "string" and Units.frames[arg1]

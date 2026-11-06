@@ -22,6 +22,11 @@
 - **New icon set for the Parchment look: ink stamps** - every menu and drawer icon as a woodcut on a paper disc inside
   the dialog's bronze ring (General > Look > Icons: Ink stamps; `dev/make_page_icons.py` makes them from our glyphs).
 
+- **Druids see their mana in bear and cat form**: rage / energy stays on the player frame's power bar and the mana
+  hangs under the frame as a thin bar while a form is up; the HUD mana bar stays up in forms too (Units > Player,
+  HUD > Mana: switches).
+- **Combo points** over the player frame - rogues always, druids in cat form: five pips that warm from gold to red as
+  they fill (Units > Player: switch). A HUD cast bar attached to the player frame hangs past both.
 - **Move the bags in edit mode** (`/hh unlock`): a Bags box sits where your bags open - drag it and they open there
   from then on (Blizzard still stacks them; the whole stack moves). Its window: Open bags, Blizzard's place.
 - **Flight masters on the world map (M)**: this client's map shows none, so HogTron UI pins them - the ones the game
