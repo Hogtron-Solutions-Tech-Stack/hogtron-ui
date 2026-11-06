@@ -230,7 +230,9 @@ function Bars.ButtonConfig(n, i)
     showGrid = grid,
     clickOnDown = HH.SecureClick and HH.SecureClick() == "AnyDown" or false,
     tooltip = "enabled",
-    outOfRangeColoring = "button",
+    -- Sean 2026-11-06, bear form: the whole-icon red tint on Bash / Growl / Maul with the target out of reach read as
+    -- "greyed out". The game's own bars colour the keybind text instead; the icon tint is an opt-in.
+    outOfRangeColoring = d.rangeTint == true and "button" or "hotkey",
     hideElements = { macro = d.hideNames ~= false, hotkey = false, equipped = false, border = true, borderIfEmpty = true },
     cooldownCount = d.cooldownNumbers ~= false,
     text = { hotkey = { font = { size = d.hotkeySize or 10, flags = "OUTLINE" }, color = { CREAM[1], CREAM[2], CREAM[3] },

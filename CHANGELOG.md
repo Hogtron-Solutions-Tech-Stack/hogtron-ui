@@ -48,6 +48,9 @@
   Quests > Polestar to switch each part; `/hh polestardiag`. New files: restart the game once.
 
 ### Fixed
+- Bars: an out-of-range target no longer tints the whole icon red (Bash, Growl, Maul and every targeted spell looked
+  greyed out in bear form) - the keybind text turns red instead, like the game's own bars. Bars > Tint the whole
+  icon red when the target is out of range brings the tint back.
 - The swing timer is on for everyone again: a profile saved with it off (the setup guide's switch) has it back,
   once - it only shows while you auto-attack. Switch it off again under HUD > Swing timer.
 - Casting a spell from the spellbook no longer pops "HogTron_Skin has been blocked from an action only available to

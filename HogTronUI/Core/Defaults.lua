@@ -248,6 +248,7 @@ HH.defaults = {
     },
     bars = {   -- HogTron UI Bars: own action bars on LibActionButton (docs/superpowers/specs/2026-10-02-hogui-bars-design.md)
       enabled = true, grid = true, hotkeySize = 10, hideNames = true, cooldownNumbers = true,
+      rangeTint = false,   -- out of range = red keybind text (the game's way); true = the whole icon tinted red (Sean 2026-11-06: "greyed out")
       mainKeys = true,   -- keys bound to ACTIONBUTTON1-12 press our bar 1 (it pages with forms / stances)
       -- the HogTron UI stack: bars 1-3 bottom centre, 4-5 vertical on the right edge, 6-8 off. ["**"] = every bar's defaults.
       list = {
