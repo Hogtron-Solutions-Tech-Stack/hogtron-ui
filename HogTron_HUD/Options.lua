@@ -184,6 +184,7 @@ local function manaGroup()
     height = range(hud, "manaHeight", "Height", 0.2, 6, 30, 1),
     textMode = select_(m, "textMode", "Text", 1, { cur = "Current / max", percent = "Percent", none = "None" }),
     showTicks = toggle(m, "showTicks", "Show regen tick spark", 2),
+    inForms = toggle(m, "inForms", "Druids: keep the mana bar in bear / cat form", 2.5),
     showFsrText = toggle(m, "showFsrText", "Show five-second countdown text", 3),
     fsrColor = colour(m, "fsrColor", "Five-second overlay colour", 4),
     tickColor = colour(m, "tickColor", "Tick spark colour", 5),

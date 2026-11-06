@@ -126,7 +126,10 @@ function Go.Current(list)
   local yards = Go.Yards()
   local pick = Go.Pick(list, yards, d.rule or "balanced")
   local point = Go.PointPick(pick, list, yards, d.rule or "balanced")
-  if point and d.superTrack ~= false and point.quest.id and Go.lastTracked ~= point.quest.id then
+  -- Polestar guiding (and leading the arrow): its target is on the game's arrow - GO does not pull it back
+  local PS = HH.Polestar
+  Go.polestarArrow = (PS and PS.Leads("arrow") and PS.Guiding()) and true or false
+  if point and d.superTrack ~= false and not Go.polestarArrow and point.quest.id and Go.lastTracked ~= point.quest.id then
     -- what GO asked for, set or queued (a quest the player pointed at by hand is not overridden)
     if Go.SuperTrack(point.quest.id) then Go.lastTracked = point.quest.id end
   end
@@ -211,12 +214,14 @@ local function row(f)
   b.hl:SetAllPoints(b)
   b.hl:SetColorTexture(CYAN[1], CYAN[2], CYAN[3], 0.12)
   b:SetScript("OnClick", function(self, button)
+    if self.step then if HH.Polestar then HH.Polestar.ToggleGuide() end return end
     local q = self.quest
     if not q then return end
     if button == "RightButton" then Go.CycleRule() return end
     HHQ.Data.Open(q)
   end)
   b:SetScript("OnEnter", function(self)
+    if GameTooltip and self.step then Go.StepTooltip(self) return end
     if not GameTooltip or not self.pick then return end
     local p = self.pick
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
@@ -233,6 +238,10 @@ end
 --- Draw the GO row at the top of the tracker body. Returns the height it took (0 when off / nothing to do).
 function Go.Draw(f, d, size, list)
   local b = row(f)
+  local PS = HH.Polestar
+  local step = (not d.collapsed) and PS and PS.Leads("guide") and PS.Step() or nil
+  if step then return Go.DrawStep(f, b, step, size) end
+  b.step = nil
   local pick = (not d.collapsed) and Go.Current(list) or nil
   if not pick then b:Hide() b.quest, b.pick = nil, nil return 0 end
   b.quest, b.pick = pick.quest, pick
@@ -251,6 +260,56 @@ function Go.Draw(f, d, size, list)
   b.detail:SetText(Go.Detail(pick))
   b:Show()
   return titleH + lineH + 6
+end
+
+-- ------------------------------------------------------------------------------------------------ Polestar's step
+-- Sean 2026-11-06 (Polestar, "work alongside it"; Core/Polestar.lua): while Polestar runs a guide the top row is its
+-- current step - "GUIDE: <step>", the goal still open and its count under it, step n of all - in place of GO's pick
+-- (two "do this next" rows would argue). Click = Polestar's guide window. Polestar's messages repaint it.
+function Go.StepDetail(step)
+  local parts = {}
+  if step.title and step.goal then parts[#parts + 1] = step.goal .. (step.progress and ("  " .. step.progress) or "")
+  elseif step.progress then parts[#parts + 1] = step.progress end
+  if type(step.index) == "number" and type(step.count) == "number" and step.count > 0 then
+    parts[#parts + 1] = ("step %d/%d"):format(step.index, step.count)
+  end
+  return table.concat(parts, "  -  ")
+end
+
+function Go.DrawStep(f, b, step, size)
+  b.quest, b.pick, b.step = nil, nil, step
+  Go.polestarArrow = HH.Polestar and HH.Polestar.Leads("arrow") and HH.Polestar.Guiding() and true or false
+  local titleH, lineH = size + 6, size + 3
+  b:ClearAllPoints()
+  b:SetPoint("TOPLEFT", f.body, "TOPLEFT", 0, 0)
+  b:SetPoint("RIGHT", f.body, "RIGHT", 0, 0)
+  b:SetHeight(titleH + lineH)
+  local font = f.title.GetFont and f.title:GetFont()
+  for _, t in ipairs({ b.tag, b.title }) do if font and t.SetFont then pcall(t.SetFont, t, font, size, "") end end
+  if font and b.detail.SetFont then pcall(b.detail.SetFont, b.detail, font, size - 1, "") end
+  b.tag:SetText("GUIDE:")
+  b.title:SetText(tostring(step.title or step.goal or "?"))
+  b.title:SetTextColor(CREAM[1], CREAM[2], CREAM[3])
+  b.detail:SetText(Go.StepDetail(step))
+  b:Show()
+  return titleH + lineH + 6
+end
+
+function Go.StepTooltip(b)
+  local s = b.step
+  GameTooltip:SetOwner(b, "ANCHOR_LEFT")
+  GameTooltip:AddLine("GUIDE: " .. tostring(s.title or s.goal or "?"))
+  if s.guide then GameTooltip:AddLine("Polestar guide: " .. s.guide, 0.6, 0.6, 0.6, true) end
+  if s.title and s.goal then GameTooltip:AddLine(s.goal .. (s.progress and ("  " .. s.progress) or ""), 1, 1, 1, true) end
+  GameTooltip:AddLine("Left: Polestar's guide window. Polestar points the arrow; GO's pick waits until no guide runs.", 0.6, 0.6, 0.6, true)
+  GameTooltip:Show()
+end
+
+-- Polestar's guide moved (a step done, a new goal, a new target): repaint the tracker
+if HH.Polestar and HH.Polestar.Listen then
+  HH.Polestar.Listen(function()
+    if HHQ.Tracker and HHQ.Tracker.Schedule then HHQ.Tracker.Schedule() end
+  end)
 end
 
 function Go.CycleRule()
