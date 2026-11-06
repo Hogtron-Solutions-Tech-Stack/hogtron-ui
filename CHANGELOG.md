@@ -29,6 +29,8 @@
   the Blizzard UI": the `/hh open <window>` check command opened Blizzard's windows from addon code and left the
   spellbook tainted until a /reload. It is gone; open windows with your keys or the menu bar.
 - The spellbook loses its dark top bar and book frame on the page like every other window; its dark text already reads.
+- Shifting forms (druid) or stances in a fight no longer trips "Interface action failed because of an AddOn": the
+  stance bar is only re-laid out when you learn a form, and a form learned mid-fight joins the bar when it ends.
 - Parchment windows are solid paper (the damage meter showed through at 90%); inked text loses Blizzard's black
   outline and shadow ("Level 10 Druid" read as a smudge); list rows (the friends list) lose their navy bars and are
   inked like the rest.

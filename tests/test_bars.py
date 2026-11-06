@@ -307,6 +307,52 @@ def test_stance_bar_forms_spells_and_layout(xbars):
     assert errors(xbars) == []
 
 
+SPY = """
+PROTECTED = {}
+local function spy(f, label)
+  for _, m in ipairs({ "Show", "Hide", "SetSize", "SetScale", "ClearAllPoints", "SetPoint", "SetAttribute" }) do
+    local orig = f[m]
+    f[m] = function(self, ...)
+      if InCombatLockdown() then PROTECTED[#PROTECTED + 1] = label .. ":" .. m end
+      return orig(self, ...)
+    end
+  end
+end
+spy(HogUIStanceBar, "bar")
+for i, b in ipairs(HogUIStanceBar.buttons) do spy(b, "button" .. i) end
+"""
+
+
+def test_shifting_in_combat_never_touches_the_secure_stance_bar(xbars):
+    # in game 2026-11-05 (Sean, a druid in a fight): "ADDON_ACTION_BLOCKED: HogTron_Bars called HogUIStanceBar:Show()
+    # (in combat)" - every UPDATE_SHAPESHIFT_* re-showed the secure bar
+    b = "HogUIStanceBar.buttons"
+    xbars.execute(SPY + "MockState.inCombat = true")
+    xbars.execute('FORMS[1][2], FORMS[2][2] = false, true; MockFire("UPDATE_SHAPESHIFT_FORM")')
+    assert list(xbars.eval("PROTECTED").values()) == []
+    assert xbars.eval(f"{b}[2]._last.SetChecked[1]") is True                     # the lit form still follows the shift
+    # a form learned mid-fight: counted now, laid out when the fight ends (once, however many events came)
+    xbars.execute('FORMS[4] = { "Interface/Icons/Ability_Racial_BearForm", false, true, 5487 }')
+    xbars.execute('MockFire("UPDATE_SHAPESHIFT_FORMS"); MockFire("UPDATE_SHAPESHIFT_FORM"); MockFire("UPDATE_SHAPESHIFT_USABLE")')
+    assert list(xbars.eval("PROTECTED").values()) == []
+    assert xbars.eval("HogHealsBars.Extra.formCount") == 4 and xbars.eval(f"{b}[4]:IsShown()") is False
+    assert xbars.eval("HogHealsBars.Extra.stanceQueued") is True                  # queued once, not per event
+    xbars.execute('MockState.inCombat = false; MockFire("PLAYER_REGEN_ENABLED")')
+    assert xbars.eval(f"{b}[4]:IsShown()") is True and xbars.eval("HogUIStanceBar._width") == 4 * 36 + 3 * 2
+    assert xbars.eval(f'{b}[4]:GetAttribute("spell")') == 5487
+    assert errors(xbars) == []
+
+
+def test_no_forms_keeps_the_stance_bar_hidden_under_a_visibility_driver(xbars):
+    # "show in combat" would bring an empty bar back on the next pull without the hide; prefix
+    xbars.execute('HogHeals.db.profile.bars.list.stance.visibility = "nocombat"; FORMS = {}; HogHealsBars.Extra.UpdateStance()')
+    assert xbars.eval("HogUIStanceBar:IsShown()") is False
+    assert xbars.eval("HogUIStanceBar.visDriver").startswith("hide;")
+    xbars.execute('FORMS = { { "Interface/Icons/Ability_Racial_BearForm", false, true, 5487 } }; HogHealsBars.Extra.UpdateStance()')
+    assert xbars.eval("HogUIStanceBar.visDriver") == "[nocombat]hide;show"
+    assert errors(xbars) == []
+
+
 def test_pet_flags_as_this_client_sends_them_1_and_nil(xbars):
     # in game 2026-10-06: Attack / Follow / Move To came up blank - the client says isToken = 1, not true
     xbars.execute("""
