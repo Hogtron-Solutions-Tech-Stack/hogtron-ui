@@ -22,6 +22,10 @@
   the dialog's bronze ring (General > Look > Icons: Ink stamps; `dev/make_page_icons.py` makes them from our glyphs).
 
 ### Fixed
+- Swing timer on WoW: Forever: the bar filled once, sat at 0.0 and vanished mid-fight (the client's "Attack" cast was
+  taken for a per-swing source - it fires on engage and retarget), and ran at 2.0 s in every form (the client hides your
+  attack speed). Now that cast only switches the bar on, the estimate rolls swing after swing, and a druid form's own
+  speed (bear 2.5 s, cat 1.0 s) stands in for the hidden one; `/hh swingdiag` says where the speed came from.
 - The spellbook loses its dark top bar and book frame on the page like every other window; its dark text already reads.
 - Parchment windows are solid paper (the damage meter showed through at 90%); inked text loses Blizzard's black
   outline and shadow ("Level 10 Druid" read as a smudge); list rows (the friends list) lose their navy bars and are

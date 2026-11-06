@@ -116,7 +116,7 @@ def test_off_switch_hides_the_row_and_ignores_events(sw):
     assert sw.eval('HH_sw:IsShown()') is True and sw.eval('HH_sw:GetValue()') == 0
     # options tab + slash
     sw.execute('HogHeals:SlashCommand("swingdiag")')
-    assert sw.eval('HogHeals.db.global.diag.swing.speeds') == "mh=2.6 oh=1.8 ranged=3"
+    assert sw.eval('HogHeals.db.global.diag.swing.speeds') == "mh=2.6 oh=1.8 ranged=3 from=client"
     args = sw.eval('HogHeals.OptionsTable().args.HUD.args.swing.args')
     assert args["enabled"]["name"] == "Swing timer on" and args["color"]["type"] == "color"
     assert errors(sw) == []
@@ -219,4 +219,56 @@ def test_a_strip_the_client_refuses_leaves_the_rest_of_the_look(sw):
     ''')
     assert sw.eval(f'{L}.artOn') is False and sw.eval(f'{L}.glow:IsShown()') is True
     assert sw.eval('HogHealsHUD.Swing.artMissing.swing_melee') is True
+    assert errors(sw) == []
+
+
+# ---------------------------------------------------------------- 2026-11-06: Forever's "Attack" cast is an engage signal
+# Sean, bear form, /hh swingdiag: cast6603=174 enterCombat=109 leaveCombat=109 secretSpeed=238 attackSpeed=80, exact: yes,
+# period=2. On screen (frames 11:32): the bar filled once, sat at 0.0 for a second, vanished mid-fight; 2.0 s in a 2.5 s form.
+def test_forevers_attack_cast_starts_a_free_running_bar_and_never_freezes_it(lua):
+    lua.execute('MockSetSecrets(true)')
+    for a in ("HogTronUI", "HogHeals_Frames", "HogTron_HUD"):
+        lua.load_addon(a)
+    lua.player_login()
+    lua.execute('''
+      HH_sw = HogHealsHUD.HUD.rows.swing
+      MockState.time = 100
+      function UnitAttackSpeed(u) return MockSecret(2.5), nil end
+      function GetShapeshiftForm() return 1 end
+      function GetShapeshiftFormInfo(i) return 132276, true, true, 5487 end
+      MockFire("UPDATE_SHAPESHIFT_FORM")
+      MockFire("UNIT_SPELLCAST_SUCCEEDED", "player", "cast-1", 6603)
+    ''')
+    S = "HogHealsHUD.Swing"
+    assert lua.eval('HH_sw:IsShown()') is True
+    assert lua.eval(f'{S}.state.source') == "toggle" and lua.eval(f'{S}.exact') is False and lua.eval(f'{S}.state.exact') is False
+    assert lua.eval(f'{S}.state.period') == 2.5 and lua.eval(f'{S}.speeds.from') == "form"        # the bear's, not the hidden one
+    # the engage event again mid-swing (a retarget): the phase is kept
+    lua.execute('MockState.time = 101; MockFire("UNIT_SPELLCAST_SUCCEEDED", "player", "cast-2", 6603)')
+    assert lua.eval(f'{S}.state.start') == 100
+    # past the period: it rolls on instead of sitting at 0.0 and hiding two periods later
+    lua.execute('MockState.time = 102.6; HogHealsHUD.Swing.OnUpdate(HH_sw)')
+    assert lua.eval(f'{S}.state.source') == "roll" and lua.eval(f'{S}.state.start') == pytest.approx(102.5)
+    lua.execute('MockState.time = 106; HogHealsHUD.Swing.OnUpdate(HH_sw)')
+    assert lua.eval('HH_sw:IsShown()') is True
+    # out of the form with the speed still hidden: the default again, not the bear's
+    lua.execute('function GetShapeshiftForm() return 0 end; MockFire("UPDATE_SHAPESHIFT_FORM")')
+    assert lua.eval(f'{S}.speeds.mh') == 2.0 and lua.eval(f'{S}.speeds.from') == "default"
+    # cat form by its icon alone (spell id hidden): 1.0
+    lua.execute('function GetShapeshiftForm() return 3 end; function GetShapeshiftFormInfo(i) return 132115, true, true, MockSecret(768) end; MockFire("UPDATE_SHAPESHIFT_FORM")')
+    assert lua.eval(f'{S}.speeds.mh') == 1.0
+    # auto-attack off: gone
+    lua.execute('MockFire("PLAYER_LEAVE_COMBAT")')
+    assert lua.eval('HH_sw:IsShown()') is False
+    assert "from=form" in lua.eval(f'{S}.Probe().speeds') and "cast6603=2" in lua.eval(f'{S}.Probe().seen')
+    assert errors(lua) == []
+
+
+def test_a_ranged_shot_is_still_exact_and_the_mode_ends_with_the_bar(sw):
+    sw.execute('HogHealsHUD.Swing.Start("ranged", "cast", nil, "Auto Shot")')
+    assert sw.eval('HogHealsHUD.Swing.state.exact') is True and sw.eval('HogHealsHUD.Swing.exact') is True
+    sw.execute('HogHealsHUD.Swing.Stop(); MockFire("PLAYER_ENTER_COMBAT")')
+    assert sw.eval('HogHealsHUD.Swing.state.exact') is False                      # no stale "exact" from the last run
+    sw.execute('MockState.time = 102.7; HogHealsHUD.Swing.OnUpdate(HH_sw)')
+    assert sw.eval('HogHealsHUD.Swing.state.source') == "roll"
     assert errors(sw) == []
