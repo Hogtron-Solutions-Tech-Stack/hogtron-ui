@@ -1060,3 +1060,87 @@ def test_hotkey_text_is_short_without_libkeybound():
     a = next(k for k, l in enumerate(src) if l.startswith("function Generic:GetHotkey()"))
     body = chr(10).join(src[a:a + 12])
     assert "if KeyBound then return KeyBound:ToShortKey(key) end" in body and "return lib.hhShortKey(key)" in body
+
+
+# ------------------------------------------------------------------------------------------------ keys follow bar 1's pages
+# In game 2026-11-05 (Sean, a druid): "When I'm in bear form, it is casting the abilities of when I'm not in bear form.
+# The bars should be different when I change forms." Keys bound to ACTIONBUTTON<i> pressed Blizzard's hidden
+# ActionButton<i> (stuck on page 1); bar 1 pages with the form. Now the keys press bar 1's buttons.
+KEYS = """
+BINDINGS = { ACTIONBUTTON1 = { "1" }, ACTIONBUTTON2 = { "2", "SHIFT-2" }, MULTIACTIONBAR1BUTTON1 = { "F1" } }
+"""
+
+
+def boot_keys(lua, extra=""):
+    lua.execute(CLIENT + KEYS + extra)
+    for a in ("HogTronUI", "HogTron_Bars"):
+        lua.load_addon(a)
+    lua.player_login()
+    return lua
+
+
+def test_main_bar_keys_press_bar_1_which_pages_with_forms(lua):
+    boot_keys(lua)
+    got = [(c["key"], c["name"], c["button"]) for c in lua.eval("MockBindings.clicks").values()]
+    assert sorted(got) == [("1", "HogUIBar1Button1", "Keybind"), ("2", "HogUIBar1Button2", "Keybind"),
+                           ("SHIFT-2", "HogUIBar1Button2", "Keybind")]                 # bar 2's F1 stays Blizzard's
+    assert lua.eval("MockBindings.clicks[1].owner == HogUIBar1") is True
+    assert lua.eval("MockBindings.clicks[1].priority") is False
+    assert lua.eval("HogHealsBars.Bars.mainKeys") == 3
+    # bear form = bonus bar 3 = page 9: bar 1's buttons carry it, so the key casts the bear bar
+    assert lua.eval("HogUIBar1Button1._states[9][2]") == 97 and "[bonusbar:3]9" in lua.eval("HogUIBar1.driver")
+    # the same keys again (UPDATE_BINDINGS also fires for our own override bindings): nothing re-set, no loop
+    n = len(lua.eval("MockBindings.clicks"))
+    lua.execute('MockFire("UPDATE_BINDINGS"); MockFire("UPDATE_BINDINGS")')
+    assert len(lua.eval("MockBindings.clicks")) == n
+    # a key bound: cleared and set again, now four keys
+    cleared = len(lua.eval("MockBindings.cleared"))
+    lua.execute('BINDINGS.ACTIONBUTTON3 = { "3" }; MockFire("UPDATE_BINDINGS")')
+    assert lua.eval("HogHealsBars.Bars.mainKeys") == 4 and len(lua.eval("MockBindings.cleared")) == cleared + 1
+    assert lua.eval("HogHeals.errors[1]") is None
+
+
+def test_rebinding_in_combat_waits_for_the_fight_to_end_and_off_gives_the_keys_back(lua):
+    boot_keys(lua)
+    n = len(lua.eval("MockBindings.clicks"))
+    lua.execute('MockState.inCombat = true; BINDINGS.ACTIONBUTTON4 = { "4" }; MockFire("UPDATE_BINDINGS"); MockFire("UPDATE_BINDINGS")')
+    assert len(lua.eval("MockBindings.clicks")) == n                                   # override bindings are protected
+    assert lua.eval("HogHealsBars.Bars.keysQueued") is True
+    lua.execute('MockState.inCombat = false; MockFire("PLAYER_REGEN_ENABLED")')
+    assert lua.eval("HogHealsBars.Bars.mainKeys") == 4
+    # the switch off: our overrides cleared, none set - the keys press Blizzard's buttons again
+    cleared = len(lua.eval("MockBindings.cleared"))
+    lua.execute('HogHeals.OptionsTable().args.Bars.args.mainKeys.set(nil, false)')
+    assert len(lua.eval("MockBindings.cleared")) == cleared + 1
+    assert lua.eval("HogHealsBars.Bars.mainKeys") == 0 and "off" in lua.eval("HogHealsBars.Bars.keysWhy")
+    assert lua.eval("HogHeals.errors[1]") is None
+
+
+def test_this_clients_possess_and_override_pages_have_actions_on_bar_1(lua):
+    # Forever hands out override 33, temp shapeshift 32, vehicle / possess 31 (diag.bars.driver in game 2026-11-05)
+    boot_keys(lua, """
+      function GetOverrideBarIndex() return 33 end
+      function GetVehicleBarIndex() return 31 end
+      function GetTempShapeshiftBarIndex() return 32 end
+    """)
+    assert list(lua.eval("HogHealsBars.Bars.ExtraPages()").values()) == [31, 32, 33]
+    for state, action in ((31, 361), (32, 373), (33, 385)):
+        assert lua.eval(f"HogUIBar1Button1._states[{state}][2]") == action
+    assert lua.eval("HogUIBar1Button12._states[33][2]") == 396
+    assert lua.eval("HogHeals.errors[1]") is None
+
+
+def test_pagediag_says_what_page_bar_1_is_on_and_where_the_keys_go(lua):
+    boot_keys(lua, """
+      function GetBonusBarOffset() return 3 end
+      function GetShapeshiftForm() return 1 end
+      function GetActionBarPage() return 1 end
+      function SecureCmdOptionParse(s) return "9" end
+    """)
+    lua.execute('MockLog.chat = {}; HogHeals:SlashCommand("pagediag")')
+    chat = " | ".join(lua.eval("MockLog.chat").values())
+    assert "form 1, bonus bar 3, driver -> 9" in chat
+    assert "slot 1 = 1" in chat and "overrides 3" in chat
+    p = "HogHeals.db.global.diag.barsPage"
+    assert lua.eval(f"{p}.driverNow") == "9" and "form=1 bonus=3 driver->9" in lua.eval(f"{p}.history[1]")
+    assert lua.eval("HogHeals.errors[1]") is None
