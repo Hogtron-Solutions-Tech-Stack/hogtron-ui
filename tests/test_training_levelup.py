@@ -118,3 +118,36 @@ def test_training_tab_carries_the_card_switches(lua):
     assert args["levelCard"]["type"] == "toggle" and args["nudge"]["type"] == "toggle" and args["cardSeconds"]["type"] == "range"
     assert lua.eval("HogHeals.OptionsTable().args.Training.args.levelCard.get()") is True
     assert lua.eval("HogHeals.db.profile.training.cardSeconds") == 30
+
+
+def test_the_card_is_a_torn_page_in_the_parchment_look(lua):
+    # Sean 2026-11-05, the Level 11 card: "the initial pop-up has not changed" - still the dark Modern strip while the
+    # Training window it opens was on the page
+    lua.execute('HogTronUIDB = { profiles = { Default = { look = { style = "parchment" } } } }')
+    boot(lua)
+    lua.execute("HogHealsTraining.ShowLevelUp(11)")
+    assert lua.eval(f"{CARD}.onPage") is True and lua.eval(f"{CARD}.bg") is None
+    assert lua.eval(f"{CARD}.pageTop._texture").endswith("dialog_page_light") and lua.eval(f"{CARD}.pageBot:IsShown()") is True
+    assert lua.eval(f"{CARD}.pageMid:IsShown()") is False                                # the torn halves meet: no squeezed seam
+    assert lua.eval(f"{CARD}.title._text") == "Level 11"
+    first = lua.eval(f"{CARD}.lines[1]._text")
+    assert first.startswith("Training: open your class trainer once")
+    th = lua.eval("HogHeals.Parchment.Theme()")
+    assert [round(v, 2) for v in list(lua.eval(f"{CARD}.lines[1]._color").values())[:3]] == [round(v, 2) for v in list(th["muted"].values())]
+    assert lua.eval(f"{CARD}.lines[1]._height") == 34                                    # the long memo wraps onto two rows
+    assert lua.eval(f"{CARD}._width") == 540 and lua.eval(f"{CARD}.pageHeight") > 100
+    # the buttons still work, drawn as the page's key caps
+    assert lua.eval(f"{CARD}.train.cap ~= nil") is True and lua.eval(f"{CARD}.next:IsShown()") is True
+    lua.execute(f"{CARD}.train:Click()")
+    assert lua.eval(f"{CARD}:IsShown()") is False and lua.eval("HogTronUITraining:IsShown()") is True
+    assert errors(lua) == []
+
+
+def test_the_modern_look_keeps_the_ink_card(lua):
+    lua.execute('HogTronUIDB = { profiles = { Default = { look = { style = "hogtron" } } } }')
+    boot(lua)
+    lua.execute("HogHealsTraining.ShowLevelUp(11)")
+    assert lua.eval(f"{CARD}.onPage") is False and lua.eval(f"{CARD}.bg ~= nil") is True
+    assert lua.eval(f"{CARD}._width") == 460 and "LEVEL" in lua.eval(f"{CARD}.title._text")
+    assert errors(lua) == []
+

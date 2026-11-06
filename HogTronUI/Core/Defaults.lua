@@ -149,7 +149,7 @@ HH.defaults = {
       -- the world map (M): coordinates strip, scale, fade while moving, border art off (skipped when Leatrix Maps runs)
       -- coords + skin OFF: in game 2026-09-23 this client's "Map & Quest Log" frame already prints the player's
       -- coordinates, and hiding its art left holes ("this looks terrible"). Both stay as opt-ins.
-      worldMap = { enabled = true, coords = false, scale = 1.0, fadeWhileMoving = true, skin = true, alpha = 0.95 },   -- skin on by default (Sean 2026-11-05: "reskin the M minimap" = the world map)
+      worldMap = { enabled = true, coords = false, scale = 1.0, fadeWhileMoving = true, skin = true, alpha = 0.95, flightMasters = true },   -- skin on by default (Sean 2026-11-05: "reskin the M minimap" = the world map)
       buttons = { enabled = true, side = "left", columns = 4, size = 28, alpha = 0.92, hover = false, autoClose = true, hogui = true },   -- hogui = the HogTron UI entries (Core/Tray.lua) first in the drawer   -- addon minimap icons in one drawer; side: left (opens toward the screen) | right (opens down); point/x/y once dragged
     },
     training = { enabled = true, nudge = true, levelCard = true, cardSeconds = 30 },   -- HogTron_Training: learned at the trainer; nudge = chat line on level-up; levelCard = the level-up card (Sean 2026-11-04), gone after cardSeconds
@@ -242,6 +242,7 @@ HH.defaults = {
     },
     bars = {   -- HogTron UI Bars: own action bars on LibActionButton (docs/superpowers/specs/2026-10-02-hogui-bars-design.md)
       enabled = true, grid = true, hotkeySize = 10, hideNames = true, cooldownNumbers = true,
+      mainKeys = true,   -- keys bound to ACTIONBUTTON1-12 press our bar 1 (it pages with forms / stances)
       -- the HogTron UI stack: bars 1-3 bottom centre, 4-5 vertical on the right edge, 6-8 off. ["**"] = every bar's defaults.
       list = {
         ["**"] = { enabled = true, buttons = 12, perRow = 12, padding = 2, scale = 1, alpha = 1, point = "BOTTOM", x = 0, y = 60,

@@ -809,58 +809,8 @@ end
 
 Skin.Register(Part)
 
--- ------------------------------------------------------------------------------------------------ /hh open
--- Opens one of Blizzard's windows by a short name, for checking the skin window by window (Sean 2026-11-05: "open up
--- every single window and look at this and adjust"). Each opener is the client's own toggle; a name this client
--- lacks says so. A check tool: a window opened from addon code can carry taint until the next /reload.
-local function G(n) return rawget(_G, n) end
-local function try(...)
-  for _, f in ipairs({ ... }) do
-    if type(f) == "function" and pcall(f) then return true end
-  end
-  return false
-end
-Part.OPEN = {
-  character = function() return try(function() G("ToggleCharacter")("PaperDollFrame") end) end,
-  reputation = function() return try(function() G("ToggleCharacter")("ReputationFrame") end) end,
-  skills = function() return try(function() G("ToggleCharacter")("SkillFrame") end) end,
-  honor = function() return try(function() G("ToggleCharacter")("HonorFrame") end) end,
-  spellbook = function() return try(function() G("PlayerSpellsUtil").ToggleSpellBookFrame() end, function() G("ToggleSpellBook")("spell") end) end,
-  talents = function() return try(function() G("PlayerSpellsUtil").ToggleClassTalentOrSpecFrame() end, function() G("ToggleTalentFrame")() end) end,
-  questlog = function() return try(function() G("ToggleQuestLog")() end) end,
-  social = function() return try(function() G("ToggleFriendsFrame")() end) end,
-  guild = function() return try(function() G("ToggleGuildFrame")() end, function() G("ToggleCommunitiesFrame")() end) end,
-  map = function() return try(function() G("ToggleWorldMap")() end) end,
-  bags = function() return try(function() G("ToggleAllBags")() end) end,
-  lfg = function() return try(function() G("ToggleLFGParentFrame")() end, function() G("PVEFrame_ToggleFrame")() end) end,
-  pvp = function() return try(function() G("TogglePVPFrame")() end) end,
-  raid = function() return try(function() G("ToggleRaidFrame")() end) end,
-  options = function() return try(function() G("SettingsPanel"):Open() end, function() G("ShowUIPanel")(G("SettingsPanel")) end) end,
-  macros = function() return try(function() G("ShowMacroFrame")() end) end,
-  help = function() return try(function() G("ToggleHelpFrame")() end) end,
-  achievements = function() return try(function() G("ToggleAchievementFrame")() end) end,
-  collections = function() return try(function() G("ToggleCollectionsJournal")() end) end,
-  journal = function() return try(function() G("ToggleEncounterJournal")() end) end,
-  calendar = function() return try(function() G("ToggleCalendar")() end) end,
-  time = function() return try(function() G("TimeManager_Toggle")() end) end,
-  dressup = function() return try(function() G("ShowUIPanel")(G("DressUpFrame")) end) end,
-  chatconfig = function() return try(function() G("ShowUIPanel")(G("ChatConfigFrame")) end) end,
-  close = function() return try(function() G("CloseAllWindows")() end) end,
-}
-
-function Part.Open(what)
-  local key = type(what) == "string" and what:lower():gsub("%s", "") or ""
-  local f = Part.OPEN[key]
-  if not f then
-    local names = {}
-    for k in pairs(Part.OPEN) do names[#names + 1] = k end
-    table.sort(names)
-    HH:Print("open: one of " .. table.concat(names, ", "))
-    return nil
-  end
-  local ok = f()
-  if not ok then HH:Print("open " .. key .. ": this client has no such window (or it is locked: level, combat)") end
-  return ok
-end
-
-HH:RegisterSlash("open", function(rest) Part.Open(rest) end, "open one of Blizzard's windows by name, to check the skin (character, spellbook, questlog, social, guild, map, bags, ...)")
+-- No /hh open. It opened Blizzard's windows by name through their own toggles, from addon code, to check the skin
+-- window by window. In game 2026-11-05 a spell clicked in the spellbook after that popped "HogTron_Skin has been
+-- blocked from an action only available to the Blizzard UI" (ADDON_ACTION_FORBIDDEN: CastSpellBookItem()): a window
+-- our Lua opens - or a load-on-demand Blizzard addon it makes load, like the spellbook - runs tainted until /reload.
+-- Blizzard's windows open from the player's keys or a secure click (the menu bar), never from our Lua.
