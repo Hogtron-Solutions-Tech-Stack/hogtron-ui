@@ -10,6 +10,7 @@ Data.lua
 Tracker.lua
 Menu.lua
 Go.lua
+Chain.lua
 Waypoint.lua
 Minimap.lua
 MapSkin.lua

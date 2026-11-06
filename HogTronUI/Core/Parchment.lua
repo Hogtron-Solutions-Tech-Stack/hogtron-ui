@@ -97,6 +97,9 @@ function Parchment.PlacePage(f, w, h)
   local want = px / Parchment.PAGE_H
   f.pageMid:SetTexCoord(0, 1, cut, cut + want)
   f.pageMid:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -cap + 0.5) f.pageMid:SetSize(w, midH + 1)   -- tucked half a pixel under both caps: no hairline seam at a fractional join
+  -- caps that meet (a short popup): no middle at all - squeezed to a pixel it drew the art's full width, a seam
+  -- that ran past both torn edges (the level-up card's preview, 2026-11-05)
+  if h - 2 * cap < 1 then f.pageMid:Hide() end
   f.pageBot:SetTexCoord(0, 1, 1 - cut, 1)
   f.pageBot:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -(h - cap)) f.pageBot:SetSize(w, cap)
   return 2 * cap

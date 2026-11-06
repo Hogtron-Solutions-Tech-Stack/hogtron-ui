@@ -24,6 +24,12 @@ HH.defaults = {
     -- /hh unlock (Core/EditMode.lua): a grid every gridSize px from the screen's centre, frames snap on letting go
     -- (Sean 2026-10-18: "I want a grid and I want snapping elements"); switched on the edit-mode toolbar
     edit = { grid = true, gridSize = 32, snap = true, gameMenu = true },   -- gameMenu: the Escape menu's Edit Mode button becomes HogTron Edit Mode (Sean 2026-11-03)
+    -- Polestar (Core/Polestar.lua, Sean 2026-11-06 "work alongside it"): while it runs it leads these areas -
+    -- guide = the tracker's top row is its current step; arrow = GO leaves the game's arrow to it, the beam follows it;
+    -- quests = shift-click chains from its quest database, its quest-giver markers on the map (its own switch, yours under Quests > Polestar);
+    -- chores = our quest tooltip lines / junk selling / repair stand aside while its own are on; gear = its reward pick
+    -- marked in our quest dialog, Atlas's "upgrade looted" line stands aside while it offers upgrades itself
+    interop = { polestar = { enabled = true, guide = true, arrow = true, quests = true, chores = true, gear = true } },
     camera = { maxZoom = 2.6 },   -- cameraDistanceMaxZoomFactor at login (Sean 2026-11-04: "zoom out further"); the client caps what it keeps (Classic 2.6); 0 = leave the client's
     minimap = { hide = true },
     wizardDone = false,
@@ -35,7 +41,9 @@ HH.defaults = {
       nameFormat = "full",   -- full = first + last name (WoW: Forever has last names; Sean 2026-10-17) | first
       texture = "Solid", font = "HogTron", fontSize = 12, backgroundAlpha = 0.6,
       -- flanking the bottom centre (ElvUI's arrangement): player left, target right, small frames beside them
-      player = { portrait = false, enabled = true, width = 240, height = 42, powerHeight = 8, showPower = true, showName = true, showLevel = true, point = "BOTTOM", x = -280, y = 230 },
+      player = { portrait = false, enabled = true, width = 240, height = 42, powerHeight = 8, showPower = true, showName = true, showLevel = true, point = "BOTTOM", x = -280, y = 230,
+        -- Sean 2026-11-06: mana under the frame while a druid's form shows rage / energy; combo pips over it (rogue, cat)
+        formMana = { enabled = true, height = 10 }, combo = { enabled = true, height = 7 } },
       target = { portrait = false, enabled = true, width = 240, height = 42, powerHeight = 8, showPower = true, showName = true, showLevel = true, point = "BOTTOM", x = 280, y = 230,
         castbar = true, castbarHeight = 16, targetLine = true, castTarget = true,   -- who it targets, on the frame + its cast bar (2026-10-18)
         debuffs = true, buffs = false, auraSize = 22, aurasPerRow = 8, maxDebuffs = 16, maxBuffs = 16,
@@ -147,7 +155,7 @@ HH.defaults = {
       -- the world map (M): coordinates strip, scale, fade while moving, border art off (skipped when Leatrix Maps runs)
       -- coords + skin OFF: in game 2026-09-23 this client's "Map & Quest Log" frame already prints the player's
       -- coordinates, and hiding its art left holes ("this looks terrible"). Both stay as opt-ins.
-      worldMap = { enabled = true, coords = false, scale = 1.0, fadeWhileMoving = true, skin = true, alpha = 0.95 },   -- skin on by default (Sean 2026-11-05: "reskin the M minimap" = the world map)
+      worldMap = { enabled = true, coords = false, scale = 1.0, fadeWhileMoving = true, skin = true, alpha = 0.95, flightMasters = true },   -- skin on by default (Sean 2026-11-05: "reskin the M minimap" = the world map)
       buttons = { enabled = true, side = "left", columns = 4, size = 28, alpha = 0.92, hover = false, autoClose = true, hogui = true },   -- hogui = the HogTron UI entries (Core/Tray.lua) first in the drawer   -- addon minimap icons in one drawer; side: left (opens toward the screen) | right (opens down); point/x/y once dragged
     },
     training = { enabled = true, nudge = true, levelCard = true, cardSeconds = 30 },   -- HogTron_Training: learned at the trainer; nudge = chat line on level-up; levelCard = the level-up card (Sean 2026-11-04), gone after cardSeconds
@@ -226,7 +234,7 @@ HH.defaults = {
       -- ink frame; fontSize 0 = the strip's font one step larger (Sean 2026-10-05: bigger, wider, cleaner)
       swing = { color = { 0.96, 0.92, 0.86 }, text = true, precision = 1, hideWhenIdle = true, width = 0, spark = true, outline = true, fontSize = 0,
         art = true, glow = true, motes = true, flash = true },   -- the animated look (Sean 2026-10-17); art off = the plain bar in `color`
-      mana = { width = 0, textMode = "cur", showTicks = true, showFsrText = true, fsrColor = { 0.13, 0.83, 0.88 }, tickColor = { 0.96, 0.92, 0.86 } },
+      mana = { inForms = true, width = 0, textMode = "cur", showTicks = true, showFsrText = true, fsrColor = { 0.13, 0.83, 0.88 }, tickColor = { 0.96, 0.92, 0.86 } },
       -- experience bar (XPBar.lua): showXP above is the on / off. questMode "complete" = reward xp of the quests ready
       -- to turn in, "all" = every quest in the log; hideAtMax = gone at the level cap; fontSize 0 = strip font one step smaller
       -- mode "bar" = its own bar, the whole screen width along the top until dragged (point/x/y), width 0 = screen;
@@ -240,6 +248,8 @@ HH.defaults = {
     },
     bars = {   -- HogTron UI Bars: own action bars on LibActionButton (docs/superpowers/specs/2026-10-02-hogui-bars-design.md)
       enabled = true, grid = true, hotkeySize = 10, hideNames = true, cooldownNumbers = true,
+      rangeTint = false,   -- out of range = red keybind text (the game's way); true = the whole icon tinted red (Sean 2026-11-06: "greyed out")
+      mainKeys = true,   -- keys bound to ACTIONBUTTON1-12 press our bar 1 (it pages with forms / stances)
       -- the HogTron UI stack: bars 1-3 bottom centre, 4-5 vertical on the right edge, 6-8 off. ["**"] = every bar's defaults.
       list = {
         ["**"] = { enabled = true, buttons = 12, perRow = 12, padding = 2, scale = 1, alpha = 1, point = "BOTTOM", x = 0, y = 60,

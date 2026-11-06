@@ -269,6 +269,8 @@ local function titleButton(i)
       local ok, shown = pcall(HHQ.Menu and HHQ.Menu.Show or function() return false end, self, q)
       if not (ok and shown) then HHQ.Data.SetWatched(q, not q.watched) Tracker.Schedule() end
     elseif button == "RightButton" or shift then
+      -- shift-click: the quest's chain while Polestar's quest database is there (Chain.lua), else watch / unwatch
+      if button ~= "RightButton" and HHQ.Chain and HHQ.Chain.Show and HHQ.Chain.Show(self, q) then return end
       HHQ.Data.SetWatched(q, not q.watched)
       Tracker.Schedule()
     else
@@ -279,7 +281,8 @@ local function titleButton(i)
     if not GameTooltip or not self.quest then return end
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
     GameTooltip:AddLine(self.quest.title or "?")
-    GameTooltip:AddLine("Left: open in quest log   Right: menu (watch, share, abandon)   Shift-click: " .. (self.quest.watched and "stop watching" or "watch"), 0.6, 0.6, 0.6)
+    local chain = HHQ.Chain and HHQ.Chain.Available and HHQ.Chain.Available() and "its quest chain" or nil
+    GameTooltip:AddLine("Left: open in quest log   Right: menu (watch, share, abandon)   Shift-click: " .. (chain or (self.quest.watched and "stop watching" or "watch")), 0.6, 0.6, 0.6)
     GameTooltip:Show()
   end)
   b:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)

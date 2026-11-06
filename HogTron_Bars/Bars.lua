@@ -66,6 +66,19 @@ function Bars.PageDriver()
   return table.concat(parts, ";")
 end
 
+--- The driver's pages past Bars.PAGES: Forever hands out override 33, temp shapeshift 32, vehicle / possess 31
+-- (diag.bars.driver, in game 2026-11-05) - states bar 1's buttons had no action for, so a possessed mob's bar was empty.
+function Bars.ExtraPages()
+  local out, seen = {}, {}
+  for _, f in ipairs({ "GetOverrideBarIndex", "GetTempShapeshiftBarIndex", "GetVehicleBarIndex" }) do
+    local fn = rawget(_G, f)
+    local v = type(fn) == "function" and call(fn)
+    if type(v) == "number" and v > Bars.PAGES and not seen[v] then seen[v] = true out[#out + 1] = v end
+  end
+  table.sort(out)
+  return out
+end
+
 -- ------------------------------------------------------------------------------------------------ the look
 --- The HogTron UI cell on a lib button: Blizzard's slot art off, ink backdrop + 1 px outline, trimmed icon. The
 -- backdrop and outline double as the grid: shown for an empty slot only when the grid is on.
@@ -217,7 +230,9 @@ function Bars.ButtonConfig(n, i)
     showGrid = grid,
     clickOnDown = HH.SecureClick and HH.SecureClick() == "AnyDown" or false,
     tooltip = "enabled",
-    outOfRangeColoring = "button",
+    -- Sean 2026-11-06, bear form: the whole-icon red tint on Bash / Growl / Maul with the target out of reach read as
+    -- "greyed out". The game's own bars colour the keybind text instead; the icon tint is an opt-in.
+    outOfRangeColoring = d.rangeTint == true and "button" or "hotkey",
     hideElements = { macro = d.hideNames ~= false, hotkey = false, equipped = false, border = true, borderIfEmpty = true },
     cooldownCount = d.cooldownNumbers ~= false,
     text = { hotkey = { font = { size = d.hotkeySize or 10, flags = "OUTLINE" }, color = { CREAM[1], CREAM[2], CREAM[3] },
@@ -280,12 +295,14 @@ end
 
 -- ------------------------------------------------------------------------------------------------ bars
 -- The cyan box you drag after /hh unlock. Sean 2026-10-06: "the action bars need to be movable in the unlock".
--- Its own frame on UIParent at DIALOG strata, laid over the bar: a bar's fade, alpha or child levels can neither hide
--- it nor take the mouse from it. The position is saved under the bar's own key (bar.n): the pet bar used to save
+-- Its own frame on UIParent at the edit chrome's strata (HIGH, HogTronUI/Core/EditMode.lua), laid over the bar: the
+-- bars are MEDIUM, so a bar's fade, alpha or child levels can neither hide it nor take the mouse from it - and every
+-- window (the bar's own settings beside it) is DIALOG, over it (Sean 2026-11-05). The position is saved under the bar's own key (bar.n): the pet bar used to save
 -- under "Pet" while its layout read "pet", so a dragged pet bar jumped back.
 local function dragHandle(bar, label)
   local h = CreateFrame("Frame", nil, UIParent)
-  h:SetFrameStrata("DIALOG")
+  h:SetFrameStrata("HIGH")
+  h:SetFrameLevel(20)   -- EditMode.BOX_LEVEL: its gears / grips (KNOB_LEVEL) sit on it
   h:SetAllPoints(bar)
   h.bg = h:CreateTexture(nil, "BACKGROUND")
   h.bg:SetColorTexture(CYAN[1], CYAN[2], CYAN[3], 0.30)
@@ -331,6 +348,7 @@ function Bars.Create(n)
     Bars.Dress(b)
     if spec.paged then
       for state = 1, Bars.PAGES do b:SetState(state, "action", (state - 1) * 12 + i) end
+      for _, state in ipairs(Bars.ExtraPages()) do b:SetState(state, "action", (state - 1) * 12 + i) end
       b:SetState(0, "action", i)
     else
       b:SetState(0, "action", spec.slot + i - 1)
@@ -682,8 +700,100 @@ function Bars.Build(reason)
     end
     Bars.built = built
     Bars.SetUnlocked(HH.db.profile.locked == false)
+    local okK, errK = pcall(Bars.MainKeys)
+    if not okK then HH:LogError("bars main keys: " .. tostring(errK)) end
   end)
   return built
+end
+
+-- ------------------------------------------------------------------------------------------------ keys follow the pages
+--- The keys bound to Blizzard's main-bar slots (ACTIONBUTTON1-12) press OUR bar 1's buttons. Before, a key still went
+-- to Blizzard's own ActionButton<i> - hidden, off its bar, and stuck on page 1 - while bar 1 showed the page the form
+-- was on. In game 2026-11-05 (Sean, a druid): "When I'm in bear form, it is casting the abilities of when I'm not in
+-- bear form. The bars should be different when I change forms." Bar 1 pages through its own driver (cat 7, prowl 8,
+-- bear 9, moonkin 10, warrior stances, possess). Override bindings: the player's own bindings are untouched, and with
+-- bar 1 off (or bars.mainKeys = false) the keys go back to Blizzard's buttons. Override bindings are protected - out
+-- of combat only, queued once in combat - and only re-set when the keys changed (setting them can fire
+-- UPDATE_BINDINGS, which calls this again). "Keybind" = the lib's own key press (down / up as the client's
+-- ActionButtonUseKeyDown says).
+function Bars.MainKeys()
+  local owner = Bars.bars[1]
+  if not owner or type(SetOverrideBindingClick) ~= "function" or type(ClearOverrideBindings) ~= "function" then
+    Bars.keysWhy = owner and "no override bindings on this client" or "no bar 1"
+    return 0
+  end
+  if type(InCombatLockdown) == "function" and InCombatLockdown() then
+    if not Bars.keysQueued then
+      Bars.keysQueued = true
+      HH:RunOutOfCombat(function() Bars.keysQueued = nil Bars.MainKeys() end)
+    end
+    return nil
+  end
+  local on = cfg().list[1].enabled ~= false and cfg().mainKeys ~= false
+  local want, sig = {}, { on and "on" or "off" }
+  if on and type(GetBindingKey) == "function" then
+    for i = 1, 12 do
+      local b = owner.buttons[i]
+      local name = b and b.GetName and b:GetName()
+      if name then
+        for _, key in ipairs({ GetBindingKey(Bars.SPECS[1].bind:format(i)) }) do
+          if type(key) == "string" and key ~= "" then
+            want[#want + 1] = { key, name }
+            sig[#sig + 1] = key .. "=" .. name
+          end
+        end
+      end
+    end
+  end
+  sig = table.concat(sig, ",")
+  if sig == Bars.keysSig then return Bars.mainKeys or 0 end
+  Bars.keysSig = sig
+  ClearOverrideBindings(owner)
+  for _, kp in ipairs(want) do SetOverrideBindingClick(owner, false, kp[1], kp[2], "Keybind") end
+  Bars.mainKeys = #want
+  Bars.keysWhy = (not on) and "off (bar 1 off, or Bars > main-bar keys follow bar 1 unticked)" or nil
+  return #want
+end
+
+--- What bar 1 is doing right now, for /hh pagediag and diag.barsPage (recorded on every form / page change): the
+-- client's bonus bar, what the driver resolves to, the state the bar and its first button are in, the action that
+-- button would press, and where the first key bound to slot 1 goes.
+function Bars.PageProbe()
+  local bar = Bars.bars[1]
+  local out = { at = date and date("%Y-%m-%d %H:%M:%S") or "?" }
+  out.bonusOffset = tostring(call(rawget(_G, "GetBonusBarOffset")))
+  out.form = tostring(call(rawget(_G, "GetShapeshiftForm")))
+  out.page = tostring(call(rawget(_G, "GetActionBarPage")))
+  if bar then
+    out.driver = bar.driver
+    out.driverNow = bar.driver and tostring(call(rawget(_G, "SecureCmdOptionParse"), bar.driver)) or "none"
+    out.barState = tostring(call(bar.GetAttribute, bar, "state"))
+    local b = bar.buttons[1]
+    if b then
+      out.button1State = tostring(call(b.GetAttribute, b, "state"))
+      out.button1Action = tostring(call(b.GetAttribute, b, "action"))
+    end
+  end
+  local key = type(GetBindingKey) == "function" and GetBindingKey("ACTIONBUTTON1") or nil
+  out.key1 = tostring(key)
+  out.key1Goes = key and tostring(call(rawget(_G, "GetBindingAction"), key, true)) or "unbound"
+  out.overrides = tostring(Bars.mainKeys or 0) .. (Bars.keysWhy and (" - " .. Bars.keysWhy) or "")
+  return out
+end
+
+function Bars.SavePage(event)
+  local g = HH.db and HH.db.global
+  if not g then return nil end
+  g.diag = g.diag or {}
+  local p = Bars.PageProbe()
+  p.event = event
+  local hist = (type(g.diag.barsPage) == "table" and g.diag.barsPage.history) or {}
+  hist[#hist + 1] = ("%s %s form=%s bonus=%s driver->%s bar=%s button1=%s action=%s"):format(p.at, tostring(event), p.form,
+    p.bonusOffset, tostring(p.driverNow), tostring(p.barState), tostring(p.button1State), tostring(p.button1Action))
+  while #hist > 12 do table.remove(hist, 1) end
+  p.history = hist
+  g.diag.barsPage = p
+  return p
 end
 
 function Bars.SetUnlocked(unlocked)
@@ -796,8 +906,15 @@ function Module:OnEnable()
   local ev = CreateFrame("Frame")
   pcall(ev.RegisterEvent, ev, "PLAYER_ENTERING_WORLD")
   pcall(ev.RegisterEvent, ev, "UPDATE_BINDINGS")
+  for _, e in ipairs({ "UPDATE_BONUS_ACTIONBAR", "UPDATE_SHAPESHIFT_FORM", "ACTIONBAR_PAGE_CHANGED" }) do pcall(ev.RegisterEvent, ev, e) end
   ev:SetScript("OnEvent", function(_, e)
-    if e == "PLAYER_ENTERING_WORLD" and not Bars.unavailable then Bars.Apply("enter") end
+    if Bars.unavailable then return end
+    if e == "PLAYER_ENTERING_WORLD" then Bars.Apply("enter")
+    elseif e == "UPDATE_BINDINGS" then HH:SafeCall(Bars, "MainKeys")
+    else
+      -- a beat later: the driver's state change lands after the event
+      if C_Timer and C_Timer.After then C_Timer.After(0.2, function() pcall(Bars.SavePage, e) end) else pcall(Bars.SavePage, e) end
+    end
   end)
   Module.events = ev
 end
@@ -838,6 +955,14 @@ function Bars.LayoutLines()
   end
   return out
 end
+
+HH:RegisterSlash("pagediag", function()
+  local p = Bars.SavePage("slash")
+  if not p then return end
+  HH:Print(("bar 1 page: form %s, bonus bar %s, driver -> %s, bar state %s, button 1 state %s action %s"):format(p.form, p.bonusOffset,
+    tostring(p.driverNow), tostring(p.barState), tostring(p.button1State), tostring(p.button1Action)))
+  HH:Print(("keys: slot 1 = %s -> %s | overrides %s"):format(p.key1, p.key1Goes, p.overrides))
+end, "what page bar 1 is on and where your main-bar keys go (shift into a form first)")
 
 HH:RegisterSlash("barsdiag", function()
   for _, l in ipairs(Bars.LayoutLines()) do HH:Print("  " .. l) end

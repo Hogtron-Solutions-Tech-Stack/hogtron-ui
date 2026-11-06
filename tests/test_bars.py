@@ -307,6 +307,52 @@ def test_stance_bar_forms_spells_and_layout(xbars):
     assert errors(xbars) == []
 
 
+SPY = """
+PROTECTED = {}
+local function spy(f, label)
+  for _, m in ipairs({ "Show", "Hide", "SetSize", "SetScale", "ClearAllPoints", "SetPoint", "SetAttribute" }) do
+    local orig = f[m]
+    f[m] = function(self, ...)
+      if InCombatLockdown() then PROTECTED[#PROTECTED + 1] = label .. ":" .. m end
+      return orig(self, ...)
+    end
+  end
+end
+spy(HogUIStanceBar, "bar")
+for i, b in ipairs(HogUIStanceBar.buttons) do spy(b, "button" .. i) end
+"""
+
+
+def test_shifting_in_combat_never_touches_the_secure_stance_bar(xbars):
+    # in game 2026-11-05 (Sean, a druid in a fight): "ADDON_ACTION_BLOCKED: HogTron_Bars called HogUIStanceBar:Show()
+    # (in combat)" - every UPDATE_SHAPESHIFT_* re-showed the secure bar
+    b = "HogUIStanceBar.buttons"
+    xbars.execute(SPY + "MockState.inCombat = true")
+    xbars.execute('FORMS[1][2], FORMS[2][2] = false, true; MockFire("UPDATE_SHAPESHIFT_FORM")')
+    assert list(xbars.eval("PROTECTED").values()) == []
+    assert xbars.eval(f"{b}[2]._last.SetChecked[1]") is True                     # the lit form still follows the shift
+    # a form learned mid-fight: counted now, laid out when the fight ends (once, however many events came)
+    xbars.execute('FORMS[4] = { "Interface/Icons/Ability_Racial_BearForm", false, true, 5487 }')
+    xbars.execute('MockFire("UPDATE_SHAPESHIFT_FORMS"); MockFire("UPDATE_SHAPESHIFT_FORM"); MockFire("UPDATE_SHAPESHIFT_USABLE")')
+    assert list(xbars.eval("PROTECTED").values()) == []
+    assert xbars.eval("HogHealsBars.Extra.formCount") == 4 and xbars.eval(f"{b}[4]:IsShown()") is False
+    assert xbars.eval("HogHealsBars.Extra.stanceQueued") is True                  # queued once, not per event
+    xbars.execute('MockState.inCombat = false; MockFire("PLAYER_REGEN_ENABLED")')
+    assert xbars.eval(f"{b}[4]:IsShown()") is True and xbars.eval("HogUIStanceBar._width") == 4 * 36 + 3 * 2
+    assert xbars.eval(f'{b}[4]:GetAttribute("spell")') == 5487
+    assert errors(xbars) == []
+
+
+def test_no_forms_keeps_the_stance_bar_hidden_under_a_visibility_driver(xbars):
+    # "show in combat" would bring an empty bar back on the next pull without the hide; prefix
+    xbars.execute('HogHeals.db.profile.bars.list.stance.visibility = "nocombat"; FORMS = {}; HogHealsBars.Extra.UpdateStance()')
+    assert xbars.eval("HogUIStanceBar:IsShown()") is False
+    assert xbars.eval("HogUIStanceBar.visDriver").startswith("hide;")
+    xbars.execute('FORMS = { { "Interface/Icons/Ability_Racial_BearForm", false, true, 5487 } }; HogHealsBars.Extra.UpdateStance()')
+    assert xbars.eval("HogUIStanceBar.visDriver") == "[nocombat]hide;show"
+    assert errors(xbars) == []
+
+
 def test_pet_flags_as_this_client_sends_them_1_and_nil(xbars):
     # in game 2026-10-06: Attack / Follow / Move To came up blank - the client says isToken = 1, not true
     xbars.execute("""
@@ -407,7 +453,10 @@ def test_unlock_shows_a_top_layer_box_per_bar_and_dragging_saves_under_the_layou
     xbars.execute('HogHealsBars.Bars.bars[2]:SetAlpha(0.3); HogHeals:SlashCommand("unlock")')
     h2 = 'HogHealsBars.Bars.bars[2].handle'
     assert xbars.eval(f'{h2}:IsShown()') is True and xbars.eval(f'{h2}:GetParent() == UIParent') is True
-    assert xbars.eval(f'{h2}._last.SetFrameStrata[1]') == "DIALOG"
+    # over the (MEDIUM) bar and its fade, under every (DIALOG) window - Sean 2026-11-05: the gears and boxes "need to be
+    # hidden behind the UI" (tests/test_edit_mode.py pins the order against the settings window)
+    assert xbars.eval(f'{h2}._last.SetFrameStrata[1]') == "HIGH"
+    assert xbars.eval('HogHealsBars.Bars.bars[2]._last.SetFrameStrata[1]') == "MEDIUM"
     assert xbars.eval(f'{h2}.label._text') == "Action bar 2  -  drag, or click for settings"
     assert xbars.eval('HogHealsBars.Bars.bars[2]._alpha') == 1                                   # fully visible while unlocked
     assert any("drag the cyan boxes" in m for m in xbars.eval("MockLog.chat").values())
@@ -585,6 +634,27 @@ def test_a_stale_grey_is_read_again(bars):
     assert list(bars.eval("B.icon._color").values())[:3] == [0.5, 0.5, 1]
     bars.execute('USE, NOMANA = false, false; MockFire("PLAYER_ENTERING_WORLD"); MockAdvance(0.4)')
     assert list(bars.eval("B.icon._color").values())[:3] == [0.4, 0.4, 0.4]
+
+
+def test_rage_coming_in_clears_the_tint_without_the_clients_usable_event(bars):
+    # Sean 2026-11-05, bear form: "things are getting greyed out for some reason" - tinted at 0 rage (right), still
+    # tinted with rage in the bar (wrong) when the client sends no ACTIONBAR_UPDATE_USABLE for the change
+    bars.execute(STATE + 'USE, NOMANA = false, true; MockFire("UPDATE_SHAPESHIFT_FORM"); MockAdvance(0.4)')   # pass + its re-check
+    assert list(bars.eval("B.icon._color").values())[:3] == [0.5, 0.5, 1]                 # no rage: the power tint
+    passes = bars.eval("HogHealsBars.Extra.refreshes")
+    bars.execute('USE, NOMANA = true, false')
+    for _ in range(8):                                                                     # rage ticking in a fight
+        bars.execute('MockFire("UNIT_POWER_UPDATE", "player", "RAGE")')
+    assert bars.eval("HogHealsBars.Extra.refreshes") == passes                             # throttled: nothing yet
+    bars.execute("MockAdvance(0.25)")
+    assert list(bars.eval("B.icon._color").values())[:3] == [1, 1, 1]                      # rage in: full colour
+    assert bars.eval("HogHealsBars.Extra.refreshes") == passes + 1                         # one pass for eight ticks
+    assert bars.eval("HogHealsBars.Extra.seen.UNIT_POWER_UPDATE") == 8
+    assert bars.eval("HogHealsBars.Extra.seen.UPDATE_SHAPESHIFT_FORM") == 1
+    # the live diag carries the events and bar 1's buttons for the next /reload
+    live = bars.eval("HogHealsBars.Extra.SaveLive()")
+    assert "UNIT_POWER_UPDATE=8" in live["events"] and "bar1 #1 action 7" in live["bar1"]
+    assert errors(bars) == []
 
 
 def test_secret_state_is_left_alone_and_the_diag_counts(bars):
@@ -1093,4 +1163,99 @@ def test_a_form_change_records_bar_1_per_form_with_the_spell_behind_each_slot(ba
     bars.execute('wipe(MockLog.chat); HogHeals:SlashCommand("btndiag")')
     chat = chr(10).join(bars.eval("MockLog.chat").values())
     assert "form=0.0 bonus=0.0" in chat and "forms recorded for the next /reload: form 0 at" in chat and "form 1 at" in chat
+# ------------------------------------------------------------------------------------------------ keys follow bar 1's pages
+# In game 2026-11-05 (Sean, a druid): "When I'm in bear form, it is casting the abilities of when I'm not in bear form.
+# The bars should be different when I change forms." Keys bound to ACTIONBUTTON<i> pressed Blizzard's hidden
+# ActionButton<i> (stuck on page 1); bar 1 pages with the form. Now the keys press bar 1's buttons.
+KEYS = """
+BINDINGS = { ACTIONBUTTON1 = { "1" }, ACTIONBUTTON2 = { "2", "SHIFT-2" }, MULTIACTIONBAR1BUTTON1 = { "F1" } }
+"""
+
+
+def boot_keys(lua, extra=""):
+    lua.execute(CLIENT + KEYS + extra)
+    for a in ("HogTronUI", "HogTron_Bars"):
+        lua.load_addon(a)
+    lua.player_login()
+    return lua
+
+
+def test_main_bar_keys_press_bar_1_which_pages_with_forms(lua):
+    boot_keys(lua)
+    got = [(c["key"], c["name"], c["button"]) for c in lua.eval("MockBindings.clicks").values()]
+    assert sorted(got) == [("1", "HogUIBar1Button1", "Keybind"), ("2", "HogUIBar1Button2", "Keybind"),
+                           ("SHIFT-2", "HogUIBar1Button2", "Keybind")]                 # bar 2's F1 stays Blizzard's
+    assert lua.eval("MockBindings.clicks[1].owner == HogUIBar1") is True
+    assert lua.eval("MockBindings.clicks[1].priority") is False
+    assert lua.eval("HogHealsBars.Bars.mainKeys") == 3
+    # bear form = bonus bar 3 = page 9: bar 1's buttons carry it, so the key casts the bear bar
+    assert lua.eval("HogUIBar1Button1._states[9][2]") == 97 and "[bonusbar:3]9" in lua.eval("HogUIBar1.driver")
+    # the same keys again (UPDATE_BINDINGS also fires for our own override bindings): nothing re-set, no loop
+    n = len(lua.eval("MockBindings.clicks"))
+    lua.execute('MockFire("UPDATE_BINDINGS"); MockFire("UPDATE_BINDINGS")')
+    assert len(lua.eval("MockBindings.clicks")) == n
+    # a key bound: cleared and set again, now four keys
+    cleared = len(lua.eval("MockBindings.cleared"))
+    lua.execute('BINDINGS.ACTIONBUTTON3 = { "3" }; MockFire("UPDATE_BINDINGS")')
+    assert lua.eval("HogHealsBars.Bars.mainKeys") == 4 and len(lua.eval("MockBindings.cleared")) == cleared + 1
+    assert lua.eval("HogHeals.errors[1]") is None
+
+
+def test_rebinding_in_combat_waits_for_the_fight_to_end_and_off_gives_the_keys_back(lua):
+    boot_keys(lua)
+    n = len(lua.eval("MockBindings.clicks"))
+    lua.execute('MockState.inCombat = true; BINDINGS.ACTIONBUTTON4 = { "4" }; MockFire("UPDATE_BINDINGS"); MockFire("UPDATE_BINDINGS")')
+    assert len(lua.eval("MockBindings.clicks")) == n                                   # override bindings are protected
+    assert lua.eval("HogHealsBars.Bars.keysQueued") is True
+    lua.execute('MockState.inCombat = false; MockFire("PLAYER_REGEN_ENABLED")')
+    assert lua.eval("HogHealsBars.Bars.mainKeys") == 4
+    # the switch off: our overrides cleared, none set - the keys press Blizzard's buttons again
+    cleared = len(lua.eval("MockBindings.cleared"))
+    lua.execute('HogHeals.OptionsTable().args.Bars.args.mainKeys.set(nil, false)')
+    assert len(lua.eval("MockBindings.cleared")) == cleared + 1
+    assert lua.eval("HogHealsBars.Bars.mainKeys") == 0 and "off" in lua.eval("HogHealsBars.Bars.keysWhy")
+    assert lua.eval("HogHeals.errors[1]") is None
+
+
+def test_this_clients_possess_and_override_pages_have_actions_on_bar_1(lua):
+    # Forever hands out override 33, temp shapeshift 32, vehicle / possess 31 (diag.bars.driver in game 2026-11-05)
+    boot_keys(lua, """
+      function GetOverrideBarIndex() return 33 end
+      function GetVehicleBarIndex() return 31 end
+      function GetTempShapeshiftBarIndex() return 32 end
+    """)
+    assert list(lua.eval("HogHealsBars.Bars.ExtraPages()").values()) == [31, 32, 33]
+    for state, action in ((31, 361), (32, 373), (33, 385)):
+        assert lua.eval(f"HogUIBar1Button1._states[{state}][2]") == action
+    assert lua.eval("HogUIBar1Button12._states[33][2]") == 396
+    assert lua.eval("HogHeals.errors[1]") is None
+
+
+def test_pagediag_says_what_page_bar_1_is_on_and_where_the_keys_go(lua):
+    boot_keys(lua, """
+      function GetBonusBarOffset() return 3 end
+      function GetShapeshiftForm() return 1 end
+      function GetActionBarPage() return 1 end
+      function SecureCmdOptionParse(s) return "9" end
+    """)
+    lua.execute('MockLog.chat = {}; HogHeals:SlashCommand("pagediag")')
+    chat = " | ".join(lua.eval("MockLog.chat").values())
+    assert "form 1, bonus bar 3, driver -> 9" in chat
+    assert "slot 1 = 1" in chat and "overrides 3" in chat
+    p = "HogHeals.db.global.diag.barsPage"
+    assert lua.eval(f"{p}.driverNow") == "9" and "form=1 bonus=3 driver->9" in lua.eval(f"{p}.history[1]")
+    assert lua.eval("HogHeals.errors[1]") is None
+
+
+# ---------------------------------------------------------------- 2026-11-06: "bear skills on Q-E-R greyed out"
+def test_out_of_range_turns_the_keybind_red_not_the_whole_icon_unless_asked(bars):
+    # diag.barsForm in bear form: Bash / Growl / Moonfire / Wrath carried the lib's range tint (icon red 0.8) with the
+    # target out of reach - read as "greyed out". The game's own bars colour the keybind text instead.
+    assert bars.eval('HogHealsBars.Bars.ButtonConfig(1, 7).outOfRangeColoring') == "hotkey"
+    assert bars.eval('HogHeals.defaults.profile.bars.rangeTint') is False
+    args = bars.eval('HogHeals.OptionsTable().args.Bars.args')
+    assert args["rangeTint"]["name"].startswith("Tint the whole icon red")
+    bars.execute('HogHeals.OptionsTable().args.Bars.args.rangeTint.set(nil, true)')
+    assert bars.eval('HogHealsBars.Bars.ButtonConfig(1, 7).outOfRangeColoring') == "button"
+    assert bars.eval('HogHealsBars.Bars.lastApply') == "options"                      # re-applied live
     assert errors(bars) == []

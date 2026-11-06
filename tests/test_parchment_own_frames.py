@@ -124,6 +124,27 @@ def test_every_glyph_has_an_ink_stamp_and_the_look_picks_it(page):
     assert page.eval("HogHeals.Look.IconStyle()") == "glyph"
 
 
+def test_every_menu_bar_and_drawer_icon_has_a_painted_page_twin(page):
+    # Sean 2026-11-05, on the ink stamps: "These icons look terrible compared to the ones that we have. Can we upgrade
+    # these?" -> OpenArt parchment miniatures (dev/make_page_icons.py). Forever's Legacy button and the catch-all
+    # icon had no _page file at all, so the Parchment look fell back to the navy arcane-tech art for them.
+    Image = pytest.importorskip("PIL.Image")                                     # CI has lupa + pytest only
+    ids = set(page.eval("HogHealsSkin.Micro.ICONS").values())
+    ids |= {page.eval("HogHealsSkin.Micro.ICON_OTHER"), page.eval("HogHealsSkin.Micro.BAG_CELL.icon")}
+    ids |= {pi[2] for pi in page.eval("HogHealsSkin.Micro.ICON_PATTERNS").values()}
+    ids |= {e["icon"] for e in page.eval("HogHeals.Tray.ENTRIES").values()}
+    assert {"micro_legacy", "micro_other", "micro_bags", "tray_all"} <= ids
+    for i in sorted(ids):
+        f = MEDIA / f"{i}_page.tga"
+        assert f.exists(), i
+        img = Image.open(f)
+        assert img.size == (128, 128) and img.mode == "RGBA", i
+        assert img.getpixel((2, 2))[3] == 0 and img.getpixel((64, 64))[3] == 255, i     # a round icon: clear corners
+    page.execute("T = UIParent:CreateTexture()")
+    assert list(page.eval("{ HogHeals.Look.Icon(T, 'micro_legacy') }").values()) == [True, True]
+    assert page.eval("T._texture").endswith("micro_legacy_page")
+
+
 def test_a_bag_is_on_paper_with_an_ink_title(page):
     page.execute('''
       B = CreateFrame("Frame", "ContainerFrame1", UIParent) B:SetSize(200, 240)

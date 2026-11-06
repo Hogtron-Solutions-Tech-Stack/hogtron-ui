@@ -339,8 +339,33 @@ function Extra.UpdateStance()
     b:UpdateHotkeys()
     Bars.UpdateCell(b)
   end
-  if n == 0 then bar:Hide() elseif cfg().list.stance.enabled ~= false then bar:Show() end
+  if n ~= bar.placedForms then Extra.PlaceStance() end
   return n
+end
+
+--- The bar sized and shown for the forms known now: only when that count changed, and never in combat. The bar is a
+-- secure frame, so ANY Show / Hide / SetSize on it in combat is ADDON_ACTION_BLOCKED - in game 2026-11-05 (Sean, a
+-- druid shifting in a fight): "HogTron_Bars called HogUIStanceBar:Show() (in combat)", once per UPDATE_SHAPESHIFT_*.
+-- A form learned in combat is placed (and its spell set) when the fight ends. No forms: "hide;" ahead of the
+-- visibility driver, so a driver ("show in combat") cannot bring an empty bar back.
+function Extra.PlaceStance()
+  local bar = Bars.bars.stance
+  if not bar then return false end
+  if type(InCombatLockdown) == "function" and InCombatLockdown() then
+    if not Extra.stanceQueued then
+      Extra.stanceQueued = true
+      -- the whole update again: the new form's spell attribute could not be set in combat either
+      HH:RunOutOfCombat(function() Extra.stanceQueued = nil Extra.UpdateStance() end)
+    end
+    return false
+  end
+  local n = Extra.formCount or 0
+  bar.placedForms = n
+  bar.visPrefix = n == 0 and "hide;" or nil
+  if cfg().list.stance.enabled == false then bar:Hide() return true end
+  Bars.Layout(bar)                                  -- the new count's buttons, and the visibility driver with its prefix
+  if n == 0 then bar:Hide() elseif not bar.visDriver then bar:Show() end
+  return true
 end
 
 -- ------------------------------------------------------------------------------------------------ build / events
@@ -401,9 +426,18 @@ end
 Extra.REFRESH_EVENTS = { "ACTIONBAR_UPDATE_STATE", "ACTIONBAR_UPDATE_USABLE", "SPELL_UPDATE_USABLE", "CURRENT_SPELL_CAST_CHANGED",
   "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_FAILED", "UNIT_SPELLCAST_INTERRUPTED", "UNIT_SPELLCAST_SUCCEEDED",
   "UNIT_SPELLCAST_CHANNEL_STOP", "START_AUTOREPEAT_SPELL", "STOP_AUTOREPEAT_SPELL", "BAG_UPDATE_DELAYED",
-  "PLAYER_ENTERING_WORLD", "PLAYER_REGEN_ENABLED" }
+  "PLAYER_ENTERING_WORLD", "PLAYER_REGEN_ENABLED",
+  -- Sean 2026-11-05, bear form (screenshot: Maul / Growl / Demoralizing Roar tinted, Enrage bright): "things are
+  -- getting greyed out for some reason". Usable-or-not follows your rage / mana, and neither the lib nor this pass
+  -- listened for it: the lib waits for ACTIONBAR_UPDATE_USABLE, which this client does not send for every change, so
+  -- an ability tinted at 0 rage could stay tinted with rage in the bar. Power changes (throttled, below) and the form /
+  -- page changes that swap a whole bar's spells read every button again.
+  "UNIT_POWER_UPDATE", "UNIT_DISPLAYPOWER", "UPDATE_SHAPESHIFT_FORM", "UPDATE_BONUS_ACTIONBAR", "ACTIONBAR_PAGE_CHANGED" }
 Extra.UNIT_EVENTS = { UNIT_SPELLCAST_STOP = true, UNIT_SPELLCAST_FAILED = true, UNIT_SPELLCAST_INTERRUPTED = true,
-  UNIT_SPELLCAST_SUCCEEDED = true, UNIT_SPELLCAST_CHANNEL_STOP = true }
+  UNIT_SPELLCAST_SUCCEEDED = true, UNIT_SPELLCAST_CHANNEL_STOP = true, UNIT_POWER_UPDATE = true, UNIT_DISPLAYPOWER = true }
+-- rage / energy / mana tick often in a fight: one pass at most every POWER_EVERY seconds, always AFTER the last change
+-- of the window (a trailing pass), so the colour ends on the latest answer
+Extra.POWER_EVERY = 0.2
 Extra.seen, Extra.refreshes, Extra.refused = {}, 0, {}
 
 local function flag(v)
@@ -471,6 +505,13 @@ function Extra.StartRefresh()
   end
   f:SetScript("OnEvent", function(_, e)
     Extra.seen[e] = (Extra.seen[e] or 0) + 1
+    if e == "UNIT_POWER_UPDATE" then
+      if Extra.powerPending then return end
+      Extra.powerPending = true
+      local function run() Extra.powerPending = false Extra.RefreshAll() end
+      if type(C_Timer) == "table" and C_Timer.After then C_Timer.After(Extra.POWER_EVERY, run) else run() end
+      return
+    end
     Extra.QueueRefresh()
   end)
   Extra.refreshFrame = f
@@ -574,6 +615,11 @@ function Extra.SaveLive()
   g.diag.barsLive.hasActionHidden = lab.hhHasActionHidden or 0
   g.diag.barsLive.shadowed = Bars.ShadowedText and Bars.ShadowedText() or "?"
   g.diag.barsLive.libPatched = type(lab.hhHasAction) == "function"   -- our patched lib copy is the one running
+  -- which state events this client really sends (does ACTIONBAR_UPDATE_USABLE come with a rage change?) and bar 1's
+  -- buttons as they stand: action, usable, no-power, icon colour - the next /reload carries a form's answer
+  local okB, btn = pcall(Extra.BtnDiagLines)
+  g.diag.barsLive.events = okB and btn[1] or ("diag error: " .. tostring(btn))
+  g.diag.barsLive.bar1 = okB and table.concat(btn, " || ", 3) or nil
   g.diag.barsLive.hasActionMissing = lab.hhHasActionMissing and true or false
   return g.diag.barsLive
 end

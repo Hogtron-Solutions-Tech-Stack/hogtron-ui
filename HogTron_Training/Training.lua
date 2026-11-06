@@ -49,12 +49,39 @@ end
 
 -- ------------------------------------------------------------------------------------------------ learn at the trainer
 local FILTERS = { "available", "unavailable", "used" }
+T.CATEGORIES = { available = true, unavailable = true, used = true, header = true }
+
+--- One trainer service, whichever layout this client's GetTrainerServiceInfo returns: Classic's
+-- (name, rank / subtext, category, expanded) or the modern trainer window's (name, category, icon, required level).
+-- In game 2026-11-05 (Sean, druid, "I've opened up my class trainer multiple times, and this is not updated"):
+-- diag training.DRUID visits 0, spells {} - every read found no category where the Classic layout keeps it, so
+-- nothing was recorded and no visit counted. The category is now found by its value wherever it sits.
+-- Returns { name, rank, category, icon, level } or nil.
+function T.ServiceInfo(i)
+  local info = G("GetTrainerServiceInfo")
+  if type(info) ~= "function" then return nil end
+  local function pack(ok, ...) if ok then return { n = select("#", ...), ... } end end
+  local r = pack(pcall(info, i))
+  if not r then return nil end
+  local name = str(r[1])
+  if not name then return nil end
+  local out = { name = name }
+  for k = 2, math.min(r.n, 5) do
+    local v = r[k]
+    local s = str(v)
+    if s and T.CATEGORIES[s] and not out.category then out.category = s
+    elseif s and s ~= "" and not out.rank and not out.category then out.rank = s       -- the subtext ahead of the category
+    elseif num(v) and out.category and k == 3 then out.icon = v                       -- modern: icon after the category
+    elseif num(v) and out.category and k == 4 then out.level = v end                   -- modern: required level
+  end
+  return out
+end
 
 --- Read every service the open trainer window knows. Returns how many spells were recorded, or nil + why.
 function T.Learn()
   local n = call(G("GetNumTrainerServices"))
-  if not num(n) then return nil, "no trainer window" end
-  if call(G("IsTradeskillTrainer")) then return nil, "profession trainer" end
+  if not num(n) then T.SaveRead({ why = "no trainer window (GetNumTrainerServices = " .. tostring(n) .. ")" }) return nil, "no trainer window" end
+  if call(G("IsTradeskillTrainer")) then T.SaveRead({ n = n, why = "profession trainer" }) return nil, "profession trainer" end
   local info, cost, lvl, icon = G("GetTrainerServiceInfo"), G("GetTrainerServiceCost"), G("GetTrainerServiceLevelReq"), G("GetTrainerServiceIcon")
   if type(info) ~= "function" then return nil, "no GetTrainerServiceInfo on this client" end
   -- show everything for the read, then put the player's filters back
@@ -69,17 +96,20 @@ function T.Learn()
   end
   local db = T.db()
   local recorded = 0
+  local sample = {}
   for i = 1, n do
-    local name, rank, category = call(info, i)
-    name, rank, category = str(name), str(rank), str(category)
-    if name and category and category ~= "header" then
-      local key = name .. "|" .. (rank or "")
+    local s = T.ServiceInfo(i)
+    if i <= 3 then sample[#sample + 1] = T.RawService(i) end
+    if s and s.category and s.category ~= "header" then
+      local l = num(call(lvl, i)) or s.level or 0
+      -- no rank on this client: the level keeps two ranks of one spell apart (Healing Touch at 14 and at 20)
+      local key = s.name .. "|" .. (s.rank or ("L" .. l))
       local c = num(call(cost, i)) or 0
-      local l = num(call(lvl, i)) or 0
-      db.spells[key] = { name = name, rank = rank, level = l, cost = c, icon = call(icon, i), known = category == "used", seen = today() }
+      db.spells[key] = { name = s.name, rank = s.rank, level = l, cost = c, icon = call(icon, i) or s.icon, known = s.category == "used", seen = today() }
       recorded = recorded + 1
     end
   end
+  T.SaveRead({ n = n, recorded = recorded, sample = table.concat(sample, " || ") })
   if type(setF) == "function" then
     for _, k in ipairs(FILTERS) do if before[k] ~= nil then pcall(setF, k, before[k] and true or false) end end
   end
@@ -88,6 +118,41 @@ function T.Learn()
   db.lastSeen = today()
   db.trainer = str(call(UnitName, "npc")) or db.trainer
   return recorded
+end
+
+--- What GetTrainerServiceInfo(i) really returned, as "type:value" per return (for diag.trainerRead).
+function T.RawService(i)
+  local info = G("GetTrainerServiceInfo")
+  if type(info) ~= "function" then return "no GetTrainerServiceInfo" end
+  local function pack(ok, ...) return ok, { n = select("#", ...), ... } end
+  local ok, r = pack(pcall(info, i))
+  if not ok then return ("%d: error %s"):format(i, tostring(r[1])) end
+  local parts = {}
+  for k = 1, math.min(r.n, 6) do
+    local v = r[k]
+    parts[#parts + 1] = isSecret(v) and "secret" or (type(v) .. ":" .. tostring(v):sub(1, 30))
+  end
+  return ("%d: %s"):format(i, table.concat(parts, ", "))
+end
+
+--- The last trainer read, for /hh traindiag (saved with the next /reload or logout): what the window held, what was
+-- recorded, the first services exactly as the client returned them, and which trainer functions exist.
+function T.SaveRead(r)
+  local g = HH.db and HH.db.global
+  if not g then return nil end
+  g.diag = g.diag or {}
+  local fns = {}
+  for _, f in ipairs({ "GetNumTrainerServices", "GetTrainerServiceInfo", "GetTrainerServiceCost", "GetTrainerServiceLevelReq",
+    "GetTrainerServiceIcon", "SetTrainerServiceTypeFilter", "GetTrainerServiceTypeFilter", "IsTradeskillTrainer" }) do
+    if type(G(f)) ~= "function" then fns[#fns + 1] = f end
+  end
+  r.at = (type(date) == "function" and date("%Y-%m-%d %H:%M:%S")) or "?"
+  r.class = T.Class()
+  r.trainer = str(call(UnitName, "npc"))
+  r.missing = #fns > 0 and table.concat(fns, ",") or "none"
+  r.events = ("show %d, update %d, echoes %d, reads %d"):format(T.shows or 0, T.updates or 0, T.echoes or 0, T.reads or 0)
+  g.diag.trainerRead = r
+  return r
 end
 
 -- ------------------------------------------------------------------------------------------------ the plan
@@ -458,9 +523,11 @@ function Module:OnEnable()
   pcall(ev.RegisterEvent, ev, "TRAINER_CLOSED")
   ev:SetScript("OnEvent", function(_, e, arg1)
     if e == "TRAINER_SHOW" then
+      T.shows = (T.shows or 0) + 1
       T.reads, T.quietUntil, T.capped = 0, 0, false
       T.Schedule("show")
     elseif e == "TRAINER_UPDATE" then
+      T.updates = (T.updates or 0) + 1
       -- our own read flips the filters and the client answers each flip with TRAINER_UPDATE: never read on that echo
       if T.learning or T.Now() < (T.quietUntil or 0) then T.echoes = (T.echoes or 0) + 1 return end
       T.Schedule("update")
@@ -484,6 +551,16 @@ function Module:OnEnable()
 end
 
 HH:RegisterModule("Training", Module)
+
+HH:RegisterSlash("traindiag", function()
+  local g = HH.db and HH.db.global
+  local r = g and g.diag and g.diag.trainerRead
+  if type(r) ~= "table" then HH:Print("traindiag: no trainer read yet this session - talk to your class trainer and open its list.") return end
+  HH:Print(("traindiag %s: %s at %s - services %s, recorded %s%s"):format(tostring(r.class), tostring(r.trainer), tostring(r.at),
+    tostring(r.n), tostring(r.recorded), r.why and (" (" .. r.why .. ")") or ""))
+  HH:Print(("events: %s | missing: %s"):format(tostring(r.events), tostring(r.missing)))
+  if r.sample and r.sample ~= "" then HH:Print("first services: " .. r.sample) end
+end, "what the last class-trainer read got from the client (open the trainer first)")
 
 HH:RegisterSlash("train", function(rest)
   rest = (rest or ""):lower()

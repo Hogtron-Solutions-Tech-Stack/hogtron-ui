@@ -29,11 +29,11 @@ def test_thresholds_and_health_fade(core):
 
 
 def test_migration_sets_schema_and_is_idempotent(core):
-    assert core.eval('HogHeals.db.global.schema') == 4
+    assert core.eval('HogHeals.db.global.schema') == 5
     core.execute('HogHeals.Migrate.Run(HogHeals.db); HogHeals.Migrate.Run(HogHeals.db)')
-    assert core.eval('HogHeals.db.global.schema') == 4
+    assert core.eval('HogHeals.db.global.schema') == 5
     core.execute('HogHeals.db.global.schema = nil; HogHeals.Migrate.Run(HogHeals.db)')
-    assert core.eval('HogHeals.db.global.schema') == 4
+    assert core.eval('HogHeals.db.global.schema') == 5
 
 
 def test_solo_frame_off_by_default_and_migrated_off(lua):
@@ -41,4 +41,19 @@ def test_solo_frame_off_by_default_and_migrated_off(lua):
     lua.load_addon("HogTronUI"); lua.player_login()
     assert lua.eval('HogHeals.defaults.profile.frames.layouts.solo.showSolo') is False
     assert lua.eval('HogHeals.db.profile.frames.layouts.solo.showSolo') is False      # migration 4 flipped the saved true
-    assert lua.eval('HogHeals.db.global.schema') == 4
+    assert lua.eval('HogHeals.db.global.schema') == 5
+
+
+def test_swing_timer_on_by_default_and_a_saved_off_cleared_once(lua):
+    # Sean 2026-11-06: "a swing timer by default" - his shared profile had it saved off since the beta
+    lua.execute('HogTronUIDB = { profileKeys = {}, profiles = { Default = { hud = { showSwing = false, castbarHeight = 25 } }, '
+                'Alt = { hud = { showSwing = false } } }, global = { schema = 4 } }')
+    lua.load_addon("HogTronUI"); lua.player_login()
+    assert lua.eval('HogHeals.defaults.profile.hud.showSwing') is True
+    assert lua.eval('HogHeals.db.profile.hud.showSwing') is True                       # the saved off is gone
+    assert lua.eval('HogHeals.db.profile.hud.castbarHeight') == 25                     # nothing else touched
+    assert lua.eval('HogTronUIDB.profiles.Alt.hud.showSwing') is None                  # every profile
+    assert lua.eval('HogHeals.db.global.schema') == 5
+    # once: switched off again afterwards, it stays off
+    lua.execute('HogHeals.db.profile.hud.showSwing = false; HogHeals.Migrate.Run(HogHeals.db)')
+    assert lua.eval('HogHeals.db.profile.hud.showSwing') is False

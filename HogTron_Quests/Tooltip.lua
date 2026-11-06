@@ -28,7 +28,11 @@ local function count(k) TT.seen[k] = (TT.seen[k] or 0) + 1 end
 function TT.Deferring()
   local f = (type(C_AddOns) == "table" and C_AddOns.IsAddOnLoaded) or g("IsAddOnLoaded")
   local ok, loaded = pcall(f or function() end, "Questie")
-  return ok and loaded == true
+  if ok and loaded == true then return true, "Questie" end
+  -- Polestar's own quest lines are on (its qol.questTooltips): one set of lines, not two (Core/Polestar.lua, chores)
+  local PS = HH.Polestar
+  if PS and PS.Doing("chores", "qol.questTooltips") then return true, "Polestar" end
+  return false
 end
 
 -- ------------------------------------------------------------------------------------------------ pure
@@ -128,5 +132,5 @@ end
 function TT.Lines()
   local o = cfg()
   return { ("quest tooltips: %s%s; units %s, items %s; hook = %s; shown on units %d, items %d"):format(o.enabled == false and "OFF" or "on",
-    TT.Deferring() and " (deferring to Questie)" or "", tostring(o.units ~= false), tostring(o.items ~= false), tostring(TT.path), TT.seen.unit or 0, TT.seen.item or 0) }
+    TT.Deferring() and (" (deferring to " .. tostring(select(2, TT.Deferring())) .. ")") or "", tostring(o.units ~= false), tostring(o.items ~= false), tostring(TT.path), TT.seen.unit or 0, TT.seen.item or 0) }
 end

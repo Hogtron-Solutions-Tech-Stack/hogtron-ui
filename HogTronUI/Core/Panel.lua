@@ -1160,6 +1160,9 @@ function Panel.ActionsFor(key)
     end
   elseif key == "bars" then
     acts[#acts + 1] = { text = "Key binds", func = function() HH:SlashCommand("bind") end }
+  elseif key == "bags" then
+    acts[#acts + 1] = { text = "Open bags", func = function() if type(ToggleAllBags) == "function" then ToggleAllBags() end end }
+    acts[#acts + 1] = { text = "Blizzard's place", func = function() if HH.EditMode and HH.EditMode.ResetBags then HH.EditMode.ResetBags() end end }
   elseif key == "units" or key == "hud" or key == "menu" or key == "tips" or key == "tooltip" or key == "infobar" or key == "xp" then
     acts[#acts + 1] = { text = function() return HH.db.profile.locked and "Unlock to drag" or "Lock" end,
       func = function() HH:SlashCommand(HH.db.profile.locked and "unlock" or "lock") end }

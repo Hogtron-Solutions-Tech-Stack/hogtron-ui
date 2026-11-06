@@ -353,12 +353,41 @@ function Dialog.Read(kind)
       end
     end
     if kind == "complete" and #m.choices > 1 then
-      for i, c in ipairs(m.choices) do row({ text = c.name, item = c, act = { "choose", i } }) end
+      local pick = Dialog.PolestarRewards(m.choices)
+      for i, c in ipairs(m.choices) do row({ text = Dialog.ChoiceText(c), item = c, act = { "choose", i } }) end
       m.primary.disabled = true
       m.pickHint = "Pick a reward: click it or press its number."
+      if pick then m.pickHint = ("Polestar's pick: %s (%d). Click a reward or press its number."):format(tostring(m.choices[pick].name), pick) end
     end
   end
   return m
+end
+
+--- Polestar's verdict on the choices (Core/Polestar.lua, gear; Sean 2026-11-06 "work alongside it"): its marks sit on
+--- Blizzard's reward panel, which this window stands in for, so they are carried over here - each choice that is an
+--- upgrade gets c.upgrade (+ c.upgradePct), the one it would take c.best. Returns the pick's index or nil.
+function Dialog.PolestarRewards(choices)
+  local PS = HH.Polestar
+  if not (PS and PS.RankRewards) or #choices < 2 then return nil end
+  local links = {}
+  for i = 1, #choices do links[i] = str(call(g("GetQuestItemLink"), "choice", i)) or false end
+  local ranks, pick = PS.RankRewards(links)
+  if not ranks then return nil end
+  for i, c in ipairs(choices) do
+    local r = ranks[i]
+    if r and r.upgrade then c.upgrade, c.upgradePct = true, r.pct end
+  end
+  if pick and choices[pick] then choices[pick].best = true return pick end
+  return nil
+end
+
+--- A choice row's text: the name, then Polestar's word on it ("upgrade +12%", "Polestar's pick").
+function Dialog.ChoiceText(c)
+  local notes = {}
+  if c.upgrade then notes[#notes + 1] = c.upgradePct and ("upgrade +%d%%"):format(math.floor(c.upgradePct + 0.5)) or "upgrade" end
+  if c.best then notes[#notes + 1] = "Polestar's pick" end
+  if #notes == 0 then return c.name end
+  return ("%s  (%s)"):format(tostring(c.name), table.concat(notes, ", "))
 end
 
 -- ------------------------------------------------------------------------------------------------ actions
