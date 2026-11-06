@@ -28,6 +28,8 @@ function Options.Build()
     grid = toggle(root, "grid", "Always show empty slots (grid)", 2, nil, "full"),
     hotkeySize = range(root, "hotkeySize", "Keybind text size", 3, 7, 16, 1, 10),
     hideNames = toggle(root, "hideNames", "Hide macro names on buttons", 4),
+    mainKeys = toggle(root, "mainKeys", "Main-bar keys follow bar 1's pages (forms, stances)", 4.4,
+      "Your keys for action slots 1-12 press HogTron bar 1, so in bear, cat or a stance they cast that form's bar. Off: they press Blizzard's own (page 1) buttons.", "full"),
     unlock = { type = "execute", name = function() return HH.db.profile.locked == false and "Lock the bars" or "Unlock to move the bars" end, order = 4.5,
       func = function() HH:SetLocked(HH.db.profile.locked == false) end },
     reset = { type = "execute", name = "Reset bar positions", order = 4.6, desc = "Every bar back to its default place and scale.",

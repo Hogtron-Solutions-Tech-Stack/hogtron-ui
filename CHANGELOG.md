@@ -34,6 +34,9 @@
 - Parchment windows are solid paper (the damage meter showed through at 90%); inked text loses Blizzard's black
   outline and shadow ("Level 10 Druid" read as a smudge); list rows (the friends list) lose their navy bars and are
   inked like the rest.
+- Forms and stances page your main-bar KEYS too: in bear form (cat, prowl, a warrior stance ...) the keys for slots
+  1-12 cast that form's bar, not your caster spells - they press HogTron bar 1 now, which pages with the form
+  (Bars > "Main-bar keys follow bar 1's pages"; `/hh pagediag` says which page bar 1 is on).
 - The settings window and setup guide on paper read again: the sidebar was still navy under ink labels and the body
   text still light grey on the page. Now the sidebar is a faint shade of the page with a ruled margin, the body text
   and inputs are ink on paper, and picked tabs and headers use a darker amber that reads at small size.
