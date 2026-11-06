@@ -130,6 +130,12 @@ function EM.Targets()
         onDragStart = MS.BoxDragStart, onDragStop = MS.BoxDragStop })
     end
   end
+  -- the bags (Sean 2026-11-06: "I want to be able to move the bag in the hogtron edit mode"): the box is where they
+  -- open, open or not; drag it and the open bags follow (EM.PlaceBags). Made and placed on unlock (EM.BagsForEdit).
+  local bagAnchor = G(EM.BAG_ANCHOR)
+  if type(bagAnchor) == "table" then
+    add({ key = "bags", path = "Skin.bags", title = "Bags", mover = bagAnchor, frame = bagAnchor, how = "box" })
+  end
   for _, bz in ipairs(EM.BLIZZARD) do
     local f = G(bz.name)
     if type(f) == "table" and call(f.IsShown, f) then
@@ -712,10 +718,250 @@ function EM.MoveDiagnose()
   for name, hooked in pairs(EM.guarded) do guards[#guards + 1] = name .. "(" .. (#hooked > 0 and table.concat(hooked, ",") or "no system methods") .. ")" end
   table.sort(guards)
   out[#out + 1] = "  guards: " .. (#guards > 0 and table.concat(guards, " ") or "none") .. (EM.watching and "   watching" or "")
+  if EM.BagsDiagnose then
+    local ok, line = pcall(EM.BagsDiagnose)
+    out[#out + 1] = "  " .. (ok and line or ("bags: " .. tostring(line)))
+  end
   for _, e in ipairs(EM.log or {}) do
     out[#out + 1] = ("  +%.1fs %s %s%s"):format(e.at or 0, tostring(e.why), tostring(e.name), e.from and (" from " .. tostring(e.from)) or "")
   end
   return out
+end
+
+-- ------------------------------------------------------------------------------------------------ the bags
+-- Sean 2026-11-06: "I want to be able to move the bag in the hogtron edit mode." Blizzard places the open bags itself
+-- on every open (UpdateContainerFrameAnchors: the first bag in the bottom-right corner, the rest stacked on it and in
+-- columns to its left), so a place put back once does not hold. Instead, with a place saved (profile.edit.bags =
+-- { point = "BOTTOMRIGHT", x, y, w, h }), after each of Blizzard's passes the first bag's bottom-right corner goes onto
+-- our anchor (HogUIBagsAnchor, the box edit mode drags) and every other column start keeps its distance from that bag:
+-- the whole stack moves as one, in Blizzard's own arrangement. Method calls only (ClearAllPoints / SetPoint), nothing
+-- written on the frames; no place saved = Blizzard's place, untouched.
+EM.BAG_NAMES = { "ContainerFrameCombinedBags" }
+for i = 1, 13 do EM.BAG_NAMES[#EM.BAG_NAMES + 1] = "ContainerFrame" .. i end
+EM.BAG_ANCHOR = "HogUIBagsAnchor"
+EM.BAG_SIZE = { 200, 240 }       -- the box before a bag was ever seen open
+EM.BAG_CORNER = { -60, 110 }     -- and where it sits then: about where Blizzard opens the first bag
+EM.bagDiag = { hooked = {}, shows = 0, moved = 0 }
+
+local function bagPlace()
+  local p = ecfg().bags
+  if type(p) == "table" and type(p.point) == "string" and type(p.x) == "number" and type(p.y) == "number" then return p end
+  return nil
+end
+
+local function bagNote(why, n, lead)
+  local d = EM.bagDiag
+  d.last = { why = why, n = n, lead = lead, at = now() - (EM.loginAt or 0) }
+  if n and n > 0 then d.moved = d.moved + n end
+  local g = HH.db and HH.db.global
+  if type(g) == "table" then
+    g.diag = type(g.diag) == "table" and g.diag or {}
+    g.diag.bags = d
+  end
+end
+
+--- The bag frames open now, and a set of every bag frame there is (to tell a bag from what a bag hangs on).
+function EM.ShownBags()
+  local out, set = {}, {}
+  for _, n in ipairs(EM.BAG_NAMES) do
+    local f = G(n)
+    if type(f) == "table" then
+      set[f] = true
+      if call(f.IsShown, f) then out[#out + 1] = f end
+    end
+  end
+  return out, set
+end
+
+--- Open bags anchored on something that is not another bag (Blizzard's column starts); first = the one Blizzard put
+--- in the corner (rightmost, then lowest). Each { f, point, rel, relPoint, x, y }. Bags already on `anchor` are ours.
+function EM.BagRoots(shown, set, anchor)
+  local roots = {}
+  for _, f in ipairs(shown) do
+    local ok, pt, rel, rpt, x, y = pcall(f.GetPoint, f, 1)
+    if ok and type(pt) == "string" and not (rel ~= nil and set[rel]) and (anchor == nil or rel ~= anchor) then
+      roots[#roots + 1] = { f = f, point = pt, rel = rel, relPoint = type(rpt) == "string" and rpt or pt, x = num(x, 0), y = num(y, 0) }
+    end
+  end
+  table.sort(roots, function(m, n) if m.x ~= n.x then return m.x > n.x end return m.y < n.y end)
+  return roots
+end
+
+--- A frame's bottom-right corner in UIParent units: x from the screen's right edge (<= 0), y from its bottom. nil
+--- while the client has no place for it.
+function EM.CornerOf(f)
+  local r, b = num(call(f.GetRight, f), nil), num(call(f.GetBottom, f), nil)
+  local uw = num(call(UIParent.GetWidth, UIParent), nil)
+  if not (r and b and uw and uw > 0) then return nil end
+  local fs, us = num(call(f.GetEffectiveScale, f), 1), num(call(UIParent.GetEffectiveScale, UIParent), 1)
+  local s = (us ~= 0) and fs / us or 1
+  return r * s - uw, b * s
+end
+
+--- Our anchor, made on first use (shown, but empty and click-through: the edit-mode box is what you see and drag).
+function EM.BagAnchor()
+  local a = G(EM.BAG_ANCHOR)
+  if type(a) == "table" then return a end
+  a = CreateFrame("Frame", EM.BAG_ANCHOR, UIParent)
+  a.hhOurs = true
+  a:SetSize(EM.BAG_SIZE[1], EM.BAG_SIZE[2])
+  a:SetMovable(true)
+  a:SetClampedToScreen(true)
+  a:EnableMouse(false)
+  if a.RegisterForDrag then a:RegisterForDrag("LeftButton") end
+  a:SetScript("OnDragStart", function(self) if not locked() then self:StartMoving() end end)
+  a:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() EM.SaveBags(self) end)
+  EM.PlaceBagAnchor(a)
+  return a
+end
+
+--- Put the anchor where the bags open: the saved place; else over the open first bag (so the box starts on the
+--- bags); else Blizzard's corner. Sized like the open first bag, else like the last one seen.
+function EM.PlaceBagAnchor(a)
+  if type(a) ~= "table" then return false end
+  local p = bagPlace()
+  local shown, set = EM.ShownBags()
+  local lead
+  for _, f in ipairs(shown) do
+    local ok, _, rel = pcall(f.GetPoint, f, 1)
+    if ok and rel == a then lead = f break end
+  end
+  if not lead then local roots = EM.BagRoots(shown, set, a) lead = roots[1] and roots[1].f end
+  local w, h = EM.BAG_SIZE[1], EM.BAG_SIZE[2]
+  if p and num(p.w, 0) > 0 and num(p.h, 0) > 0 then w, h = p.w, p.h end
+  if lead then
+    local lw, lh = num(call(lead.GetWidth, lead), 0), num(call(lead.GetHeight, lead), 0)
+    if lw > 0 and lh > 0 then
+      local fs, us = num(call(lead.GetEffectiveScale, lead), 1), num(call(UIParent.GetEffectiveScale, UIParent), 1)
+      local s = (us ~= 0) and fs / us or 1
+      w, h = lw * s, lh * s
+    end
+  end
+  a:SetSize(w, h)
+  if p then
+    a:ClearAllPoints()
+    a:SetPoint(p.point, UIParent, p.point, p.x, p.y)
+    return true
+  end
+  local x, y
+  if lead then x, y = EM.CornerOf(lead) end
+  a:ClearAllPoints()
+  a:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", x or EM.BAG_CORNER[1], y or EM.BAG_CORNER[2])
+  return true
+end
+
+--- The anchor was let go: its bottom-right corner is the bags' place (a corner, so a bigger bag later grows up and
+--- left from the same spot). The open bags go there now.
+function EM.SaveBags(a)
+  local rec
+  local x, y = EM.CornerOf(a)
+  if x then rec = { point = "BOTTOMRIGHT", x = x, y = y }
+  else
+    local ok, point, _, _, px, py = pcall(a.GetPoint, a, 1)
+    if not (ok and type(point) == "string" and type(px) == "number" and type(py) == "number") then return false end
+    rec = { point = point, x = px, y = py }
+  end
+  rec.w, rec.h = num(call(a.GetWidth, a), nil), num(call(a.GetHeight, a), nil)
+  ecfg().bags = rec
+  EM.PlaceBagAnchor(a)
+  EM.PlaceBags("moved")
+  return true
+end
+
+--- Back to Blizzard's place: forget ours. The bags take Blizzard's place the next time they open.
+function EM.ResetBags()
+  ecfg().bags = nil
+  local a = G(EM.BAG_ANCHOR)
+  if type(a) == "table" then EM.PlaceBagAnchor(a) end
+  HH:Print("bags: back to Blizzard's place the next time they open")
+  return true
+end
+
+--- After Blizzard laid the open bags out: the first onto our anchor, the other column starts after it. Returns how
+--- many bags it moved (0 = no place saved / nothing open / already placed / waiting for the end of combat).
+function EM.PlaceBags(why)
+  why = why or "?"
+  if not bagPlace() then return 0 end
+  local a = EM.BagAnchor()
+  local shown, set = EM.ShownBags()
+  local roots = EM.BagRoots(shown, set, a)
+  if #roots == 0 then return 0 end
+  if InCombatLockdown() then
+    for _, r in ipairs(roots) do
+      if call(r.f.IsProtected, r.f) then
+        if not EM.bagsQueued then
+          EM.bagsQueued = true
+          HH:RunOutOfCombat(function() EM.bagsQueued = nil EM.PlaceBags("after combat") end)
+        end
+        bagNote(why .. " (after combat)", 0)
+        return 0
+      end
+    end
+  end
+  local first = roots[1]
+  local lead = first.f
+  call(lead.ClearAllPoints, lead)
+  call(lead.SetPoint, lead, "BOTTOMRIGHT", a, "BOTTOMRIGHT", 0, 0)
+  local n = 1
+  for i = 2, #roots do
+    local r = roots[i]
+    -- a column start laid out the way the first was (same points, same frame): same distance from it as Blizzard gave
+    if r.point == first.point and r.relPoint == first.relPoint and r.rel == first.rel then
+      call(r.f.ClearAllPoints, r.f)
+      call(r.f.SetPoint, r.f, r.point, lead, first.point, r.x - first.x, r.y - first.y)
+      n = n + 1
+    end
+  end
+  local name = call(lead.GetName, lead)
+  bagNote(why, n, type(name) == "string" and name or "?")
+  return n
+end
+
+--- Blizzard's layout pass for the bags (the global, where the client has it) and every bag's own show: ours runs
+--- after each. Safe to call again (new bag frames get their hook).
+function EM.HookBags()
+  local d = EM.bagDiag
+  if not EM.bagsHookedGlobal and type(G("UpdateContainerFrameAnchors")) == "function" then
+    if pcall(hooksecurefunc, "UpdateContainerFrameAnchors", function() EM.PlaceBags("layout") end) then
+      EM.bagsHookedGlobal = true
+      d.hooked[#d.hooked + 1] = "UpdateContainerFrameAnchors"
+    end
+  end
+  EM.bagShowHooked = EM.bagShowHooked or {}
+  local n = 0
+  for _, name in ipairs(EM.BAG_NAMES) do
+    local f = G(name)
+    if type(f) == "table" and f.HookScript and not EM.bagShowHooked[f] then
+      EM.bagShowHooked[f] = true
+      pcall(f.HookScript, f, "OnShow", function()
+        d.shows = d.shows + 1
+        EM.PlaceBags("show")
+        -- some clients lay the bags out a frame later, through a local: once more then
+        if C_Timer and C_Timer.After then C_Timer.After(0, function() EM.PlaceBags("show+0") end) end
+      end)
+      n = n + 1
+    end
+  end
+  d.frames = (d.frames or 0) + n
+  return EM.bagsHookedGlobal == true
+end
+
+--- Unlock: the anchor made, hooked and put over the bags (open or not), ready for its box.
+function EM.BagsForEdit()
+  EM.HookBags()
+  local a = EM.BagAnchor()
+  EM.PlaceBagAnchor(a)
+  return a
+end
+
+--- /hh movediag line for the bags.
+function EM.BagsDiagnose()
+  local p, d = bagPlace(), EM.bagDiag
+  local last = d.last
+  return ("bags: %s   hooks: %s, %d frames, %d shows   last: %s"):format(
+    p and ("%s %.0f,%.0f"):format(p.point, p.x, p.y) or "Blizzard's place",
+    #d.hooked > 0 and table.concat(d.hooked, ",") or "no layout hook", d.frames or 0, d.shows or 0,
+    last and ("%s (%s bag%s, %s) at +%.0fs"):format(tostring(last.why), tostring(last.n), last.n == 1 and "" or "s", tostring(last.lead or "-"), last.at or 0) or "never moved")
 end
 
 HH:RegisterSlash("movediag", function()
@@ -1027,6 +1273,7 @@ end
 
 function EM.SetUnlocked(unlocked)
   if unlocked then
+    pcall(EM.BagsForEdit)
     local n = 0
     local live = {}
     for _, t in ipairs(EM.Targets()) do
@@ -1065,6 +1312,7 @@ HH:RegisterModule("EditMode", {
   SetLocked = function(_, isLocked) EM.SetUnlocked(not isLocked) end,
   OnEnable = function()
     EM.loginAt = now()
+    pcall(EM.HookBags)
     EM.GuardChat()
     EM.ApplyBlizzard("login")
     if type(ecfg().blizzard) == "table" and C_Timer and C_Timer.After then
@@ -1076,6 +1324,7 @@ HH:RegisterModule("EditMode", {
     ev:SetScript("OnEvent", function(_, event)
       if event == "EDIT_MODE_LAYOUTS_UPDATED" then EM.ApplyBlizzard("layouts") return end
       EM.GuardChat()
+      pcall(EM.HookBags)
       EM.ApplyBlizzard("world")
       if type(ecfg().blizzard) == "table" and C_Timer and C_Timer.After then C_Timer.After(1, function() EM.ApplyBlizzard("world+1") end) end
     end)

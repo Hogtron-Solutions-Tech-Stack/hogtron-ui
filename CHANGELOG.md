@@ -21,6 +21,9 @@
 - **New icon set for the Parchment look: ink stamps** - every menu and drawer icon as a woodcut on a paper disc inside
   the dialog's bronze ring (General > Look > Icons: Ink stamps; `dev/make_page_icons.py` makes them from our glyphs).
 
+- **Move the bags in edit mode** (`/hh unlock`): a Bags box sits where your bags open - drag it and they open there
+  from then on (Blizzard still stacks them; the whole stack moves). Its window: Open bags, Blizzard's place.
+
 ### Fixed
 - The spellbook loses its dark top bar and book frame on the page like every other window; its dark text already reads.
 - Parchment windows are solid paper (the damage meter showed through at 90%); inked text loses Blizzard's black
