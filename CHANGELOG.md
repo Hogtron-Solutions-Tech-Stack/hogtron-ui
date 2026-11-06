@@ -21,6 +21,11 @@
 - **New icon set for the Parchment look: ink stamps** - every menu and drawer icon as a woodcut on a paper disc inside
   the dialog's bronze ring (General > Look > Icons: Ink stamps; `dev/make_page_icons.py` makes them from our glyphs).
 
+- **Flight masters on the world map (M)**: this client's map shows none, so HogTron UI pins them - the ones the game
+  lists for the map, plus every flight master you open the flight map at and every stop that flight map shows
+  (remembered for all your characters of that faction, on the zone map and the continent map). Hover a pin for
+  the stop and the NPC's name. Quests > World map > Flight masters; `/hh flightdiag` says what the client hands out.
+
 ### Fixed
 - The spellbook loses its dark top bar and book frame on the page like every other window; its dark text already reads.
 - Parchment windows are solid paper (the damage meter showed through at 90%); inked text loses Blizzard's black
