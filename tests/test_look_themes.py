@@ -1,7 +1,7 @@
 """The UI's three looks (HogTronUI/Core/Look.lua look.style): Parchment (default), Modern, Blizzard. Sean 2026-11-05:
 "we can do a modern look or a like wow look and then I also have the wow defaults. Those are my three things I'm
 envisioning ... everything needs to match that themeing." Windows follow it (HogTron_Skin/Panels.lua skin.panels.look
-= "auto"); /hh open <window> opens Blizzard's windows to check them one by one."""
+= "auto"). No slash opens Blizzard's windows from our Lua (the spellbook ran tainted after one did)."""
 import pytest
 
 from test_skin_windows import WINDOW
@@ -70,23 +70,24 @@ def test_the_look_slash_takes_the_three_names(lua):
     assert any("Parchment (the WoW page)" in m for m in lua.eval("MockLog.chat").values())
 
 
-OPENERS = r'''
-OPENED = {}
-function ToggleCharacter(tab) OPENED[#OPENED + 1] = "char:" .. tab end
-PlayerSpellsUtil = { ToggleSpellBookFrame = function() OPENED[#OPENED + 1] = "spellbook" end }
-function ToggleQuestLog() OPENED[#OPENED + 1] = "questlog" end
-function ToggleGuildFrame() error("not in this client") end
-function ToggleCommunitiesFrame() OPENED[#OPENED + 1] = "communities" end
-'''
+# Blizzard's window openers. Called from our Lua they run the window's code tainted: 2026-11-05 a spell clicked in the
+# spellbook after /hh open spellbook was ADDON_ACTION_FORBIDDEN (CastSpellBookItem). The spellbook and talents may
+# only ever be opened by the player (key, or the menu bar's secure click).
+NEVER_FROM_OUR_LUA = ("PlayerSpellsUtil", "ToggleSpellBook", "ToggleTalentFrame", "ToggleClassTalentOrSpecFrame", "SpellBookFrame_Update")
 
 
-def test_open_names_a_window_and_says_when_the_client_lacks_it(lua):
-    boot(lua, extra=OPENERS)
-    for word in ("character", "spellbook", "questlog", "guild", "reputation"):
-        lua.execute(f"HogHeals:SlashCommand('open {word}')")
-    assert list(lua.eval("OPENED").values()) == ["char:PaperDollFrame", "spellbook", "questlog", "communities", "char:ReputationFrame"]
-    lua.execute("MockLog.chat = {}; HogHeals:SlashCommand('open achievements'); HogHeals:SlashCommand('open nonsense')")
-    chat = "\n".join(lua.eval("MockLog.chat").values())
-    assert "open achievements: this client has no such window" in chat
-    assert "open: one of " in chat and "spellbook" in chat
-    assert errors(lua) == []
+def test_no_slash_opens_blizzards_windows_and_no_code_calls_the_spellbooks_openers(lua):
+    import pathlib
+    import re
+    boot(lua)
+    assert lua.eval("HogHeals.slash.open") is None
+    root = pathlib.Path(__file__).resolve().parents[1]
+    hits = []
+    for f in root.glob("*/**/*.lua"):
+        if "Libs" in f.parts or f.parts[len(root.parts)] == "tests":
+            continue
+        for n, line in enumerate(f.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+            code = line.split("--", 1)[0]
+            if any(re.search("(?<![A-Za-z0-9_])" + w + "(?![A-Za-z0-9_])", code) for w in NEVER_FROM_OUR_LUA):
+                hits.append(f"{f.relative_to(root)}:{n}: {line.strip()}")
+    assert hits == []
