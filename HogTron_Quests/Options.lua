@@ -135,6 +135,27 @@ function Options.Build()
         resetPos = { type = "execute", name = "Reset position", order = 11, func = function() HH:SlashCommand("dialog reset") end },
         diag = { type = "execute", name = "Print diagnostics to chat", order = 12, func = function() HH:SlashCommand("dialogdiag") end },
       } },
+      -- Polestar alongside (Core/Polestar.lua, Sean 2026-11-06): which areas it leads while it runs
+      polestar = { type = "group", name = "Polestar", order = 3.5, args = {
+        about = { type = "description", order = 0, name = function()
+          local PS = HH.Polestar
+          local state = (PS and PS.Loaded()) and "Polestar is running." or "Polestar is not installed (or not loaded) - these switches wait for it."
+          return state .. " Polestar is a leveling-guide addon for WoW: Forever (guide steps, a walking arrow, quest markers, gear advice). HogTron UI works alongside it: it shows Polestar's guide in its own frames and leaves Polestar the jobs both would do. /hh polestardiag shows what it reads."
+        end },
+        enabled = { type = "toggle", order = 1, width = "full", name = "Work with Polestar when it runs",
+          get = function() return HH.db.profile.interop.polestar.enabled ~= false end,
+          set = function(_, v) HH.db.profile.interop.polestar.enabled = v and true or false; tr() end },
+        guide = { type = "toggle", order = 2, width = "full", name = "Tracker: Polestar's current step on top (GUIDE) instead of GO",
+          get = function() return HH.db.profile.interop.polestar.guide ~= false end,
+          set = function(_, v) HH.db.profile.interop.polestar.guide = v and true or false; tr() end },
+        arrow = { type = "toggle", order = 3, width = "full", name = "Polestar points the arrow: GO leaves it alone and the beam follows Polestar",
+          get = function() return HH.db.profile.interop.polestar.arrow ~= false end,
+          set = function(_, v) HH.db.profile.interop.polestar.arrow = v and true or false; tr() end },
+        window = { type = "execute", order = 4, name = "Polestar's guide window",
+          disabled = function() return not (HH.Polestar and HH.Polestar.Loaded()) end,
+          func = function() HH.Polestar.ToggleGuide() end },
+        diag = { type = "execute", order = 5, name = "Print diagnostics to chat", func = function() HH:SlashCommand("polestardiag") end },
+      } },
       worldmap = { type = "group", name = "World map", order = 3, args = {
         about = { type = "description", order = 0, name = "The map you open with M: size slider and fade while moving. Opt-ins (off - this client's map already shows your coordinates, and its combined map + quest log frame does not take the ink panel well): a coordinates strip with the cursor position, and the ink panel. Revealing unexplored terrain the way Leatrix Maps does needs its hand-built zone data; run Leatrix Maps alongside for that - when it is loaded, this leaves the map's look to it." },
         enabled = toggle(wm, "enabled", "HogTron UI world map", 1, wr),

@@ -21,6 +21,12 @@
 - **New icon set for the Parchment look: ink stamps** - every menu and drawer icon as a woodcut on a paper disc inside
   the dialog's bronze ring (General > Look > Icons: Ink stamps; `dev/make_page_icons.py` makes them from our glyphs).
 
+- **Polestar alongside** (WoW: Forever's leveling-guide addon, when installed): while it runs a guide the tracker's top
+  row is its current step (GUIDE: the step, the goal still open with its count, step n of all; click = Polestar's
+  window) instead of GO; GO stops pointing the game's arrow so the two never fight over it; the HogTron beam follows
+  Polestar's target, titled with the goal (Polestar's "Blizzard waypoint" switch is turned on once for that).
+  Quests > Polestar to switch each part; `/hh polestardiag`. New file: restart the game once.
+
 ### Fixed
 - The spellbook loses its dark top bar and book frame on the page like every other window; its dark text already reads.
 - Parchment windows are solid paper (the damage meter showed through at 90%); inked text loses Blizzard's black
