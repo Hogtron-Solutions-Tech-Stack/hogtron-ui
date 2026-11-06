@@ -1214,3 +1214,17 @@ def test_pagediag_says_what_page_bar_1_is_on_and_where_the_keys_go(lua):
     p = "HogHeals.db.global.diag.barsPage"
     assert lua.eval(f"{p}.driverNow") == "9" and "form=1 bonus=3 driver->9" in lua.eval(f"{p}.history[1]")
     assert lua.eval("HogHeals.errors[1]") is None
+
+
+# ---------------------------------------------------------------- 2026-11-06: "bear skills on Q-E-R greyed out"
+def test_out_of_range_turns_the_keybind_red_not_the_whole_icon_unless_asked(bars):
+    # diag.barsForm in bear form: Bash / Growl / Moonfire / Wrath carried the lib's range tint (icon red 0.8) with the
+    # target out of reach - read as "greyed out". The game's own bars colour the keybind text instead.
+    assert bars.eval('HogHealsBars.Bars.ButtonConfig(1, 7).outOfRangeColoring') == "hotkey"
+    assert bars.eval('HogHeals.defaults.profile.bars.rangeTint') is False
+    args = bars.eval('HogHeals.OptionsTable().args.Bars.args')
+    assert args["rangeTint"]["name"].startswith("Tint the whole icon red")
+    bars.execute('HogHeals.OptionsTable().args.Bars.args.rangeTint.set(nil, true)')
+    assert bars.eval('HogHealsBars.Bars.ButtonConfig(1, 7).outOfRangeColoring') == "button"
+    assert bars.eval('HogHealsBars.Bars.lastApply') == "options"                      # re-applied live
+    assert errors(bars) == []

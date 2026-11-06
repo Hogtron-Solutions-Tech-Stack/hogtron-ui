@@ -30,6 +30,9 @@
   the stop and the NPC's name. Quests > World map > Flight masters; `/hh flightdiag` says what the client hands out.
 
 ### Fixed
+- Bars: an out-of-range target no longer tints the whole icon red (Bash, Growl, Maul and every targeted spell looked
+  greyed out in bear form) - the keybind text turns red instead, like the game's own bars. Bars > Tint the whole
+  icon red when the target is out of range brings the tint back.
 - Casting a spell from the spellbook no longer pops "HogTron_Skin has been blocked from an action only available to
   the Blizzard UI": the `/hh open <window>` check command opened Blizzard's windows from addon code and left the
   spellbook tainted until a /reload. It is gone; open windows with your keys or the menu bar.
