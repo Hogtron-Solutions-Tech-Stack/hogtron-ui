@@ -128,7 +128,7 @@ def test_every_menu_bar_and_drawer_icon_has_a_painted_page_twin(page):
     # Sean 2026-11-05, on the ink stamps: "These icons look terrible compared to the ones that we have. Can we upgrade
     # these?" -> OpenArt parchment miniatures (dev/make_page_icons.py). Forever's Legacy button and the catch-all
     # icon had no _page file at all, so the Parchment look fell back to the navy arcane-tech art for them.
-    from PIL import Image
+    Image = pytest.importorskip("PIL.Image")                                     # CI has lupa + pytest only
     ids = set(page.eval("HogHealsSkin.Micro.ICONS").values())
     ids |= {page.eval("HogHealsSkin.Micro.ICON_OTHER"), page.eval("HogHealsSkin.Micro.BAG_CELL.icon")}
     ids |= {pi[2] for pi in page.eval("HogHealsSkin.Micro.ICON_PATTERNS").values()}
