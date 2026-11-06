@@ -88,7 +88,7 @@ function Part.Style(frame)
     frame.hh = { panel = page and P.Backdrop(frame, 1) or Skin.Panel(frame, frame, 0, d.backgroundAlpha or Skin.cfg().backgroundAlpha or 0.85), page = page }
     local title = rawget(frame, "Title") or rawget(frame, "TitleText") or rawget(_G, name .. "Name") or (frame.TitleContainer and frame.TitleContainer.TitleText)
     if type(title) == "table" then
-      Skin.SetFont(title, d.fontSize or 12)
+      Skin.InkFont(title, d.fontSize or 12, page)
       if title.SetTextColor then Skin.call(title.SetTextColor, title, ink[1], ink[2], ink[3]) end
       if page and title.SetShadowOffset then Skin.call(title.SetShadowOffset, title, 0, 0) end
     end
@@ -99,7 +99,7 @@ function Part.Style(frame)
       close.hhX:SetPoint("CENTER", close, "CENTER", 0, 0)
       close.hhX:SetText("x")
       close.hhX:SetTextColor(ink[1], ink[2], ink[3])
-      Skin.SetFont(close.hhX, 14)
+      Skin.InkFont(close.hhX, 14, page)
     end
     for _, b in ipairs(Part.Items(frame)) do Skin.IconButton(b, { hotkeySize = d.fontSize or 12 }) end
     if type(hooksecurefunc) == "function" and type(frame.UpdateItems) == "function" then

@@ -91,6 +91,7 @@ def test_the_info_bar_is_a_paper_strip_with_ink_readings(page):
     s = f"{B}.slots[1].text"
     assert rgb(page, f"{s}._color") == light(page, "text")
     assert page.eval(f"{s}._last.SetShadowOffset[1]") == 0
+    assert page.eval(f"{s}._last.SetFont[3]") == ""                                # no black rim round the ink (in game: a smudge)
     page.execute(f"{B}.Update()")
     texts = " ".join(page.eval(f"{B}.slots[{i}] and {B}.slots[{i}].text._text or ''") for i in range(1, 8))
     assert "|cff" in texts and "ffd700" not in texts.lower() and "c7c7cf" not in texts.lower()   # gold / silver codes darkened
@@ -131,6 +132,7 @@ def test_a_bag_is_on_paper_with_an_ink_title(page):
     ''')
     assert page.eval("B.hh.page") is True and page.eval("B.hh.panel.bg._texture").endswith("dialog_page_light")
     assert rgb(page, "B.TitleText._color") == light(page, "title")
+    assert page.eval("B.TitleText._last.SetFont[3]") == ""
     assert errors(page) == []
 
 

@@ -425,7 +425,7 @@ end
 local function paintCell(c, size, id, letter, label, strength, src)
   c.label = label
   c.letter:SetText(letter)
-  Skin.SetFont(c.letter, math.max(9, math.floor(size * 0.5)))
+  Skin.InkFont(c.letter, math.max(9, math.floor(size * 0.5)), c.page)
   c:SetSize(size, size - 4)
   local took, art = false, false
   if src and Part.UseBlizzardArt() then
