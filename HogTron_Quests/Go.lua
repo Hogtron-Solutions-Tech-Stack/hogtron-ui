@@ -125,12 +125,41 @@ function Go.Current(list)
   list = list or HHQ.Data.last or HHQ.Data.List()
   local yards = Go.Yards()
   local pick = Go.Pick(list, yards, d.rule or "balanced")
-  if pick and d.superTrack ~= false and pick.quest.id and Go.lastTracked ~= pick.quest.id then
+  local point = Go.PointPick(pick, list, yards, d.rule or "balanced")
+  if point and d.superTrack ~= false and point.quest.id and Go.lastTracked ~= point.quest.id then
     -- what GO asked for, set or queued (a quest the player pointed at by hand is not overridden)
-    if Go.SuperTrack(pick.quest.id) then Go.lastTracked = pick.quest.id end
+    if Go.SuperTrack(point.quest.id) then Go.lastTracked = point.quest.id end
   end
-  Go.last = pick
+  Go.last, Go.lastPoint = pick, point
+  Go.Record(pick, point)
   return pick
+end
+
+--- The quest the client's super-track (the waypoint beam, the arrow) should point at: GO's pick when it has a spot on
+-- this map, else the best quest that does. Sean 2026-11-05 in game, beside a quest giver with a "?": "The beam has
+-- gone away for some reason?" - diag.waypoint: quest 5722 (Searching for the Lost Satchel, inside Ragefire Chasm)
+-- super-tracked, "no screen position and no distance". GO had picked it (level 16 at level 10: big experience, its
+-- unknown distance counted as 400 yd), and the client cannot place a quest inside a dungeon - so no beam at all.
+-- GO's line still recommends its own pick; only the pointer goes to something it can show. Nothing on this map: GO's
+-- pick (another zone may still get the client's arrow).
+function Go.PointPick(pick, list, yards, rule)
+  if not pick or (pick.quest.id and yards and yards[pick.quest.id]) then return pick end
+  local here = {}
+  for _, q in ipairs(list or {}) do if q.id and yards and yards[q.id] then here[#here + 1] = q end end
+  return Go.Pick(here, yards, rule) or pick
+end
+
+--- What GO picked and pointed at, saved when it changes (diag.go: the next "where did the beam go" has an answer).
+function Go.Record(pick, point)
+  local gl = HH.db and HH.db.global
+  if not gl then return end
+  local a, b = pick and pick.quest.id or nil, point and point.quest.id or nil
+  if Go.recorded and Go.recorded[1] == a and Go.recorded[2] == b then return end   -- quest ids: plain numbers, never secret
+  Go.recorded = { a, b }
+  gl.diag = gl.diag or {}
+  gl.diag.go = { pick = a, pickTitle = pick and pick.quest.title or nil, pickYards = pick and pick.yards or nil,
+    point = b, pointTitle = point and point.quest.title or nil, pointYards = point and point.yards or nil,
+    at = date and date("%Y-%m-%d %H:%M:%S") or "?" }
 end
 
 --- "191 yd" / "4/10" / "ready" pieces for the line under the title.
@@ -241,4 +270,8 @@ HH:RegisterSlash("go", function(rest)
   local pick = Go.Current()
   if not pick then HH:Print("GO: nothing to do next (empty log, or the GO line is off).") return end
   HH:Print(("GO: %s  -  %s"):format(tostring(pick.quest.title), Go.Detail(pick)))
+  local point = Go.lastPoint
+  if point and point ~= pick then
+    HH:Print(("  the beam points at %s - %s (GO's pick has no spot on this map)"):format(tostring(point.quest.title), Go.Detail(point)))
+  end
 end, "the quest to do next (/hh go fastest | balanced | travel = change the rule)")
