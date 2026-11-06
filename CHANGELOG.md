@@ -7,8 +7,6 @@
   dialog's page on every window, the game's Friz Quadrata, ink on paper; **Modern** - HogTron's dark, flat look;
   **Blizzard** - the game's own look and icons. Every feature works in all three. `/hh look parchment | modern | blizzard`.
 - Skin > Windows > Look now follows the UI's look by default (or force parchment / ink per your taste).
-- `/hh open <window>` opens one of Blizzard's windows by name (character, spellbook, questlog, social, guild, map,
-  bags, lfg, options, ...) - handy for checking the skin window by window.
 
 - **Parchment reaches our own frames:** the quest tracker, the info bar (gold, durability, bags, fps ... in ink, the
   value colours darkened to read on paper), the menu bar and bags sit on plain paper in the Parchment look.
@@ -22,6 +20,9 @@
   the dialog's bronze ring (General > Look > Icons: Ink stamps; `dev/make_page_icons.py` makes them from our glyphs).
 
 ### Fixed
+- Casting a spell from the spellbook no longer pops "HogTron_Skin has been blocked from an action only available to
+  the Blizzard UI": the `/hh open <window>` check command opened Blizzard's windows from addon code and left the
+  spellbook tainted until a /reload. It is gone; open windows with your keys or the menu bar.
 - The spellbook loses its dark top bar and book frame on the page like every other window; its dark text already reads.
 - Parchment windows are solid paper (the damage meter showed through at 90%); inked text loses Blizzard's black
   outline and shadow ("Level 10 Druid" read as a smudge); list rows (the friends list) lose their navy bars and are
