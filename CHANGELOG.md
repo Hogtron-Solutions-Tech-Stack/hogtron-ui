@@ -40,6 +40,9 @@
 - The settings window and setup guide on paper read again: the sidebar was still navy under ink labels and the body
   text still light grey on the page. Now the sidebar is a faint shade of the page with a ruled margin, the body text
   and inputs are ink on paper, and picked tabs and headers use a darker amber that reads at small size.
+- Training learns your class trainer on this client: its list comes back in the newer layout (name, type, icon,
+  level), which the old reader skipped, so "Nothing learned yet" stayed after every visit. Two ranks of a spell are
+  kept apart by level. `/hh traindiag` shows exactly what the trainer handed over.
 - The info bar's readings (and a bag's title, the menu bar's letters) lose the black outline on paper - brown ink with
   a black rim read as a smudge.
 - Lists on paper are inked as they fill: the friends list kept Blizzard's light blue names, gold character names, white
