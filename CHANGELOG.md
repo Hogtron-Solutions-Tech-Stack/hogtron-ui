@@ -37,6 +37,8 @@
   the stop and the NPC's name. Quests > World map > Flight masters; `/hh flightdiag` says what the client hands out.
 
 ### Fixed
+- The swing timer is on for everyone again: a profile saved with it off (the setup guide's switch) has it back,
+  once - it only shows while you auto-attack. Switch it off again under HUD > Swing timer.
 - Casting a spell from the spellbook no longer pops "HogTron_Skin has been blocked from an action only available to
   the Blizzard UI": the `/hh open <window>` check command opened Blizzard's windows from addon code and left the
   spellbook tainted until a /reload. It is gone; open windows with your keys or the menu bar.
