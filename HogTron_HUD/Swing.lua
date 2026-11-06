@@ -6,17 +6,19 @@
 --      (Heroic Strike, Raptor Strike, Maul, Cleave) - exact. ONLY on clients without the restricted API: on WoW:
 --      Forever registering it raised the "blocked from an action only available to the Blizzard UI" popup
 --      (2026-09-17), and pcall does not contain that. Never try it there.
---   2. UNIT_SPELLCAST_SUCCEEDED for Auto Shot (75), Shoot (5019) and - if this client reports it - Auto Attack
---      (6603). Ranged swings are exact everywhere this fires.
+--   2. UNIT_SPELLCAST_SUCCEEDED for Auto Shot (75) and Shoot (5019): ranged swings are exact everywhere this fires.
+--      The Attack cast (6603) is NOT a swing: WoW: Forever sends it on engage and retarget (Sean 2026-11-06, bear form:
+--      174 of them against 109 PLAYER_ENTER_COMBAT and hundreds of swings) - it only switches the bar on, like rung 3.
 --   3. PLAYER_ENTER_COMBAT / PLAYER_LEAVE_COMBAT (auto-attack toggled on / off) + UnitAttackSpeed: a free-running
 --      bar at weapon speed from the moment you start attacking. Honest estimate - it drifts when you are out of range.
--- Speeds can be secret values on restricted clients: a secret speed is ignored and the last plain one kept.
+-- Speeds can be secret values on restricted clients (Forever hid UnitAttackSpeed 238 of 238 reads, 2026-11-06): a secret
+-- speed is ignored - a druid form's own speed (bear 2.5, cat 1.0) stands in, else the last plain one, else 2.0.
 HogHealsHUD = HogHealsHUD or {}
 local HHD = HogHealsHUD
 local HH = HogHeals
 
-local Swing = { state = { active = false, kind = nil, start = 0, period = 2, source = nil },
-  speeds = { mh = 2.0, oh = nil, ranged = 2.0 }, seen = {} }
+local Swing = { state = { active = false, kind = nil, start = 0, period = 2, source = nil, exact = false },
+  speeds = { mh = 2.0, oh = nil, ranged = 2.0, from = "default" }, seen = {} }
 HHD.Swing = Swing
 
 local CREAM = { 0.96, 0.92, 0.86 }
@@ -40,15 +42,47 @@ function Swing.CombatLogAllowed()
   return type(issecretvalue) ~= "function" and type(CombatLogGetCurrentEventInfo) == "function"
 end
 
---- Weapon speeds, kept only when they are plain numbers (secret speeds leave the last known value in place).
+-- A druid form swings at its own speed, whatever the weapon: Bear Form (5487) and Dire Bear Form (9634) 2.5 s, Cat Form
+-- (768) 1.0 s. By the form's spell id, else its icon (file id or path) - whichever this client hands out in the clear.
+Swing.FORM_SPEED = { [5487] = 2.5, [9634] = 2.5, [768] = 1.0 }
+Swing.FORM_ICON = { [132276] = 2.5, [132115] = 1.0 }
+
+--- The current form's own swing speed, or nil (no form, or nothing readable about it).
+function Swing.FormSpeed()
+  local gf, gi = rawget(_G, "GetShapeshiftForm"), rawget(_G, "GetShapeshiftFormInfo")
+  if type(gf) ~= "function" or type(gi) ~= "function" then return nil end
+  local ok, idx = pcall(gf)
+  idx = ok and num(idx) or nil
+  if not idx then return nil end
+  local ok2, icon, a, b, c = pcall(gi, idx)
+  if not ok2 then return nil end
+  for _, v in ipairs({ a, b, c }) do
+    if type(v) == "number" and not HH.IsSecret(v) and Swing.FORM_SPEED[v] then return Swing.FORM_SPEED[v] end
+  end
+  if type(icon) == "number" and not HH.IsSecret(icon) and Swing.FORM_ICON[icon] then return Swing.FORM_ICON[icon] end
+  if type(icon) == "string" then
+    local l = icon:lower()
+    if l:find("bearform", 1, true) then return 2.5 elseif l:find("catform", 1, true) then return 1.0 end
+  end
+  return nil
+end
+
+--- Weapon speeds, kept only when they are plain numbers. A hidden main-hand speed: the form's own speed stands in; out
+--- of a form the last plain client value stays, or the default when there never was one. speeds.from says which.
 function Swing.ReadSpeeds()
+  local plain = false
   if type(UnitAttackSpeed) == "function" then
     local ok, mh, oh = pcall(UnitAttackSpeed, "player")
     if ok then
-      if num(mh) then Swing.speeds.mh = mh end
+      if num(mh) then Swing.speeds.mh = mh Swing.speeds.from = "client" plain = true end
       if HH.IsSecret(mh) then Swing.seen.secretSpeed = (Swing.seen.secretSpeed or 0) + 1 end
       Swing.speeds.oh = num(oh) or nil
     end
+  end
+  if not plain then
+    local fs = Swing.FormSpeed()
+    if fs then Swing.speeds.mh = fs Swing.speeds.from = "form"
+    elseif Swing.speeds.from == "form" then Swing.speeds.mh = 2.0 Swing.speeds.from = "default" end
   end
   if type(UnitRangedDamage) == "function" then
     local ok, rs = pcall(UnitRangedDamage, "player")
@@ -245,13 +279,16 @@ function Swing.Start(kind, source, now, label)
   s.lastEvent = now
   paint(s.label)
   if landed then Swing.Flash(now) end
-  -- a per-swing source arriving means the free-running estimate is no longer needed
-  if source == "cleu" or source == "cast" then Swing.exact = true end
+  -- a per-swing source (the combat log, a ranged shot) means the free-running estimate is no longer needed; the
+  -- toggles and this client's Attack cast are not one
+  s.exact = (source == "cleu") or (source == "cast" and kind == "ranged")
+  Swing.exact = s.exact
 end
 
 function Swing.Stop()
   local s = Swing.state
-  s.active, s.attacking = false, false
+  s.active, s.attacking, s.exact = false, false, false
+  Swing.exact = false
   local b = bar()
   if not b then return end
   b:SetScript("OnUpdate", nil)
@@ -275,7 +312,7 @@ function Swing.OnUpdate(b)
   local places = cfg().precision or 1
   b.time:SetText(cfg().text ~= false and (("%." .. places .. "f"):format(remaining)) or "")
   if now >= s.start + s.period then
-    if Swing.exact then
+    if s.exact then
       -- an exact source tells us about the next swing; nothing for two periods = out of range / stopped
       if now >= s.lastEvent + 2 * s.period then Swing.Stop() end
     elseif s.attacking then
@@ -294,15 +331,21 @@ end
 -- ---------------------------------------------------------------- events
 local handlers = {}
 
+--- Auto-attack is on (PLAYER_ENTER_COMBAT, or the Attack cast this client sends on engage / retarget): the bar starts
+--- if it is not running; a running one keeps its phase.
+function Swing.Engage()
+  if not Swing.state.active then Swing.Start("melee", "toggle") else Swing.state.attacking = true end
+end
+
 function handlers.PLAYER_ENTER_COMBAT()
   count("enterCombat")
-  if not Swing.state.active then Swing.Start("melee", "toggle") else Swing.state.attacking = true end
+  Swing.Engage()
 end
 
 function handlers.PLAYER_LEAVE_COMBAT()
   count("leaveCombat")
   Swing.state.attacking = false
-  if not Swing.exact then Swing.Stop() end
+  if not Swing.state.exact then Swing.Stop() end
 end
 
 function handlers.PLAYER_REGEN_ENABLED()
@@ -313,12 +356,13 @@ end
 function handlers.UNIT_ATTACK_SPEED() count("attackSpeed") Swing.ReadSpeeds() end
 function handlers.UNIT_RANGEDDAMAGE() Swing.ReadSpeeds() end
 function handlers.PLAYER_EQUIPMENT_CHANGED() Swing.ReadSpeeds() end
+function handlers.UPDATE_SHAPESHIFT_FORM() count("form") Swing.ReadSpeeds() end
 
 function handlers.UNIT_SPELLCAST_SUCCEEDED(unit, _, spellID)
   if unit ~= "player" then return end
   if HH.IsSecret(spellID) then count("secretSpellID") return end
   if RANGED_SPELLS[spellID] then count("cast" .. spellID) Swing.Start("ranged", "cast", nil, RANGED_SPELLS[spellID])
-  elseif MELEE_SPELLS[spellID] then count("cast6603") Swing.Start("melee", "cast", nil, "Attack") end
+  elseif MELEE_SPELLS[spellID] then count("cast6603") Swing.Engage() end
 end
 
 function handlers.COMBAT_LOG_EVENT_UNFILTERED()
@@ -349,6 +393,7 @@ function Swing.Init()
   -- every one pcall-registered: the Forever beta throws on event names it does not know
   reg("PLAYER_ENTER_COMBAT") reg("PLAYER_LEAVE_COMBAT") reg("PLAYER_REGEN_ENABLED") reg("PLAYER_EQUIPMENT_CHANGED")
   reg("UNIT_ATTACK_SPEED", "player") reg("UNIT_RANGEDDAMAGE", "player") reg("UNIT_SPELLCAST_SUCCEEDED", "player")
+  reg("UPDATE_SHAPESHIFT_FORM")
   Swing.cleu = Swing.CombatLogAllowed()
   if Swing.cleu then reg("COMBAT_LOG_EVENT_UNFILTERED") end   -- see the header: never on a restricted client
   f:SetScript("OnEvent", Swing.OnEvent)
@@ -373,7 +418,7 @@ function Swing.Probe()
   return {
     combatLog = Swing.cleu and "registered" or "not allowed here",
     registered = table.concat(Swing.registered or {}, ","), unknown = table.concat(Swing.unknown or {}, ","),
-    speeds = ("mh=%s oh=%s ranged=%s"):format(tostring(Swing.speeds.mh), tostring(Swing.speeds.oh), tostring(Swing.speeds.ranged)),
+    speeds = ("mh=%s oh=%s ranged=%s from=%s"):format(tostring(Swing.speeds.mh), tostring(Swing.speeds.oh), tostring(Swing.speeds.ranged), tostring(Swing.speeds.from)),
     seen = table.concat(seen, ","), exact = Swing.exact and "yes" or "no (free-running estimate)",
     state = ("active=%s kind=%s source=%s period=%s"):format(tostring(s.active), tostring(s.kind), tostring(s.source), tostring(s.period)),
   }

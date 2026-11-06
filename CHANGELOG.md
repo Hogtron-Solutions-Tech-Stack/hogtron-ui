@@ -48,6 +48,10 @@
   Quests > Polestar to switch each part; `/hh polestardiag`. New files: restart the game once.
 
 ### Fixed
+- Swing timer on WoW: Forever: the bar filled once, sat at 0.0 and vanished mid-fight (the client's "Attack" cast was
+  taken for a per-swing source - it fires on engage and retarget), and ran at 2.0 s in every form (the client hides your
+  attack speed). Now that cast only switches the bar on, the estimate rolls swing after swing, and a druid form's own
+  speed (bear 2.5 s, cat 1.0 s) stands in for the hidden one; `/hh swingdiag` says where the speed came from.
 - Bars: an out-of-range target no longer tints the whole icon red (Bash, Growl, Maul and every targeted spell looked
   greyed out in bear form) - the keybind text turns red instead, like the game's own bars. Bars > Tint the whole
   icon red when the target is out of range brings the tint back.
