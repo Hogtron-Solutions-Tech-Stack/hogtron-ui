@@ -35,6 +35,9 @@
   levels and class colours on the light page. Colour codes inside the text are inked too (the same darker hue), every
   scroll list's rows are inked again each time Blizzard repaints them, and one-line headers keep their own bar.
   `/hh skindiag` now reports what the list pass found ("lists FriendsFrame: ...").
+- The waypoint beam no longer vanishes when GO's pick is a quest the game cannot place (a dungeon quest such as
+  Searching for the Lost Satchel): GO's line still recommends it, but the beam and arrow point at the best quest
+  that has a spot on your map. `/hh go` says so when they differ.
 
 ## v0.2.0-beta.14
 

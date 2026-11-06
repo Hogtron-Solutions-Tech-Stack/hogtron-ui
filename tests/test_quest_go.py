@@ -84,3 +84,29 @@ def test_pointing_by_hand_in_combat_waits_and_go_does_not_override_it(go):
     go.execute('MockState.inCombat = false; MockFire("PLAYER_REGEN_ENABLED"); HogHealsQuests.Tracker.Update()')
     assert go.eval("TRACKED") == 7                                             # the hand pick landed and stays
     assert errors(go) == []
+
+
+# ---------------------------------------------------------------- the beam needs a place (Sean 2026-11-05)
+# "The beam has gone away for some reason?" - GO had picked a dungeon quest (no spot on the map: the client cannot place
+# it), and its super-track left the beam nothing to stand on.
+def test_go_points_the_beam_at_the_best_quest_it_can_place(go):
+    go.execute(TRACK)
+    go.execute("""
+      local L = HogHealsQuests.Data.List()
+      for _, q in ipairs(L) do if q.id == 8 then q.level, q.complete = 12, true end end   -- quest 8 (no spot here) now worth the most
+      PICK = HogHealsQuests.Go.Current(L)
+    """)
+    assert go.eval("PICK.quest.id") == 8                                       # GO still recommends it ...
+    assert go.eval("TRACKED") == 9                                             # ... the beam goes to the best placeable one
+    d = go.eval("HogHeals.db.global.diag.go")
+    assert d["pick"] == 8 and d["point"] == 9 and d["pointYards"] is not None
+    go.execute("HogHeals:SlashCommand('go')")
+    chat = chr(10).join(go.eval("MockLog.chat").values())
+    assert "the beam points at Report to Goldshire" in chat
+    assert errors(go) == []
+
+
+def test_a_placeable_pick_is_pointed_at_itself_and_nothing_placeable_keeps_the_pick(go):
+    assert go.eval("HogHealsQuests.Go.PointPick({ quest = { id = 7 } }, {}, { [7] = 100 }, 'balanced').quest.id") == 7
+    assert go.eval("HogHealsQuests.Go.PointPick({ quest = { id = 8 } }, { { id = 8 } }, {}, 'balanced').quest.id") == 8
+    assert go.eval("HogHealsQuests.Go.PointPick(nil, {}, {}, 'balanced')") is None
