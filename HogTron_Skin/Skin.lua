@@ -367,6 +367,13 @@ HH:RegisterSlash("skindiag", function()
       end
     end
   end
+  local gl = HH.db and HH.db.global and HH.db.global.diag and HH.db.global.diag.skin and HH.db.global.diag.skin.lists
+  if type(gl) == "table" then
+    for n, l in pairs(gl) do
+      HH:Print(("  lists %s: %d scroll list(s), %d rows inked, %d colour codes inked, old friends hook %s (%s)"):format(n,
+        l.boxes or 0, l.rows or 0, l.codes or 0, l.friendRowsHook and "yes" or "no", tostring(l.at)))
+    end
+  end
   local micro = HHS.Micro
   if micro and (micro.containerDiag or micro.bagDiag) then
     HH:Print("  menu ancestors: " .. tostring(micro.containerDiag or "-") .. " | bag ancestors: " .. tostring(micro.bagDiag or "-"))

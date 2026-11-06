@@ -222,6 +222,38 @@ function Parchment.HueHex(hex)
   return ("%02x%02x%02x"):format(math.floor(nr * 255 + 0.5), math.floor(ng * 255 + 0.5), math.floor(nb * 255 + 0.5))
 end
 
+--- The colour codes INSIDE a string, inked like InkColor: |cAARRGGBB and the named |cnNAME: form (a global colour).
+--- Everything else (|K BNet names, |T textures, |H links, |r) is left exactly as it was. Sean 2026-11-05 in game, the
+--- friends list on paper: "what is this?" - "Baddie Xo" gold, "Lvl 18" white, "Shaman" class blue on the light page;
+--- a string's own colour is inked, but codes in its text override it. Pure; a second pass changes nothing.
+local function hex255(v) v = math.floor(v * 255 + 0.5) if v < 0 then v = 0 elseif v > 255 then v = 255 end return v end
+function Parchment.InkCodes(s, th)
+  if type(s) ~= "string" or not s:find("|c", 1, true) then return s, 0 end
+  th = th or Parchment.THEMES.light
+  local n = 0
+  local function code(r, g, b)
+    local nr, ng, nb = Parchment.InkColor(r, g, b, th)
+    n = n + 1
+    return ("%02x%02x%02x"):format(hex255(nr), hex255(ng), hex255(nb))
+  end
+  s = s:gsub("|c(%x%x)(%x%x)(%x%x)(%x%x)", function(a, r, g, b)
+    return "|c" .. a .. code(tonumber(r, 16) / 255, tonumber(g, 16) / 255, tonumber(b, 16) / 255)
+  end)
+  s = s:gsub("|cn([%w_]+):", function(name)
+    local c = rawget(_G, name)
+    local r, g, b
+    if type(c) == "table" then
+      if type(c.GetRGB) == "function" then
+        local ok, cr, cg, cb = pcall(c.GetRGB, c)
+        if ok then r, g, b = cr, cg, cb end
+      elseif type(c.r) == "number" then r, g, b = c.r, c.g, c.b end
+    end
+    if not (type(r) == "number" and type(g) == "number" and type(b) == "number") then return nil end   -- unknown: as it was
+    return "|cff" .. code(r, g, b)
+  end)
+  return s, n
+end
+
 --- Plain paper over a frame of w x h: a crop of the page art's middle with the frame's own aspect (never stretched).
 function Parchment.PaperCoords(tex, w, h)
   local P = Parchment.PAPER

@@ -31,6 +31,10 @@
   and inputs are ink on paper, and picked tabs and headers use a darker amber that reads at small size.
 - The info bar's readings (and a bag's title, the menu bar's letters) lose the black outline on paper - brown ink with
   a black rim read as a smudge.
+- Lists on paper are inked as they fill: the friends list kept Blizzard's light blue names, gold character names, white
+  levels and class colours on the light page. Colour codes inside the text are inked too (the same darker hue), every
+  scroll list's rows are inked again each time Blizzard repaints them, and one-line headers keep their own bar.
+  `/hh skindiag` now reports what the list pass found ("lists FriendsFrame: ...").
 
 ## v0.2.0-beta.14
 
