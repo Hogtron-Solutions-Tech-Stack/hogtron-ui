@@ -14,6 +14,9 @@
   value colours darkened to read on paper), the menu bar and bags sit on plain paper in the Parchment look.
 - **The minimap and the world map (M) on paper**: the minimap framed in paper with its zone name in ink; the map window
   on the torn page with its quest log stripped and inked (the map itself untouched).
+- **The level-up card on the page** in the Parchment look: a small torn page with the level in ink, its lines in
+  the page's inks (train now green, dungeons amber) and Train / Where next as the page's key caps; Modern keeps the
+  ink card. Short pages lose the seam that ran past their torn edges.
 - **Our settings window and the setup guide on the torn page** in the Parchment look (ink text, the two-tone wordmark
   in ink and amber, flat paper controls).
 - **Chat, the damage meter and tooltips on the charred page** in the Parchment look - their text is Blizzard's own, in
