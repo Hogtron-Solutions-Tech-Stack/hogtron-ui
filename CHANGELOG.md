@@ -22,6 +22,8 @@
 - **New icon set for the Parchment look: ink stamps** - every menu and drawer icon as a woodcut on a paper disc inside
   the dialog's bronze ring (General > Look > Icons: Ink stamps; `dev/make_page_icons.py` makes them from our glyphs).
 
+- **Move the bags in edit mode** (`/hh unlock`): a Bags box sits where your bags open - drag it and they open there
+  from then on (Blizzard still stacks them; the whole stack moves). Its window: Open bags, Blizzard's place.
 - **Flight masters on the world map (M)**: this client's map shows none, so HogTron UI pins them - the ones the game
   lists for the map, plus every flight master you open the flight map at and every stop that flight map shows
   (remembered for all your characters of that faction, on the zone map and the continent map). Hover a pin for
