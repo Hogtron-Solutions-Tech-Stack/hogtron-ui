@@ -142,14 +142,42 @@ function Part.Ink(fs)
     changed = true
   end
   Part.Clean(fs)
+  if Part.InkText(fs) then changed = true end
   if not fs.hhInkHooked and type(hooksecurefunc) == "function" then
     fs.hhInkHooked = true
     pcall(hooksecurefunc, fs, "SetTextColor", function(self)
       if self.hhInking or Skin.cfg().enabled == false or Skin.cfg().panels.enabled == false or not Part.Paper() then return end
       Part.Ink(self)
     end)
+    -- new text brings new colour codes (a friends row repainted, a stat line updated): ink them as they come
+    for _, m in ipairs({ "SetText", "SetFormattedText" }) do
+      if type(fs[m]) == "function" then
+        pcall(hooksecurefunc, fs, m, function(self)
+          if Skin.cfg().enabled == false or Skin.cfg().panels.enabled == false or not Part.Paper() then return end
+          Part.InkText(self)
+        end)
+      end
+    end
   end
   return changed
+end
+
+--- The colour codes inside a string's text inked (HH.Parchment.InkCodes), on the light page. A secret text is left
+--- (never read or compared); text without codes is untouched. Our own SetText comes back through the hook and
+--- changes nothing the second time.
+local texting = setmetatable({}, { __mode = "k" })
+Part.codesInked = 0
+function Part.InkText(fs)
+  if texting[fs] or not Part.Paper() or type(fs.GetText) ~= "function" then return false end
+  local t = Skin.call(fs.GetText, fs)
+  if HH.IsSecret(t) or type(t) ~= "string" then return false end
+  local inked, n = HH.Parchment.InkCodes(t, Part.Theme())
+  if inked == t then return false end
+  texting[fs] = true
+  Skin.call(fs.SetText, fs, inked)
+  texting[fs] = nil
+  Part.codesInked = Part.codesInked + (n or 0)
+  return true
 end
 
 --- Ink on paper casts no shadow and has no outline: both off on an inked string (in game 2026-11-05 "Level 10 Druid"
@@ -165,18 +193,85 @@ end
 --- A list row (a Button carrying its own background texture: the Friends list's entries): on the page its background
 --- goes and its text is inked like the window's. In game 2026-11-05 the friends rows stayed Blizzard's navy bars.
 Part.ROW_BG = { "background", "Background", "BG", "Bg", "bg" }
-function Part.Row(b)
+local function strings(b)
+  local out = {}
+  for _, r in ipairs(Skin.all(b.GetRegions, b)) do
+    if type(r) == "table" and Skin.call(r.GetObjectType, r) == "FontString" and not r.hhOurs then out[#out + 1] = r end
+  end
+  return out
+end
+--- A Button that is a list entry rather than a plain button: two or more lines of text (a name and a zone) and, outside
+--- a scroll list, wider than tall. A plain button (one label on its own art), a tab or an item slot is not. In game
+--- 2026-11-05 Forever's friends rows were never inked ("Dane Bolash" stayed Blizzard's light blue on the page).
+function Part.IsRow(b, inList)
+  if #strings(b) < 2 then return false end
+  if inList then return true end
+  local w, h = Skin.num(Skin.call(b.GetWidth, b)), Skin.num(Skin.call(b.GetHeight, b))
+  return w ~= nil and h ~= nil and h > 0 and w >= 2.5 * h
+end
+function Part.Row(b, inList)
   local found = false
   for _, k in ipairs(Part.ROW_BG) do
     local t = rawget(b, k)
     if type(t) == "table" and Skin.call(t.GetObjectType, t) == "Texture" and not t.hhOurs then Skin.Kill(t) found = true end
   end
-  if not found then return 0 end
+  if not found and not Part.IsRow(b, inList) then return 0 end
   local n = 0
-  for _, r in ipairs(Skin.all(b.GetRegions, b)) do
-    if type(r) == "table" and Skin.call(r.GetObjectType, r) == "FontString" and not r.hhOurs and Part.Ink(r) then n = n + 1 end
-  end
+  for _, r in ipairs(strings(b)) do if Part.Ink(r) then n = n + 1 end end
   return n
+end
+
+--- Lists that fill as you scroll (Blizzard's ScrollBox: friends, who, guild roster, mail ...) hand out recycled rows
+--- and repaint them on every update. A post-hook on each list's Update inks its rows every time (light page only);
+--- single-line entries (a "Favorites 1/1" header on its own dark bar) are left - they read on their art. The older
+--- friends list: a post-hook on FriendsFrame_UpdateFriendButton does the same per row.
+Part.lists = setmetatable({}, { __mode = "k" })
+Part.listRows = 0
+local function inkRow(row)
+  if type(row) ~= "table" or row.hhOurs then return 0 end
+  Part.listRows = Part.listRows + 1
+  return Part.Row(row, true)
+end
+local function inkList(box)
+  if Skin.cfg().enabled == false or Skin.cfg().panels.enabled == false or not Part.Paper() then return end
+  pcall(box.ForEachFrame, box, inkRow)
+end
+function Part.Lists(f, depth, found)
+  depth, found = depth or 0, found or {}
+  if type(f) ~= "table" or depth > 6 or f.hhOurs then return found end
+  -- a ScrollBox: its mixin's methods are copied onto the frame itself (rawget: a plain frame has neither)
+  if type(rawget(f, "ForEachFrame")) == "function" and type(rawget(f, "Update")) == "function" then
+    found[#found + 1] = f
+    if not Part.lists[f] and type(hooksecurefunc) == "function" then
+      Part.lists[f] = true
+      pcall(hooksecurefunc, f, "Update", inkList)
+    end
+    inkList(f)
+    return found
+  end
+  for _, c in ipairs(Skin.all(f.GetChildren, f)) do Part.Lists(c, depth + 1, found) end
+  return found
+end
+function Part.HookFriendRows()
+  if Part.friendRowsHooked or type(hooksecurefunc) ~= "function" then return Part.friendRowsHooked or false end
+  if type(rawget(_G, "FriendsFrame_UpdateFriendButton")) ~= "function" then return false end
+  Part.friendRowsHooked = true
+  pcall(hooksecurefunc, "FriendsFrame_UpdateFriendButton", function(button)
+    if Skin.cfg().enabled == false or Skin.cfg().panels.enabled == false or not Part.Paper() then return end
+    inkRow(button)
+  end)
+  return true
+end
+
+--- What the list inking found in a window, for /hh skindiag (diag.skin.lists): scroll lists, rows, codes inked.
+function Part.ListReport(name, boxes)
+  local g = HH.db and HH.db.global
+  if not g then return end
+  g.diag = g.diag or {}
+  g.diag.skin = g.diag.skin or {}
+  g.diag.skin.lists = g.diag.skin.lists or {}
+  g.diag.skin.lists[name] = { boxes = #boxes, rows = Part.listRows, codes = Part.codesInked,
+    friendRowsHook = Part.friendRowsHooked and true or false, at = date and date("%H:%M:%S") or "" }
 end
 
 --- Every text in a window inked (depth 7). A Button's label is left: its art is Blizzard's and the label reads on it
@@ -205,7 +300,12 @@ end
 function Part.Inner(f, name)
   local n = 0
   if not Part.BOOK[name or ""] then n = Part.DeepKill(f) end
-  if Part.Paper() then Part.InkAll(f) end
+  if Part.Paper() then
+    Part.InkAll(f)
+    Part.HookFriendRows()
+    local boxes = Part.Lists(f)
+    pcall(Part.ListReport, name or "?", boxes)
+  end
   return n
 end
 
