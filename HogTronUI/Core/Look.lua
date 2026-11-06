@@ -66,8 +66,8 @@ function Look.IconStyle()
   if Look.Classic() then return "blizzard" end   -- the Blizzard look: the game's own pictures
   local v = cfg().icons
   if v == "glyph" or v == "blizzard" or v == "page" then return v end
-  -- the Parchment look: ink stamps on paper discs in the dialog's bronze ring (dev/make_page_icons.py). Sean 2026-11-05:
-  -- "We even need to make new icons in the line ... to match those"
+  -- the Parchment look: painted miniatures on paper discs in the dialog's bronze ring (dev/make_page_icons.py).
+  -- Sean 2026-11-05: "We even need to make new icons in the line ... to match those"
   if Look.Parchment() then return "page" end
   return "art"
 end
