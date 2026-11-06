@@ -50,9 +50,15 @@ function Mana.Reset()
   Mana.state = Mana.NewState(UnitPower("player", 0), GetTime())
 end
 
+-- Sean 2026-11-06: "energy and mana displayed for hybrid classes" - a druid in bear / cat form keeps the mana row
+-- (it reads mana by type, whatever the form shows); hud.mana.inForms false = gone in forms, as before.
+Mana.IN_FORMS = { DRUID = true }
 local function isMana()
   local _, ptype = UnitPowerType("player")
-  return ptype == "MANA"
+  if ptype == "MANA" then return true end
+  if cfg().inForms == false then return false end
+  local _, class = UnitClass("player")
+  return type(class) == "string" and not HH.IsSecret(class) and Mana.IN_FORMS[class] == true
 end
 
 function Mana.Update()

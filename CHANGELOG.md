@@ -19,9 +19,16 @@
   in ink and amber, flat paper controls).
 - **Chat, the damage meter and tooltips on the charred page** in the Parchment look - their text is Blizzard's own, in
   every colour, and reads on the dark sheet as it is.
-- **New icon set for the Parchment look: ink stamps** - every menu and drawer icon as a woodcut on a paper disc inside
-  the dialog's bronze ring (General > Look > Icons: Ink stamps; `dev/make_page_icons.py` makes them from our glyphs).
+- **New icon set for the Parchment look: painted on paper** - every menu-bar and drawer icon painted as a small
+  manuscript miniature (the same subjects as the HogTron art set: horned helm, spellbook, banner, backpack ...) on a
+  paper disc inside the dialog's bronze ring; Forever's Legacy button gets one too (General > Look > Icons: Painted on
+  paper; `dev/make_page_icons.py` cuts them from the OpenArt sheets).
 
+- **Druids see their mana in bear and cat form**: rage / energy stays on the player frame's power bar and the mana
+  hangs under the frame as a thin bar while a form is up; the HUD mana bar stays up in forms too (Units > Player,
+  HUD > Mana: switches).
+- **Combo points** over the player frame - rogues always, druids in cat form: five pips that warm from gold to red as
+  they fill (Units > Player: switch). A HUD cast bar attached to the player frame hangs past both.
 - **Move the bags in edit mode** (`/hh unlock`): a Bags box sits where your bags open - drag it and they open there
   from then on (Blizzard still stacks them; the whole stack moves). Its window: Open bags, Blizzard's place.
 - **Flight masters on the world map (M)**: this client's map shows none, so HogTron UI pins them - the ones the game
@@ -29,10 +36,23 @@
   (remembered for all your characters of that faction, on the zone map and the continent map). Hover a pin for
   the stop and the NPC's name. Quests > World map > Flight masters; `/hh flightdiag` says what the client hands out.
 
+- **Polestar alongside** (WoW: Forever's leveling-guide addon, when installed): while it runs a guide the tracker's top
+  row is its current step (GUIDE: the step, the goal still open with its count, step n of all; click = Polestar's
+  window) instead of GO; GO stops pointing the game's arrow so the two never fight over it; the HogTron beam follows
+  Polestar's target, titled with the goal (Polestar's "Blizzard waypoint" switch is turned on once for that).
+  Shift-click a tracked quest: its **quest chain** from Polestar's quest database (done / in your log / later).
+  Polestar's **quest-giver markers on the map (M)** stay its own setting, yours to switch under Quests > Polestar
+  (with its turn-in and objective markers); a build of this branch had switched them on for you - that is undone once. Its **reward pick and upgrades** show in our quest window. Where both would do
+  the same job - quest lines on tooltips, selling junk, repairing, the "upgrade looted" chat line - ours stands aside
+  while Polestar's own switch for it is on.
+  Quests > Polestar to switch each part; `/hh polestardiag`. New files: restart the game once.
+
 ### Fixed
 - Bars: an out-of-range target no longer tints the whole icon red (Bash, Growl, Maul and every targeted spell looked
   greyed out in bear form) - the keybind text turns red instead, like the game's own bars. Bars > Tint the whole
   icon red when the target is out of range brings the tint back.
+- The swing timer is on for everyone again: a profile saved with it off (the setup guide's switch) has it back,
+  once - it only shows while you auto-attack. Switch it off again under HUD > Swing timer.
 - Casting a spell from the spellbook no longer pops "HogTron_Skin has been blocked from an action only available to
   the Blizzard UI": the `/hh open <window>` check command opened Blizzard's windows from addon code and left the
   spellbook tainted until a /reload. It is gone; open windows with your keys or the menu bar.

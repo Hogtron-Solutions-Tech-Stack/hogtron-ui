@@ -272,13 +272,16 @@ function HUD.Layout()
       local h = d[ROW_HEIGHT[name]] or 12
       local pad = (type(sub) == "table" and (sub.icon == false or sub.iconInside ~= false)) and 0 or (h + 2)   -- the icon inside: none
       local g = HUD.ATTACH_GAP
+      -- past the bars the frame hangs over / under itself (combo pips, a druid's mana in forms; HogTron_Units):
+      -- they collapse when hidden, so the cast bar closes up without a new layout
+      local over, under = attachTo.hhAbove or attachTo, attachTo.hhBelow or attachTo
       row:ClearAllPoints()
       if side == "above" then
-        row:SetPoint("BOTTOMLEFT", attachTo, "TOPLEFT", pad, g)
-        row:SetPoint("BOTTOMRIGHT", attachTo, "TOPRIGHT", 0, g)
+        row:SetPoint("BOTTOMLEFT", over, "TOPLEFT", pad, g)
+        row:SetPoint("BOTTOMRIGHT", over, "TOPRIGHT", 0, g)
       else
-        row:SetPoint("TOPLEFT", attachTo, "BOTTOMLEFT", pad, -g)
-        row:SetPoint("TOPRIGHT", attachTo, "BOTTOMRIGHT", 0, -g)
+        row:SetPoint("TOPLEFT", under, "BOTTOMLEFT", pad, -g)
+        row:SetPoint("TOPRIGHT", under, "BOTTOMRIGHT", 0, -g)
       end
       row:SetHeight(h)
       row.attached, row.detached, row.enabled = side, nil, true
