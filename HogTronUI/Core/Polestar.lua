@@ -12,6 +12,9 @@
 --   guide  the tracker's top row is Polestar's current step (GUIDE) instead of GO's pick
 --   arrow  GO stops pointing the game's arrow while Polestar guides; the HogTron beam follows Polestar's target
 --          (Polestar's own "Blizzard waypoint" switch puts its target on the game's arrow - switched on once for it)
+--   quests shift-click a tracked quest = its chain from Polestar's quest database (HogTron_Quests/Chain.lua); quest
+--          givers on the world map (M) are Polestar's own markers - its "available quests" switch, on once for it
+--          (Sean 2026-11-05, backlog #28: "see the Quest pickups if I hit M")
 local HH = HogHeals
 
 local PS = { handles = {}, counts = {} }
@@ -142,7 +145,24 @@ function PS.Hook()
   end
   PS.hooked = true
   PS.EnsureWaypoint()
+  PS.EnsureGivers()
   return true
+end
+
+--- quests: Polestar marks quest givers with something you can take now on the maps - its switch is off by default.
+--- Switched on ONCE (Polestar's options, or Quests > Polestar here, turn it off again).
+PS.MARKERS = { givers = "qol.availableQuests", turnIns = "qol.turnInMarkers", objectives = "qol.mapObjectives" }
+function PS.EnsureGivers()
+  if not PS.Leads("quests") then return false end
+  local gl = HH.db and HH.db.global
+  if type(gl) ~= "table" or gl.polestarGiversOn then return false end
+  gl.polestarGiversOn = true
+  if PS.Get(PS.MARKERS.givers) == true then return false end
+  if PS.Set(PS.MARKERS.givers, true) then
+    HH:Print("Polestar: quest givers with a quest for you are marked on the map (M) now (Quests > Polestar to change it).")
+    return true
+  end
+  return false
 end
 
 --- arrow: Polestar puts its target on the game's arrow only with its "Blizzard waypoint" switch on (off by default) -
@@ -167,7 +187,8 @@ function PS.Diagnose()
   local step = PS.Step()
   local d = {
     loaded = PS.Loaded(), hooked = PS.hooked and true or false, guiding = PS.Guiding(),
-    leads = { guide = PS.Leads("guide"), arrow = PS.Leads("arrow") },
+    leads = { guide = PS.Leads("guide"), arrow = PS.Leads("arrow"), quests = PS.Leads("quests") },
+    givers = PS.Get(PS.MARKERS.givers), turnIns = PS.Get(PS.MARKERS.turnIns),
     blizzardWaypoint = PS.Get("nav.blizzardWaypoint"), counts = PS.counts,
     engine = PS.Engine() ~= nil, step = step,
   }
@@ -179,7 +200,9 @@ function PS.Diagnose()
   local out = {}
   out[#out + 1] = ("polestar: %s, %s, engine %s, guiding %s"):format(d.loaded and "loaded" or (ns and "namespace only" or "not installed"),
     d.hooked and "listening" or "not listening", d.engine and "yes" or "no", d.guiding and "yes" or "no")
-  out[#out + 1] = ("  leads: guide %s, arrow %s   Polestar's Blizzard waypoint: %s"):format(tostring(d.leads.guide), tostring(d.leads.arrow), tostring(d.blizzardWaypoint))
+  out[#out + 1] = ("  leads: guide %s, arrow %s, quests %s   Polestar's Blizzard waypoint: %s"):format(tostring(d.leads.guide),
+    tostring(d.leads.arrow), tostring(d.leads.quests), tostring(d.blizzardWaypoint))
+  out[#out + 1] = ("  Polestar map markers: quest givers %s, turn-ins %s"):format(tostring(d.givers), tostring(d.turnIns))
   if step then
     out[#out + 1] = ("  step %s/%s: %s - %s %s"):format(tostring(step.index), tostring(step.count), tostring(step.title), tostring(step.goal), step.progress or "")
   end

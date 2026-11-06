@@ -25,8 +25,9 @@ HH.defaults = {
     -- (Sean 2026-10-18: "I want a grid and I want snapping elements"); switched on the edit-mode toolbar
     edit = { grid = true, gridSize = 32, snap = true, gameMenu = true },   -- gameMenu: the Escape menu's Edit Mode button becomes HogTron Edit Mode (Sean 2026-11-03)
     -- Polestar (Core/Polestar.lua, Sean 2026-11-06 "work alongside it"): while it runs it leads these areas -
-    -- guide = the tracker's top row is its current step; arrow = GO leaves the game's arrow to it, the beam follows it
-    interop = { polestar = { enabled = true, guide = true, arrow = true } },
+    -- guide = the tracker's top row is its current step; arrow = GO leaves the game's arrow to it, the beam follows it;
+    -- quests = shift-click chains from its quest database, its quest-giver markers on the map (switched on once)
+    interop = { polestar = { enabled = true, guide = true, arrow = true, quests = true } },
     camera = { maxZoom = 2.6 },   -- cameraDistanceMaxZoomFactor at login (Sean 2026-11-04: "zoom out further"); the client caps what it keeps (Classic 2.6); 0 = leave the client's
     minimap = { hide = true },
     wizardDone = false,
