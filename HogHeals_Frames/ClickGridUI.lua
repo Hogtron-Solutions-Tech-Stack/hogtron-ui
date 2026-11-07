@@ -256,7 +256,7 @@ function UI.Update()
       c:ClearAllPoints()
       c:SetPoint("TOPLEFT", f, "TOPLEFT", LABEL_W + GAP + (j - 1) * (cellW + GAP), -y)
       c:SetSize(cellW, CELL_H)
-      c.key, c.empty, c.macro, c.isSelected = cell.key, cell.empty, cell.macro, cell.selected
+      c.key, c.empty, c.macro, c.isSelected = cell.key, cell.empty, cell.macro or cell.tip, cell.selected
       if cell.empty then
         c.icon:Hide()
         c.name:SetText(cell.fallback and ("|cff737380(" .. cell.fallback .. ")|r") or "")
@@ -282,11 +282,16 @@ function UI.Update()
     e:SetSize(width, EDITOR_H)
     e.key, e.rezOn = ed.key, ed.rez
     e.title:SetText(ed.title)
-    e.rank.label:SetText(ed.rankLabel)
-    if ed.rez then e.rezTick:Show() else e.rezTick:Hide() end
-    e.rezText:SetText(ed.rezSpell and ("Resurrect if dead (" .. ed.rezSpell .. ", out of combat)")
-      or "Resurrect if dead (no rez spell learned yet: skipped)")
-    e.macro:SetText(ed.macro and ("Macro: " .. ed.macro) or "Not castable yet: spell or rank not learned.")
+    -- A "Player menu" slot has no rank and no resurrect: hide both, say what it opens.
+    for _, w in ipairs({ e.rankLabel, e.rank, e.rezBtn }) do if ed.menu then w:Hide() else w:Show() end end
+    e.change.label:SetText(ed.menu and "Change" or "Change spell")
+    if not ed.menu then
+      e.rank.label:SetText(ed.rankLabel)
+      if ed.rez then e.rezTick:Show() else e.rezTick:Hide() end
+      e.rezText:SetText(ed.rezSpell and ("Resurrect if dead (" .. ed.rezSpell .. ", out of combat)")
+        or "Resurrect if dead (no rez spell learned yet: skipped)")
+    end
+    e.macro:SetText(ed.menu and ed.tip or (ed.macro and ("Macro: " .. ed.macro) or "Not castable yet: spell or rank not learned."))
     e:Show()
     h = h + GAP + EDITOR_H
   else
@@ -312,6 +317,7 @@ function UI.DrawPicker(vm)
   local p = vm.picker
   m.title:SetText(p.title)
   local list = { { name = nil, label = "(empty: clear this slot)" } }
+  for _, a in ipairs(p.actions or {}) do list[#list + 1] = { name = a.name, label = a.label, icon = a.icon, sub = a.sub } end
   for _, e in ipairs(p.entries) do list[#list + 1] = { name = e.name, label = e.name, icon = e.icon, sub = e.rankText } end
   local offset = math.min(p.offset or 0, math.max(0, #list - PICK_ROWS))
   local shown = math.min(PICK_ROWS, #list - offset)

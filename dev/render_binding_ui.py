@@ -1,4 +1,4 @@
-"""Render the Click-cast tab (HogHeals_Frames/ClickGrid.lua) in six states to docs/mockups/binding-ui/*.png.
+"""Render the Click-cast tab (HogHeals_Frames/ClickGrid.lua) in eight states to docs/mockups/binding-ui/*.png.
 
 Same pipeline as dev/render_mockups.py: the addon runs for real in the test harness (lupa + tests/wow_mock.lua),
 the page is walked from the LIVE options table (HogHeals.OptionsTable() -> Frames -> clickcast), and the grid,
@@ -161,7 +161,7 @@ def cell_pos(vm, key):
     return 0, 0
 
 
-def picker_html(vm) -> str:
+def picker_html(vm, hover: str = "Abolish Disease") -> str:
     p = lv(lv(vm).get("picker"))
     if not p:
         return ""
@@ -169,12 +169,13 @@ def picker_html(vm) -> str:
     top = HEAD_H + GAP + (i + 1) * (CELL_H + GAP)
     left = f"calc({LABEL_W + GAP}px + {j} * ((100% - {LABEL_W + GAP * 5}px) / 5 + {GAP}px))"
     items = [{"name": None, "label": "(empty: clear this slot)"}] + [
+        {"name": lv(x)["name"], "label": lv(x)["label"], "sub": lv(x).get("sub"), "icon": lv(x).get("icon")} for x in lst(p.get("actions"))] + [
         {"name": lv(x)["name"], "label": lv(x)["name"], "sub": lv(x).get("rankText"), "icon": lv(x).get("icon")} for x in lst(p["entries"])]
     shown = items[:12]
     rows = []
     for k, it in enumerate(shown):
-        hov = " hov" if it["name"] == "Abolish Disease" else ""
-        rows.append(f'<div class="it{hov}">{tile(it["name"], "mini", it.get("icon")) if it["name"] else "<span class=mi></span>"}'
+        hov = " hov" if it["name"] == hover else ""
+        rows.append(f'<div class="it{hov}">{tile(it["label"], "mini", it.get("icon")) if it["name"] else "<span class=mi></span>"}'
                     f'<span>{e(it["label"])}</span><span class="s">{e(it.get("sub") or "")}</span></div>')
     more = f'<div class="more">▾ scroll for {len(items) - 12} more</div>' if len(items) > 12 else ""
     return f'<div class="pop" style="top:{top}px;left:{left}">' \
@@ -192,6 +193,9 @@ def editor_html(vm) -> str:
         cur = rmn.get("current")
         its = "".join(f'<div class="it{" cur" if lv(x)["key"] == cur else ""}">{e(lv(x)["label"])}</div>' for x in lst(rmn["entries"]))
         menu = f'<div class="pop" style="top:78px;left:12px;min-width:250px">{its}</div>'
+    if ed.get("menu"):        # a Player menu slot: no rank, no resurrect - what it opens instead
+        return (f'<div class="ed"><div class="t">{e(ed["title"])}</div><div class="btns"><span>Clear slot</span><span>Change</span></div>'
+                f'<div class="mac">{e(ed.get("tip"))}</div></div>')
     box = '<span class="box on"></span>' if ed.get("rez") else '<span class="box"></span>'
     rez_label = f'Resurrect if dead ({ed["rezSpell"]}, out of combat)' if ed.get("rezSpell") else "Resurrect if dead (no rez spell learned yet: skipped)"
     macro = f'Macro: {ed["macro"]}' if ed.get("macro") else "Not castable yet: spell or rank not learned."
@@ -201,7 +205,7 @@ def editor_html(vm) -> str:
             f'<div class="mac">{e(macro)}</div>{menu}</div>')
 
 
-def tab_body(l, caption: str) -> str:
+def tab_body(l, caption: str, hover: str = "Abolish Disease") -> str:
     root = lv(l.eval("HogHeals.OptionsTable()"))
     tab = lv(lv(lv(root["args"])["Frames"])["args"]["clickcast"])
     ctx = l.lua.table()
@@ -224,7 +228,7 @@ def tab_body(l, caption: str) -> str:
             dim = " dim" if lv(vm).get("disabled") else ""
             # room under the grid so an open popup is not clipped by the window (in game it floats over everything)
             room = 260 if lv(vm).get("picker") else (150 if lv(vm).get("rankMenu") else 0)
-            out.append(f'<div class="cc{dim}" style="margin-bottom:{room}px">{grid_html(vm)}{picker_html(vm)}{editor_html(vm)}</div>')
+            out.append(f'<div class="cc{dim}" style="margin-bottom:{room}px">{grid_html(vm)}{picker_html(vm, hover)}{editor_html(vm)}</div>')
             continue
         if key == "clique":
             out.append(f'<div class="clique">{e(lv(vm)["disabled"])}</div><div class="w full"><div class="desc">Clique owns clicks on the frames. Unload Clique (or untick it in AddOns) and /reload to use this grid.</div></div>')
@@ -243,10 +247,10 @@ def tab_body(l, caption: str) -> str:
     return "".join(out)
 
 
-def page(l, title_suffix: str, caption: str) -> str:
+def page(l, title_suffix: str, caption: str, hover: str = "Abolish Disease") -> str:
     side = ["Layout", "Appearance", "Indicators", "Bindings", "Click-cast", "Profiles"]
     doc = rm.page(f"Frames › Click-cast{title_suffix}", ["General", "Frames", "HUD"], "Frames", side, "Click-cast",
-                  tab_body(l, caption),
+                  tab_body(l, caption, hover),
                   foot="/hh click-cast  ·  mockup rendered from the live options table + ClickGrid.ViewModel() in the test harness")
     return doc.replace("</style>", CSS + "</style>", 1)
 
@@ -288,6 +292,20 @@ def states():
               '{ spell = "Flash Heal", rank = "highest", rez = true } } }')
     out.append(("6-clique-disabled", page(l, " — Clique detected", "State 6. Clique is loaded: no click-cast attributes are written, "
                 "the grid is greyed and read-only, Reset / Clear are disabled. Saved slots are kept for when Clique is gone.")))
+
+    l = fresh("DRUID")
+    l.execute(f'{G}.OpenPicker("RIGHT:NONE")')
+    out.append(("7-player-menu-picker", page(l, " — player menu", "State 7. Druid suggested layout (Sean's): plain Right is "
+                "Healing Touch (Rank 1), so the player menu (promote, kick, whisper) answers on the EMPTY Right combos - "
+                "Alt + Right and Meta + Right say '(Player menu)', empty Left combos '(Target)'. Right-click a slot: "
+                "'Player menu' is offered above the spells, for any slot. In game its icon is the party-leader crown.",
+                hover="@menu")))
+
+    l = fresh("DRUID")
+    l.execute(f'{G}.Pick("RIGHT:NONE", {G}.MENU)')
+    out.append(("8-player-menu-on-right", page(l, " — player menu on plain Right", "State 8. 'Player menu' picked for plain "
+                "Right: the slot writes type2 = togglemenu (Blizzard's secure menu action, no macro), the editor has no "
+                "rank / resurrect, Healing Touch (Rank 1) is off Right until you put it back.")))
     return out
 
 

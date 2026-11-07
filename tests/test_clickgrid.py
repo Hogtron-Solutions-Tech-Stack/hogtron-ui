@@ -312,7 +312,7 @@ def test_viewmodel_marks_target_and_menu_fallbacks(lua):
     vm = lua.eval(f'{G}.ViewModel()')
     rows = lst(vm["rows"])
     assert lst(rows[0]["cells"])[0]["fallback"] == "Target"
-    assert lst(rows[1]["cells"])[0]["fallback"] == "Menu"
+    assert lst(rows[1]["cells"])[0]["fallback"] == "Player menu"
     assert [c["label"] for c in lst(vm["columns"])] == ["None", "Shift", "Ctrl", "Alt", "Meta"]
 
 
@@ -362,3 +362,121 @@ def test_low_level_shaman_plain_left_uses_healing_wave_rank_one(lua):
     boot(lua, "SHAMAN", book=SHAMAN_LOW)
     b = btn(lua)
     assert lua.eval(f'{b}:GetAttribute("macrotext1")') == "/cast [@mouseover,help,nodead] Healing Wave(Rank 1)"
+
+
+# ---------------------------------------------------------------- player menu (promote / kick / whisper) on any slot
+# Sean 2026-11-06: "right click the party frames to bring up the menu for that player to promote, kick". The suggested
+# layouts put a Rank 1 heal on plain Right, so the menu lived only on empty Right combos, unseen. Alt + Right opened it
+# in game (togglemenu works on Forever); the grid now says so, and the menu can be put on any slot.
+def test_menu_slot_writes_togglemenu_and_no_macro(priest):
+    b = btn(priest)
+    priest.execute(f'{G}.Pick("RIGHT:NONE", {G}.MENU)')
+    assert priest.eval('HogHealsFramesCharDB.slots["RIGHT:NONE"].action') == "menu"
+    assert priest.eval(f'{b}:GetAttribute("type2")') == "togglemenu"
+    assert priest.eval(f'{b}:GetAttribute("macrotext2")') is None             # the old Greater Heal macro is gone
+    assert priest.eval(f'{b}:GetAttribute("shift-type2")') == "macro"           # the rest of the grid untouched
+
+
+def test_menu_on_a_modified_click(priest):
+    b = btn(priest)
+    priest.execute(f'{G}.Pick("BUTTON4:SHIFT", {G}.MENU)')
+    assert priest.eval(f'{b}:GetAttribute("shift-type4")') == "togglemenu"
+
+
+def test_menu_slot_back_to_a_spell(priest):
+    b = btn(priest)
+    priest.execute(f'{G}.Pick("RIGHT:NONE", {G}.MENU); {G}.Pick("RIGHT:NONE", "Renew")')
+    assert priest.eval(f'{b}:GetAttribute("type2")') == "macro"
+    assert priest.eval(f'{b}:GetAttribute("macrotext2")') == "/cast [@mouseover,help,nodead] Renew"
+    assert priest.eval('HogHealsFramesCharDB.slots["RIGHT:NONE"].action') is None
+
+
+def test_clearing_the_menu_slot_leaves_the_header_fallback(priest):
+    b = btn(priest)
+    priest.execute(f'{G}.Pick("RIGHT:NONE", {G}.MENU); {G}.Clear("RIGHT:NONE")')
+    assert priest.eval(f'{b}:GetAttribute("type2")') is None                   # *type2 = togglemenu answers
+    assert priest.eval(f'{b}:GetAttribute("*type2")') == "togglemenu"
+
+
+def test_saved_menu_slot_survives_login_and_spell_changes(lua):
+    boot(lua, "PRIEST", before_login='HogHealsFramesCharDB = { schema = 1, slots = { ["RIGHT:NONE"] = { action = "menu" } } }')
+    b = btn(lua)
+    assert lua.eval(f'{b}:GetAttribute("type2")') == "togglemenu"
+    lua.execute('MockFire("SPELLS_CHANGED")')
+    assert lua.eval(f'{b}:GetAttribute("type2")') == "togglemenu"
+    assert lua.eval('#HogHeals.errors') == 0
+
+
+def test_menu_slot_has_no_rank_and_no_rez(priest):
+    priest.execute(f'{G}.Pick("RIGHT:NONE", {G}.MENU)')
+    assert priest.eval(f'{G}.SetRank("RIGHT:NONE", 1)') is False
+    assert priest.eval(f'{G}.SetRez("RIGHT:NONE", true)') is False
+    assert priest.eval(f'{G}.OpenRankMenu("RIGHT:NONE")') is False
+    assert lst(priest.eval(f'{G}.RankChoices("RIGHT:NONE")')) == []
+    assert priest.eval('HogHealsFramesCharDB.slots["RIGHT:NONE"].rank') is None
+
+
+def test_viewmodel_menu_cell_and_editor(priest):
+    priest.execute(f'{G}.Pick("RIGHT:NONE", {G}.MENU)')
+    vm = priest.eval(f'{G}.ViewModel()')
+    cell = lst(lst(vm["rows"])[1]["cells"])[0]
+    assert cell["spell"] == "Player menu" and cell["known"] and cell["menu"]
+    assert cell["rankText"] == "promote, kick, whisper" and not cell["rezActive"]
+    assert "uninvite" in cell["tip"]
+    assert vm["editor"]["menu"] and vm["editor"]["title"] == "Right: Player menu"
+
+
+def test_every_empty_right_combo_says_player_menu(priest):
+    # Priest layout: Right / Shift / Ctrl + Right are spells; Alt + Right and Meta + Right are empty -> the menu.
+    # Left: None..Alt are spells, Meta + Left is empty -> target.
+    rows = {r["key"]: {c["key"]: c for c in lst(r["cells"])} for r in lst(priest.eval(f'{G}.ViewModel().rows'))}
+    assert rows["RIGHT"]["RIGHT:ALT"]["fallback"] == "Player menu"
+    assert "player menu" in rows["RIGHT"]["RIGHT:ALT"]["tip"]
+    assert rows["RIGHT"]["RIGHT:META"]["fallback"] == "Player menu"
+    assert rows["RIGHT"]["RIGHT:NONE"]["fallback"] is None                      # Greater Heal (Rank 1) holds it
+    assert rows["LEFT"]["LEFT:ALT"]["fallback"] is None                         # Prayer of Healing holds it
+    assert rows["LEFT"]["LEFT:META"]["fallback"] == "Target"
+    assert rows["MIDDLE"]["MIDDLE:ALT"]["fallback"] is None                     # no header fallback on middle
+
+
+@pytest.mark.parametrize("cls", ["PRIEST", "PALADIN", "DRUID", "SHAMAN"])
+def test_suggested_layouts_leave_alt_right_for_the_menu(lua, cls):
+    boot(lua, cls)
+    b = btn(lua)
+    assert lua.eval(f'{b}:GetAttribute("alt-type2")') is None                  # -> *type2 togglemenu
+    rows = {r["key"]: {c["key"]: c for c in lst(r["cells"])} for r in lst(lua.eval(f'{G}.ViewModel().rows'))}
+    assert rows["RIGHT"]["RIGHT:ALT"]["fallback"] == "Player menu"
+
+
+def test_a_bindings_tab_mouse_entry_is_not_shown_as_the_menu(priest):
+    priest.execute('HogHealsFrames.ClickCast.SetBindings({ { key = "BUTTON2", mod = "ALT", type = "spell", value = "Renew" } })')
+    rows = {r["key"]: {c["key"]: c for c in lst(r["cells"])} for r in lst(priest.eval(f'{G}.ViewModel().rows'))}
+    assert rows["RIGHT"]["RIGHT:ALT"]["fallback"] is None
+
+
+def test_picker_offers_player_menu_above_the_spells(priest):
+    priest.execute(f'{G}.OpenPicker("RIGHT:NONE")')
+    acts = lst(priest.eval(f'{G}.ViewModel().picker.actions'))
+    assert acts[0]["name"] == "@menu" and acts[0]["label"] == "Player menu"
+    assert "Player menu" not in [e["name"] for e in lst(priest.eval(f'{G}.PickerEntries()'))]   # spells only
+
+
+def test_widget_picks_player_menu_and_editor_hides_rank(priest):
+    priest.execute('HogHeals:SlashCommand("click-cast")')
+    # row 2 = Right, col 1 = None: Greater Heal (Rank 1); right-click opens the picker
+    priest.execute('HH_c = HogHealsFrames.ClickGridUI.frame.cells[2][1]; HH_c:GetScript("OnClick")(HH_c, "RightButton")')
+    rows = priest.eval('HogHealsFrames.ClickGridUI.picker.rows')
+    labels = [r.label._text for r in lst(rows) if r._shown]
+    assert labels[:2] == ["(empty: clear this slot)", "Player menu"]
+    priest.execute('HH_r = HogHealsFrames.ClickGridUI.picker.rows[2]; HH_r:GetScript("OnClick")(HH_r)')
+    assert priest.eval('HogHealsFramesCharDB.slots["RIGHT:NONE"].action') == "menu"
+    ui = 'HogHealsFrames.ClickGridUI.frame'
+    assert priest.eval(f'{ui}.editor:IsShown()')
+    assert priest.eval(f'{ui}.editor.rank:IsShown()') is False
+    assert priest.eval(f'{ui}.editor.rezBtn:IsShown()') is False
+    assert "promote" in priest.eval(f'{ui}.editor.macro._text')
+    assert priest.eval(f'{ui}.cells[2][1].name._text') == "Player menu"
+    # back to a spell: rank + rez return
+    priest.execute(f'{G}.Pick("RIGHT:NONE", "Greater Heal"); HogHealsFrames.ClickGridUI.Update()')
+    assert priest.eval(f'{ui}.editor.rank:IsShown()') is True
+    assert priest.eval('#HogHeals.errors') == 0

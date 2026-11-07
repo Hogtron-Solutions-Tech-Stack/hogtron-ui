@@ -52,6 +52,11 @@
   while Polestar's own switch for it is on.
   Quests > Polestar to switch each part; `/hh polestardiag`. New files: restart the game once.
 
+- **Player menu on the party / raid frames, where you can see it** (promote, kick, whisper ...): any Right-click
+  combo with nothing on it opens it - **Alt + Right** in the suggested healer layouts, where plain Right is a Rank 1
+  heal. The Click-cast grid now labels those cells '(Player menu)', and 'Player menu' can be picked for any slot,
+  plain Right included (/hh click-cast, right-click a slot).
+
 ### Fixed
 - Bars: an out-of-range target no longer tints the whole icon red (Bash, Growl, Maul and every targeted spell looked
   greyed out in bear form) - the keybind text turns red instead, like the game's own bars. Bars > Tint the whole
