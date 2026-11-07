@@ -40,6 +40,17 @@ Grid.MODS = {
 -- a misclick on a dead tank mid-pull must not burn the battle-rez cooldown.
 Grid.REZ = { PRIEST = "Resurrection", PALADIN = "Redemption", DRUID = "Rebirth", SHAMAN = "Ancestral Spirit" }
 
+--- "Player menu" slot: the unit's own right-click menu (promote to leader, uninvite, whisper, inspect, trade ...).
+-- Saved as { action = "menu" }, written as type = "togglemenu" - Blizzard's secure action, the same one Headers.lua
+-- puts on *type2 (seen in game on Forever 2026-11-06: Alt + Right on a party frame opened it). An empty Left / Right
+-- combo already falls back to target / menu; this lets the menu sit on ANY slot, plain Right included.
+Grid.MENU = "@menu"                     -- picker / Pick() sentinel; no spell carries this name
+Grid.MENU_LABEL = "Player menu"
+Grid.MENU_SUB = "promote, kick, whisper"
+Grid.MENU_ICON = "Interface\\GroupFrame\\UI-Group-LeaderIcon"
+Grid.MENU_TIP = "Opens the player menu: promote to leader, uninvite (kick), whisper, inspect, trade, set loot."
+function Grid.IsMenu(slot) return type(slot) == "table" and slot.action == "menu" end
+
 Grid.TOAST_HEALER = "HogHeals suggested a healer click-cast layout. Open /hh click-cast to edit."
 Grid.TOAST_OTHER = "HogHeals: open /hh click-cast to set up click-casting."
 Grid.CLIQUE_TEXT = "Clique detected — HogHeals click-cast disabled"
@@ -223,6 +234,7 @@ end
 -- -> { name, known, rank, highest, cast, icon, missingRank }
 function Grid.Resolve(slot, book)
   if type(slot) ~= "table" then return nil end
+  if Grid.IsMenu(slot) then return { name = Grid.MENU_LABEL, known = true, menu = true, icon = Grid.MENU_ICON } end
   book = book or Grid.Book()
   local names = (type(slot.alts) == "table" and #slot.alts > 0) and slot.alts or { slot.spell }
   local s
@@ -251,6 +263,7 @@ end
 
 --- Macro text a slot produces right now, or nil when it is empty / not castable.
 function Grid.SlotMacro(slot, class, book)
+  if Grid.IsMenu(slot) then return nil end
   local r = Grid.Resolve(slot, book)
   if not r or not r.known then return nil end
   local rez = slot.rez and Grid.RezSpell(class, book) or nil
@@ -264,10 +277,14 @@ function Grid.AttributesFor(slots, class, book)
   for _, b in ipairs(Grid.BUTTONS) do
     for _, m in ipairs(Grid.MODS) do
       local slot = slots and slots[Grid.SlotKey(b.key, m.key)]
-      local macro = slot and Grid.SlotMacro(slot, class, book)
-      if macro then
-        attrs[m.prefix .. "type" .. b.n] = "macro"
-        attrs[m.prefix .. "macrotext" .. b.n] = macro
+      if Grid.IsMenu(slot) then
+        attrs[m.prefix .. "type" .. b.n] = "togglemenu"
+      else
+        local macro = slot and Grid.SlotMacro(slot, class, book)
+        if macro then
+          attrs[m.prefix .. "type" .. b.n] = "macro"
+          attrs[m.prefix .. "macrotext" .. b.n] = macro
+        end
       end
     end
   end
@@ -432,6 +449,7 @@ function Grid.Pick(key, name)
   Grid.ui.pickerFor = nil
   if name == nil or name == "" then return Grid.Clear(key) end
   Grid.ui.selected = key
+  if name == Grid.MENU then return Grid.SetSlot(key, { action = "menu" }) end
   return Grid.SetSlot(key, { spell = name, rank = "highest", rez = Grid.IsDirectHeal(name) })
 end
 
@@ -443,7 +461,7 @@ end
 
 function Grid.SetRank(key, rank)
   local s = slotOf(key)
-  if not s then return false end
+  if not s or Grid.IsMenu(s) then return false end
   Grid.ui.rankMenuFor = nil
   local n = tonumber(rank)
   local new = copy(s)
@@ -454,7 +472,7 @@ end
 
 function Grid.SetRez(key, on)
   local s = slotOf(key)
-  if not s then return false end
+  if not s or Grid.IsMenu(s) then return false end
   local new = copy(s)
   new.rez = on and true or false
   return Grid.SetSlot(key, new)
@@ -490,7 +508,8 @@ function Grid.OpenPicker(key)
   return true
 end
 function Grid.OpenRankMenu(key)
-  if not slotOf(key) then return false end
+  local s = slotOf(key)
+  if not s or Grid.IsMenu(s) then return false end
   Grid.ui.selected, Grid.ui.rankMenuFor, Grid.ui.pickerFor = key, key, nil
   return true
 end
@@ -499,7 +518,7 @@ function Grid.CloseMenus() Grid.ui.pickerFor, Grid.ui.rankMenuFor = nil, nil end
 --- Entries for the rank dropdown: Highest first, then every learned rank of the bound spell.
 function Grid.RankChoices(key, book)
   local s = slotOf(key)
-  if not s then return {} end
+  if not s or Grid.IsMenu(s) then return {} end
   book = book or Grid.Book()
   local r = Grid.Resolve(s, book)
   local spell = r and book.byName[r.name]
@@ -512,12 +531,21 @@ function Grid.RankChoices(key, book)
 end
 
 -- ------------------------------------------------------------------------------------------------ view model
+--- Mouse attributes the hover-bind engine (Bindings tab) writes: an empty grid cell it covers does NOT fall back.
+local function engineMouseAttrs()
+  local CC = HHF.ClickCast
+  if not (CC and type(CC.AttributesFor) == "function") then return {} end
+  local ok, a = pcall(CC.AttributesFor, CC.bindings)
+  return (ok and type(a) == "table") and a or {}
+end
+
 --- Everything the tab shows, as plain data. The in-game widget (ClickGridUI.lua) and the mockup renderer
 -- (dev/render_binding_ui.py) both draw from this, so a mockup shows what the code computes.
 function Grid.ViewModel()
   local book = Grid.Book()
   local vm = { disabled = (Grid.controlledBy == "Clique") and Grid.CLIQUE_TEXT or nil, columns = {}, rows = {},
     selected = Grid.ui.selected, class = Grid.class, rezSpell = Grid.RezSpell(Grid.class, book), classRez = Grid.REZ[Grid.class or ""] }
+  local engine = engineMouseAttrs()
   for _, m in ipairs(Grid.MODS) do vm.columns[#vm.columns + 1] = { key = m.key, label = Grid.ModLabel(m.key) } end
   for _, b in ipairs(Grid.BUTTONS) do
     local row = { key = b.key, label = b.label, cells = {} }
@@ -525,10 +553,17 @@ function Grid.ViewModel()
       local key = Grid.SlotKey(b.key, m.key)
       local slot = Grid.slots and Grid.slots[key] or nil      -- shown greyed under Clique: kept, not lost
       local cell = { key = key, empty = slot == nil }
-      if not slot and (m.key == "NONE") and (b.key == "LEFT" or b.key == "RIGHT") then
-        cell.fallback = b.key == "LEFT" and "Target" or "Menu"
+      -- An empty Left / Right combo falls back to the header's *type1 target / *type2 menu (any modifier: "*"), unless
+      -- a Bindings-tab entry holds it. Said on every such cell, so "where is the menu?" is answered by the grid.
+      if not slot and (b.key == "LEFT" or b.key == "RIGHT") and not engine[m.prefix .. "type" .. b.n] then
+        cell.fallback = b.key == "LEFT" and "Target" or Grid.MENU_LABEL
+        cell.tip = (b.key == "LEFT" and "Nothing bound: targets the player." or "Nothing bound: opens the player menu (promote, kick, whisper).")
+          .. " Right-click to pick a spell."
       end
-      if slot then
+      if Grid.IsMenu(slot) then
+        cell.spell, cell.icon, cell.known, cell.menu = Grid.MENU_LABEL, Grid.MENU_ICON, true, true
+        cell.rankText, cell.rez, cell.rezActive, cell.tip = Grid.MENU_SUB, false, false, Grid.MENU_TIP
+      elseif slot then
         local r = Grid.Resolve(slot, book) or {}
         cell.spell, cell.icon, cell.known = r.name, r.icon, r.known and true or false
         cell.rankText = r.known and (r.highest and ("Highest" .. (r.rank and (" (" .. r.rank .. ")") or "")) or ("Rank " .. tostring(r.rank)))
@@ -543,7 +578,10 @@ function Grid.ViewModel()
     vm.rows[#vm.rows + 1] = row
   end
   local sel = Grid.ui.selected and Grid.slots and Grid.slots[Grid.ui.selected]
-  if sel and not vm.disabled then
+  if Grid.IsMenu(sel) and not vm.disabled then
+    vm.editor = { key = Grid.ui.selected, title = Grid.SlotLabel(Grid.ui.selected) .. ": " .. Grid.MENU_LABEL, menu = true,
+      tip = Grid.MENU_TIP }
+  elseif sel and not vm.disabled then
     local r = Grid.Resolve(sel, book) or {}
     vm.editor = { key = Grid.ui.selected, title = Grid.SlotLabel(Grid.ui.selected) .. ": " .. tostring(r.name or sel.spell),
       rankLabel = (sel.rank == nil or sel.rank == "highest") and ("Highest rank" .. (r.rank and (" (Rank " .. r.rank .. ")") or ""))
@@ -553,7 +591,9 @@ function Grid.ViewModel()
   end
   if Grid.ui.pickerFor and not vm.disabled then
     vm.picker = { key = Grid.ui.pickerFor, title = "Pick a spell for " .. Grid.SlotLabel(Grid.ui.pickerFor), entries = Grid.PickerEntries(book),
-      offset = Grid.ui.pickerOffset or 0 }
+      offset = Grid.ui.pickerOffset or 0,
+      -- not spells: listed under "(empty)", above the spellbook
+      actions = { { name = Grid.MENU, label = Grid.MENU_LABEL, icon = Grid.MENU_ICON, sub = Grid.MENU_SUB } } }
   end
   if Grid.ui.rankMenuFor and not vm.disabled then
     local s = Grid.slots[Grid.ui.rankMenuFor]
