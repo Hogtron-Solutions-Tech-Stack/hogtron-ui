@@ -31,6 +31,7 @@ HH.defaults = {
     -- marked in our quest dialog, Atlas's "upgrade looted" line stands aside while it offers upgrades itself
     interop = { polestar = { enabled = true, guide = true, arrow = true, quests = true, chores = true, gear = true } },
     camera = { maxZoom = 2.6 },   -- cameraDistanceMaxZoomFactor at login (Sean 2026-11-04: "zoom out further"); the client caps what it keeps (Classic 2.6); 0 = leave the client's
+    finder = { whisper = true, wait = 45, maxInvites = 10, minutes = 30 },   -- Core/Finder.lua, /hh find (Sean 2026-11-14: "auto-invite a tank"): whisper = a whisper naming the role volunteers; wait = seconds one invite may sit unanswered; a hunt ends after maxInvites or minutes
     minimap = { hide = true },
     wizardDone = false,
     units = {

@@ -30,6 +30,7 @@ Core\Perf.lua
 Core\AtlasProbe.lua
 Core\Session.lua
 Core\Camera.lua
+Core\Finder.lua
 Core\ChatKey.lua
 Core\Tray.lua
 Core\Polestar.lua
