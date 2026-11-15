@@ -3,6 +3,11 @@
 ## v0.2.0-beta.15
 
 ### New
+- **Short a tank? `/hh find tank`** (also `healer`, `dps`; the Group Finder page in `/hh`): invites the first single
+  player on the Group Finder list who offers that role for a dungeon you listed your group for - and anyone who
+  whispers the role - one at a time, the moment they show. The game refreshes its list only on your own key press,
+  so `/hh find` again looks again (a one-line macro works); nothing polls. `/hh find off` stops, `/hh finddiag` says
+  what it saw and did. Leader only (Sean 2026-11-14: "We're having trouble finding a tank").
 - **Three looks, one switch** (General > Look > Style, and the setup guide): **Parchment** (new default) - the quest
   dialog's page on every window, the game's Friz Quadrata, ink on paper; **Modern** - HogTron's dark, flat look;
   **Blizzard** - the game's own look and icons. Every feature works in all three. `/hh look parchment | modern | blizzard`.
